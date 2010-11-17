@@ -4,7 +4,6 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueParameter;
 import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.FinalRedirectView;
-import com.webkreator.qlue.view.NamedView;
 import com.webkreator.qlue.view.RedirectView;
 import com.webkreator.qlue.view.View;
 
