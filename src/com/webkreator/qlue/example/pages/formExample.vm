@@ -1,0 +1,43 @@
+<h1>Form Example</h1>
+
+$_page.getId()
+<br>
+$_page.getState()
+<br>
+$_page.isFinished()
+<br>
+
+#if ($_page.isFinished())
+Done. 
+#else
+
+#set($__fieldErrors = $_errors.getFormErrors())
+#if ($__fieldErrors.size() > 0)
+<div class="f_formErrors"> 
+#foreach($__error in $__fieldErrors)	
+    $__error<br>    
+#end
+</div>
+#end
+
+<form action="/formExample.html" method="POST">
+<input type="hidden" name="_nonce" value="$_nonce">
+#if ($_page.id)
+<input type="hidden" name="_pid" value="$_page.id">
+#end
+Username: <font color=red>*</font><br>
+<input type="text" name="username" value="$!username">
+#set($__fieldErrors = $_errors.getFieldErrors("username"))
+#if ($__fieldErrors.size() > 0)
+<div class="f_fieldErrors"> 
+#foreach($__error in $__fieldErrors)	
+    $__error<br>    
+#end
+</div>
+#end
+
+<br><br>
+<input type="submit" value="Submit">
+</form>
+
+#end

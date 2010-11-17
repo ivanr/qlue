@@ -1,0 +1,435 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?oxygen RNGSchema="http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng" type="xml"?>
+<article xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink"
+    version="5.0">
+    <info>
+        <title>Qlue Reference Manual</title>
+        <author>
+            <personname>Ivan Ristic</personname>
+            <email>ivanr@webkreator.com</email>
+        </author>
+    </info>
+    <section>
+        <title>Introduction</title>
+        <para>Qlue is a minimalistic web application framework that focuses on simplicity and ease
+            of use:</para>
+        <itemizedlist>
+            <listitem>
+                <para>The basic unit of work is a page (subclass of <literal>Page</literal>), which
+                    maps to one site page (or URL).</para>
+            </listitem>
+            <listitem>
+                <para>A request is mapped to a page during the mapping phase.</para>
+            </listitem>
+            <listitem>
+                <para>By default, a new page instance is created for every request, allowing for a
+                    programming model that avoids concurrency issues.</para>
+            </listitem>
+            <listitem>
+                <para>Processes that span multiple requests are modelled with persistent pages,
+                    which are subclasses of <literal>FormPage</literal>. Persistent pages come with
+                    CSRF defence built-in.</para>
+            </listitem>
+            <listitem>
+                <para>The framework supports safe parameter binding and input validation, which maps
+                    request parameters to annotated class fields.</para>
+            </listitem>
+            <listitem>
+                <para>The Velocity scripting language is used for output generation. Context-aware
+                    output encoding was added to Velocity to transparently handle all data as it is
+                    sent to output.</para>
+            </listitem>
+        </itemizedlist>
+    </section>
+    <section>
+        <title>Getting Started</title>
+        <para>[...]</para>
+        <section>
+            <title>Directory Layout</title>
+            <para>[...]</para>
+        </section>
+        <section>
+            <title>Hello World</title>
+            <para>You create a new page by extending the <literal>Page</literal> class and
+                implementing the <literal>onGet()</literal> method:</para>
+            <programlisting>public class helloWorld1 extends Page {
+
+	@Override
+	public View onGet() throws Exception {
+        // Set Content-Type
+        context.getResponse().setContentType("text/plain");
+
+        // Write to output
+		PrintWriter out = context.response.getWriter();
+		out.println("Hello World!");
+
+        // Send null to indicate we've handled the output ourselves
+		return null;
+	}
+}</programlisting>
+            <note>
+                <para>The class name in the example does not follow Java naming standards because,
+                    in the default implementation, class names are directly exposed as URLs. Page
+                    names should appear as you want them to appear to web site users.</para>
+            </note>
+            <para>In the previous example we create output directly by writing to the
+                    <literal>PrintWriter</literal> instance we obtain from the page context. The
+                return of <literal>null</literal> at the end of the <literal>onGet()</literal>
+                method indicated that the page has completely processed the request, and that no
+                further work is needed.</para>
+        </section>
+        <section>
+            <title>Using Templates</title>
+            <para>More often than not, your pages will focus on implementing the controller logic
+                (the C in MVC), forwarding control to a <literal>View</literal> instance to produce
+                output (the V in MVC). Such separation of concerns makes applicatoins more elegant,
+                increases robustness and makes maintenance easier.</para>
+            <para>In the simplest case, a page can return an instance of
+                    <literal>DefaultView()</literal>:</para>
+            <programlisting>public class helloWorld2 extends Page {
+
+	@Override
+	public View onGet() throws Exception {
+		return new DefaultView();
+	}
+}</programlisting>
+            <para>The <literal>DefaultView</literal> class will find the template to be used for
+                view generation by looking at the URL that the page is processing. For example, if
+                the URL is <literal>/addUser.html</literal>, the template named
+                    <literal>/addUser.vm</literal> will be used. To complete the page, you also need
+                to create the template file (<filename>/addUser.vm</filename>) with the following
+                content:</para>
+            <programlisting>Hello World!</programlisting>
+            <para>If a page desires to use some other template, it returns an instance of the
+                    <literal>NamedView</literal> class:</para>
+            <programlisting>public class helloWorld4 extends Page {
+
+	@Override
+	public View onGet() throws Exception {
+		return new NamedView("/helloWorld");
+	}
+}</programlisting>
+            <para>The <literal>NamedView</literal> instance is initialised using the view name.
+                Observe the following:</para>
+            <itemizedlist>
+                <listitem>
+                    <para>Do not append the <filename>.vm</filename> extension to the name of the
+                        view</para>
+                </listitem>
+                <listitem>
+                    <para>If the view name is relative, it will be resolved against the folder in
+                        which the page resides</para>
+                </listitem>
+                <listitem>
+                    <para>If the view name is absolute, it will be resolved against the root folder
+                        of the application</para>
+                </listitem>
+            </itemizedlist>
+        </section>
+        <section>
+            <title>Redirection</title>
+            <para>To redirect client to some other URL, return an instance of
+                    <literal>RedirectView</literal>:</para>
+            <programlisting>public class redirectPage extends Page {
+
+    @Override
+    public View onGet() throws Exception {
+        RedirectView rv = new RedirectView("/index.html");
+        rv.addParam("name", "Ivan");
+        return rv;
+    }
+}</programlisting>
+            <para>Do not use string concatenation to add parameters to the redirection string. Use
+                the <literal>RedirectView</literal> methods instead, which will ensure that the
+                parameters are correctly encoded.</para>
+        </section>
+        <section>
+            <title>Implementing methods other than GET</title>
+            <para>All the examples you saw so far assumed pages would only respond to GET (and,
+                implicitly, HEAD). The default request method dispatch mechanism only knows how to
+                handle GET, HEAD, and POST request methods:</para>
+            <itemizedlist>
+                <listitem>
+                    <para>To respond to a POST requests, override <filename>onPost()</filename>. The
+                        default implementation of <filename>onPost()</filename> throws a 405 status
+                        code.</para>
+                </listitem>
+                <listitem>
+                    <para>To respond to any request method, override the
+                            <filename>service()</filename> method. In this case you need to make
+                        sure that you handle all the request methods you wish to handle, but that
+                        you also need to throw <filename>RequestMethodException</filename> when you
+                        encounter a method you do not wish to handle.</para>
+                </listitem>
+            </itemizedlist>
+        </section>
+        <section>
+            <title>Importing Request Parameters</title>
+            <para>The recommended approach in Qlue is to process request parameters using the
+                built-in parameter binding, validation, and transformation. It uses annotations to
+                point out the page class fields that need to be populated from request parameters,
+                and to specify how that's done. For example:</para>
+            <programlisting>public class helloStranger1 extends Page {
+
+    @QlueParameter
+	public String username;
+}</programlisting>
+            <para>The <literal>@QlueParameter</literal> annotation is all that is needed to place
+                the request parameter <literal>username</literal> into the field
+                    <literal>username</literal>.</para>
+            <para>For an example that shows all input validation features, consider the
+                following:</para>
+            <programlisting>public class helloStranger2 extends Page {
+
+    @QlueParameter(mandatory = true, maxSize = 10, pattern = "^[a-z]+$", tfn="trim,lowercase")
+	public String username;
+}</programlisting>
+            <para>From left to right, the annotation will do the following:</para>
+            <orderedlist>
+                <listitem>
+                    <para>Make the parameter mandatory; an error will occur if the parameter is not
+                        present.</para>
+                </listitem>
+                <listitem>
+                    <para>Limit the parameter size; an error will occur if the parameter is longer
+                        than 10 characters.</para>
+                </listitem>
+                <listitem>
+                    <para>Make sure that parameter value matches the supplied regular
+                        expression.</para>
+                </listitem>
+                <listitem>
+                    <para>Transform the parameter by applying the <literal>trim</literal> function,
+                        followed by the <literal>lowercase</literal> function.</para>
+                </listitem>
+            </orderedlist>
+            <note>
+                <para>If you need direct access to request parameters, you can get them from
+                        <literal>HttpServletRequest</literal> directly, which you can obtain using
+                        <literal>getContext().getRequest()</literal>.</para>
+            </note>
+        </section>
+        <section>
+            <title>Using a command object</title>
+            <para>Although in some cases it is convenient to bind request parameters directly to
+                page fields, sometimes you will need more flexibility. A page can specify any object
+                to serve as a command object, in which case request parameters will be bound to it.
+                To specify a command object, a page needs to override the
+                    <literal>determineCommandObject()</literal>:</para>
+            <programlisting>public class commandObject extends Page {
+
+    @Override
+    public Object determineCommandObject() {
+        return new MyCommandObject();
+    }
+
+    @Override
+    public View onGet() {
+        return new DefaultView();
+    }
+}</programlisting>
+        </section>
+        <section>
+            <title>Adding your own property editors</title>
+            <para>Qlue implements only a small number of property editors. At the moment, it
+                supports the conversion for the following classes:</para>
+            <itemizedlist>
+                <listitem>
+                    <para><literal>Boolean</literal></para>
+                </listitem>
+                <listitem>
+                    <para><literal>Integer</literal></para>
+                </listitem>
+                <listitem>
+                    <para><literal>String</literal></para>
+                </listitem>
+            </itemizedlist>
+            <para>To support conversions of other classes you need to add your own property editors.
+                To register a new property editor, override the method
+                    <literal>initPropertyEditors()</literal> in your application:</para>
+            <programlisting>public class MyApplication extends QlueApplication {
+
+    @Override
+    public void initPropertyEditors() {
+        // Initialize default property editors
+        super();
+
+        // Now add your own editors
+        registerEditor(new SomeClassEditor());
+    }
+}</programlisting>
+            <para>The <literal>SomeClassEditor</literal> class must implement the
+                    <literal>PropertyEditor</literal> interface. Examine the
+                    <literal>BooleanEditor</literal> class for an example:</para>
+            <programlisting>public class BooleanEditor implements PropertyEditor {
+
+	@Override
+	public Boolean fromText(Field field, String text) {		
+		return Boolean.valueOf(text);
+	}
+	
+	@Override
+	public Class getEditorClass() {		
+		return Boolean.class;
+	}
+}</programlisting>
+        </section>
+        <section>
+            <title>Retrieving original parameter values</title>
+            <para>Parameter binding is a very useful feature, but it will only bind parameters to
+                the command objects when conversion is possible. Qlue keeps the original request
+                parameter values as <firstterm>shadow input</firstterm>. Shadow input is an
+                    <literal>ShadowInput</literal> instance that you obtain by calling
+                    <literal>page.getShadowInstance()</literal>. Only the annotated command object
+                fields will be stored in shadow input.</para>
+        </section>
+        <section>
+            <title>Handling validation errors</title>
+            <para>Parameter validation shields your code from invalid input, but you also need to
+                decide what to do when validation fails. A page's entry point will not be invoked
+                when a validation error occurs. If you choose not to do anything about the errors. a
+                    <literal>ValidationException</literal> instance will be thrown. By default, that
+                will cause Qlue to display its <emphasis>Parameter Validation Failed</emphasis>
+                page.</para>
+            <para>To handle errors, override the <literal>onError()</literal> method in your page.
+                Similarly to <literal>service()</literal>, <literal>onGet()</literal>, and
+                    <literal>onPost()</literal>, <literal>onError()</literal> is expected to handle
+                output directly or return a <literal>View</literal> instance. Do not forget that
+                    <literal>onError()</literal> will be invoked for any request method your page
+                would accept to handle. For example, in a page that only responds to GET requests,
+                    <literal>onError()</literal> will only ever see a GET, but in a page that
+                responds to GET and POST requests methods, <literal>onError()</literal> may see
+                either one.</para>
+        </section>
+        <section>
+            <title>Using data in output</title>
+            <para>A number of objects will be automatically exposed by the framework, making them
+                available to use from Velocity. These objects, whose names always begin with an
+                underscore, are documented in XXX.</para>
+            <table frame="none">
+                <title/>
+                <tgroup cols="2">
+                    <colspec colname="c1" colnum="1"/>
+                    <colspec colname="c2" colnum="2"/>
+                    <thead>
+                        <row>
+                            <entry>Header 1</entry>
+                            <entry>Header 2</entry>
+                        </row>
+                    </thead>
+                    <tbody>
+                        <row>
+                            <entry><literal>_app</literal></entry>
+                            <entry>Application object</entry>
+                        </row>
+                        <row>
+                            <entry><literal>_cmd</literal></entry>
+                            <entry>Command object (the page itself, by default)</entry>
+                        </row>
+                        <row>
+                            <entry><literal>_ctx</literal></entry>
+                            <entry>Context object</entry>
+                        </row>
+                        <row>
+                            <entry><literal>_errors</literal></entry>
+                            <entry>List of validation errors, if any</entry>
+                        </row>
+                        <row>
+                            <entry><literal>_f</literal></entry>
+                            <entry>Formatting helper</entry>
+                        </row>
+                        <row>
+                            <entry><literal>_i</literal></entry>
+                            <entry>Shadow input</entry>
+                        </row>
+                        <row>
+                            <entry><literal>_page</literal></entry>
+                            <entry>Page object</entry>
+                        </row>
+                        <row>
+                            <entry><literal>_req</literal></entry>
+                            <entry>Request object</entry>
+                        </row>
+                        <row>
+                            <entry><literal>_res</literal></entry>
+                            <entry>Response object</entry>
+                        </row>
+                    </tbody>
+                </tgroup>
+            </table>
+            <para>The public fields of the command object are exposed as Velocity objects, under the
+                same names.</para>
+            <para>Pages can expose any objects they choose by adding them to the map returned by
+                    <literal>getModel()</literal>. You are advised not to use any names that begin
+                with underscores, to avoid potential clashes with the built-in objects. Also, the
+                addition of command object fields is doing just prior to view rendering, which means
+                that any fields that have the same name as the manually added objects will be
+                overwritten.</para>
+        </section>
+        <section>
+            <title>Development Mode</title>
+            <para>Development mode in Qlue is a way of providing more information to developers when
+                errors occur. In production mode (the default), an error will cause an error message
+                to be displayed, but little information will be provided to prevent information
+                leakage. In development mode, Qlue will provide all the information it has on an
+                error.</para>
+            <para>Development mode is controlled using the <literal>QLUE_DEVMODE_ENABLED</literal>
+                configuration parameter, which has three settings:</para>
+            <variablelist>
+                <varlistentry>
+                    <term>Off</term>
+                    <listitem>
+                        <para>Development mode is disabled.</para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term>On</term>
+                    <listitem>
+                        <para>Development mode is enabled. Additional information will be provided
+                            to those accessing the application from the allowed IP addresses.</para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term>OnDemand</term>
+                    <listitem>
+                        <para>Development mode is disabled by default, but can be enabled by
+                            developers, on per-session basis, provided the correct password is
+                            entered and access is from one of the allowed IP addresses.</para>
+                    </listitem>
+                </varlistentry>
+            </variablelist>
+            <para>As an additional security measure, development mode will only be enabled for the
+                IP addresses specified in the <literal>QLUE_DEVMODE_RANGES</literal> configurtation
+                parameter.</para>
+            <section>
+                <title>Per-Session Development Mode</title>
+                <para>Per-session development mode is useful in the cases when developers share
+                    their IP address (at least from the point of view of the application) with
+                    others. To enable per-session development mode, the following three requirements
+                    must be fulfilled:</para>
+                <itemizedlist>
+                    <listitem>
+                        <para>The <literal>QLUE_DEVMODE_ENABLED</literal> configuration parameter is
+                            set to OnDemand.</para>
+                    </listitem>
+                    <listitem>
+                        <para>Developer is behind one of the IP addresses specified in
+                                <literal>QLUE_DEVMODE_RANGES</literal></para>
+                    </listitem>
+                    <listitem>
+                        <para>Developer explicitly requests development mode and provides a password
+                            that matches that configured in
+                            <literal>QLUE_DEVMODE_PASSWORD</literal></para>
+                    </listitem>
+                </itemizedlist>
+                <para>In any application, the form to enable development mode can be reached using
+                the following URL:</para>
+                <simplelist>
+                    <member>/_qlue/devMode.html</member>
+                </simplelist>
+                <para>To disable development mode, developer should close the browser instance or
+                    visit the form page again.</para>
+            </section>
+        </section>
+    </section>
+</article>
