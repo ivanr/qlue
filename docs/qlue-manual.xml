@@ -10,6 +10,11 @@
         </author>
     </info>
     <section>
+        <title>WARNING</title>
+        <para>This manual does not currently
+            describe the code base accurately.</para>
+    </section>
+    <section>
         <title>Introduction</title>
         <para>Qlue is a minimalistic web application framework that focuses on simplicity and ease
             of use:</para>
@@ -45,8 +50,85 @@
         <title>Getting Started</title>
         <para>[...]</para>
         <section>
-            <title>Directory Layout</title>
+            <title>Configuration</title>
             <para>[...]</para>
+            <programlisting>&lt;?xml version="1.0" encoding="ISO-8859-1"?>
+&lt;web-app xmlns="http://java.sun.com/xml/ns/j2ee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee/web-app_3_0.xsd"
+	version="3.0">
+
+	&lt;context-param>
+		&lt;param-name>QLUE_CHARACTER_ENCODING&lt;/param-name>
+		&lt;param-value>UTF-8&lt;/param-value>
+	&lt;/context-param>
+
+	&lt;context-param>
+		&lt;param-name>QLUE_DEVELOPMENT_MODE&lt;/param-name>
+		&lt;param-value>1&lt;/param-value>
+	&lt;/context-param>
+
+	&lt;filter>
+		&lt;filter-name>WelcomeFilter&lt;/filter-name>
+		&lt;filter-class>
+			com.webkreator.qlue.util.WelcomeFilter
+		&lt;/filter-class>
+		&lt;init-param>
+			&lt;param-name>welcome&lt;/param-name>
+			&lt;param-value>index.html&lt;/param-value>
+		&lt;/init-param>
+	&lt;/filter>
+
+	&lt;filter-mapping>
+		&lt;filter-name>WelcomeFilter&lt;/filter-name>
+		&lt;url-pattern>/*&lt;/url-pattern>
+	&lt;/filter-mapping>
+
+	&lt;listener>
+		&lt;listener-class>
+			com.webkreator.qlue.util.Log4jConfigListener
+		&lt;/listener-class>
+	&lt;/listener>
+
+	&lt;servlet>
+		&lt;servlet-name>QlueServlet&lt;/servlet-name>
+		&lt;servlet-class>
+			com.webkreator.qlue.QlueSpringServlet
+		&lt;/servlet-class>
+		&lt;load-on-startup>1&lt;/load-on-startup>
+	&lt;/servlet>
+
+	&lt;servlet-mapping>
+		&lt;servlet-name>QlueServlet&lt;/servlet-name>
+		&lt;url-pattern>*.html&lt;/url-pattern>
+	&lt;/servlet-mapping>
+
+	&lt;error-page>
+		&lt;error-code>500&lt;/error-code>
+		&lt;location>/_qlue/handleInternalServerError.html&lt;/location>
+	&lt;/error-page>
+
+	&lt;error-page>
+		&lt;error-code>404&lt;/error-code>
+		&lt;location>/_qlue/handlePageNotFound.html&lt;/location>
+	&lt;/error-page>
+
+	&lt;error-page>
+		&lt;exception-type>java.lang.Throwable&lt;/exception-type>
+		&lt;location>/_qlue/handleThrowable.html&lt;/location>
+	&lt;/error-page>
+
+	&lt;session-config>
+		&lt;session-timeout>15&lt;/session-timeout>
+
+		&lt;tracking-mode>COOKIE&lt;/tracking-mode>
+
+		&lt;cookie-config>
+			&lt;secure>true&lt;/secure>
+			&lt;http-only>true&lt;/http-only>
+		&lt;/cookie-config>
+	&lt;/session-config>
+
+&lt;/web-app></programlisting>
         </section>
         <section>
             <title>Hello World</title>
@@ -423,7 +505,7 @@
                     </listitem>
                 </itemizedlist>
                 <para>In any application, the form to enable development mode can be reached using
-                the following URL:</para>
+                    the following URL:</para>
                 <simplelist>
                     <member>/_qlue/devMode.html</member>
                 </simplelist>
@@ -431,5 +513,86 @@
                     visit the form page again.</para>
             </section>
         </section>
+    </section>
+    <section>
+        <title>Implementing Forms</title>
+        <para>In Qlue, forms are implemented with pages that extend <literal>FormPage</literal>. The
+            idea is that forms generally need state to be implemented correctly. Qlue will handle
+            most of the added complexity involved, leaving you only with the task of managing the
+            state itself.</para>
+        <para>Form pages begin their life stateless, like other pages. A new instance of a form page
+            will be created whenever the GET method is invoked and the URI is matched to a form
+            page. However, when a form page encounters the POST method, it will become persistent
+            and stored in the current user's session storage. From that moment the form page will
+            remain persistent until it finishes with its work, or until it is garbage collected
+            because it was abandoned by the user.</para>
+        <para>Let's examine a simple form page:</para>
+        <programlisting/>
+        <para>Let's now examine a typical form page's lifecycle; You invoke the page initially by
+            navigating to an URL such as <filename>/formExample.html</filename>:</para>
+        <orderedlist>
+            <listitem>
+                <para>Your browsers sends a GET request, which Qlue will be map to the appropriate
+                    page.</para>
+            </listitem>
+            <listitem>
+                <para>The form page is processed as a normal, non-persistent page: a new instance is
+                    created to produce output; the instance is then left for garbage collection by
+                    the JVM. It will not be used again.</para>
+            </listitem>
+            <listitem>
+                <para>Our example form page displays an empty form. The only interesting thing at
+                    this point is the nonce, which is embedded in the form through a hidden field.
+                    You can see if if you view the source of the resulting page.</para>
+            </listitem>
+        </orderedlist>
+        <para>Once you press the submit button, things are handled differently:</para>
+        <orderedlist>
+            <listitem>
+                <para>Your browser sends a POST request to the same URL.</para>
+            </listitem>
+            <listitem>
+                <para>A new instance of the form page is created.</para>
+            </listitem>
+            <listitem>
+                <para>Seeing the POST, Qlue makes the page persistent by storing it in session
+                    storage. The same page instance will handle all subsequent requests.</para>
+            </listitem>
+            <listitem>
+                <para>Behind the scenes, the form page will verify that the nonce supplied with the
+                    POST request matches the nonce in the session storage. This is done in the
+                    default implementation of <literal>FormPage.preService()</literal>.</para>
+            </listitem>
+            <listitem>
+                <para>By the default, the state of the form page will change from
+                        <literal>NEW</literal> to <literal>SUBMIT</literal>. This is done in the
+                    default implementation of <literal>FormPage.updateState()</literal>.</para>
+            </listitem>
+            <listitem>
+                <para>Parameter binding takes place.</para>
+            </listitem>
+            <listitem>
+                <para>The <literal>onPost()</literal> method is now invoked to process the request.
+                    Unlike with non-persistent page, the <literal>onError()</literal> method is
+                    never invoked. The assumption is that form pages will check if there were any
+                    validation errors raised by Qlue before performing any actions. Many forms will
+                    perform further validation even in the presence of earlier errors, in order to
+                    return the complete list of error messages to the user.</para>
+            </listitem>
+            <listitem>
+                <para>Assuming the work is not yet done, the page will return a redirection to
+                    itself (<literal>new RedirectView(this)</literal>), which will issue a
+                    redirection to the persistent page's URL. The persistent page's URL is identical
+                    to the original URL that started the process, but it has only one the parameter
+                        <literal>_pid</literal>, which contains the unique ID of the persistent
+                    page. That is how Qlue will know how to locate the persistent page on subsequent
+                    requests.</para>
+            </listitem>
+        </orderedlist>
+        <para>The POST-GET cycle can continue for as long as it's necessary for the form page to
+            complete its work. When that happens, the persistent page needs to release any resources
+            it is hold (e.g., temporary files or remote connections) and return an instance of
+                <literal>FinalRedirectView</literal>. The state will then change to
+                <literal>FINISHED</literal>.</para>
     </section>
 </article>
