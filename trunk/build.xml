@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+
+<project default="MAIN_BUILD_TARGET">
+
+	<tstamp>
+		<format property="VERSION_TIMESTAMP" pattern="yyyyMMdd-HHmm" />
+	</tstamp>
+
+	<property name="productName" value="Qlue" />
+	<property name="productVersion" value="2.0.0-trunk (${VERSION_TIMESTAMP})" />
+
+	<property name="libDir1" value="./lib" />
+	<property name="libDir2" value="./web/qlue-example/WEB-INF/lib" />
+	<property name="srcDir" value="./src" />
+	<property name="outputDir" value="./target/" />
+	<property name="jarName" value="qlue-2.0.0-trunk.jar" />
+	<property name="canoeJarName" value="canoe-1.0.0-trunk-${VERSION_TIMESTAMP}.jar" />
+	<property name="canoeDemoName" value="canoeDemo-${VERSION_TIMESTAMP}.zip" />
+	<property name="jarSrcName" value="qlue-src-2.0.0-trunk.jar" />
+
+	<property name="tmpDir" value="./tmp-build" />
+	<property name="classesDir" value="${tmpDir}/classes" />
+
+	<target name="init">
+		<delete dir="${tmpDir}" />
+		<mkdir dir="${tmpDir}" />
+	</target>
+
+	<target name="cleanup">
+		<delete dir="${tmpDir}" />
+	</target>
+
+	<target name="MAIN_BUILD_TARGET">
+		<antcall target="init" />
+		
+		<delete>
+			<fileset file="${outputDir}/*.jar"/>
+			<fileset file="${outputDir}/*.zip"/>
+		</delete>			
+
+		<mkdir dir="${classesDir}" />
+
+		<copy todir="${classesDir}">
+			<fileset file="./LICENSE" />
+		</copy>
+
+		<copy todir="${classesDir}">
+			<fileset file="./NOTICE" />
+		</copy>
+
+		<!-- Compile -->
+		<javac compiler="javac1.6" source="1.6" target="1.6" debug="on" srcdir="${srcDir}" destDir="${classesDir}">
+			<classpath>
+				<pathelement path="${classpath}" />
+				<fileset dir="${libDir1}">
+					<include name="*.jar" />
+				</fileset>				
+				<fileset dir="${libDir2}">
+					<include name="*.jar" />
+				</fileset>				
+			</classpath>
+		</javac>
+
+		<jar jarfile="${outputDir}/${jarSrcName}" basedir="${srcDir}" includes="*.java" compress="true">
+			<fileset dir="${srcDir}" />
+			<fileset file="./LICENSE" />
+			<manifest>
+				<attribute name="Author" value="Ivan Ristic" />
+				<section name="Shared">
+					<attribute name="Title" value="${productName} ${productVersion}" />
+					<attribute name="Vendor" value="Ivan Ristic &lt;ivanr@webkreator.com&gt;" />
+				</section>
+				<section name="Copyright">
+					<attribute name="Copy" value="(C) 2009, 2010 Ivan Ristic" />
+				</section>
+			</manifest>
+		</jar>
+
+		<!-- Create the Qlue library jar -->
+		<jar jarfile="${outputDir}/${jarName}" basedir="${classesDir}" includes="*.class" compress="true">
+			<fileset dir="${classesDir}" />
+			<manifest>
+				<attribute name="Author" value="Ivan Ristic" />
+				<section name="Shared">
+					<attribute name="Title" value="${productName} ${productVersion}" />
+					<attribute name="Vendor" value="Ivan Ristic &lt;ivanr@webkreator.com&gt;" />
+				</section>
+				<section name="Copyright">
+					<attribute name="Copy" value="(C) 2009, 2010 Ivan Ristic" />
+				</section>
+			</manifest>
+		</jar>
+		
+		<delete dir="${classesDir}/com/webkreator/qlue" />
+
+		<!-- Create the Canoe library jar -->
+		<jar jarfile="${outputDir}/${canoeJarName}" basedir="${classesDir}" includes="*.class" compress="true">
+			<fileset dir="${classesDir}"/>			
+			<manifest>
+				<attribute name="Author" value="Ivan Ristic" />
+				<section name="Shared">
+					<attribute name="Title" value="${productName} ${productVersion}" />
+					<attribute name="Vendor" value="Ivan Ristic &lt;ivanr@webkreator.com&gt;" />
+				</section>
+				<section name="Copyright">
+					<attribute name="Copy" value="(C) 2009, 2010 Ivan Ristic" />
+				</section>
+			</manifest>
+		</jar>
+
+		<antcall target="cleanup" />
+		<antcall target="init" />
+		
+		<copy todir="${tmpDir}/canoe-demo/lib">
+			<fileset dir="./lib/" />
+		</copy>
+		
+		<copy todir="${tmpDir}/canoe-demo/web">
+			<fileset dir="./web/canoe-demo" />
+		</copy>
+		
+		<copy todir="${tmpDir}/canoe-demo/web/WEB-INF/lib">
+			<fileset file="./target/qlue-2.*.jar" />
+		</copy>			
+		
+		<zip destfile="${outputDir}/${canoeDemoName}"
+			basedir="${tmpDir}"
+		/>		
+		
+		<antcall target="cleanup" />
+	</target>
+
+</project>

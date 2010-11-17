@@ -1,0 +1,34 @@
+<html>
+<head>
+	<title>Page title</title>
+	
+	<script>
+	// JavaScript
+	var name = $name;
+	</script>
+</head>
+
+<style>
+.xyz {
+	name: $name;
+}
+</style>
+
+<body>
+	
+Hello # if ($name) $name#else Stranger#end!
+<br>
+
+<a href="javascript:alert($name)">Click me</a>
+<br>
+
+<input type=button onclick="alert($name)" value="Click me too"/>
+<br>
+
+<input attr1 attr2 attr3=value3 attr4>
+
+<a href="$name">Click me three</a>
+<br>
+
+</body>
+</html>
