@@ -32,10 +32,8 @@
 	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/commons-lang-2.3.jar"/>
 	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/commons-logging-1.1.1.jar"/>
 	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/commons-pool-1.4.jar"/>
-	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/ibatis-2.3.4.726.jar"/>
 	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/log4j-1.2.15.jar"/>
 	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/mail.jar"/>
-	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/postgresql-jdbc.jar"/>
 	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/spring.jar"/>
 	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/velocity-1.6.2.jar"/>
 	<classpathentry kind="lib" path="web/qlue-example/WEB-INF/lib/gson-1.5.jar"/>
