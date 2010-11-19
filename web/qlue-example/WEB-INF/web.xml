@@ -2,6 +2,24 @@
 <web-app xmlns="http://java.sun.com/xml/ns/j2ee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee/web-app_3_0.xsd"
 	version="3.0">
+	
+	<!--
+	<filter-mapping>
+		<filter-name>StrictTransportSecurityFilter</filter-name>
+		<url-pattern>*</url-pattern>
+	</filter-mapping>
+	
+	<filter>
+		<filter-name>StrictTransportSecurityFilter</filter-name>
+		<filter-class>
+			com.webkreator.qlue.util.StrictTransportSecurityFilter
+		</filter-class>
+		<init-param>
+			<param-name>STS_HEADER</param-name>
+			<param-value>max-age=31536000</param-value>
+		</init-param>
+	</filter>
+	-->
 
 	<filter>
 		<filter-name>WelcomeFilter</filter-name>
@@ -13,17 +31,17 @@
 			<param-value>index.html</param-value>
 		</init-param>
 	</filter>
-
+	
 	<filter-mapping>
 		<filter-name>WelcomeFilter</filter-name>
-		<url-pattern>/*</url-pattern>
+		<url-pattern>*</url-pattern>
 	</filter-mapping>
 
 	<listener>
 		<listener-class>
 			com.webkreator.qlue.util.Log4jConfigListener
 		</listener-class>
-	</listener>
+	</listener>	
 
 	<servlet>
 		<servlet-name>QlueServlet</servlet-name>
@@ -54,11 +72,6 @@
 		<init-param>
 			<param-name>QLUE_DEVMODE_PASSWORD</param-name>
 			<param-value>jupiter</param-value>
-		</init-param>
-		
-		<init-param>
-			<param-name>QLUE_STS_HEADER</param-name>
-			<param-value>max-age=31536000</param-value>
 		</init-param>
 	</servlet>
 
