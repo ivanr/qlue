@@ -98,8 +98,6 @@ public class QlueApplication {
 
 	private String[] developmentModeRanges = null;
 
-	private String stsHeader;
-
 	protected QlueApplication() {
 		initPropertyEditors();
 	}
@@ -344,11 +342,6 @@ public class QlueApplication {
 
 					// Process request
 					view = page.service();
-				}
-
-				if (stsHeader != null) {
-					context.response.setHeader("Strict-Transport-Security",
-							stsHeader);
 				}
 
 				// Render view
@@ -839,13 +832,5 @@ public class QlueApplication {
 		return new MessageSource(
 				(PropertyResourceBundle) ResourceBundle.getBundle(
 						messagesFilename, locale), locale);
-	}
-
-	public void setStsHeader(String stsHeader) {
-		if (stsHeader != null) {
-			// TODO Validate
-		}
-		
-		this.stsHeader = stsHeader;
 	}
 }

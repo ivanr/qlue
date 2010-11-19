@@ -21,8 +21,6 @@ public abstract class QlueServlet extends HttpServlet {
 	private String developmentModePassword = null;
 
 	private String[] developmentModeRanges = null;
-	
-	private String stsHeader = null;
 
 	@Override
 	public final void init() throws ServletException {
@@ -51,12 +49,6 @@ public abstract class QlueServlet extends HttpServlet {
 			developmentModeRanges = s.split("[;,\\x20]");
 			// TODO Verify each IP address
 		}
-		
-		// Strict-Transport-Security header
-		stsHeader = getInitParameter(QlueConstants.QLUE_STS_HEADER);
-		if (stsHeader != null) {
-			// TODO Validate
-		}
 
 		// Let subclasses do their own initialization
 		subclassInit();
@@ -80,12 +72,10 @@ public abstract class QlueServlet extends HttpServlet {
 		if (developmentMode != null) {
 			qlueApplication.setApplicationDevelopmentMode(developmentMode);
 		}
-		
+
 		qlueApplication.setDevelopmentModePassword(developmentModePassword);
-		
+
 		qlueApplication.setDevelopmentModeRanges(developmentModeRanges);
-		
-		qlueApplication.setStsHeader(stsHeader);
 	}
 
 	private boolean setDevelopmentModeFromString(String s) {
@@ -98,7 +88,7 @@ public abstract class QlueServlet extends HttpServlet {
 		} else if (s.compareToIgnoreCase("ondemand") == 0) {
 			developmentMode = QlueConstants.DEVMODE_ONDEMAND;
 			return true;
-		}	
+		}
 
 		return false;
 	}
