@@ -55,6 +55,11 @@
 			<param-name>QLUE_DEVMODE_PASSWORD</param-name>
 			<param-value>jupiter</param-value>
 		</init-param>
+		
+		<init-param>
+			<param-name>QLUE_STS_HEADER</param-name>
+			<param-value>max-age=31536000</param-value>
+		</init-param>
 	</servlet>
 
 	<servlet-mapping>

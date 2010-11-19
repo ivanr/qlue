@@ -98,6 +98,8 @@ public class QlueApplication {
 
 	private String[] developmentModeRanges = null;
 
+	private String stsHeader;
+
 	protected QlueApplication() {
 		initPropertyEditors();
 	}
@@ -315,6 +317,9 @@ public class QlueApplication {
 				// Prepare first
 				View view = page.preService();
 
+				// If we don't have a view here, that means that
+				// the pre-service method didn't interrupt request
+				// processing -- we can continue.
 				if (view == null) {
 					// Update page state
 					page.updateState();
@@ -341,7 +346,12 @@ public class QlueApplication {
 					view = page.service();
 				}
 
-				// Show view
+				if (stsHeader != null) {
+					context.response.setHeader("Strict-Transport-Security",
+							stsHeader);
+				}
+
+				// Render view
 				if (view != null) {
 					// If we get a DefaultView or NamedView instance
 					// we have to replace them with a real view, using
@@ -829,5 +839,13 @@ public class QlueApplication {
 		return new MessageSource(
 				(PropertyResourceBundle) ResourceBundle.getBundle(
 						messagesFilename, locale), locale);
+	}
+
+	public void setStsHeader(String stsHeader) {
+		if (stsHeader != null) {
+			// TODO Validate
+		}
+		
+		this.stsHeader = stsHeader;
 	}
 }
