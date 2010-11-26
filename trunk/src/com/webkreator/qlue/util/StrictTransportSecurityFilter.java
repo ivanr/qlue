@@ -10,6 +10,10 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletResponse;
 
+/**
+ * This Servlet filter will add Strict-Transport-Security response
+ * header to all transactions it sees.
+ */
 public class StrictTransportSecurityFilter implements Filter {
 
 	public static final String PARAM_STS_HEADER = "STS_HEADER";

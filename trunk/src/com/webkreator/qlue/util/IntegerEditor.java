@@ -20,9 +20,6 @@ import java.lang.reflect.Field;
 
 /**
  * Simple Integer editor.
- * 
- * @author Ivan Ristic
- *
  */
 public class IntegerEditor implements PropertyEditor {
 

@@ -22,7 +22,7 @@ public class TextUtil {
 			}
 		}
 		
-		// All characters are whitepace
+		// All characters are whitespace
 		return true;
 	}
 }
