@@ -25,7 +25,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
-import com.webkreator.canoe.EncodingTool;
+import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.view.FinalRedirectView;
 
 public class TransactionContext {
@@ -172,16 +172,16 @@ public class TransactionContext {
 
 	public void writeRequestDevelopmentInformation(PrintWriter out) {
 		out.println(" Method: "
-				+ EncodingTool.encodeForHTML(request.getMethod()));
+				+ HtmlEncoder.encodeForHTML(request.getMethod()));
 		out.println(" URI: "
-				+ EncodingTool.encodeForHTML(request.getRequestURI()));
+				+ HtmlEncoder.encodeForHTML(request.getRequestURI()));
 		out.println(" Query String: "
-				+ EncodingTool.encodeForHTML(request.getQueryString()));
+				+ HtmlEncoder.encodeForHTML(request.getQueryString()));
 		out.println(" Remote Addr: "
-				+ EncodingTool.encodeForHTML(request.getRemoteAddr()));
+				+ HtmlEncoder.encodeForHTML(request.getRemoteAddr()));
 		out.println(" Remote Port: " + request.getRemotePort());
 		out.println(" Protocol: "
-				+ EncodingTool.encodeForHTML(request.getProtocol()));
+				+ HtmlEncoder.encodeForHTML(request.getProtocol()));
 		out.println("");
 		out.println("<b>Request Headers</b>\n");
 		for (Enumeration<String> e = request.getHeaderNames(); e
@@ -189,8 +189,8 @@ public class TransactionContext {
 			String name = e.nextElement();
 			for (Enumeration<String> e2 = request.getHeaders(name); e2
 					.hasMoreElements();) {
-				out.println(" " + EncodingTool.encodeForHTML(name) + ": "
-						+ EncodingTool.encodeForHTML(e2.nextElement()));
+				out.println(" " + HtmlEncoder.encodeForHTML(name) + ": "
+						+ HtmlEncoder.encodeForHTML(e2.nextElement()));
 			}
 		}
 		out.println("");
@@ -200,8 +200,8 @@ public class TransactionContext {
 			String name = e.nextElement();
 			String[] values = request.getParameterValues(name);
 			for (String value : values) {
-				out.println(" " + EncodingTool.encodeForHTML(name) + ": "
-						+ EncodingTool.encodeForHTML(value));
+				out.println(" " + HtmlEncoder.encodeForHTML(name) + ": "
+						+ HtmlEncoder.encodeForHTML(value));
 			}
 		}
 	}

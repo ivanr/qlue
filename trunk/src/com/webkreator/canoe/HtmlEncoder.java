@@ -17,15 +17,15 @@
 
 package com.webkreator.canoe;
 
-public class EncodingTool {
+public class HtmlEncoder {
 
 	// TODO Improve hexadecimal conversion
 
-	protected static EncodingTool _instance;
+	protected static HtmlEncoder _instance;
 
-	public static synchronized EncodingTool instance() {
+	public static synchronized HtmlEncoder instance() {
 		if (_instance == null) {
-			_instance = new EncodingTool();
+			_instance = new HtmlEncoder();
 		}
 
 		return _instance;

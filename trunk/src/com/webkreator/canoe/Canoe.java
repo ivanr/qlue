@@ -3,13 +3,15 @@ package com.webkreator.canoe;
 import java.io.IOException;
 import java.io.Writer;
 
+// IDEA Have a list of white-listed HTML tags
 
-// TODO Use an parallel matching implementation
+// TODO Support HTML comments
 
-// TODO Whitelist HTML tags
+// TODO Support DOCTYPE declarations
 
-// TODO The rumour is that HTML 5 defines a parsing algorithm, and
-// that everyone should adopt it.
+// TODO Prevent output into CTX_JS
+
+// TODO Prevent output into script:src
 
 public class Canoe extends Writer {
 	public static final int CTX_SUPPRESS = 0;
@@ -19,7 +21,7 @@ public class Canoe extends Writer {
 	public static final int CTX_JS = 2;
 
 	public static final int CTX_URI = 3;
-	
+
 	public static final int CTX_CSS = 4;
 
 	public static final String ERROR_PREFIX = "Encoding Error: ";
@@ -86,7 +88,7 @@ public class Canoe extends Writer {
 
 	char buf[] = new char[MAX_TAGNAME_LEN];
 
-	int len;
+	int bufLen;
 
 	int attrQuotes;
 
@@ -94,24 +96,9 @@ public class Canoe extends Writer {
 
 	protected String jsEnd = "/script";
 
-	// protected static ReferenceInsertionEventHandler cssHandler = new
-	// CSSReferenceInsertionEventHandler();
+	protected int currentLine = 1;
 
-	// protected static ReferenceInsertionEventHandler htmlHandler = new
-	// HTMLReferenceInsertionEventHandler();
-
-	// protected static ReferenceInsertionEventHandler javaScriptHandler = new
-	// JavaScriptReferenceInsertionEventHandler();
-
-	// protected static ReferenceInsertionEventHandler suppressHandler = new
-	// SuppressReferenceInsertionEventHandler();
-
-	// protected static ReferenceInsertionEventHandler urlHandler = new
-	// URLReferenceInsertionEventHandler();
-
-	protected int line = 1;
-
-	protected int pos = 1;
+	protected int currentPos = 1;
 
 	protected String errorMessage;
 
@@ -140,7 +127,7 @@ public class Canoe extends Writer {
 				processChar(cbuff[i]);
 			}
 		} catch (IOException e) {
-			// Error -- write only the "good" characters. In case of
+			// Error -- write only "good" characters. In case of
 			// an error i will contain the last known good character.
 			writer.write(cbuff, offset, len - (len - i));
 
@@ -533,10 +520,10 @@ public class Canoe extends Writer {
 		// Keep track of the character position, which
 		// is useful for error reporting
 		if (c == 0x0a) {
-			line++;
-			pos = 1;
+			currentLine++;
+			currentPos = 1;
 		} else {
-			pos++;
+			currentPos++;
 		}
 	}
 
@@ -563,11 +550,11 @@ public class Canoe extends Writer {
 					// New tag
 					state = TAG_NAME;
 					closingTag = false;
-					len = 0;
+					bufLen = 0;
 				} else {
 					// Non-markup character
 
-					// Do not allow characters below 0x20 except \t, \n and \r
+					// Do not allow characters below 0x20, except \t, \n and \r
 					if ((c < 0x20)
 							&& ((c != '\t') && (c != '\r') && (c != '\n'))) {
 						raiseError("Invalid character detected in output");
@@ -578,35 +565,35 @@ public class Canoe extends Writer {
 
 			case TAG_NAME:
 				// On the first character, check if this is a closing tag
-				if ((len == 0) && (c == '/')) {
+				if ((bufLen == 0) && (c == '/')) {
 					// Closing tag
-					buf[len++] = '/';
+					buf[bufLen++] = '/';
 					closingTag = true;
 				} else {
 					// Not a closing tag
 
 					// Check if character is part of tag name
-					if (isTagNameChar(c, len)) {
+					if (isTagNameChar(c, bufLen)) {
 						// Character is part of tag name
 
 						// Check tag name length
-						if (len == buf.length - 1) {
+						if (bufLen == buf.length - 1) {
 							raiseError("Tag name too long");
 							return;
 						}
 
 						// Copy tag name character into buffer
-						buf[len++] = Character.toLowerCase(c);
+						buf[bufLen++] = Character.toLowerCase(c);
 					} else {
 						// Found tag name (the current
 						// character not part of name)
 
-						buf[len++] = '\0';
+						buf[bufLen++] = '\0';
 						// System.err.println("TAG NAME: " + inBuf());
 
 						// Do we have at least one character in tag name?
-						if (((closingTag == false) && (len == 1))
-								|| (closingTag == true) && (len == 2)) {
+						if (((closingTag == false) && (bufLen == 1))
+								|| (closingTag == true) && (bufLen == 2)) {
 							raiseError("Tag name too short");
 							return;
 						}
@@ -671,14 +658,14 @@ public class Canoe extends Writer {
 					// A non-whitespace character will begin attribute name
 					if (Character.isWhitespace(c) == false) {
 						// Check that the character is allowed in attribute name
-						if (isTagNameChar(c, len) == false) {
+						if (isTagNameChar(c, bufLen) == false) {
 							raiseError("Invalid character in attribute name");
 							return;
 						}
 
 						// Start processing attribute name
 						state = TAG_ATTR_NAME;
-						len = 0;
+						bufLen = 0;
 
 						// Still need to consume the character
 						charNeedsProcessing = true;
@@ -688,24 +675,24 @@ public class Canoe extends Writer {
 
 			case TAG_ATTR_NAME:
 				// Is character part of attribute name
-				if (isTagNameChar(c, len)) {
+				if (isTagNameChar(c, bufLen)) {
 					// Character is part of attribute name
 
-					if (len == buf.length - 1) {
+					if (bufLen == buf.length - 1) {
 						raiseError("Attribute name too long");
 						return;
 					}
 
-					buf[len++] = Character.toLowerCase(c);
+					buf[bufLen++] = Character.toLowerCase(c);
 				} else {
 					// Found attribute name (this character not part of it)
 
-					buf[len++] = '\0';
+					buf[bufLen++] = '\0';
 
 					// System.err.println("ATTR NAME: " + inBuf());
 
 					// Do we have at least one character in tag name?
-					if (len == 1) {
+					if (bufLen == 1) {
 						raiseError("Attribute name too short");
 						return;
 					}
@@ -744,13 +731,13 @@ public class Canoe extends Writer {
 					// Seems like attribute without value, and
 					// a new tag
 
-					if (isTagNameChar(c, len) == false) {
+					if (isTagNameChar(c, bufLen) == false) {
 						raiseError("Invalid character in tag name");
 						return;
 					}
 
 					state = TAG_ATTR_NAME;
-					len = 0;
+					bufLen = 0;
 					charNeedsProcessing = true;
 				}
 				break;
@@ -759,7 +746,7 @@ public class Canoe extends Writer {
 				// First non-whitespace character starts attribute value
 				if (!Character.isWhitespace(c)) {
 					state = TAG_ATTR_VALUE;
-					len = 0;
+					bufLen = 0;
 
 					// Check the starting character
 					if (c == '"') {
@@ -804,7 +791,7 @@ public class Canoe extends Writer {
 
 				// Attribute value prefix detection
 				if (state == TAG_ATTR_VALUE) {
-					if (len != -1) {
+					if (bufLen != -1) {
 						if (c == ':') {
 							// Look in the buffer to see if the
 							// prefix matches any of the ones we're
@@ -812,19 +799,19 @@ public class Canoe extends Writer {
 							detectAttributePrefix();
 
 							// Do not look into attribute value any more
-							len = -1;
+							bufLen = -1;
 						} else {
 							// The longest prefix has 10 characters
-							if (len == 10) {
+							if (bufLen == 10) {
 								// Do not look into attribute value any more
-								len = -1;
+								bufLen = -1;
 							} else {
-								if (len == buf.length) {
+								if (bufLen == buf.length) {
 									raiseError("Internal error #1001");
 									return;
 								}
 
-								buf[len++] = Character.toLowerCase(c);
+								buf[bufLen++] = Character.toLowerCase(c);
 							}
 						}
 					}
@@ -834,17 +821,17 @@ public class Canoe extends Writer {
 			case SCRIPT:
 				if (c == '<') {
 					state = SCRIPT_END;
-					len = 0;
+					bufLen = 0;
 				}
 				break;
 
 			case SCRIPT_END:
-				if (Character.toLowerCase(c) == jsEnd.charAt(len)) {
-					if (jsEnd.length() == len + 1) {
+				if (Character.toLowerCase(c) == jsEnd.charAt(bufLen)) {
+					if (jsEnd.length() == bufLen + 1) {
 						state = TAG;
 						nextState = HTML;
 					} else {
-						len++;
+						bufLen++;
 					}
 				} else {
 					state = SCRIPT;
@@ -854,17 +841,17 @@ public class Canoe extends Writer {
 			case CSS:
 				if (c == '<') {
 					state = CSS_END;
-					len = 0;
+					bufLen = 0;
 				}
 				break;
 
 			case CSS_END:
-				if (Character.toLowerCase(c) == cssEnd.charAt(len)) {
-					if (cssEnd.length() == len + 1) {
+				if (Character.toLowerCase(c) == cssEnd.charAt(bufLen)) {
+					if (cssEnd.length() == bufLen + 1) {
 						state = TAG;
 						nextState = HTML;
 					} else {
-						len++;
+						bufLen++;
 					}
 				} else {
 					state = CSS;
@@ -876,8 +863,8 @@ public class Canoe extends Writer {
 
 	private void raiseError(String errorMessage) throws IOException {
 		state = INVALID;
-		this.errorMessage = ERROR_PREFIX + errorMessage + " (line: " + line
-				+ ", pos: " + pos + ")";
+		this.errorMessage = ERROR_PREFIX + errorMessage + " (line: " + currentLine
+				+ ", pos: " + currentPos + ")";
 		throw new IOException(this.errorMessage);
 	}
 
@@ -887,17 +874,18 @@ public class Canoe extends Writer {
 	 * @return String that represents the contents of the buffer
 	 */
 	protected String inBuf() {
-		if ((len > 0) && (buf[len - 1] == '\0')) {
-			return new String(buf, 0, len - 1);
+		if ((bufLen > 0) && (buf[bufLen - 1] == '\0')) {
+			return new String(buf, 0, bufLen - 1);
 		} else {
-			return new String(buf, 0, len);
+			return new String(buf, 0, bufLen);
 		}
 	}
 
 	/**
-	 * Return the correct insertion handler for the current state.
+	 * Determines the current output context based on the
+	 * parser's internal state.
 	 * 
-	 * @return Insertion handler to use for output
+	 * @return current output context
 	 */
 	public int currentContext() {
 		// System.err.println("STATE = " + state);
@@ -945,26 +933,36 @@ public class Canoe extends Writer {
 		return CTX_SUPPRESS;
 	}
 
+	/**
+	 * Encodes string, choosing the appropriate encoding method depending on the
+	 * current output context.
+	 * 
+	 * @param input
+	 * @param ctx
+	 * @return
+	 */
 	public static String encode(String input, int ctx) {
 		switch (ctx) {
 		case CTX_HTML:
-			return EncodingTool.encodeForHTML(input);
+			return HtmlEncoder.encodeForHTML(input);
 		case CTX_JS:
-			return EncodingTool.encodeForJavaScript(input);
+			return HtmlEncoder.encodeForJavaScript(input);
 		case CTX_URI:
-			return EncodingTool.encodeForURL(input);
+			return HtmlEncoder.encodeForURL(input);
 		case CTX_SUPPRESS:
 		default:
-			// Do nothing
-			break;
-		}
-
-		// Suppressed output
-		return new String("");
+			// Do nothing -- suppressed output
+			return new String("");
+		}		
 	}
 
+	/**
+	 * Writes a string to output, encoding it properly in the process.
+	 * 
+	 * @param input
+	 * @throws Exception
+	 */
 	public void writeEncoded(String input) throws Exception {
-		String encodedInput = encode(input, currentContext());
-		write(encodedInput);
+		write(encode(input, currentContext()));
 	}
 }

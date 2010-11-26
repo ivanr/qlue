@@ -3,7 +3,7 @@ package com.webkreator.qlue.pages;
 import java.io.PrintWriter;
 import java.util.List;
 
-import com.webkreator.canoe.EncodingTool;
+import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.AccessForbiddenException;
 import com.webkreator.qlue.Error;
 import com.webkreator.qlue.Page;
@@ -71,7 +71,7 @@ public class devMode extends Page {
 		if (errors.hasErrors()) {
 			List<Error> errorL = errors.getAllErrors();
 			for (Error e : errorL) {
-				out.println("Error: " + EncodingTool.encodeForHTML(e.message));
+				out.println("Error: " + HtmlEncoder.encodeForHTML(e.message));
 			}
 		}
 
@@ -86,7 +86,7 @@ public class devMode extends Page {
 			}
 
 			out.println("<input type=hidden name=_nonce value="
-					+ EncodingTool.encodeForHTML(getQlueSession().getNonce())
+					+ HtmlEncoder.encodeForHTML(getQlueSession().getNonce())
 					+ ">");
 
 			if (((sessionStatus == null) && (appStatus == QlueConstants.DEVMODE_ENABLED))

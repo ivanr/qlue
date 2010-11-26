@@ -43,7 +43,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.log4j.NDC;
 
-import com.webkreator.canoe.EncodingTool;
+import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.util.BooleanEditor;
 import com.webkreator.qlue.util.FormatTool;
 import com.webkreator.qlue.util.IntegerEditor;
@@ -480,7 +480,7 @@ public class QlueApplication {
 	}
 
 	protected void writeDevelopmentInformation(PrintWriter out) {
-		out.println(" Prefix: " + EncodingTool.encodeForHTML(appPrefix));
+		out.println(" Prefix: " + HtmlEncoder.encodeForHTML(appPrefix));
 		out.println(" Page ID counter: " + txIdsCounter);
 		out.println(" Development mode: " + developmentMode);
 	}

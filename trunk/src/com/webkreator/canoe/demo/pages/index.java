@@ -2,7 +2,7 @@ package com.webkreator.canoe.demo.pages;
 
 import java.io.PrintWriter;
 
-import com.webkreator.canoe.EncodingTool;
+import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.canoe.demo.SimpleTemplate;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueParameter;
@@ -29,9 +29,9 @@ public class index extends Page {
 		} catch (Throwable t) {
 			PrintWriter out = context.response.getWriter();
 			out.println("'\"--></script></textarea><pre><hr>");
-			out.println(EncodingTool.encodeForHTML(t.getMessage()));
+			out.println(HtmlEncoder.encodeForHTML(t.getMessage()));
 			out.println("\nTemplate: ");
-			out.println(EncodingTool.encodeForHTMLPreserveWhitespace(_template));
+			out.println(HtmlEncoder.encodeForHTMLPreserveWhitespace(_template));
 		}
 
 		return null;

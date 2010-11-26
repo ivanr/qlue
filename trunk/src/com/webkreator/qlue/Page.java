@@ -24,7 +24,7 @@ import java.util.Map;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.webkreator.canoe.EncodingTool;
+import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.util.UriBuilder;
 import com.webkreator.qlue.view.View;
 import com.webkreator.qlue.view.ViewResolver;
@@ -329,7 +329,7 @@ public abstract class Page {
 	protected void writeDevelopmentInformation(PrintWriter out) {
 		out.println(" Id: " + getId());
 		out.println(" Class: " + this.getClass());
-		out.println(" State: " + EncodingTool.encodeForHTML(getState()));
+		out.println(" State: " + HtmlEncoder.encodeForHTML(getState()));
 		out.println("");
 		out.println("<b>Model</b>\n");
 
@@ -339,9 +339,9 @@ public abstract class Page {
 			String name = it.next();
 			Object o = model.get(name);
 			out.println(" "
-					+ EncodingTool.encodeForHTML(name)
+					+ HtmlEncoder.encodeForHTML(name)
 					+ ": "
-					+ ((o != null) ? EncodingTool.encodeForHTML(o.toString())
+					+ ((o != null) ? HtmlEncoder.encodeForHTML(o.toString())
 							: "null"));
 		}
 	}

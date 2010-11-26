@@ -24,7 +24,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.velocity.exception.ParseErrorException;
 
-import com.webkreator.canoe.EncodingTool;
+import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.AccessForbiddenException;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.PersistentPageNotFoundException;
@@ -70,7 +70,7 @@ public class handleThrowable extends Page {
 			StringWriter sw = new StringWriter();
 			t.printStackTrace(new PrintWriter(sw));
 			out.println("<pre>");
-			out.println(EncodingTool.encodeForHTMLPreserveWhitespace(sw
+			out.println(HtmlEncoder.encodeForHTMLPreserveWhitespace(sw
 					.toString()));
 			out.println("</pre>");
 		}
@@ -94,7 +94,7 @@ public class handleThrowable extends Page {
 		out.println("<head><title>Template Parse Error</title></head>");
 		out.println("<body><h1>Template Parse Error</h1>");
 		out.println("<pre>");
-		out.println(EncodingTool.encodeForHTMLPreserveWhitespace(t.getMessage()));
+		out.println(HtmlEncoder.encodeForHTMLPreserveWhitespace(t.getMessage()));
 		out.println("</pre>");
 		writePadding(out);
 		out.println("</body></html>");
@@ -141,7 +141,7 @@ public class handleThrowable extends Page {
 			StringWriter sw = new StringWriter();
 			t.printStackTrace(new PrintWriter(sw));
 			out.println("<pre>");
-			out.println(EncodingTool.encodeForHTMLPreserveWhitespace(sw
+			out.println(HtmlEncoder.encodeForHTMLPreserveWhitespace(sw
 					.toString()));
 			out.println("</pre>");
 		}

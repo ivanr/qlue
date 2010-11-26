@@ -28,7 +28,7 @@ import org.apache.velocity.app.event.EventCartridge;
 
 import com.webkreator.canoe.Canoe;
 import com.webkreator.canoe.CanoeReferenceInsertionHandler;
-import com.webkreator.canoe.EncodingTool;
+import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.Page;
 
@@ -52,7 +52,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		model.put("_f", page.getFormatTool());
 		if (page.allowDirectOutput()) {
 			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_PREFIX,
-					EncodingTool.instance());
+					HtmlEncoder.instance());
 		}
 		model.put("_app", page.getQlueApp());
 		model.put("_page", page);

@@ -16,7 +16,7 @@
  */
 package com.webkreator.qlue.util;
 
-import com.webkreator.canoe.EncodingTool;
+import com.webkreator.canoe.HtmlEncoder;
 
 public class FormatTool {
 	
@@ -63,11 +63,11 @@ public class FormatTool {
 
 	public static String html(Object o) {		
 		if (o == null) return null;
-		return EncodingTool.encodeForHTML(o.toString());
+		return HtmlEncoder.encodeForHTML(o.toString());
 	}
 
 	public static String url(String input) {
-		return EncodingTool.encodeForURL(input);
+		return HtmlEncoder.encodeForURL(input);
 	}
 
 	/**
@@ -76,6 +76,6 @@ public class FormatTool {
 	 * @return
 	 */
 	public static String js(String input) {
-		return EncodingTool.encodeForJavaScript(input);
+		return HtmlEncoder.encodeForJavaScript(input);
 	}
 }
