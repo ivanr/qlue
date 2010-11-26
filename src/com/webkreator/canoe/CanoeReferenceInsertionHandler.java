@@ -26,13 +26,13 @@ public class CanoeReferenceInsertionHandler implements
 
 		switch (qlueWriter.currentContext()) {
 		case Canoe.CTX_HTML:
-			return EncodingTool.encodeForHTML(arg1.toString());
+			return HtmlEncoder.encodeForHTML(arg1.toString());
 		case Canoe.CTX_JS:
-			return EncodingTool.encodeForJavaScript(arg1.toString());
+			return HtmlEncoder.encodeForJavaScript(arg1.toString());
 		case Canoe.CTX_URI:
-			return EncodingTool.encodeForURL(arg1.toString());
+			return HtmlEncoder.encodeForURL(arg1.toString());
 		case Canoe.CTX_CSS:
-			return EncodingTool.encodeForCSS(arg1.toString());
+			return HtmlEncoder.encodeForCSS(arg1.toString());
 		case Canoe.CTX_SUPPRESS:
 		default:
 			// Do nothing
