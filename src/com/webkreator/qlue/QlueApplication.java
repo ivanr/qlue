@@ -201,7 +201,7 @@ public class QlueApplication {
 		// object if the session is new
 		HttpSession session = request.getSession();
 		if (session.isNew()) {
-			Object o = getNewSessionObject();
+			Object o = createNewSessionObject();
 			if (o != null) {
 				session.setAttribute(SESSION_OBJECT_KEY, o);
 			}
@@ -723,10 +723,24 @@ public class QlueApplication {
 		return pageResolver.isFolderUri(WebUtil.normaliseUri(uri));
 	}
 
-	public QlueSession getNewSessionObject() {
+	/**
+	 * This method is invoked to create a new session object. A QlueSession
+	 * instance is returned by default, but most applications will want to
+	 * override this method and provide their own session objects.
+	 * 
+	 * @return new session object
+	 */
+	public QlueSession createNewSessionObject() {
 		return new QlueSession(this);
 	}
 
+	/**
+	 * Returns the session object associated with the
+	 * current HTTP session.
+	 * 
+	 * @param request
+	 * @return
+	 */
 	public QlueSession getQlueSession(HttpServletRequest request) {
 		return (QlueSession) request.getSession().getAttribute(
 				SESSION_OBJECT_KEY);

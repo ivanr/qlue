@@ -19,22 +19,48 @@ package com.webkreator.qlue;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * An instance of this class holds all errors that were
+ * raised during the execution og one page.
+ */
 public class Errors {
 
 	protected ArrayList<Error> errors = new ArrayList<Error>();
 
+	/**
+	 * Add an error message.
+	 * 
+	 * @param message
+	 */
 	public void addError(String message) {
 		errors.add(new Error(null, message));
 	}
 
+	/**
+	 * Add an error message associated with a field.
+	 * 
+	 * @param field
+	 * @param message
+	 */
 	public void addError(String field, String message) {
 		errors.add(new Error(field, message));
 	}
 
+	/**
+	 * Return a list with all errors.
+	 * 
+	 * @return
+	 */
 	public List<Error> getAllErrors() {
 		return errors;
 	}
 
+	/**
+	 * Return all errors pertaining to the given field.
+	 * 
+	 * @param field
+	 * @return
+	 */
 	public List<String> getFieldErrors(String field) {
 		ArrayList<String> list = new ArrayList<String>();
 
@@ -47,6 +73,12 @@ public class Errors {
 		return list;
 	}
 
+	/**
+	 * Return all non-specific errors (which are those that
+	 * are not associated with a field).
+	 * 
+	 * @return
+	 */
 	public List<String> getFormErrors() {
 		ArrayList<String> list = new ArrayList<String>();
 
@@ -59,10 +91,18 @@ public class Errors {
 		return list;
 	}
 
+	/**
+	 * Clear all error messages.
+	 */
 	public void clear() {
 		errors.clear();
 	}
 
+	/**
+	 * Checks if there are any errors.
+	 * 
+	 * @return
+	 */
 	public boolean hasErrors() {
 		if (errors.size() != 0) {
 			return true;

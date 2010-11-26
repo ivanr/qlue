@@ -16,27 +16,38 @@
  */
 package com.webkreator.qlue.view;
 
+import java.security.InvalidParameterException;
+
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.util.UriBuilder;
 
 public class RedirectView implements View {
 
-	private UriBuilder redirection = null;
+	private UriBuilder redirection;
 
 	private Page page;
 
 	/**
 	 * Redirect to an URI.
-	 * 
-	 * TODO Add support for application-relative URIs.
 	 */
 	public RedirectView(String uri) {
-		if (uri != null) {
-			redirection = new UriBuilder(uri);
+		if (uri == null) {
+			throw new InvalidParameterException("Cannot redirect to null URL");
 		}
+		
+		redirection = new UriBuilder(uri);	
 	}
 
+	/**
+	 * Redirect to an existing page.
+	 * 
+	 * @param page
+	 */
 	public RedirectView(Page page) {
+		if (page == null) {
+			throw new InvalidParameterException("Cannot redirect to null page");
+		}
+		
 		redirection = new UriBuilder(page.getUri());
 
 		if (page.getId() != null) {
@@ -55,10 +66,20 @@ public class RedirectView implements View {
 		redirection.addParam(name, value);
 	}
 
+	/**
+	 * Returns the page to which redirection is to take place.
+	 * 
+	 * @return page instance, or null if redirection is to a URL
+	 */
 	public Page getPage() {
 		return page;
 	}
 
+	/**
+	 * Returns the URL to which redirection is to take place.
+	 * 
+	 * @return URL string
+	 */
 	public String getUri() {
 		if (redirection == null) {
 			return null;
