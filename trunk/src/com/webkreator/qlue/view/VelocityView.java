@@ -34,7 +34,12 @@ public class VelocityView implements View {
 		this.template = template;
 	}
 	
-	public Template getTemplate() {
+	/**
+	 * Returns the template used by this view.
+	 * 
+	 * @return Template instance
+	 */
+	Template getTemplate() {
 		return template;
 	}
 

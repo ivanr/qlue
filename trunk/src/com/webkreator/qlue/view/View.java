@@ -18,7 +18,20 @@ package com.webkreator.qlue.view;
 
 import com.webkreator.qlue.Page;
 
+/**
+ * In the Qlue framework, a View instance is responsible
+ * for rendering output. We do not want to tie ourselves
+ * to a particular technology, working with this interface
+ * instead. 
+ */
 public interface View {
 	
+	/**
+	 * This method is invoked by the framework
+	 * to render page output.
+	 * 
+	 * @param page
+	 * @throws Exception
+	 */
 	public abstract void render(Page page) throws Exception;
 }

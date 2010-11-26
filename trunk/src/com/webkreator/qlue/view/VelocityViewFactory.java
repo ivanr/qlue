@@ -45,7 +45,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 	protected void render(Page page, VelocityView view) throws Exception {
 		TransactionContext context = page.getContext();
 
-		// Obtain the model from the page
+		// Obtain the model from the page.
 		final Map<String, Object> model = page.getModel();
 
 		// Add common objects to the model.
@@ -54,7 +54,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_PREFIX,
 					HtmlEncoder.instance());
 		}
-		model.put("_app", page.getQlueApp());
+		model.put("_Fapp", page.getQlueApp());
 		model.put("_page", page);
 		model.put("_i", page.getShadowInput());
 
@@ -84,7 +84,6 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		Writer writer = context.response.getWriter();
 
 		try {
-			// QlueWriter qlueWriter = new QlueWriter(writer);
 			Canoe qlueWriter = new Canoe(writer);
 
 			Template template = view.getTemplate();
@@ -107,7 +106,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 			writer.flush();
 			// We don't close the stream here in order
 			// to enable Qlue to append to output as needed
-			// writer.close();
+			// (which is done in development mode)
 		}
 	}
 
