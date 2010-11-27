@@ -69,6 +69,8 @@ public class QlueApplication {
 
 	public static final String SESSION_OBJECT_KEY = "QLUE_APPLICATION_SESSION_OBJECT";
 
+	public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
+
 	private String messagesFilename = "com/webkreator/qlue/messages";
 
 	private Properties properties = new Properties();
@@ -403,6 +405,12 @@ public class QlueApplication {
 			// don't want to set response code here because the server might
 			// not invoke the Throwable handler (and we want it to)
 			log.error("Page exception", t);
+
+			// Because we are about to throw an exception, which may cause
+			// another page to handle this request, we need to remember
+			// the current page (which is useful for debugging information, etc)
+			setActualPage(page);
+
 			throw new ServletException(t);
 		}
 	}
@@ -440,6 +448,15 @@ public class QlueApplication {
 		// Check development mode
 		if (page.isDeveloperAccess() == false) {
 			return;
+		}
+
+		// We might be in an error handler, in which case we want to display
+		// the state of the actual (original) page and not this one.
+		Page actualPage = getActualPage(page);
+		if (actualPage != null) {
+			// Use the actual page and context
+			page = actualPage;
+			context = page.getContext();
 		}
 
 		// Check response status code
@@ -735,8 +752,7 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Returns the session object associated with the
-	 * current HTTP session.
+	 * Returns the session object associated with the current HTTP session.
 	 * 
 	 * @param request
 	 * @return
@@ -846,5 +862,26 @@ public class QlueApplication {
 		return new MessageSource(
 				(PropertyResourceBundle) ResourceBundle.getBundle(
 						messagesFilename, locale), locale);
+	}
+
+	/**
+	 * Remember the current page for later use (e.g., in an error handler).
+	 * 
+	 * @param page
+	 */
+	void setActualPage(Page page) {
+		page.context.request.setAttribute(REQUEST_ACTUAL_PAGE_KEY, page);
+	}
+
+	/**
+	 * Retrieve the actual page that tried to handle the current transaction and
+	 * failed.
+	 * 
+	 * @param currentPage
+	 * @return
+	 */
+	Page getActualPage(Page currentPage) {
+		return (Page) currentPage.context.request
+				.getAttribute(REQUEST_ACTUAL_PAGE_KEY);
 	}
 }
