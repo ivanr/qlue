@@ -255,7 +255,8 @@ public abstract class Page {
 		String nonce = getQlueSession().getNonce();
 
 		// Verify nonce on every POST
-		if (context.isPost() && getClass().isAnnotationPresent(QluePersistentPage.class)) {
+		if (context.isPost()
+				&& getClass().isAnnotationPresent(QluePersistentPage.class)) {
 			String suppliedNonce = context.request.getParameter("_nonce");
 			if (suppliedNonce == null) {
 				throw new RuntimeException("Nonce missing.");
@@ -270,7 +271,7 @@ public abstract class Page {
 		// Add nonce to the model so that it
 		// can be used from the templates
 		model.put("_nonce", nonce);
-		
+
 		return null;
 	}
 
@@ -330,6 +331,22 @@ public abstract class Page {
 		out.println(" Id: " + getId());
 		out.println(" Class: " + this.getClass());
 		out.println(" State: " + HtmlEncoder.encodeForHTML(getState()));
+		out.println(" Errors {");
+
+		int i = 1;
+		for (Error e : errors.getAllErrors()) {
+			out.print("   " + i++ + ". ");
+			out.print(HtmlEncoder.encodeForHTML(e.getMessage()));
+
+			if (e.getField() != null) {
+				out.print(" [field " + HtmlEncoder.encodeForHTML(e.getField())
+						+ "]");
+			}
+
+			out.println();
+		}
+
+		out.println(" }");
 		out.println("");
 		out.println("<b>Model</b>\n");
 
@@ -351,10 +368,10 @@ public abstract class Page {
 
 	public void commit() {
 	}
-	
-	public void loadData() throws Exception {		
+
+	public void loadData() throws Exception {
 	}
-	
+
 	public boolean isPersistent() {
 		return getClass().isAnnotationPresent(QluePersistentPage.class);
 	}
