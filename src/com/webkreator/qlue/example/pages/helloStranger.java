@@ -28,35 +28,19 @@ import com.webkreator.qlue.view.View;
  */
 public class helloStranger extends Page {
 
-	@QlueParameter(mandatory = true, maxSize = 10, pattern = "^[a-zA-Z]+$")
+	@QlueParameter(mandatory = false, maxSize = 10, pattern = "^[a-zA-Z]+$")
 	public String name;
 
 	@Override
 	public View onGet() throws Exception {
-		PrintWriter out = context.response.getWriter();
-		
-		context.response.setContentType("text/plain");
-		
-		if (errors.hasErrors()) {
-			for (com.webkreator.qlue.Error e : errors.getAllErrors()) {
-				out.print(e.getMessage());
-				if (e.getField() != null) {
-					out.print(" [" + e.getField() + "]");
-					out.println();
-				}
-			}
-			
-			return null;
-		}
+		PrintWriter out = context.response.getWriter();		
 
 		if (name == null) {
 			out.println("Hello Stranger!");
 		} else {
 			out.println("Hello " + name + "!");
-		}
-		
-		throw new Exception("test");
+		}		
 
-		//return null;
+		return null;
 	}
 }
