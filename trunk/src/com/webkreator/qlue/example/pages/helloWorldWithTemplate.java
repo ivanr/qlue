@@ -7,9 +7,7 @@ import com.webkreator.qlue.view.View;
 public class helloWorldWithTemplate extends Page {
 	
 	@Override
-	public View onGet() throws Exception {	
-		//return new DefaultView();
-		//return new NamedView("com/webkreator/qlue/example/pages/helloWorldWithTemplate");
+	public View onGet() throws Exception {			
 		return new DefaultView();
 	}
 }
