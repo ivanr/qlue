@@ -341,9 +341,15 @@ public class QlueApplication {
 					}
 
 					// -- Process request --
+					
+					if (page.hasErrors()) {
+						view = page.onValidationError();
+					}
 
-					// Process request
-					view = page.service();
+					if (view == null) {
+						// Process request
+						view = page.service();
+					}
 				}
 
 				// Render view
@@ -883,5 +889,5 @@ public class QlueApplication {
 	Page getActualPage(Page currentPage) {
 		return (Page) currentPage.context.request
 				.getAttribute(REQUEST_ACTUAL_PAGE_KEY);
-	}
+	}	
 }
