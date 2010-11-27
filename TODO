@@ -2,8 +2,6 @@
 Qlue 2.0 to-do list
 -------------------
 
-- Non-persistent pages should throw exceptions on validation errors.
-
 - Move the handling of folders without the trailing slash
   from the 404 page handler into the framework
   
