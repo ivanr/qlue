@@ -375,4 +375,22 @@ public abstract class Page {
 	public boolean isPersistent() {
 		return getClass().isAnnotationPresent(QluePersistentPage.class);
 	}
+
+	/**
+	 * This method is invoked after built-in parameter validation fails. The
+	 * default implementation will throw an exception for non-persistent pages,
+	 * and ignore the problem for persistent pages.
+	 *  
+	 * @return
+	 * @throws Exception
+	 */
+	View onValidationError() throws Exception {
+		if (isPersistent() == true) {
+			// Let the page handle validation errors
+			return null;
+		}
+
+		// Report fatal error
+		throw new ValidationException("Parameter validation failed");
+	}
 }
