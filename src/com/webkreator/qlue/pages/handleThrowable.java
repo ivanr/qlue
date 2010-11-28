@@ -29,6 +29,7 @@ import com.webkreator.qlue.AccessForbiddenException;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.PersistentPageNotFoundException;
 import com.webkreator.qlue.ValidationException;
+import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.View;
 
 /**
@@ -75,8 +76,7 @@ public class handleThrowable extends Page {
 			out.println("</pre>");
 		}
 
-		writePadding(out);
-
+		WebUtil.writePagePaddingforInternetExplorer(out);
 		out.println("</body></html>");
 
 		return null;
@@ -96,7 +96,7 @@ public class handleThrowable extends Page {
 		out.println("<pre>");
 		out.println(HtmlEncoder.encodeForHTMLPreserveWhitespace(t.getMessage()));
 		out.println("</pre>");
-		writePadding(out);
+		WebUtil.writePagePaddingforInternetExplorer(out);
 		out.println("</body></html>");
 
 		return null;
@@ -109,7 +109,7 @@ public class handleThrowable extends Page {
 		out.println("<html>");
 		out.println("<head><title>Activity Not Found</title></head>");
 		out.println("<body><h1>Activity Not Found</h1>");
-		writePadding(out);
+		WebUtil.writePagePaddingforInternetExplorer(out);
 		out.println("</body></html>");
 
 		return null;
@@ -122,9 +122,7 @@ public class handleThrowable extends Page {
 		out.println("<html>");
 		out.println("<head><title>Parameter Validation Failed</title></head>");
 		out.println("<body><h1>Parameter Validation Failed</h1>");
-
-		writePadding(out);
-
+		WebUtil.writePagePaddingforInternetExplorer(out);
 		out.println("</body></html>");
 
 		return null;
@@ -146,25 +144,9 @@ public class handleThrowable extends Page {
 			out.println("</pre>");
 		}
 
-		writePadding(out);
-
+		WebUtil.writePagePaddingforInternetExplorer(out);
 		out.println("</body></html>");
 
 		return null;
-	}
-
-	public void writePadding(PrintWriter out) {
-		out.println("<!-- IE padding");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("-->");
 	}
 }

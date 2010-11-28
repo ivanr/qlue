@@ -211,7 +211,7 @@ public class QlueApplication {
 		}
 
 		// Initialise context
-		TransactionContext context = new TransactionContext(
+		TransactionContext context = new TransactionContext(this,
 				servlet.getServletConfig(), servlet.getServletContext(),
 				request, response);
 
@@ -678,23 +678,23 @@ public class QlueApplication {
 	private void bindFileParameter(Object commandObject, Field f, Page page,
 			TransactionContext context) throws Exception {
 		QlueParameter qp = f.getAnnotation(QlueParameter.class);
-		
+
 		FileItem fi = context.getFile(f.getName());
-		if ((fi == null)||(fi.getSize() == 0)) {
+		if ((fi == null) || (fi.getSize() == 0)) {
 			if (qp.mandatory()) {
 				page.addError(f.getName(), "qlue.validation.mandatory");
 			}
-			
+
 			return;
 		}
-		
+
 		File file = File.createTempFile("qlue-", ".tmp");
 		fi.write(file);
 		fi.delete();
-		
+
 		QlueFile qf = new QlueFile(file.getAbsolutePath());
 		qf.setContentType(fi.getContentType());
-		
+
 		f.set(commandObject, qf);
 	}
 

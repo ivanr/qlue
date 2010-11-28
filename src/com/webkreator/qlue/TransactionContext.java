@@ -51,16 +51,19 @@ public class TransactionContext {
 	public HttpSession session;
 
 	public QluePageManager qluePageManager;
+	
+	public QlueApplication app;
 
 	public String requestUri;
 
 	private boolean isMultipart;
 
-	private List<FileItem> multipartItems;
+	private List<FileItem> multipartItems;	
 
-	public TransactionContext(ServletConfig servletConfig,
+	public TransactionContext(QlueApplication app, ServletConfig servletConfig,
 			ServletContext servletContext, HttpServletRequest request,
 			HttpServletResponse response) {
+		this.app = app;
 		this.servletConfig = servletConfig;
 		this.servletContext = servletContext;
 		this.request = request;
