@@ -30,8 +30,6 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.webkreator.qlue.TransactionContext;
-
 public class WelcomeFilter implements Filter {
 
 	public static final String DEFAULT_PAGE = "DEFAULT_PAGE";
