@@ -20,7 +20,6 @@ import java.io.PrintWriter;
 
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.util.WebUtil;
-import com.webkreator.qlue.util.WelcomeFilter;
 import com.webkreator.qlue.view.View;
 
 /**
@@ -29,11 +28,7 @@ import com.webkreator.qlue.view.View;
 public class handlePageNotFound extends Page {
 
 	@Override
-	public View service() throws Exception {
-		if (WelcomeFilter.redirectSlashlessFolders(context)) {
-			return null;
-		}							
-
+	public View service() throws Exception {		
 		context.response.setContentType("text/html");
 		PrintWriter out = context.response.getWriter();
 		out.println("<html><head><title>Not Found</title></head>");
