@@ -42,6 +42,7 @@ import javax.servlet.http.HttpSession;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.log4j.NDC;
+import org.apache.tomcat.util.http.fileupload.FileItem;
 
 import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.util.BooleanEditor;
@@ -255,13 +256,16 @@ public class QlueApplication {
 		Page page = null;
 
 		try {
+			// First check if we need to handle multipart/form-data
+			context.processMultipart();
+
 			// -- Page resolution --
 
 			// First check if this is a request for a persistent page
 			// (which we can only honour if we are not handling errors)
 			if (context.isErrorHandler() == false) {
 				// Is this request for a persistent page?
-				String pid = context.request.getParameter("_pid");
+				String pid = context.getParameter("_pid");
 				if (pid != null) {
 					PersistentPageRecord pageRecord = context
 							.findPersistentPageRecord(pid);
@@ -341,7 +345,7 @@ public class QlueApplication {
 					}
 
 					// -- Process request --
-					
+
 					if (page.hasErrors()) {
 						view = page.onValidationError();
 					}
@@ -567,6 +571,12 @@ public class QlueApplication {
 		// Get the annotation.
 		QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
+		// First check if the parameter is a file
+		if (QlueFile.class.isAssignableFrom(f.getType())) {
+			bindFileParameter(commandObject, f, page, context);
+			return;
+		}
+
 		// Look for a property editor, which will know how to convert
 		// text into a proper native type.
 		PropertyEditor pe = editors.get(f.getType());
@@ -577,7 +587,7 @@ public class QlueApplication {
 		}
 
 		// Look for the parameter in the request object
-		String value = context.getRequest().getParameter(f.getName());
+		String value = context.getParameter(f.getName());
 		if (value != null) {
 			// Load from the parameter
 			shadowInput.set(f.getName(), value);
@@ -663,6 +673,29 @@ public class QlueApplication {
 				page.addError(f.getName(), "qlue.validation.mandatory");
 			}
 		}
+	}
+
+	private void bindFileParameter(Object commandObject, Field f, Page page,
+			TransactionContext context) throws Exception {
+		QlueParameter qp = f.getAnnotation(QlueParameter.class);
+		
+		FileItem fi = context.getFile(f.getName());
+		if ((fi == null)||(fi.getSize() == 0)) {
+			if (qp.mandatory()) {
+				page.addError(f.getName(), "qlue.validation.mandatory");
+			}
+			
+			return;
+		}
+		
+		File file = File.createTempFile("qlue-", ".tmp");
+		fi.write(file);
+		fi.delete();
+		
+		QlueFile qf = new QlueFile(file.getAbsolutePath());
+		qf.setContentType(fi.getContentType());
+		
+		f.set(commandObject, qf);
 	}
 
 	/**
@@ -889,5 +922,5 @@ public class QlueApplication {
 	Page getActualPage(Page currentPage) {
 		return (Page) currentPage.context.request
 				.getAttribute(REQUEST_ACTUAL_PAGE_KEY);
-	}	
+	}
 }

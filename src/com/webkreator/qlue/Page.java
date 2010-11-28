@@ -17,6 +17,7 @@
 package com.webkreator.qlue;
 
 import java.io.PrintWriter;
+import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -257,7 +258,7 @@ public abstract class Page {
 		// Verify nonce on every POST
 		if (context.isPost()
 				&& getClass().isAnnotationPresent(QluePersistentPage.class)) {
-			String suppliedNonce = context.request.getParameter("_nonce");
+			String suppliedNonce = context.getParameter("_nonce");
 			if (suppliedNonce == null) {
 				throw new RuntimeException("Nonce missing.");
 			}
@@ -364,12 +365,36 @@ public abstract class Page {
 	}
 
 	public void rollback() {
+		deleteFiles();
 	}
 
 	public void commit() {
+		deleteFiles();
 	}
 
 	public void loadData() throws Exception {
+	}
+
+	public void deleteFiles() {
+		Object commandObject = getCommandObject();
+		if (commandObject == null) {
+			return;
+		}
+
+		// Look for QlueFile instances
+		Field[] fields = commandObject.getClass().getFields();
+		for (Field f : fields) {
+			if (f.isAnnotationPresent(QlueParameter.class)) {
+				if (QlueFile.class.isAssignableFrom(f.getType())) {
+					try {
+						QlueFile qf = (QlueFile) f.get(commandObject);
+						qf.delete();
+					} catch (Exception e) {
+						e.printStackTrace(System.err);
+					}
+				}
+			}
+		}
 	}
 
 	public boolean isPersistent() {
@@ -380,7 +405,7 @@ public abstract class Page {
 	 * This method is invoked after built-in parameter validation fails. The
 	 * default implementation will throw an exception for non-persistent pages,
 	 * and ignore the problem for persistent pages.
-	 *  
+	 * 
 	 * @return
 	 * @throws Exception
 	 */

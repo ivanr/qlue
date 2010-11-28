@@ -18,12 +18,18 @@ package com.webkreator.qlue;
 
 import java.io.PrintWriter;
 import java.util.Enumeration;
+import java.util.List;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+
+import org.apache.tomcat.util.http.fileupload.FileItem;
+import org.apache.tomcat.util.http.fileupload.FileItemFactory;
+import org.apache.tomcat.util.http.fileupload.disk.DiskFileItemFactory;
+import org.apache.tomcat.util.http.fileupload.servlet.ServletFileUpload;
 
 import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.view.FinalRedirectView;
@@ -48,8 +54,13 @@ public class TransactionContext {
 
 	public String requestUri;
 
-	public TransactionContext(ServletConfig servletConfig, ServletContext servletContext,
-			HttpServletRequest request, HttpServletResponse response) {
+	private boolean isMultipart;
+
+	private List<FileItem> multipartItems;
+
+	public TransactionContext(ServletConfig servletConfig,
+			ServletContext servletContext, HttpServletRequest request,
+			HttpServletResponse response) {
 		this.servletConfig = servletConfig;
 		this.servletContext = servletContext;
 		this.request = request;
@@ -65,6 +76,20 @@ public class TransactionContext {
 				qluePageManager = new QluePageManager();
 				session.setAttribute(QLUE_SESSION_STORAGE_ID, qluePageManager);
 			}
+		}
+	}
+
+	void processMultipart() throws Exception {
+		isMultipart = ServletFileUpload.isMultipartContent(request);
+
+		if (isMultipart) {
+			FileItemFactory factory = new DiskFileItemFactory();
+
+			// Create a new file upload handler
+			ServletFileUpload upload = new ServletFileUpload(factory);
+
+			// Parse the request
+			multipartItems = upload.parseRequest(request);
 		}
 	}
 
@@ -204,5 +229,47 @@ public class TransactionContext {
 						+ HtmlEncoder.encodeForHTML(value));
 			}
 		}
+	}
+
+	public String getParameter(String name) throws Exception {
+		if (isMultipart == false) {
+			return getRequest().getParameter(name);
+		} else {
+			for (int i = 0, n = multipartItems.size(); i < n; i++) {
+				FileItem fi = multipartItems.get(i);
+				if (fi.getFieldName().compareToIgnoreCase(name) == 0) {
+					if (fi.isFormField() == false) {
+						throw new RuntimeException(
+								"Qlue: Unexpected file parameter");
+					}
+
+					// XXX Should use the character encoding specified by the
+					// application
+					return fi.getString("UTF-8");
+				}
+			}
+
+			return null;
+		}
+	}
+
+	public FileItem getFile(String name) throws Exception {
+		if (isMultipart == false) {
+			throw new RuntimeException("Qlue: multipart/form-data expected");
+		}
+
+		for (int i = 0, n = multipartItems.size(); i < n; i++) {
+			FileItem fi = multipartItems.get(i);
+			if (fi.getFieldName().compareToIgnoreCase(name) == 0) {
+				if (fi.isFormField() == true) {
+					throw new RuntimeException(
+							"Qlue: Unexpected simple parameter");
+				}
+
+				return fi;
+			}
+		}
+
+		return null;
 	}
 }
