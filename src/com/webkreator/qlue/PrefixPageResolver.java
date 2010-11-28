@@ -26,12 +26,6 @@ public class PrefixPageResolver extends PageResolver {
 		this.mappings = mappings;
 	}
 
-	@Override
-	public boolean isFolderUri(String uri) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
 	@SuppressWarnings("unchecked")
 	@Override
 	protected Class<Page> resolvePageClass(String uri) throws Exception {
@@ -39,16 +33,16 @@ public class PrefixPageResolver extends PageResolver {
 		// find one that will match
 		for (UriMapping mapping : mappings) {
 			if (log.isDebugEnabled()) {
-				log.debug("Using mapping: " + mapping);
+				log.debug("Testing mapping: " + mapping);
 			}
 
 			Matcher m = mapping.getMatcher(uri);
 			if (m.matches()) {
-				if (mapping.getPackageMapping() != null) {					
+				if (mapping.getPackageMapping() != null) {
 					// Map URI to package
 					return resolveUri("/" + m.group(1),
 							mapping.getPackageMapping());
-				} else {					
+				} else {
 					// Map URI to class
 					@SuppressWarnings("rawtypes")
 					Class pageClass = classForName(mapping.getClassMapping());
@@ -95,7 +89,7 @@ public class PrefixPageResolver extends PageResolver {
 				if (log.isDebugEnabled()) {
 					log.debug("Giving up mapping because no suffix match");
 				}
-				
+
 				return null;
 			}
 		}
@@ -187,9 +181,9 @@ public class PrefixPageResolver extends PageResolver {
 
 			Matcher m = mapping.getMatcher(uri);
 			if (m.matches()) {
-				if (mapping.getPackageMapping() != null) {					
+				if (mapping.getPackageMapping() != null) {
 					return mapping.getPackageMapping() + "/" + m.group(1);
-				} else {					
+				} else {
 					// XXX Remove class name
 					return mapping.getClassMapping();
 				}

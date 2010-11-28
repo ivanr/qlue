@@ -775,10 +775,6 @@ public class QlueApplication {
 		return new FormatTool();
 	}
 
-	public boolean isFolderUri(String uri) {
-		return pageResolver.isFolderUri(WebUtil.normaliseUri(uri));
-	}
-
 	/**
 	 * This method is invoked to create a new session object. A QlueSession
 	 * instance is returned by default, but most applications will want to

@@ -55,7 +55,5 @@ public abstract class PageResolver {
 			e.printStackTrace();
 			return null;
 		}
-	}
-
-	public abstract boolean isFolderUri(String uri);	
+	}	
 }

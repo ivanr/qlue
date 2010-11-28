@@ -25,6 +25,7 @@ import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -39,6 +40,7 @@ public class WelcomeFilter implements Filter {
 
 	private Log log = LogFactory.getLog(WelcomeFilter.class);
 
+	@Override
 	public void init(FilterConfig filterConfig) {
 		String s = filterConfig.getInitParameter(DEFAULT_PAGE);
 		if (s != null) {
@@ -46,51 +48,47 @@ public class WelcomeFilter implements Filter {
 		}
 	}
 
+	@Override
 	public void doFilter(ServletRequest request, ServletResponse response,
 			FilterChain chain) throws IOException, ServletException {
-		String path = ((HttpServletRequest) request).getRequestURI();
-		if ((defaultPage != null) && (path.endsWith("/"))) {
-			String newPath = path + defaultPage;
+		// Only perform redirection if we have been configured
+		// with the name of the default page
+		if (defaultPage != null) {
+			String path = ((HttpServletRequest) request).getRequestURI();
 
-			if (log.isDebugEnabled()) {
-				log.debug("Redirecting " + path + " to " + newPath);
+			// If the path has a forward slash character at the end,
+			// we want to redirect such access to a default page
+			if (path.endsWith("/")) {
+				String newPath = path + defaultPage;
+
+				if (log.isDebugEnabled()) {
+					log.debug("WelcomeFilter redirecting " + path + " to "
+							+ newPath);
+				}
+
+				request.getRequestDispatcher(newPath)
+						.forward(request, response);
+				
+				return;
+			} else {
+				// If there is no forward slash at the end we check if it might
+				// be a folder access; we assume that it is if there are not
+				// dots anywhere in the path
+				if (path.indexOf('.') == -1) {
+					((HttpServletResponse) response).sendRedirect(path + "/");
+					
+					return;
+				}
 			}
-
-			request.getRequestDispatcher(newPath).forward(request, response);
-		} else {
-			chain.doFilter(request, response);
 		}
+
+		// No redirection; allow request through
+		chain.doFilter(request, response);
 	}
 
+	@Override
 	public void destroy() {
 		// Nothing to do here, but we still
 		// have to provide an implementation
-	}
-
-	/**
-	 * We need to handle the case when our folder (package) is
-	 * accessed without the trailing slash. In such cases the
-	 * welcome filter is not going to be able to redirect to
-	 * a welcome page and, as a consequence, we won't be given
-	 * an opportunity to handle the request. It will eventually
-	 * come to us here, though.
-	 * 
-	 * @param context
-	 * @return
-	 * @throws IOException
-	 */
-	public static boolean redirectSlashlessFolders(TransactionContext context)
-			throws IOException {
-		String originalUri = (String) context.request
-				.getAttribute("javax.servlet.forward.request_uri");
-		if (originalUri != null) {
-			if ((originalUri.endsWith("/") == false)
-					&& (context.app.isFolderUri(originalUri))) {
-				context.response.sendRedirect(originalUri + "/");
-				return true;
-			}
-		}
-
-		return false;
 	}
 }
