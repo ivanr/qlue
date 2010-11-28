@@ -198,6 +198,14 @@ public abstract class Page {
 	public Map<String, Object> getModel() {
 		return model;
 	}
+	
+	public void addToModel(String key, Object value) {
+		model.put(key, value);
+	}
+	
+	public Object getFromModel(String key) {
+		return model.get(key);
+	}
 
 	public String getView() {
 		return view;
