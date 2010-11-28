@@ -2,9 +2,6 @@
 Qlue 2.0 to-do list
 -------------------
   
-- Add a hook so that custom exception handlers can add
-  development mode output.
-
 - Support parameter arrays
  
 - Verify that it is possible to use command objects
