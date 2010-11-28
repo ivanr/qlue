@@ -1,6 +1,6 @@
 /* 
  * Qlue Web Application Framework
- * Copyright 2009 Ivan Ristic <ivanr@webkreator.com>
+ * Copyright 2009,2010 Ivan Ristic <ivanr@webkreator.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,10 @@ import java.io.Writer;
 import com.google.gson.Gson;
 import com.webkreator.qlue.Page;
 
-
 /**
- * View class specialized for JSON objects. Constructor takes a Java object and
+ * View class specialised for JSON objects. Constructor takes a Java object and
  * render() function will send that object to browser in JSON notation, and set
- * Content-Type to application/json
+ * response content type to application/json.
  */
 public class JsonView implements com.webkreator.qlue.view.View {
 	

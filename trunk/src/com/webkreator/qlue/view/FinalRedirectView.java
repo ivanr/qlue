@@ -1,6 +1,6 @@
 /* 
  * Qlue Web Application Framework
- * Copyright 2009 Ivan Ristic <ivanr@webkreator.com>
+ * Copyright 2009,2010 Ivan Ristic <ivanr@webkreator.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package com.webkreator.qlue.view;
 
 import com.webkreator.qlue.Page;
-
 
 /**
  * A ReplacementView instance is used to indicate that a persistent page
