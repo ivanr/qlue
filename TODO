@@ -9,12 +9,7 @@ Qlue 2.0 to-do list
   development mode output.
 
 - Support parameter arrays
-
-- Support file parameters
-
-- Support stateful file uploads (where uploaded files are kept
-  for the duration of the life of a page)
-  
+ 
 - Verify that it is possible to use command objects
 
 - Property editors should throw exceptions on conversion errors
