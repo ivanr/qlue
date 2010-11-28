@@ -19,6 +19,8 @@ package com.webkreator.qlue.pages;
 import java.io.PrintWriter;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.util.WebUtil;
+import com.webkreator.qlue.util.WelcomeFilter;
 import com.webkreator.qlue.view.View;
 
 /**
@@ -27,41 +29,16 @@ import com.webkreator.qlue.view.View;
 public class handlePageNotFound extends Page {
 
 	@Override
-	public View service() throws Exception {				
-		// We need to handle the case when our folder (package) is
-		// accessed without the trailing slash. In such cases the
-		// welcome filter is not going to be able to redirect to
-		// a welcome page and, as a consequence, we won't be given
-		// an opportunity to handle the request. It will eventually
-		// come to us here, though.
-		String originalUri = (String) context.request
-				.getAttribute("javax.servlet.forward.request_uri");
-		if (originalUri != null) {
-			if ((originalUri.endsWith("/") == false)
-					&& (getQlueApp().isFolderUri(originalUri))) {
-				context.response.sendRedirect(originalUri + "/");
-				return null;
-			}
-		} else {
-			// TODO Refuse direct access, log
-		}			
+	public View service() throws Exception {
+		if (WelcomeFilter.redirectSlashlessFolders(context)) {
+			return null;
+		}							
 
 		context.response.setContentType("text/html");
 		PrintWriter out = context.response.getWriter();
 		out.println("<html><head><title>Not Found</title></head>");
 		out.println("<body><h1>Not Found</h1>");
-		out.println("<!-- IE padding");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-		out.println("-->");
+		WebUtil.writePagePaddingforInternetExplorer(out);		
 		out.println("</body></html>");			
 		
 		return null;

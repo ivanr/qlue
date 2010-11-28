@@ -1,9 +1,6 @@
 
 Qlue 2.0 to-do list
 -------------------
-
-- Move the handling of folders without the trailing slash
-  from the 404 page handler into the framework
   
 - Add a hook so that custom exception handlers can add
   development mode output.

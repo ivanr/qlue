@@ -16,11 +16,13 @@
  */
 package com.webkreator.qlue.util;
 
+import java.io.PrintWriter;
+
 public class WebUtil {
-	
+
 	/**
-	 * Normalise a URI, by collapsing multiple occurrences of the
-	 * forward slash character to one.
+	 * Normalise a URI, by collapsing multiple occurrences of the forward slash
+	 * character to one.
 	 * 
 	 * @param uri
 	 * @return
@@ -44,5 +46,20 @@ public class WebUtil {
 		}
 
 		return sb.toString();
+	}
+
+	public static void writePagePaddingforInternetExplorer(PrintWriter out) {
+		out.println("<!-- IE padding");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+		out.println("-->");
 	}
 }

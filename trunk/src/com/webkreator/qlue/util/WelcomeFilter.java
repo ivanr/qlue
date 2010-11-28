@@ -29,12 +29,14 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import com.webkreator.qlue.TransactionContext;
+
 public class WelcomeFilter implements Filter {
 
 	public static final String DEFAULT_PAGE = "DEFAULT_PAGE";
 
 	private String defaultPage = "index.html";
-	
+
 	private Log log = LogFactory.getLog(WelcomeFilter.class);
 
 	public void init(FilterConfig filterConfig) {
@@ -45,17 +47,16 @@ public class WelcomeFilter implements Filter {
 	}
 
 	public void doFilter(ServletRequest request, ServletResponse response,
-			FilterChain chain) throws IOException, ServletException {		
-		String path = ((HttpServletRequest) request).getRequestURI();		
+			FilterChain chain) throws IOException, ServletException {
+		String path = ((HttpServletRequest) request).getRequestURI();
 		if ((defaultPage != null) && (path.endsWith("/"))) {
 			String newPath = path + defaultPage;
-			
+
 			if (log.isDebugEnabled()) {
 				log.debug("Redirecting " + path + " to " + newPath);
 			}
-			
-			request.getRequestDispatcher(newPath).forward(request,
-					response);
+
+			request.getRequestDispatcher(newPath).forward(request, response);
 		} else {
 			chain.doFilter(request, response);
 		}
@@ -64,5 +65,32 @@ public class WelcomeFilter implements Filter {
 	public void destroy() {
 		// Nothing to do here, but we still
 		// have to provide an implementation
+	}
+
+	/**
+	 * We need to handle the case when our folder (package) is
+	 * accessed without the trailing slash. In such cases the
+	 * welcome filter is not going to be able to redirect to
+	 * a welcome page and, as a consequence, we won't be given
+	 * an opportunity to handle the request. It will eventually
+	 * come to us here, though.
+	 * 
+	 * @param context
+	 * @return
+	 * @throws IOException
+	 */
+	public static boolean redirectSlashlessFolders(TransactionContext context)
+			throws IOException {
+		String originalUri = (String) context.request
+				.getAttribute("javax.servlet.forward.request_uri");
+		if (originalUri != null) {
+			if ((originalUri.endsWith("/") == false)
+					&& (context.app.isFolderUri(originalUri))) {
+				context.response.sendRedirect(originalUri + "/");
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
