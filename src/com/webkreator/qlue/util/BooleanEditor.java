@@ -1,6 +1,7 @@
 package com.webkreator.qlue.util;
 
 import java.lang.reflect.Field;
+import java.security.InvalidParameterException;
 
 public class BooleanEditor implements PropertyEditor {
 
@@ -13,7 +14,7 @@ public class BooleanEditor implements PropertyEditor {
 				|| (text.compareToIgnoreCase("1") == 0)) {
 			return Boolean.TRUE;
 		}
-		
+
 		if ((text.compareToIgnoreCase("off") == 0)
 				|| (text.compareToIgnoreCase("false") == 0)
 				|| (text.compareToIgnoreCase("no") == 0)
@@ -21,9 +22,8 @@ public class BooleanEditor implements PropertyEditor {
 				|| (text.compareToIgnoreCase("0") == 0)) {
 			return Boolean.TRUE;
 		}
-		
-		// TODO Perhaps we should allow for conversion errors?
-		return Boolean.FALSE;
+
+		throw new InvalidParameterException("Invalid boolean value: " + text);
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -32,4 +32,3 @@ public class BooleanEditor implements PropertyEditor {
 		return Boolean.class;
 	}
 }
-

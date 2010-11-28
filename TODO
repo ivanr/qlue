@@ -6,13 +6,6 @@ Qlue 2.0 to-do list
  
 - Verify that it is possible to use command objects
 
-- Property editors should throw exceptions on conversion errors
-
-- Perhaps page parameters can implement some validation interface
-  and help Qlue with validation; or perhaps the annotation could
-  point to the annotation interface (that may be better because
-  it documents input requirements)
-
 - Fix Canoe
 
 - Write better examples
