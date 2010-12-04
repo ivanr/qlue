@@ -21,15 +21,23 @@ import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class UriBuilder {
+
+	private String prefix;
 
 	private String uri;
 
 	private List<UriBuilderParam> params = new ArrayList<UriBuilderParam>();
 
+	private Pattern uriPattern = Pattern.compile("^(https?://[^/]+)(/.*)$");
+
 	class UriBuilderParam {
+
 		String name;
+
 		String value;
 
 		UriBuilderParam(String name, String value) {
@@ -58,9 +66,14 @@ public class UriBuilder {
 		params.clear();
 	}
 
-	public void setUri(String uri) {
-		int i = uri.indexOf('?');
+	public void setUri(String uri) {		
+		Matcher m = uriPattern.matcher(uri);
+		if (m.matches()) {			
+			prefix = m.group(1);
+			uri = m.group(2);
+		}	
 
+		int i = uri.indexOf('?');
 		if (i == -1) {
 			this.uri = WebUtil.normaliseUri(uri);
 		} else {
@@ -84,36 +97,39 @@ public class UriBuilder {
 	}
 
 	public String getUri() {
+		StringBuilder sb = new StringBuilder();
+		if (prefix != null) {
+			sb.append(prefix);
+		}
+
+		// Base URI
+		sb.append(uri);
+
 		if (params.size() == 0) {
-			// Shortcut, when there are no parameters
-			return uri;
-		} else {
-			StringBuilder sb = new StringBuilder();
-
-			try {
-				// Start with the base URI.
-				sb.append(uri);
-				sb.append("?");
-
-				// Iterate through the list of parameters and
-				// add them to the URI, properly transforming them
-				// in the process.
-				for (int i = 0, n = params.size(); i < n; i++) {
-					if (i != 0) {
-						sb.append('&');
-					}
-
-					UriBuilderParam param = params.get(i);
-					sb.append(URLEncoder.encode(param.name, "UTF-8"));
-					sb.append("=");
-					sb.append(URLEncoder.encode(param.value, "UTF-8"));
-				}
-			} catch (UnsupportedEncodingException uee) {
-				// Should never happen, as we know that UTF-8 is supported
-				uee.printStackTrace(System.err);
-			}
-
 			return sb.toString();
 		}
+
+		try {
+			sb.append("?");
+
+			// Iterate through the list of parameters and
+			// add them to the URI, properly transforming them
+			// in the process.
+			for (int i = 0, n = params.size(); i < n; i++) {
+				if (i != 0) {
+					sb.append('&');
+				}
+
+				UriBuilderParam param = params.get(i);
+				sb.append(URLEncoder.encode(param.name, "UTF-8"));
+				sb.append("=");
+				sb.append(URLEncoder.encode(param.value, "UTF-8"));
+			}
+		} catch (UnsupportedEncodingException uee) {
+			// Should never happen, as we know that UTF-8 is supported
+			uee.printStackTrace(System.err);
+		}
+
+		return sb.toString();
 	}
 }

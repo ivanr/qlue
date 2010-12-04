@@ -22,7 +22,7 @@ public class WebUtil {
 
 	/**
 	 * Normalise a URI, by collapsing multiple occurrences of the forward slash
-	 * character to one.
+	 * character to one. TODO Fix by implementing proper RFC normalisation.
 	 * 
 	 * @param uri
 	 * @return
