@@ -888,9 +888,36 @@ public class QlueApplication {
 	public Properties getProperties() {
 		return properties;
 	}
-	
+
 	public String getProperty(String key) {
 		return properties.getProperty(key);
+	}
+	
+	public String getProperty(String key, String defaultValue) {
+		String value = properties.getProperty(key);
+		if (value != null) {
+			return value;
+		} else {
+			return defaultValue;
+		}
+	}
+
+	public Integer getIntProperty(String key) {
+		String value = properties.getProperty(key);
+		if (value == null) {
+			return null;
+		}
+
+		return Integer.parseInt(value);
+	}
+	
+	public Integer getIntProperty(String key, int defaultValue) {
+		String value = properties.getProperty(key);
+		if (value == null) {
+			return defaultValue;
+		}
+
+		return Integer.parseInt(value);
 	}
 
 	public void setMessagesFilename(String messagesFilename) {
