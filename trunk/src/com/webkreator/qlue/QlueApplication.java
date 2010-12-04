@@ -888,6 +888,10 @@ public class QlueApplication {
 	public Properties getProperties() {
 		return properties;
 	}
+	
+	public String getProperty(String key) {
+		return properties.getProperty(key);
+	}
 
 	public void setMessagesFilename(String messagesFilename) {
 		this.messagesFilename = messagesFilename;
