@@ -195,7 +195,8 @@ public class HtmlEncoder {
 			char c = input.charAt(i);
 
 			if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-					|| (c >= '0' && c <= '9')) {
+					|| (c >= '0' && c <= '9') || (c == '/') || (c == '.')
+					|| (c == '#') || (c == '?') || (c == '=')) {
 				sb.append(c);
 			} else {
 				if (c <= 255) {
@@ -316,7 +317,7 @@ public class HtmlEncoder {
 				// Ranges a-z, A-Z, and 0-9 are allowed naked
 				if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
 						|| ((c >= '0') && (c <= '9')) || (c == 0x0d)
-						|| (c == 0x0a) || (c == 0x09) ) {
+						|| (c == 0x0a) || (c == 0x09)) {
 					sb.append(c);
 				} else {
 					// Make control characters visible
