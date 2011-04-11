@@ -622,7 +622,7 @@ public class QlueApplication {
 			// of whitespace characters.
 			if (qp.mandatory()) {
 				if (TextUtil.isEmptyOrWhitespace(value)) {
-					page.addError(f.getName(), "qlue.validation.mandatory");
+					page.addError(f.getName(), getFieldMissingMessage(qp));
 					hasErrors = true;
 				}
 			}
@@ -670,9 +670,14 @@ public class QlueApplication {
 		} else {
 			// Is the parameter mandatory?
 			if (qp.mandatory()) {
-				page.addError(f.getName(), "qlue.validation.mandatory");
+				page.addError(f.getName(), getFieldMissingMessage(qp));
 			}
 		}
+	}
+	
+	
+	private String getFieldMissingMessage(QlueParameter qp) {
+	    return (qp.fieldMissingMessage().length() > 0) ? qp.fieldMissingMessage() : "qlue.validation.mandatory";
 	}
 
 	private void bindFileParameter(Object commandObject, Field f, Page page,
@@ -682,7 +687,7 @@ public class QlueApplication {
 		FileItem fi = context.getFile(f.getName());
 		if ((fi == null) || (fi.getSize() == 0)) {
 			if (qp.mandatory()) {
-				page.addError(f.getName(), "qlue.validation.mandatory");
+				page.addError(f.getName(), getFieldMissingMessage(qp));
 			}
 
 			return;

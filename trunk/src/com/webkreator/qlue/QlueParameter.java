@@ -24,6 +24,8 @@ public @interface QlueParameter {
 	
 	boolean mandatory() default true;
 	
+	String fieldMissingMessage() default "";
+	
 	String pattern() default "";
 	
 	int maxSize() default -1;
