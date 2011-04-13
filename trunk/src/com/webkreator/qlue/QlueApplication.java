@@ -62,7 +62,9 @@ import com.webkreator.qlue.view.ViewFactory;
 import com.webkreator.qlue.view.ViewResolver;
 
 /**
- * 
+ * This class represents one Qlue application. Very simple applications might use
+ * it directly, but most will need to subclass in order to support complex
+ * configuration (page resolver, view resolver, etc).
  */
 public class QlueApplication {
 
@@ -101,10 +103,20 @@ public class QlueApplication {
 
 	private String[] developmentModeRanges = null;
 
+	/**
+	 * This is the default constructor. The idea is that a subclass will
+	 * override it and supplement with its own configuration.
+	 */
 	protected QlueApplication() {
 		initPropertyEditors();
 	}
 
+	/**
+	 * This constructor is intended for use by very simple
+	 * web applications that consist of only one package.
+	 * 
+	 * @param pagesHome
+	 */
 	public QlueApplication(String pagesHome) {
 		initPropertyEditors();
 
@@ -129,27 +141,26 @@ public class QlueApplication {
 	public void init(HttpServlet servlet) throws Exception {
 		this.servlet = servlet;
 
-		// Load Qlue properties
+		// Load Qlue properties if the file exists
 		File propsFile = new File(servlet.getServletContext().getRealPath(
 				PROPERTIES_FILENAME));
 		if (propsFile.exists()) {
 			properties.load(new FileReader(propsFile));
-			System.err.println(properties.getProperty("test"));
 		}
 
-		// Must have a page resolver.
+		// Must have a page resolver
 		if (pageResolver == null) {
-			throw new Exception("Page resolver not configured.");
+			throw new Exception("Page resolver not configured");
 		}
 
 		// Must have a view resolver
 		if (viewResolver == null) {
-			throw new Exception("View resolver not configured.");
+			throw new Exception("View resolver not configured");
 		}
 
 		// Must have a view factory
 		if (viewFactory == null) {
-			throw new Exception("View factory not configured.");
+			throw new Exception("View factory not configured");
 		}
 
 		// Initialise Velocity
@@ -161,24 +172,27 @@ public class QlueApplication {
 	 * @param context
 	 * @throws ServletException
 	 */
-	public void initRequestUri(TransactionContext context)
+	void initRequestUri(TransactionContext context)
 			throws ServletException {
-		// Retrieve URI and normalise it.
+		// Retrieve URI and normalise it
+		// XXX Implement RFC normalisation; are there any guarantees
+		//     provided by servlet container?
 		String uri = WebUtil.normaliseUri(context.request.getRequestURI());
 
+		// We want our URI to include the query string
 		if (context.request.getQueryString() != null) {
 			uri = uri + "?" + context.request.getQueryString();
 		}
 
 		// We are not expecting back-references in the URI, so
-		// respond with an error if we do see one.
+		// respond with an error if we do see one
 		if (uri.indexOf("..") != -1) {
 			throw new ServletException(
 					"Security violation: directory backreference "
 							+ "detected in request URI: " + uri);
 		}
 
-		// Remember for later.
+		// Store URI in context
 		context.setRequestUri(uri);
 	}
 
@@ -210,7 +224,7 @@ public class QlueApplication {
 			}
 		}
 
-		// Initialise context
+		// Create new context
 		TransactionContext context = new TransactionContext(this,
 				servlet.getServletConfig(), servlet.getServletContext(),
 				request, response);
@@ -221,12 +235,13 @@ public class QlueApplication {
 			context.setTxId(txIdsCounter);
 		}
 
-		// Construct a normalised request URI.
+		// Construct a normalised request URI
 		initRequestUri(context);
 
-		// Create a logging context using the unique transaction ID.
+		// Create a logging context using the unique transaction ID
 		NDC.push(appPrefix + "/" + context.getTxId());
 
+		// Proceed to the second stage of request processing
 		try {
 			if (log.isDebugEnabled()) {
 				log.debug("Processing request: " + request.getRequestURI());
@@ -256,17 +271,18 @@ public class QlueApplication {
 		Page page = null;
 
 		try {
-			// First check if we need to handle multipart/form-data
+			// Check if we need to handle multipart/form-data
 			context.processMultipart();
 
 			// -- Page resolution --
 
-			// First check if this is a request for a persistent page
-			// (which we can only honour if we are not handling errors)
+			// Check if this is a request for a persistent page. We can
+			// honour such requests only if we are not handling errors
 			if (context.isErrorHandler() == false) {
 				// Is this request for a persistent page?
 				String pid = context.getParameter("_pid");
 				if (pid != null) {
+					// Find page record
 					PersistentPageRecord pageRecord = context
 							.findPersistentPageRecord(pid);
 					if (pageRecord == null) {
@@ -274,11 +290,13 @@ public class QlueApplication {
 								"Persistent page not found: " + pid);
 					}
 
+					// OK, got the page
 					page = pageRecord.page;
 
 					// If the requested persistent page no longer exists,
 					// redirect the user to where he is supposed to go
 					if ((page == null) && (pageRecord.replacementUri != null)) {
+						// But not if we're already there
 						if (context.getRequestUri().compareTo(
 								pageRecord.replacementUri) != 0) {
 							context.getResponse().sendRedirect(
@@ -291,6 +309,7 @@ public class QlueApplication {
 
 			// If we still don't have a page see if we can create a new one
 			if (page == null) {
+				// XXX We should not need to do this
 				String uri = context.getRequestUri();
 				int i = uri.indexOf('?');
 				if (i != -1) {
@@ -305,7 +324,12 @@ public class QlueApplication {
 				}
 			}
 
-			// Initialise page
+			// Page access in Qlue is synchronised, which means that
+			// it can process only one request at a time. This is not
+			// a problem for non-persistent pages, which are created
+			// on per-request basis. Synchronisation may be a problem,
+			// but only if you abuse persistent pages, which were designed
+			// to be used by one user at a time (on per-session basis).
 			synchronized (page) {
 				page.setQlueApp(this);
 				page.setUri(context.getRequestUri());
@@ -318,18 +342,18 @@ public class QlueApplication {
 					context.persistPage(page);
 				}
 
-				// Prepare first
+				// Give page a chance to prepare for the execution
 				View view = page.preService();
 
 				// If we don't have a view here, that means that
 				// the pre-service method didn't interrupt request
 				// processing -- we can continue.
 				if (view == null) {
-					// Update page state
+					// Instruct page to transition to its next state
 					page.updateState();
 
 					// Binds parameters of a persistent page initially when
-					// the page is initialised, but later only on POST requests.
+					// the page is initialised, but later only on POST requests
 					if ((page.getState().compareTo(Page.STATE_NEW) == 0)
 							|| (context.isPost())) {
 						page.getErrors().clear();
@@ -337,7 +361,7 @@ public class QlueApplication {
 					}
 
 					if (page.getState().compareTo(Page.STATE_NEW) == 0) {
-						// Give page the opportunity to initialize
+						// Give page the opportunity to initialise
 						page.loadData();
 
 						// Update shadow input
@@ -350,6 +374,9 @@ public class QlueApplication {
 						view = page.onValidationError();
 					}
 
+					// If we've made it so far that means that all is
+					// dandy, and that we can finally let the page
+					// process the current request
 					if (view == null) {
 						// Process request
 						view = page.service();
@@ -382,16 +409,23 @@ public class QlueApplication {
 								"Qlue: Unable to resolve view");
 					}
 
+					// Render page
 					view.render(page);
 				}
 
+				// In development mode, append debugging information
+				// to the end of the page
 				masterWriteRequestDevelopmentInformation(context, page);
 			}
 
+			// Execute page commit. This is what it sounds like,
+			// an opportunity to use a simple approach to transaction
+			// management for simple applications.		
 			if (page != null) {
 				page.commit();
 			}
 		} catch (RequestMethodException rme) {
+			// Execute rollback to undo any changes 
 			if (page != null) {
 				page.rollback();
 			}
@@ -400,6 +434,7 @@ public class QlueApplication {
 			context.getResponse().sendError(
 					HttpServletResponse.SC_METHOD_NOT_ALLOWED);
 		} catch (PageNotFoundException pnfe) {
+			// Execute rollback to undo any changes
 			if (page != null) {
 				page.rollback();
 			}
@@ -407,6 +442,7 @@ public class QlueApplication {
 			// Convert PageNotFoundException into a 404 response
 			context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
 		} catch (Throwable t) {
+			// Execute rollback to undo any changes
 			if (page != null) {
 				page.rollback();
 			}
@@ -425,6 +461,15 @@ public class QlueApplication {
 		}
 	}
 
+	/**
+	 * Invoked to store the original text values for parameters. The text
+	 * is needed in the cases where it cannot be converted to the intended
+	 * type (e.g., integer).
+	 * 
+	 * @param page
+	 * @param context
+	 * @throws Exception
+	 */
 	private void updateShadowInput(Page page, TransactionContext context)
 			throws Exception {
 		// Ask the page to provide a command object, which can be
@@ -437,8 +482,8 @@ public class QlueApplication {
 		ShadowInput shadowInput = page.getShadowInput();
 
 		// Loop through the command object fields in order to determine
-		// if any are annotated as parameters. Validate those that are,
-		// then bind them.
+		// if any are annotated as parameters. Remember the original
+		// text values of parameters.
 		Field[] fields = commandObject.getClass().getFields();
 		for (Field f : fields) {
 			if (f.isAnnotationPresent(QlueParameter.class)) {
@@ -453,7 +498,15 @@ public class QlueApplication {
 		}
 	}
 
-	void masterWriteRequestDevelopmentInformation(TransactionContext context,
+	/**
+	 * Appends debugging information to the view, but only if the
+	 * development mode is active.
+	 * 
+	 * @param context
+	 * @param page
+	 * @throws IOException
+	 */
+	protected void masterWriteRequestDevelopmentInformation(TransactionContext context,
 			Page page) throws IOException {
 		// Check development mode
 		if (page.isDeveloperAccess() == false) {
@@ -469,13 +522,13 @@ public class QlueApplication {
 			context = page.getContext();
 		}
 
-		// Check response status code
+		// Ignore redirections
 		int status = context.response.getStatus();
 		if ((status >= 300) && (status <= 399)) {
 			return;
 		}
 
-		// Check content type
+		// Ignore responses other than text/html
 		String contentType = context.response.getContentType();
 		if (contentType == null) {
 			return;
@@ -490,6 +543,7 @@ public class QlueApplication {
 			return;
 		}
 
+		// Append output
 		PrintWriter out = context.response.getWriter();
 		out.println("<hr><div align=left><pre>");
 		out.println("<b>Request</b>\n");
@@ -506,6 +560,11 @@ public class QlueApplication {
 		out.println("</pre></div>");
 	}
 
+	/**
+	 * Write application-specific debugging output.
+	 * 
+	 * @param out
+	 */
 	protected void writeDevelopmentInformation(PrintWriter out) {
 		out.println(" Prefix: " + HtmlEncoder.encodeForHTML(appPrefix));
 		out.println(" Page ID counter: " + txIdsCounter);
@@ -513,6 +572,7 @@ public class QlueApplication {
 	}
 
 	/**
+	 * Bind request parameters to the command object provided by the page.
 	 * 
 	 * @param page
 	 * @param context
@@ -521,12 +581,11 @@ public class QlueApplication {
 	 */
 	private void bindParameters(Page page, TransactionContext context)
 			throws Exception {
-
 		// Ask the page to provide a command object, which can be
 		// a custom object or the page itself.
 		Object commandObject = page.getCommandObject();
 		if (commandObject == null) {
-			throw new RuntimeException("Qlue: Command object cannot be null.");
+			throw new RuntimeException("Qlue: Command object cannot be null");
 		}
 
 		// Loop through the command object fields in order to determine
@@ -540,9 +599,11 @@ public class QlueApplication {
 				// Process only the parameters that are
 				// in the same state as the page, or if the parameter
 				// uses the special state POST, which triggers on all
-				// POST requests
+				// POST requests (irrespective of the state).
 				if (((qp.state().compareTo(Page.STATE_POST) == 0) && (page.context
 						.isPost()))
+						// XXX Shouldn't there be another condition below?
+						// What prevents binding to happen on subsequent GETs?
 						|| (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
 						|| (qp.state().compareTo(page.getState()) == 0)) {
 					// We have a parameter; dispatch to the appropriate handler.
@@ -557,6 +618,7 @@ public class QlueApplication {
 	}
 
 	/**
+	 * Bind a parameter that is not an array.
 	 * 
 	 * @param commandObject
 	 * @param f
@@ -566,9 +628,10 @@ public class QlueApplication {
 	 */
 	private void bindNonArrayParameter(Object commandObject, Field f,
 			Page page, TransactionContext context) throws Exception {
+		// Find shadow input
 		ShadowInput shadowInput = page.getShadowInput();
 
-		// Get the annotation.
+		// Get the annotation
 		QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
 		// First check if the parameter is a file
@@ -577,8 +640,8 @@ public class QlueApplication {
 			return;
 		}
 
-		// Look for a property editor, which will know how to convert
-		// text into a proper native type.
+		// Look for a property editor, which will know how
+		// to convert text into a proper native type
 		PropertyEditor pe = editors.get(f.getType());
 		if (pe == null) {
 			throw new RuntimeException(
@@ -586,7 +649,7 @@ public class QlueApplication {
 							+ f.getType());
 		}
 
-		// Look for the parameter in the request object
+		// Keep track of the original text parameter value
 		String value = context.getParameter(f.getName());
 		if (value != null) {
 			// Load from the parameter
@@ -596,10 +659,13 @@ public class QlueApplication {
 			shadowInput.set(f.getName(), f.toString());
 		}
 
-		// If present, validate and set on the command object.
+		// If the parameter is present in request, validate it
+		// and set on the command object
 		if (value != null) {
 			boolean hasErrors = false;
 
+			// Transform value according to the list
+			// of transformation functions supplied
 			String tfn = qp.tfn();
 			if (tfn.length() != 0) {
 				StringTokenizer st = new StringTokenizer(tfn, " ,");
@@ -627,7 +693,7 @@ public class QlueApplication {
 				}
 			}
 
-			// Check size.
+			// Check size
 			if (qp.maxSize() != -1) {
 				if ((value.length() > qp.maxSize())) {
 					hasErrors = true;
@@ -638,11 +704,11 @@ public class QlueApplication {
 				}
 			}
 
-			// Check that it conforms to the supplied regular expression.
+			// Check that it conforms to the supplied regular expression
 			if (qp.pattern().length() != 0) {
 				Pattern p = null;
 
-				// Try to compile the pattern
+				// Compile the pattern first
 				try {
 					p = Pattern.compile(qp.pattern(), Pattern.DOTALL);
 				} catch (PatternSyntaxException e) {
@@ -650,6 +716,7 @@ public class QlueApplication {
 							+ qp.pattern());
 				}
 
+				// Try to match
 				Matcher m = p.matcher(value);
 				if ((m.matches() == false)) {
 					hasErrors = true;
@@ -658,17 +725,15 @@ public class QlueApplication {
 						page.addError(f.getName(), "qlue.validation.pattern");
 					}
 				}
-			}
-
-			// Can we find a Validator instance to handle the type?
-			// TODO
+			}		
 
 			// Bind the value only if there were no validation errors.
 			if (hasErrors == false) {
 				f.set(commandObject, pe.fromText(f, value));
 			}
 		} else {
-			// Is the parameter mandatory?
+			// We are here if the parameter is not in request, in which
+			// case we need to check of the parameter is mandatory
 			if (qp.mandatory()) {
 				page.addError(f.getName(), getFieldMissingMessage(qp));
 			}
@@ -704,7 +769,7 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Not implemented.
+	 * XXX Not implemented.
 	 * 
 	 * @param commandObject
 	 * @param f
@@ -713,14 +778,21 @@ public class QlueApplication {
 	 */
 	private void bindArrayParameter(Object commandObject, Field f, Page page,
 			TransactionContext context) {
-		// TODO
-		throw new RuntimeException("Qlue: Not implemented.");
+		throw new RuntimeException("Qlue: Not implemented");
 	}
 
+	/**
+	 * Register a new property editor.
+	 * 
+	 * @param editor
+	 */
 	private void registerPropertyEditor(PropertyEditor editor) {
 		editors.put(editor.getEditorClass(), editor);
 	}
 
+	/**
+	 * Register the built-in property editors.
+	 */
 	protected void initPropertyEditors() {
 		registerPropertyEditor(new IntegerEditor());
 		registerPropertyEditor(new StringEditor());
@@ -728,6 +800,7 @@ public class QlueApplication {
 	}
 
 	/**
+	 * Invoke the view factory to construct the view indicated by the name.
 	 * 
 	 * @param page
 	 * @param name
@@ -738,13 +811,11 @@ public class QlueApplication {
 		return viewFactory.constructView(page, name);
 	}
 
-	// -- Getters and setters --
-
 	public PageResolver getPageResolver() {
 		return pageResolver;
 	}
 
-	public void setPageResolver(PageResolver pageResolver) {
+	protected void setPageResolver(PageResolver pageResolver) {
 		this.pageResolver = pageResolver;
 	}
 
@@ -752,7 +823,7 @@ public class QlueApplication {
 		return viewResolver;
 	}
 
-	public void setViewResolver(ViewResolver viewResolver) {
+	protected void setViewResolver(ViewResolver viewResolver) {
 		this.viewResolver = viewResolver;
 	}
 
@@ -760,7 +831,7 @@ public class QlueApplication {
 		return viewFactory;
 	}
 
-	public void setViewFactory(ViewFactory viewFactory) {
+	protected void setViewFactory(ViewFactory viewFactory) {
 		this.viewFactory = viewFactory;
 	}
 
@@ -776,6 +847,11 @@ public class QlueApplication {
 		this.appPrefix = appPrefix;
 	}
 
+	/**
+	 * Retrieve this application's format tool, which is used in templates
+	 * to format output (but _not_ for output encoding). By default, that's
+	 * an instance of FormatTool, but subclasses can use something else.
+	 */
 	public Object getFormatTool() {
 		return new FormatTool();
 	}
@@ -787,7 +863,7 @@ public class QlueApplication {
 	 * 
 	 * @return new session object
 	 */
-	public QlueSession createNewSessionObject() {
+	protected QlueSession createNewSessionObject() {
 		return new QlueSession(this);
 	}
 
@@ -802,7 +878,13 @@ public class QlueApplication {
 				SESSION_OBJECT_KEY);
 	}
 
-	public void setPrefix(String prefix) {
+	/**
+	 * Set application prefix, which is used in logging 
+	 * as part of the unique transaction identifier.
+	 * 
+	 * @param prefix
+	 */
+	protected void setPrefix(String prefix) {
 		this.appPrefix = prefix;
 	}
 
@@ -817,26 +899,59 @@ public class QlueApplication {
 		return false;
 	}
 
-	public void setCharacterEncoding(String characterEncoding) {
+	/**
+	 * Configure character encoding.
+	 * 
+	 * @param characterEncoding
+	 */
+	protected void setCharacterEncoding(String characterEncoding) {
 		this.characterEncoding = characterEncoding;
 	}
 
-	public void setApplicationDevelopmentMode(Integer developmentMode) {
+	/**
+	 * Configure development mode.
+	 * 
+	 * @param developmentMode
+	 */
+	protected void setApplicationDevelopmentMode(Integer developmentMode) {
 		this.developmentMode = developmentMode;
 	}
 
+	/**
+	 * Get the development mode setting.
+	 * 
+	 * @return
+	 */
 	public int getApplicationDevelopmentMode() {
 		return developmentMode;
 	}
 
+	/**
+	 * Set development mode password.
+	 * 
+	 * @param developmentModePassword
+	 */
 	public void setDevelopmentModePassword(String developmentModePassword) {
 		this.developmentModePassword = developmentModePassword;
 	}
 
-	public void setDevelopmentModeRanges(String[] developmentModeRanges) {
+	/**
+	 * Configure the set of IP addresses that are allowed to use
+	 * development mode.
+	 * 
+	 * @param developmentModeRanges
+	 */
+	protected void setDevelopmentModeRanges(String[] developmentModeRanges) {
 		this.developmentModeRanges = developmentModeRanges;
 	}
 
+	/**
+	 * Check if the current transaction comes from an IP address
+	 * that is allowed to use development mode.
+	 * 
+	 * @param context
+	 * @return
+	 */
 	public boolean isDeveloperIP(TransactionContext context) {
 		if (developmentModeRanges == null) {
 			return false;
@@ -851,17 +966,24 @@ public class QlueApplication {
 		return false;
 	}
 
+	/**
+	 * Check if the current transaction comes from a developer.
+	 * 
+	 * @param context
+	 * @return
+	 */
 	public boolean isDeveloperAccess(TransactionContext context) {
 		// Check IP address first
 		if (isDeveloperIP(context) == false) {
 			return false;
 		}
 
-		// Check session development mode
+		// Check session development mode (explicitly enabled)
 		if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
 			return true;
 		}
 
+		// Check session development mode (explicitly disabled)
 		if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_DISABLED) {
 			return false;
 		}
@@ -874,6 +996,12 @@ public class QlueApplication {
 		return false;
 	}
 
+	/**
+	 * Check given password against the current development password.
+	 * 
+	 * @param password
+	 * @return
+	 */
 	public boolean checkDeveloperPassword(String password) {
 		if ((password == null) || (developmentModePassword == null)) {
 			return false;
@@ -886,18 +1014,42 @@ public class QlueApplication {
 		return false;
 	}
 
+	/**
+	 * Get the current development password.
+	 * 
+	 * @return
+	 */
 	public String getDeveloperPassword() {
 		return developmentModePassword;
 	}
 
+	/**
+	 * Retrieve this application's properties.
+	 * 
+	 * @return
+	 */
 	public Properties getProperties() {
 		return properties;
 	}
 
+	/**
+	 * Retrieve a single named property as text.
+	 * 
+	 * @param key
+	 * @return
+	 */
 	public String getProperty(String key) {
 		return properties.getProperty(key);
 	}
-	
+
+	/**
+	 * Retrieve a single named property as text, using
+	 * the supplied default value if the property is not set.
+	 * 
+	 * @param key
+	 * @param defaultValue
+	 * @return
+	 */
 	public String getProperty(String key, String defaultValue) {
 		String value = properties.getProperty(key);
 		if (value != null) {
@@ -907,6 +1059,12 @@ public class QlueApplication {
 		}
 	}
 
+	/**
+	 * Retrieve a single integer property.
+	 * 
+	 * @param key
+	 * @return
+	 */
 	public Integer getIntProperty(String key) {
 		String value = properties.getProperty(key);
 		if (value == null) {
@@ -915,7 +1073,15 @@ public class QlueApplication {
 
 		return Integer.parseInt(value);
 	}
-	
+
+	/**
+	 * Retrieve a single integer proparty, using the
+	 * supplied default value if the property is not set.
+	 * 
+	 * @param key
+	 * @param defaultValue
+	 * @return
+	 */
 	public Integer getIntProperty(String key, int defaultValue) {
 		String value = properties.getProperty(key);
 		if (value == null) {
@@ -925,10 +1091,21 @@ public class QlueApplication {
 		return Integer.parseInt(value);
 	}
 
-	public void setMessagesFilename(String messagesFilename) {
+	/**
+	 * Configure the path to the file that contains localised messages.
+	 * 
+	 * @param messagesFilename
+	 */
+	protected void setMessagesFilename(String messagesFilename) {
 		this.messagesFilename = messagesFilename;
 	}
 
+	/**
+	 * Retrieve this application's message source.
+	 * 
+	 * @param locale
+	 * @return
+	 */
 	public MessageSource getMessageSource(Locale locale) {
 		return new MessageSource(
 				(PropertyResourceBundle) ResourceBundle.getBundle(
@@ -938,6 +1115,8 @@ public class QlueApplication {
 	/**
 	 * Remember the current page for later use (e.g., in an error handler).
 	 * 
+	 * XXX This does not belong here; move to context.
+	 * 
 	 * @param page
 	 */
 	void setActualPage(Page page) {
@@ -945,8 +1124,10 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Retrieve the actual page that tried to handle the current transaction and
-	 * failed.
+	 * Retrieve the actual page that tried to handle
+	 * the current transaction and failed.
+	 * 
+	 * XXX This does not belong here; move to context.
 	 * 
 	 * @param currentPage
 	 * @return

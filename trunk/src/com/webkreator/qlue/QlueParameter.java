@@ -21,18 +21,46 @@ import java.lang.annotation.RetentionPolicy;
 
 @Retention(RetentionPolicy.RUNTIME)
 public @interface QlueParameter {
-	
+	/**
+	 * Is this parameter mandatory?
+	 * @return
+	 */
 	boolean mandatory() default true;
 	
+	// XXX
 	String fieldMissingMessage() default "";
 	
+	/**
+	 * Regular expression pattern to use when
+	 * validating parameter value. 
+	 * @return
+	 */
 	String pattern() default "";
 	
+	/**
+	 * Maximum value for integer parameters.
+	 * @return
+	 */
 	int maxSize() default -1;
 	
+	/**
+	 * A comma-separated list of transformation
+	 * functions to apply before validation.
+	 * @return
+	 */
 	String tfn() default "";
 	
+	/**
+	 * XXX What is this used for?
+	 * @return
+	 */
 	boolean ignoreInvalid() default false;
 	
+	/**
+	 * In order for a parameter to be updated, its
+	 * state must match that of the page in which they
+	 * are used.
+	 * @return
+	 */
 	String state() default Page.STATE_NEW;
 }
