@@ -51,7 +51,6 @@ import com.webkreator.qlue.util.IntegerEditor;
 import com.webkreator.qlue.util.PropertyEditor;
 import com.webkreator.qlue.util.StringEditor;
 import com.webkreator.qlue.util.TextUtil;
-import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.FileVelocityViewFactory;
 import com.webkreator.qlue.view.FinalRedirectView;
