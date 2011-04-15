@@ -16,6 +16,10 @@
  */
 package com.webkreator.qlue;
 
+/**
+ * Thrown when a persistent page URI is seen, but the corresponding
+ * persistent page cannot be found. 
+ */
 public class PersistentPageNotFoundException extends QlueException {
 
 	private static final long serialVersionUID = 1L;

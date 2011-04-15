@@ -16,6 +16,9 @@
  */
 package com.webkreator.qlue;
 
+/**
+ * Thrown when the framework fails to map a request to a page.
+ */
 public class PageNotFoundException extends QlueException {
 	
 	private static final long serialVersionUID = 1L;

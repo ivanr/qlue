@@ -24,6 +24,9 @@ import java.util.regex.Matcher;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+/**
+ * Uses URI prefix to translate
+ */
 public class PrefixPageResolver extends PageResolver {
 
 	private Log log = LogFactory.getLog(PageResolver.class);
