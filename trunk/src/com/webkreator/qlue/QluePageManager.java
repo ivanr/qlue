@@ -16,43 +16,49 @@
  */
 package com.webkreator.qlue;
 
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.webkreator.qlue.view.FinalRedirectView;
 
+/**
+ * Keeps track of all persistent pages.
+ */
 public class QluePageManager {
 
 	private Log log = LogFactory.getLog(QluePageManager.class);
 
 	private static final int MAX_PERSISTENT_PAGES_PER_SESSION = 64;
 
-	private String secretToken;
-
 	private int nextPersistentPageId;
 
 	private Map<Integer, PersistentPageRecord> pages = new HashMap<Integer, PersistentPageRecord>();
 
+	/**
+	 * Initialise a new page manager.
+	 */
 	QluePageManager() {
-		Random random = new Random();
+		SecureRandom random = new SecureRandom();
 
-		// Generate the secret token.
+		// Generate secret token
 		byte[] randomBytes = new byte[16];
-		random.nextBytes(randomBytes);
+		random.nextBytes(randomBytes);		
 
-		// TODO This is not good enough. Combine this random string
-		// with something generated at application startup.
-		secretToken = new String(Hex.encodeHex(randomBytes));
-
-		// Generate the first persistent ID we are going to use.
+		// Generate the first persistent ID we are going to use. 
+		// We randomise a bit to avoid being predictable.
 		nextPersistentPageId = 100000 + random.nextInt(900000);
 	}
 
+	/**
+	 * Find persistent page with given ID.
+	 *  
+	 * @param id
+	 * @return
+	 */
 	public Page findPage(Integer id) {
 		PersistentPageRecord record = pages.get(id);
 		if (record == null) {
@@ -62,6 +68,11 @@ public class QluePageManager {
 		return record.page;
 	}
 
+	/**
+	 * Store persistent page.
+	 * 
+	 * @param page
+	 */
 	public synchronized void storePage(Page page) {
 		// Generate persistence ID when we're storing
 		// the page for the first time.
@@ -98,12 +109,13 @@ public class QluePageManager {
 		}
 	}
 
+	/**
+	 * Generate unique persistent page ID.
+	 * @return
+	 */
 	public synchronized int generatePageId() {
+		// TODO Randomly increment IDs
 		return nextPersistentPageId++;
-	}
-
-	public String getSecretToken() {
-		return secretToken;
 	}
 
 	/**
@@ -118,6 +130,12 @@ public class QluePageManager {
 		record.replacementUri = view.getUri();		
 	}
 
+	/**
+	 * Look for the record of the page with the given ID.
+	 * 
+	 * @param id
+	 * @return
+	 */
 	public PersistentPageRecord findPageRecord(int id) {
 		return pages.get(id);		
 	}

@@ -172,29 +172,7 @@ public class QlueApplication {
 	 * @param context
 	 * @throws ServletException
 	 */
-	void initRequestUri(TransactionContext context)
-			throws ServletException {
-		// Retrieve URI and normalise it
-		// XXX Implement RFC normalisation; are there any guarantees
-		//     provided by servlet container?
-		String uri = WebUtil.normaliseUri(context.request.getRequestURI());
 
-		// We want our URI to include the query string
-		if (context.request.getQueryString() != null) {
-			uri = uri + "?" + context.request.getQueryString();
-		}
-
-		// We are not expecting back-references in the URI, so
-		// respond with an error if we do see one
-		if (uri.indexOf("..") != -1) {
-			throw new ServletException(
-					"Security violation: directory backreference "
-							+ "detected in request URI: " + uri);
-		}
-
-		// Store URI in context
-		context.setRequestUri(uri);
-	}
 
 	/**
 	 * This method is the main entry point for request processing.
@@ -206,7 +184,7 @@ public class QlueApplication {
 	 * @throws java.io.IOException
 	 */
 	protected void service(HttpServlet servlet, HttpServletRequest request,
-			HttpServletResponse response) throws ServletException,
+			HttpServletResponse response) throws ServletException, 
 			java.io.IOException {
 		// Remember when processing began
 		long startTime = System.currentTimeMillis();
@@ -228,16 +206,6 @@ public class QlueApplication {
 		TransactionContext context = new TransactionContext(this,
 				servlet.getServletConfig(), servlet.getServletContext(),
 				request, response);
-
-		// Assign a unique number to the transaction
-		// XXX Extract into method
-		synchronized (txIdsCounter) {
-			txIdsCounter++;
-			context.setTxId(txIdsCounter);
-		}
-
-		// Construct a normalised request URI
-		initRequestUri(context);
 
 		// Create a logging context using the unique transaction ID
 		NDC.push(appPrefix + "/" + context.getTxId());
@@ -908,6 +876,15 @@ public class QlueApplication {
 	protected void setCharacterEncoding(String characterEncoding) {
 		this.characterEncoding = characterEncoding;
 	}
+	
+	/**
+	 * Retrieves application's character encoding.
+	 * 
+	 * @return
+	 */
+	public String getCharacterEncoding() {
+		return characterEncoding;
+	}
 
 	/**
 	 * Configure development mode.
@@ -1136,5 +1113,10 @@ public class QlueApplication {
 	Page getActualPage(Page currentPage) {
 		return (Page) currentPage.context.request
 				.getAttribute(REQUEST_ACTUAL_PAGE_KEY);
+	}
+	
+	synchronized int allocatePageId() {		
+		txIdsCounter++;
+		return txIdsCounter;			
 	}
 }
