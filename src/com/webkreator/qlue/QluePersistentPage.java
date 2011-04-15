@@ -19,6 +19,10 @@ package com.webkreator.qlue;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
+/**
+ * Pages that wish to be persistent should use
+ * this annotation to let the framework know.
+ */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface QluePersistentPage {
 }

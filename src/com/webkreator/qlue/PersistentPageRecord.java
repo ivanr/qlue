@@ -16,6 +16,9 @@
  */
 package com.webkreator.qlue;
 
+/**
+ * Keeps track of a persistent page and the related metadata.
+ */
 public class PersistentPageRecord {
 	
 	long createTime;

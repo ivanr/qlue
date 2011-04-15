@@ -21,17 +21,34 @@ import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.PropertyResourceBundle;
 
+/**
+ * This class translates message codes into actual messages,
+ * which can be sent to the user.
+ */
 public class MessageSource {
 
 	protected PropertyResourceBundle resourceBundle;
 
 	protected Locale locale;
 
+	/**
+	 * Create a message source instance associated with the given
+	 * resource bundle and locale.
+	 * 
+	 * @param resourceBundle
+	 * @param locale
+	 */
 	protected MessageSource(PropertyResourceBundle resourceBundle, Locale locale) {
 		this.resourceBundle = resourceBundle;
 		this.locale = locale;
 	}
 
+	/**
+	 * Resolve a non-parametarised message code.
+	 * 
+	 * @param code
+	 * @return
+	 */
 	public String get(String code) {
 		try {
 			return resourceBundle.getString(code);
@@ -40,6 +57,13 @@ public class MessageSource {
 		}
 	}
 
+	/**
+	 * Resolve a message code using the given paramters.
+	 * 
+	 * @param code
+	 * @param params
+	 * @return
+	 */
 	public String get(String code, Object... params) {					
 		StringBuffer sb = new StringBuffer();
 		Formatter formatter = new Formatter(sb, locale);

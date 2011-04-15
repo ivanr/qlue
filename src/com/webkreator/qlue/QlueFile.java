@@ -18,6 +18,9 @@ package com.webkreator.qlue;
 
 import java.io.File;
 
+/**
+ * Represents one file uploaded via multipart/form-data encoding.
+ */
 public class QlueFile extends File {
 	
 	public static final long serialVersionUID = 1L;

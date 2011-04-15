@@ -21,7 +21,7 @@ import java.util.List;
 
 /**
  * An instance of this class holds all errors that were
- * raised during the execution og one page.
+ * raised during the execution of one page.
  */
 public class Errors {
 

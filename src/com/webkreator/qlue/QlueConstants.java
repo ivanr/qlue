@@ -16,6 +16,9 @@
  */
 package com.webkreator.qlue;
 
+/**
+ * A simple class that holds the constants used throughout the framework.
+ */
 public class QlueConstants {
 	
 	public static final String QLUE_CHARACTER_ENCODING = "QLUE_CHARACTER_ENCODING";

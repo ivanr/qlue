@@ -16,6 +16,10 @@
  */
 package com.webkreator.qlue;
 
+/**
+ * Thrown when request processing is interrupted because the
+ * current user is not authorised. 
+ */
 public class AccessForbiddenException extends QlueException {
 
 	private static final long serialVersionUID = 1L;
