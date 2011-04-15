@@ -19,6 +19,10 @@ package com.webkreator.qlue;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
+/**
+ * Used to indicate which page fields are parameters, and should
+ * be populated by the framework using the provided metadata.
+ */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface QlueParameter {
 	/**

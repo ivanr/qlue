@@ -230,6 +230,7 @@ public class QlueApplication {
 				request, response);
 
 		// Assign a unique number to the transaction
+		// XXX Extract into method
 		synchronized (txIdsCounter) {
 			txIdsCounter++;
 			context.setTxId(txIdsCounter);

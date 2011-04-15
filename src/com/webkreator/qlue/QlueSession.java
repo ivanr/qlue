@@ -23,35 +23,43 @@ import java.util.Random;
 
 import org.apache.commons.codec.binary.Hex;
 
+/**
+ * Represents a user session. This class implements the basics
+ * needed by the framework, but applications will typically inherit
+ * it to add additional functionality.
+ */
 public class QlueSession {
-	
+
 	private QlueApplication qlueApp;
-	
+
 	private Locale locale = Locale.ENGLISH;
-	
+
 	private MessageSource messageSource;
 
 	private String nonce;
 
 	private Integer developmentMode = null;
 
+	/**
+	 * Initialise a new user session.
+	 */
 	public QlueSession(QlueApplication qlueApp) {
 		this.qlueApp = qlueApp;
-		
+
+		// Generate session nonce
 		generateNonce();
 	}
 
 	/**
 	 * Get the nonce for this session.
-	 * 
-	 * @return
 	 */
 	public String getNonce() {
 		return nonce;
 	}
 
 	/**
-	 * Generate a new nonce for this session.
+	 * Generate a new nonce for this session. Nonces are used as part of the
+	 * CSRF defence.
 	 */
 	private void generateNonce() {
 		Random random = new SecureRandom();
@@ -62,11 +70,29 @@ public class QlueSession {
 		nonce = new String(Hex.encodeHex(randomBytes));
 	}
 
+	/**
+	 * Retrieve session development mode.
+	 * 
+	 * @return
+	 */
 	public Integer getDevelopmentMode() {
 		return developmentMode;
 	}
 
+	/**
+	 * Set session development mode.
+	 * 
+	 * @param developmentMode
+	 */
 	public void setDevelopmentMode(Integer developmentMode) {
+		if ((developmentMode != QlueConstants.DEVMODE_DISABLED)
+				&& (developmentMode != QlueConstants.DEVMODE_ENABLED)
+				&& (developmentMode != QlueConstants.DEVMODE_ONDEMAND)) {
+			throw new RuntimeException(
+					"Qlue: Invalid development mode setting: "
+							+ developmentMode);
+		}
+
 		this.developmentMode = developmentMode;
 	}
 
@@ -75,11 +101,17 @@ public class QlueSession {
 		out.println(" Development mode: " + developmentMode);
 	}
 
+	/**
+	 * Retrieve this session's message source. Using per-session message sources
+	 * allows us to offer differnt languages and locales to each user.
+	 * 
+	 * @return
+	 */
 	public MessageSource getMessageSource() {
 		if (messageSource == null) {
 			messageSource = qlueApp.getMessageSource(locale);
 		}
-		
+
 		return messageSource;
 	}
 }

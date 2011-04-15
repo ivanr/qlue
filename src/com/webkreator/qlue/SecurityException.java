@@ -16,11 +16,14 @@
  */
 package com.webkreator.qlue;
 
+/**
+ * Thrown when we detect an attack against the application.
+ */
 public class SecurityException extends QlueException {
 	
 	private static final long serialVersionUID = 1L;
 	
-	public SecurityException(String m) {
-		super(m);
+	public SecurityException(String message) {
+		super(message);
 	}
 }

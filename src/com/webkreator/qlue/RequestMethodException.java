@@ -16,7 +16,11 @@
  */
 package com.webkreator.qlue;
 
+/**
+ * Thrown on a request that uses a method that the page does not support.
+ */
 public class RequestMethodException extends QlueException {
+	
 	private static final long serialVersionUID = 1L;
 
 	public RequestMethodException() {
