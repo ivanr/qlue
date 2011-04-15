@@ -24,6 +24,11 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+/**
+ * This class serves as a glue between Qlue applications and the Servlet
+ * specification. It's an abstract class; a subclass should be used to
+ * create the desired instance of the Qlue application. 
+ */
 public abstract class QlueServlet extends HttpServlet {
 
 	private static final long serialVersionUID = 1L;
@@ -38,6 +43,9 @@ public abstract class QlueServlet extends HttpServlet {
 
 	private String[] developmentModeRanges = null;
 
+	/**
+	 * Retrieve servlet parameters from web.xml and initialise application.
+	 */
 	@Override
 	public final void init() throws ServletException {
 		String s = null;
@@ -94,6 +102,12 @@ public abstract class QlueServlet extends HttpServlet {
 		qlueApplication.setDevelopmentModeRanges(developmentModeRanges);
 	}
 
+	/**
+	 * Configures development mode based on the parameter setting.
+	 * 
+	 * @param s
+	 * @return
+	 */
 	private boolean setDevelopmentModeFromString(String s) {
 		if (s.compareToIgnoreCase("on") == 0) {
 			developmentMode = QlueConstants.DEVMODE_ENABLED;
@@ -109,18 +123,39 @@ public abstract class QlueServlet extends HttpServlet {
 		return false;
 	}
 
+	/**
+	 * This empty method exists to allow subclasses to perform
+	 * their own initialisation, following the main initialisation
+	 * carried out in this class.
+	 * 
+	 * @throws ServletException
+	 */
 	protected void subclassInit() throws ServletException {
 		// A subclass may want to do something useful here
 	}
 
+	/**
+	 * Associate Qlue application with this servlet.
+	 * 
+	 * @param app
+	 */
 	protected void setApplication(QlueApplication app) {
 		this.qlueApplication = app;
 	}
 
+	/**
+	 * Retrieve the application associated with this servlet.
+	 * 
+	 * @return
+	 */
 	protected QlueApplication getApplication() {
 		return qlueApplication;
 	}
 
+	/**
+	 * This method is invoked by the servlet container, and all we do
+	 * is pass on the parameters to the associated Qlue application.
+	 */
 	protected void service(HttpServletRequest request,
 			HttpServletResponse response) throws ServletException, IOException {
 		// Forward request to the application.

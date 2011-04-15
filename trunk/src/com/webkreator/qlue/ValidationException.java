@@ -16,6 +16,9 @@
  */
 package com.webkreator.qlue;
 
+/**
+ * Thrown when we fail to validate a parameter.
+ */
 public class ValidationException extends QlueException {
 
 	private static final long serialVersionUID = 1L;
