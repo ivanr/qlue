@@ -30,6 +30,10 @@ import com.webkreator.qlue.util.UriBuilder;
 import com.webkreator.qlue.view.View;
 import com.webkreator.qlue.view.ViewResolver;
 
+/**
+ * Represents a single unit of work application will perform.
+ *
+ */
 public abstract class Page {
 
 	public static final String STATE_NEW = "NEW";
@@ -66,11 +70,17 @@ public abstract class Page {
 
 	protected ShadowInput shadowInput = new ShadowInput();
 
+	/**
+	 * Has this page finished its work? 
+	 * 
+	 * @return
+	 */
 	public boolean isFinished() {
 		return (getState().compareTo(STATE_FINISHED) == 0);
 	}
 
 	/**
+	 * Retrieve unique page ID.
 	 * 
 	 * @return
 	 */
@@ -79,32 +89,40 @@ public abstract class Page {
 	}
 
 	/**
-	 * 
+	 * Set page ID. Pages are allocated IDs only prior to
+	 * being persisted. Transient pages do not need IDs.
+	 *  
 	 * @param id
 	 */
-	public void setId(Integer id) {
+	void setId(Integer id) {
 		this.id = id;
 	}
 
 	/**
-	 * Update this page's state. In this simple implementation, we change from
+	 * Update this page's state. In this default implementation, we change from
 	 * STATE_NEW to STATE_SUBMIT on first POST and we never move away from
 	 * STATE_SUBMIT. An advanced implementation could have several submit states
 	 * and offer means to cycle among them.
 	 * 
 	 * @return
 	 */
-	public void updateState() {
+	void updateState() {
 		if (context.isPost()) {
 			setState(STATE_SUBMIT);
 		}
 	}
 
+	/**
+	 * Retrieve shadow input associated with page.
+	 * 
+	 * @return
+	 */
 	public ShadowInput getShadowInput() {
 		return shadowInput;
 	}
 
 	/**
+	 * Retrieve page state.
 	 * 
 	 * @return
 	 */
@@ -113,22 +131,38 @@ public abstract class Page {
 	}
 
 	/**
-	 * 
+	 * Change page state to given value.
+	 *  
 	 * @param state
 	 */
-	public void setState(String state) {
+	void setState(String state) {
 		this.state = state;
 	}
 
+	/**
+	 * Retrieve the log object used by this page.
+	 * 
+	 * @return
+	 */
 	protected Log getLog() {
 		return log;
 	}
 
+	/**
+	 * Retrieve the application to which this page belongs.
+	 * 
+	 * @return
+	 */
 	public QlueApplication getQlueApp() {
 		return qlueApp;
 	}
 
-	public void setQlueApp(QlueApplication qlueApp) {
+	/**
+	 * Associate Qlue application with this page.
+	 * 
+	 * @param qlueApp
+	 */
+	void setQlueApp(QlueApplication qlueApp) {
 		this.qlueApp = qlueApp;
 	}
 
@@ -146,12 +180,18 @@ public abstract class Page {
 		return commandObject;
 	}
 
-	public void determineCommandObject() {
+	/**
+	 * This method will determine what the command object is supposed to be. The
+	 * page itself is the default command object, but subclass can override this
+	 * behaviour.
+	 */
+	void determineCommandObject() {
 		commandObject = this;
 	}
 
 	/**
-	 * Process one HTTP request.
+	 * Process one HTTP request. By default, pages accept only GET 
+	 * (and HEAD, treated as GET) and POST.
 	 * 
 	 * @param context
 	 * @return
@@ -169,7 +209,8 @@ public abstract class Page {
 	}
 
 	/**
-	 * Show something (process a GET request).
+	 * Process a GET request. The default implementation does not actually
+	 * do anything -- it just throws an exception.
 	 * 
 	 * @param context
 	 * @return
@@ -180,10 +221,8 @@ public abstract class Page {
 	}
 
 	/**
-	 * Do something (process a POST request). The default implement
-	 * implementation will simply redirect to the same URI (effectively
-	 * converting a POST to a GET). Any POST data will be lost in conversion,
-	 * though.
+	 * Process a POST request. The default implementation does not actually
+	 * do anything -- it just throws an exception.
 	 * 
 	 * @param context
 	 * @return
@@ -192,26 +231,46 @@ public abstract class Page {
 	public View onPost() throws Exception {
 		throw new RequestMethodException();
 	}
-
-	// -- Getters and setters --
-
+	
+	/**
+	 * Retrieve the model associated with a page.
+	 * 
+	 * @return
+	 */
 	public Map<String, Object> getModel() {
 		return model;
 	}
 	
-	public void addToModel(String key, Object value) {
+	/**
+	 * Add key-value pair to the model.
+	 * 
+	 * @param key
+	 * @param value
+	 */
+	void addToModel(String key, Object value) {
 		model.put(key, value);
 	}
 	
+	/**
+	 * Retrieve value from the model, using the given key.
+	 * 
+	 * @param key
+	 * @return
+	 */
 	public Object getFromModel(String key) {
 		return model.get(key);
 	}
 
+	/**
+	 * Retrieve the view associated with page.
+	 * 
+	 * @return
+	 */
 	public String getView() {
 		return view;
 	}
 
-	public void setView(String view) {
+	void setView(String view) {
 		this.view = view;
 	}
 
