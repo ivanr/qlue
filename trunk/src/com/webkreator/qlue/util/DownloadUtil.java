@@ -23,11 +23,25 @@ import java.io.OutputStream;
 
 import javax.servlet.http.HttpServletResponse;
 
+/**
+ * This utility class can send a file from the filesystem, either
+ * inline or as an attachment. 
+ */
 public class DownloadUtil {
 
+	/**
+	 * Send file inline.
+	 * 
+	 * @param response
+	 * @param f
+	 * @throws Exception
+	 */
 	public static void sendInlineFile(HttpServletResponse response, File f)
 			throws Exception {
 		// Set MIME type
+		// TODO It would be nice to have support for many
+		//      MIME types here. Also, extract this functionality
+		//      as a separate method.
 		if (f.getName().endsWith(".png")) {
 			response.setContentType("image/png");
 		} else if (f.getName().endsWith(".pdf")) {
@@ -51,6 +65,15 @@ public class DownloadUtil {
 		os.close();
 	}
 
+	/**
+	 * Send file as attachment.
+	 * 
+	 * @param response
+	 * @param f
+	 * @param name
+	 * @param isAttachment
+	 * @throws Exception
+	 */
 	public static void sendAttachment(HttpServletResponse response, File f,
 			String name, boolean isAttachment) throws Exception {
 		// Set MIME type

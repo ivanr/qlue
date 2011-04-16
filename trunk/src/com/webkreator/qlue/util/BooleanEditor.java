@@ -19,6 +19,9 @@ package com.webkreator.qlue.util;
 import java.lang.reflect.Field;
 import java.security.InvalidParameterException;
 
+/**
+ * Handle conversion to and from Boolean values.
+ */
 public class BooleanEditor implements PropertyEditor {
 
 	@Override
@@ -39,7 +42,7 @@ public class BooleanEditor implements PropertyEditor {
 			return Boolean.TRUE;
 		}
 
-		throw new InvalidParameterException("Invalid boolean value: " + text);
+		throw new InvalidParameterException("BooleanEditor: Invalid boolean value: " + text);
 	}
 
 	@SuppressWarnings("rawtypes")

@@ -18,8 +18,16 @@ package com.webkreator.qlue.util;
 
 import org.apache.log4j.Logger;
 
+/**
+ * This class contains one helper method to assist with logging. 
+ */
 public class LoggerHelper {
 
+	/**
+	 * Returns the calling class's logger.
+	 * 
+	 * @return
+	 */
 	public static Logger getLogger() {
 		final Throwable t = new Throwable();
 		t.fillInStackTrace();

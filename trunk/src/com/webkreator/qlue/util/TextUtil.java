@@ -16,14 +16,30 @@
  */
 package com.webkreator.qlue.util;
 
+/**
+ * This class contains a number of static methods
+ * that can be useful when dealing with text.
+ */
 public class TextUtil {
 	
+	/**
+	 * Is String empty (null, or 0-size).
+	 * 
+	 * @param input
+	 * @return
+	 */
 	public static boolean isEmpty(String input) {
 		if (input == null) return true;
 		if (input.length() == 0) return true;
 		return false;
 	}
 	
+	/**
+	 * Is String empty (null, zero-size, or contains only whitespace).
+	 * 
+	 * @param input
+	 * @return
+	 */
 	public static boolean isEmptyOrWhitespace(String input) {
 		if (input == null) return true;
 		if (input.length() == 0) return true;

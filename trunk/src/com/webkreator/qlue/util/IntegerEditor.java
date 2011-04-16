@@ -19,7 +19,7 @@ package com.webkreator.qlue.util;
 import java.lang.reflect.Field;
 
 /**
- * Simple Integer editor.
+ * Handle conversion to and from Integer fields.
  */
 public class IntegerEditor implements PropertyEditor {
 

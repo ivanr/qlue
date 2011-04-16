@@ -38,11 +38,11 @@ public class VelocityLog4jLogChute implements LogChute {
 
 	@Override
 	public void init(RuntimeServices rs) throws Exception {
-		// Determine if log4j supports TRACE.
+		// Determine if log4j supports TRACE
 		try {
 			@SuppressWarnings("unused")
 			Field traceLevel = Level.class.getField("TRACE");
-			// We'll never get here in pre 1.2.12 log4j.
+			// We'll never get here in pre 1.2.12 log4j
 			hasTrace = true;
 		} catch (NoSuchFieldException e) {
 			log(DEBUG_ID,
@@ -75,7 +75,7 @@ public class VelocityLog4jLogChute implements LogChute {
 		case LogChute.WARN_ID:
 			return logger.isEnabledFor(Level.WARN);
 		case LogChute.ERROR_ID:
-			// Can't be disabled in log4j.
+			// Can't be disabled in log4j
 			return logger.isEnabledFor(Level.ERROR);
 		default:
 			return true;
