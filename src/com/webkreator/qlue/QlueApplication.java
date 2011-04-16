@@ -576,7 +576,7 @@ public class QlueApplication {
 	}
 
 	/**
-	 * XXX Not implemented.
+	 * Bind an array parameter.
 	 * 
 	 * @param commandObject
 	 * @param f
@@ -765,6 +765,13 @@ public class QlueApplication {
 		}
 	}
 
+	/**
+	 * Retrieve field message that we need to emit when
+	 * a mandatory parameter is missing.
+	 * 
+	 * @param qp
+	 * @return
+	 */
 	private String getFieldMissingMessage(QlueParameter qp) {
 		return (qp.fieldMissingMessage().length() > 0) ? qp
 				.fieldMissingMessage() : "qlue.validation.mandatory";
@@ -832,39 +839,84 @@ public class QlueApplication {
 		return viewFactory.constructView(page, name);
 	}
 
+	/**
+	 * Retrieve page resolver.
+	 * 
+	 * @return
+	 */
 	public PageResolver getPageResolver() {
 		return pageResolver;
 	}
 
+	/**
+	 * Set page resolver.
+	 * 
+	 * @param pageResolver
+	 */
 	protected void setPageResolver(PageResolver pageResolver) {
 		this.pageResolver = pageResolver;
 	}
 
+	/**
+	 * Retrieve view resolver.
+	 * 
+	 * @return
+	 */
 	public ViewResolver getViewResolver() {
 		return viewResolver;
 	}
 
+	/**
+	 * Set view resolver.
+	 * 
+	 * @param viewResolver
+	 */
 	protected void setViewResolver(ViewResolver viewResolver) {
 		this.viewResolver = viewResolver;
 	}
 
+	/**
+	 * Retrieve view factory.
+	 * 
+	 * @return
+	 */
 	public ViewFactory getViewFactory() {
 		return viewFactory;
 	}
 
+	/**
+	 * Set view factory.
+	 * 
+	 * @param viewFactory
+	 */
 	protected void setViewFactory(ViewFactory viewFactory) {
 		this.viewFactory = viewFactory;
 	}
 
+	/**
+	 * Get application root directory.
+	 * 
+	 * @return
+	 */
 	public String getApplicationRoot() {
 		return servlet.getServletContext().getRealPath("/");
 	}
 
+	/**
+	 * Get application prefix.
+	 * 
+	 * @return
+	 */
 	public String getAppPrefix() {
 		return appPrefix;
 	}
 
-	public void setAppPrefix(String appPrefix) {
+	/**
+	 * Set application prefix.
+	 * 
+	 * @param appPrefix
+	 */
+	protected void setAppPrefix(String appPrefix) {
 		this.appPrefix = appPrefix;
 	}
 
@@ -1167,6 +1219,11 @@ public class QlueApplication {
 				.getAttribute(REQUEST_ACTUAL_PAGE_KEY);
 	}
 
+	/**
+	 * Allocates a new page ID.
+	 * 
+	 * @return
+	 */
 	synchronized int allocatePageId() {
 		txIdsCounter++;
 		return txIdsCounter;
