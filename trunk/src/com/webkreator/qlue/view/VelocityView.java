@@ -29,6 +29,12 @@ public class VelocityView implements View {
 
 	private Template template;
 
+	/**
+	 * Create new view using given view factory and template.
+	 * 
+	 * @param viewFactory
+	 * @param template
+	 */
 	VelocityView(VelocityViewFactory viewFactory, Template template) {
 		this.viewFactory = viewFactory;
 		this.template = template;
@@ -43,6 +49,9 @@ public class VelocityView implements View {
 		return template;
 	}
 
+	/**
+	 * Render output for the given page.
+	 */
 	@Override
 	public void render(Page page) throws Exception {
 		viewFactory.render(page, this);

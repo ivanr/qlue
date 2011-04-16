@@ -25,8 +25,8 @@ import com.webkreator.qlue.Page;
 public class DefaultView implements View {
 
 	@Override
-	public void render(Page page) throws Exception {
+	public void render(Page page) {
 		// Do nothing. This method is never invoked.
-		throw new Exception("This method shouldn't have been invoked.");
+		throw new RuntimeException("Qlue: This method shouldn't have been invoked.");
 	}
 }

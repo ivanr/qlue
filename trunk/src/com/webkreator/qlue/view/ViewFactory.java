@@ -19,9 +19,33 @@ package com.webkreator.qlue.view;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 
+/**
+ * View factories are used to create a layer of abstraction between
+ * the controller and view parts. Views are referred to by name, and
+ * its the job of the factory to locate the actual view that will
+ * construct output.  
+ */
 public interface ViewFactory {
 
+	/**
+	 * Initialise factory.
+	 * 
+	 * @param qlueApp
+	 * @throws Exception
+	 */
 	public void init(QlueApplication qlueApp) throws Exception;
 
+	/**
+	 * Find or construct the view, given page and view name. View names
+	 * that begin with / are considered to be absolute (within application
+	 * URI space, not filesystem). Views that are not absolute are relative,
+	 * and their full path will be resolved by looking at the path of the
+	 * page. 
+	 * 
+	 * @param page
+	 * @param viewName
+	 * @return
+	 * @throws Exception
+	 */
 	public View constructView(Page page, String viewName) throws Exception;
 }
