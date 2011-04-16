@@ -26,15 +26,31 @@ public class Error {
 
 	public String message;
 
+	/**
+	 * Create new error, given field name and message.
+	 * 
+	 * @param field
+	 * @param message
+	 */
 	public Error(String field, String message) {
 		this.field = field;
 		this.message = message;
 	}
 	
+	/**
+	 * Retrieve field name.
+	 * 
+	 * @return
+	 */
 	public String getField() {
 		return field;
 	}
 	
+	/**
+	 * Retrieve message.
+	 * 
+	 * @return
+	 */
 	public String getMessage() {
 		return message;
 	}

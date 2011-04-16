@@ -270,30 +270,55 @@ public abstract class Page {
 		return view;
 	}
 
-	void setView(String view) {
-		this.view = view;
-	}
-
+	/**
+	 * Retrieve the response content type associated with this page.
+	 * 
+	 * @return
+	 */
 	public String getContentType() {
 		return contentType;
 	}
 
+	/**
+	 * Set response content type.
+	 *  
+	 * @param contentType
+	 */
 	public void setContentType(String contentType) {
 		this.contentType = contentType;
 	}
 
+	/**
+	 * Retrieve page transaction context.
+	 * 
+	 * @return
+	 */
 	public TransactionContext getContext() {
 		return context;
 	}
 
-	public void setContext(TransactionContext context) {
+	/**
+	 * Set page transaction context.
+	 * 
+	 * @param context
+	 */
+	void setContext(TransactionContext context) {
 		this.context = context;
 	}
 
-	public String getUri() {
+	/**
+	 * Retrieve the URI that is associated with this page. If the
+	 * page was assigned a unique ID (meaning the page is persistent), the
+	 * URI will include the ID and thus map back to the page. 
+	 * 
+	 * @return
+	 */
+	public String getUri() {		
 		if (id == null) {
+			// Non-persistent pages can return the original URI
 			return uri;
 		} else {
+			// Persistent pages include page's unique ID
 			UriBuilder r = new UriBuilder(uri);
 			r.clearParams();
 			r.addParam("_pid", id);
@@ -302,21 +327,40 @@ public abstract class Page {
 		}
 	}
 
-	public void setUri(String uri) {
+	/**
+	 * Set page's URI.
+	 * 
+	 * @param uri
+	 */
+	void setUri(String uri) {
 		this.uri = uri;
 	}
 
+	/**
+	 * Return page's format tool. By default, we respond with application's
+	 * format tool, but pages (subclasses) can create their own.
+	 * 
+	 * @return
+	 */
 	public Object getFormatTool() {
 		return getQlueApp().getFormatTool();
 	}
 
-	public void constructDefaultView(ViewResolver resolver) {
+	/**
+	 * Construct page's default view, which is constructed from the URI.
+	 * 
+	 * @param resolver
+	 */
+	void constructDefaultView(ViewResolver resolver) {
 		view = resolver.resolveView(getNoParamUri());
 	}
 
 	/**
 	 * This method is invoked right before the main service method. It allows
-	 * the page to prepare for request processing.
+	 * the page to prepare for request processing. The default implementation will,
+	 * on POST request, check that there is a nonce value supplied in the request,
+	 * and that the value matches the value stored in the session. It will also
+	 * expose the nonce to the model.
 	 */
 	public View preService() throws Exception {
 		// Retrieve session nonce
@@ -343,11 +387,17 @@ public abstract class Page {
 		return null;
 	}
 
+	/**
+	 * Does this page has any parameter validation errors?
+	 * 
+	 * @return
+	 */
 	protected boolean hasErrors() {
 		return errors.hasErrors();
 	}
 
 	/**
+	 * Retrieve validation errors.
 	 * 
 	 * @return
 	 */
@@ -360,7 +410,7 @@ public abstract class Page {
 	 * 
 	 * @param message
 	 */
-	public void addError(String message) {
+	void addError(String message) {
 		errors.addError(message);
 	}
 
@@ -374,6 +424,11 @@ public abstract class Page {
 		errors.addError(fieldName, message);
 	}
 
+	/**
+	 * Retrieve session associated with this page.
+	 *  
+	 * @return
+	 */
 	protected QlueSession getQlueSession() {
 		return qlueApp.getQlueSession(context.getRequest());
 	}
@@ -395,7 +450,12 @@ public abstract class Page {
 		}
 	}
 
-	protected void writeDevelopmentInformation(PrintWriter out) {
+	/**
+	 * Outputs page-specific debugging information.
+	 * 
+	 * @param out
+	 */
+	void writeDevelopmentInformation(PrintWriter out) {
 		out.println(" Id: " + getId());
 		out.println(" Class: " + this.getClass());
 		out.println(" State: " + HtmlEncoder.encodeForHTML(getState()));
@@ -431,18 +491,42 @@ public abstract class Page {
 		}
 	}
 
+	/**
+	 * Executes page rollback. The default implementation cleans up resources. 
+	 */
 	public void rollback() {
-		deleteFiles();
+		cleanup();
 	}
 
+	/**
+	 * Executes page commit. The default implementation cleans up resources.
+	 */
 	public void commit() {
+		cleanup();
+	}
+	
+	/**
+	 * In the default implementation, we delete any files that were created
+	 * during the processing of a multipart/form-data request.
+	 */
+	void cleanup() {
 		deleteFiles();
 	}
 
+	/**
+	 * TODO
+	 * 
+	 * @throws Exception
+	 */
 	public void loadData() throws Exception {
+		// This method exists to be overrided in subclasses
 	}
 
-	public void deleteFiles() {
+	/**
+	 * Delete files created by processing multipart/form-data. 
+	 */
+	void deleteFiles() {
+		// Retrieve the command object
 		Object commandObject = getCommandObject();
 		if (commandObject == null) {
 			return;
@@ -454,9 +538,11 @@ public abstract class Page {
 			if (f.isAnnotationPresent(QlueParameter.class)) {
 				if (QlueFile.class.isAssignableFrom(f.getType())) {
 					try {
+						// Delete temporaty file
 						QlueFile qf = (QlueFile) f.get(commandObject);
 						qf.delete();
 					} catch (Exception e) {
+						// XXX
 						e.printStackTrace(System.err);
 					}
 				}
@@ -464,6 +550,11 @@ public abstract class Page {
 		}
 	}
 
+	/**
+	 * Is page persistent?
+	 * 
+	 * @return
+	 */
 	public boolean isPersistent() {
 		return getClass().isAnnotationPresent(QluePersistentPage.class);
 	}
