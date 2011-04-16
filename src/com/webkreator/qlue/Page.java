@@ -514,7 +514,9 @@ public abstract class Page {
 	}
 
 	/**
-	 * XXX
+	 * Invoked after data validation and binding, but before request
+	 * processing, giving the page a chance to retrieve any additional
+	 * data it may need (e.g., from a database).
 	 * 
 	 * @throws Exception
 	 */
