@@ -32,7 +32,7 @@ import com.webkreator.qlue.view.ViewResolver;
 
 /**
  * Represents a single unit of work application will perform.
- *
+ * 
  */
 public abstract class Page {
 
@@ -60,7 +60,7 @@ public abstract class Page {
 
 	protected Map<String, Object> model = new HashMap<String, Object>();
 
-	protected String view;
+	protected String viewName;
 
 	protected String contentType = "text/html; charset=UTF-8";
 
@@ -71,7 +71,7 @@ public abstract class Page {
 	protected ShadowInput shadowInput = new ShadowInput();
 
 	/**
-	 * Has this page finished its work? 
+	 * Has this page finished its work?
 	 * 
 	 * @return
 	 */
@@ -89,9 +89,9 @@ public abstract class Page {
 	}
 
 	/**
-	 * Set page ID. Pages are allocated IDs only prior to
-	 * being persisted. Transient pages do not need IDs.
-	 *  
+	 * Set page ID. Pages are allocated IDs only prior to being persisted.
+	 * Transient pages do not need IDs.
+	 * 
 	 * @param id
 	 */
 	void setId(Integer id) {
@@ -132,7 +132,7 @@ public abstract class Page {
 
 	/**
 	 * Change page state to given value.
-	 *  
+	 * 
 	 * @param state
 	 */
 	void setState(String state) {
@@ -190,8 +190,8 @@ public abstract class Page {
 	}
 
 	/**
-	 * Process one HTTP request. By default, pages accept only GET 
-	 * (and HEAD, treated as GET) and POST.
+	 * Process one HTTP request. By default, pages accept only GET (and HEAD,
+	 * treated as GET) and POST.
 	 * 
 	 * @param context
 	 * @return
@@ -209,8 +209,8 @@ public abstract class Page {
 	}
 
 	/**
-	 * Process a GET request. The default implementation does not actually
-	 * do anything -- it just throws an exception.
+	 * Process a GET request. The default implementation does not actually do
+	 * anything -- it just throws an exception.
 	 * 
 	 * @param context
 	 * @return
@@ -221,8 +221,8 @@ public abstract class Page {
 	}
 
 	/**
-	 * Process a POST request. The default implementation does not actually
-	 * do anything -- it just throws an exception.
+	 * Process a POST request. The default implementation does not actually do
+	 * anything -- it just throws an exception.
 	 * 
 	 * @param context
 	 * @return
@@ -231,7 +231,7 @@ public abstract class Page {
 	public View onPost() throws Exception {
 		throw new RequestMethodException();
 	}
-	
+
 	/**
 	 * Retrieve the model associated with a page.
 	 * 
@@ -240,7 +240,7 @@ public abstract class Page {
 	public Map<String, Object> getModel() {
 		return model;
 	}
-	
+
 	/**
 	 * Add key-value pair to the model.
 	 * 
@@ -250,7 +250,7 @@ public abstract class Page {
 	void addToModel(String key, Object value) {
 		model.put(key, value);
 	}
-	
+
 	/**
 	 * Retrieve value from the model, using the given key.
 	 * 
@@ -262,12 +262,12 @@ public abstract class Page {
 	}
 
 	/**
-	 * Retrieve the view associated with page.
+	 * Retrieve the default view name associated with page.
 	 * 
 	 * @return
 	 */
-	public String getView() {
-		return view;
+	public String getViewName() {
+		return viewName;
 	}
 
 	/**
@@ -281,7 +281,7 @@ public abstract class Page {
 
 	/**
 	 * Set response content type.
-	 *  
+	 * 
 	 * @param contentType
 	 */
 	public void setContentType(String contentType) {
@@ -307,13 +307,13 @@ public abstract class Page {
 	}
 
 	/**
-	 * Retrieve the URI that is associated with this page. If the
-	 * page was assigned a unique ID (meaning the page is persistent), the
-	 * URI will include the ID and thus map back to the page. 
+	 * Retrieve the URI that is associated with this page. If the page was
+	 * assigned a unique ID (meaning the page is persistent), the URI will
+	 * include the ID and thus map back to the page.
 	 * 
 	 * @return
 	 */
-	public String getUri() {		
+	public String getUri() {
 		if (id == null) {
 			// Non-persistent pages can return the original URI
 			return uri;
@@ -347,20 +347,20 @@ public abstract class Page {
 	}
 
 	/**
-	 * Construct page's default view, which is constructed from the URI.
+	 * Determine the default view name for this page.
 	 * 
 	 * @param resolver
 	 */
-	void constructDefaultView(ViewResolver resolver) {
-		view = resolver.resolveView(getNoParamUri());
+	void determineDefaultViewName(ViewResolver resolver) {
+		viewName = resolver.resolveView(getNoParamUri());
 	}
 
 	/**
 	 * This method is invoked right before the main service method. It allows
-	 * the page to prepare for request processing. The default implementation will,
-	 * on POST request, check that there is a nonce value supplied in the request,
-	 * and that the value matches the value stored in the session. It will also
-	 * expose the nonce to the model.
+	 * the page to prepare for request processing. The default implementation
+	 * will, on POST request, check that there is a nonce value supplied in the
+	 * request, and that the value matches the value stored in the session. It
+	 * will also expose the nonce to the model.
 	 */
 	public View preService() throws Exception {
 		// Retrieve session nonce
@@ -426,7 +426,7 @@ public abstract class Page {
 
 	/**
 	 * Retrieve session associated with this page.
-	 *  
+	 * 
 	 * @return
 	 */
 	protected QlueSession getQlueSession() {
@@ -492,7 +492,7 @@ public abstract class Page {
 	}
 
 	/**
-	 * Executes page rollback. The default implementation cleans up resources. 
+	 * Executes page rollback. The default implementation cleans up resources.
 	 */
 	public void rollback() {
 		cleanup();
@@ -504,7 +504,7 @@ public abstract class Page {
 	public void commit() {
 		cleanup();
 	}
-	
+
 	/**
 	 * In the default implementation, we delete any files that were created
 	 * during the processing of a multipart/form-data request.
@@ -514,7 +514,7 @@ public abstract class Page {
 	}
 
 	/**
-	 * TODO
+	 * XXX
 	 * 
 	 * @throws Exception
 	 */
@@ -523,7 +523,7 @@ public abstract class Page {
 	}
 
 	/**
-	 * Delete files created by processing multipart/form-data. 
+	 * Delete files created by processing multipart/form-data.
 	 */
 	void deleteFiles() {
 		// Retrieve the command object
@@ -537,13 +537,13 @@ public abstract class Page {
 		for (Field f : fields) {
 			if (f.isAnnotationPresent(QlueParameter.class)) {
 				if (QlueFile.class.isAssignableFrom(f.getType())) {
+					// Delete temporary file
+					QlueFile qf = null;
 					try {
-						// Delete temporaty file
-						QlueFile qf = (QlueFile) f.get(commandObject);
+						qf = (QlueFile) f.get(commandObject);
 						qf.delete();
 					} catch (Exception e) {
-						// XXX
-						e.printStackTrace(System.err);
+						log.error("Qlue: Failed deleting file " + qf, e);
 					}
 				}
 			}

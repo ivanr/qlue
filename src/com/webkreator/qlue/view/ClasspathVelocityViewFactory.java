@@ -55,7 +55,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 	}
 
 	/**
-	 * XXX
+	 * Create a view instance, given page and view name.
 	 */
 	@Override
 	public View constructView(Page page, String viewName) throws Exception {

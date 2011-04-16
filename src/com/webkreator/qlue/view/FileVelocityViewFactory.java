@@ -66,7 +66,7 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 			templateName = viewName + suffix;
 		} else {
 			// Relative view names are added to their page's path
-			// XXX Add page method for this (both default view and parent folder path)
+			// TODO Add page method for this (both default view and parent folder path)
 			String defaultView = page.getQlueApp().getViewResolver()
 					.resolveView(page.getNoParamUri());
 

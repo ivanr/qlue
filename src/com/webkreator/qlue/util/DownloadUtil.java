@@ -86,7 +86,7 @@ public class DownloadUtil {
 		}
 
 		// Set name
-		// XXX Validate name
+		// TODO Validate name
 		if (isAttachment) {
 			response.setHeader("Content-Disposition", "attachment; filename="
 					+ name);

@@ -203,7 +203,6 @@ public class PrefixPageResolver extends PageResolver {
 				if (mapping.getPackageMapping() != null) {
 					return mapping.getPackageMapping() + "/" + m.group(1);
 				} else {
-					// XXX Remove class name
 					return mapping.getClassMapping();
 				}
 			}

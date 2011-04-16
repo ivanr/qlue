@@ -17,6 +17,8 @@
 package com.webkreator.qlue.util;
 
 import java.io.PrintWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 /**
  * This class contains various utility methods useful in web applications.
@@ -24,13 +26,23 @@ import java.io.PrintWriter;
 public class WebUtil {
 
 	/**
-	 * Normalise a URI, by collapsing multiple occurrences of the forward slash
-	 * character to one. XXX Fix by implementing proper RFC normalisation.
+	 * Normalise a URI, first by using the RFC 2396 algorithm,
+	 * following by compressing multiple occurrences of the forward slash
+	 * character to one.
 	 * 
 	 * @param uri
 	 * @return
 	 */
 	public static String normaliseUri(String uri) {
+		// This is a dirty way to avoid having
+		// to rewrite RFC 2396 normalization.
+		try {
+			URI u = new URI("http://localhost/" + uri);
+			uri = u.normalize().getPath();
+		} catch (URISyntaxException e) {
+			throw new RuntimeException("Invalid uri", e);
+		}
+		
 		StringBuffer sb = new StringBuffer();
 
 		boolean seenSlash = false;

@@ -228,8 +228,6 @@ public class TransactionContext {
 	 */
 	private void initRequestUri() throws ServletException {
 		// Retrieve URI and normalise it
-		// XXX Implement RFC normalisation; are there any guarantees
-		// provided by servlet container?
 		String uri = WebUtil.normaliseUri(request.getRequestURI());
 
 		// We want our URI to include the query string
