@@ -24,10 +24,17 @@ import org.apache.velocity.runtime.RuntimeConstants;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 
+/**
+ * Implementation of VelocityViewFactory that
+ * keeps templates in a single location.
+ */
 public class FileVelocityViewFactory extends VelocityViewFactory {
 
 	protected String prefix = "/WEB-INF/vm/";
 
+	/**
+	 * Initialise factory.
+	 */
 	@Override
 	public void init(QlueApplication qlueApp) throws Exception {
 		// Initialise properties
@@ -42,6 +49,14 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 		velocityEngine = new VelocityEngine(properties);
 	}
 
+	/**
+	 * Find or construct the view, given page and view name.
+	 * 
+	 * @param page
+	 * @param viewName
+	 * @return
+	 * @throws Exception
+	 */
 	@Override
 	public View constructView(Page page, String viewName) throws Exception {
 		String templateName = null;
@@ -51,6 +66,7 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 			templateName = viewName + suffix;
 		} else {
 			// Relative view names are added to their page's path
+			// XXX Add page method for this (both default view and parent folder path)
 			String defaultView = page.getQlueApp().getViewResolver()
 					.resolveView(page.getNoParamUri());
 
@@ -65,11 +81,26 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 		return new VelocityView(this, velocityEngine.getTemplate(templateName));
 	}
 
+	/**
+	 * Get the location where we expect the templates to be stored. The location
+	 * is in the form of a prefix relative to the root of the web application. For
+	 * example, /WEB-INF/vm/ is used by default.
+	 * 
+	 * @return
+	 */
 	public String getPrefix() {
 		return prefix;
 	}
 
+	/**
+	 * Set the location where the templates are stored. The location is
+	 * in the form of a path relative to the root of the web application. For
+	 * example, /WEB-INF/vm/ is used by default.
+	 * 
+	 * @param prefix
+	 */
 	public void setPrefix(String prefix) {
+		// TODO The prefix must end with /
 		this.prefix = prefix;
 	}
 }

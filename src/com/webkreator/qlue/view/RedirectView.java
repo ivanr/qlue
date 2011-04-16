@@ -21,6 +21,13 @@ import java.security.InvalidParameterException;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.util.UriBuilder;
 
+/**
+ * This specialised view implementation is actually a redirection,
+ * supporting both pages and URIs as targets. There are no shortcuts
+ * when redirecting to pages; when given a page we construct a URI
+ * that leads back to it, then use that URI to issue a redirection
+ * to the client.
+ */
 public class RedirectView implements View {
 
 	private UriBuilder redirection;
@@ -32,7 +39,7 @@ public class RedirectView implements View {
 	 */
 	public RedirectView(String uri) {
 		if (uri == null) {
-			throw new InvalidParameterException("Cannot redirect to null URL");
+			throw new InvalidParameterException("RedirectView: Cannot redirect to null URI");
 		}
 		
 		redirection = new UriBuilder(uri);	
@@ -45,9 +52,11 @@ public class RedirectView implements View {
 	 */
 	public RedirectView(Page page) {
 		if (page == null) {
-			throw new InvalidParameterException("Cannot redirect to null page");
+			throw new InvalidParameterException("RedirectView: Cannot redirect to null page");
 		}
 		
+		// XXX Shouldn't the page know what its URI is; why
+		// does this class has to have that knowledge
 		redirection = new UriBuilder(page.getUri());
 
 		if (page.getId() != null) {
@@ -88,8 +97,13 @@ public class RedirectView implements View {
 		return redirection.getUri();
 	}
 
+	/**
+	 * Issue a redirection to a page or a URI.
+	 */
 	@Override
 	public void render(Page page) throws Exception {
+		// TODO This issues a 302 redirection. How can we
+		//      support other status codes, such as 301 or 307?
 		page.getContext().response.sendRedirect(redirection.getUri());
 	}
 }

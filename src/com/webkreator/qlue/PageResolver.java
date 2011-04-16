@@ -35,6 +35,13 @@ public abstract class PageResolver {
 	 */
 	protected abstract Class<Page> resolvePageClass(String uri) throws Exception;
 	
+	/**
+	 * XXX
+	 * 
+	 * @param uri
+	 * @return
+	 * @throws Exception
+	 */
 	public abstract String resolvePackage(String uri) throws Exception;
 	
 	/**
@@ -54,9 +61,11 @@ public abstract class PageResolver {
 		try {
 			return pageClass.newInstance();
 		} catch (InstantiationException e) {
+			// XXX
 			e.printStackTrace();
 			return null;
 		} catch (IllegalAccessException e) {
+			// XXX
 			e.printStackTrace();
 			return null;
 		}

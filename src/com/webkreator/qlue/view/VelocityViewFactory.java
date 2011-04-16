@@ -32,6 +32,10 @@ import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.Page;
 
+/**
+ * Base class for the view implementation that uses Velocity. Needs subclassing
+ * to provide initialisation and decide where to look for template files.
+ */
 public abstract class VelocityViewFactory implements ViewFactory {
 
 	protected String suffix = ".vm";
@@ -42,31 +46,45 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 	protected VelocityEngine velocityEngine;
 
+	/**
+	 * Generate output, given page and view.
+	 * 
+	 * @param page
+	 * @param view
+	 * @throws Exception
+	 */
 	protected void render(Page page, VelocityView view) throws Exception {
 		TransactionContext context = page.getContext();
 
-		// Obtain the model from the page.
+		// Obtain the model from the page
 		final Map<String, Object> model = page.getModel();
 
-		// Add common objects to the model.
+		// Add common objects to the model
+
 		model.put("_f", page.getFormatTool());
+
+		// Normally, we don't want templates to be able to output
+		// directly (without encoding) to responses, but some
+		// pages will need to do that.
 		if (page.allowDirectOutput()) {
 			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_PREFIX,
 					HtmlEncoder.instance());
 		}
-		model.put("_Fapp", page.getQlueApp());
+
+		model.put("_app", page.getQlueApp());
 		model.put("_page", page);
 		model.put("_i", page.getShadowInput());
 
 		model.put("_ctx", context);
 		model.put("_sess", page.getQlueApp().getQlueSession(context.request));
-		model.put("_m", page.getQlueApp().getQlueSession(context.request).getMessageSource());
+		model.put("_m", page.getQlueApp().getQlueSession(context.request)
+				.getMessageSource());
 		model.put("_req", context.request);
 		model.put("_res", context.response);
 		model.put("_cmd", page.getCommandObject());
 		model.put("_errors", page.getErrors());
 
-		// Expose the public variables of the command object.
+		// Expose the public variables of the command object
 		processPageFields(page.getCommandObject(), new FieldCallback() {
 			public void processField(String fieldName, Object fieldValue) {
 				if (fieldValue != null) {
@@ -104,37 +122,58 @@ public abstract class VelocityViewFactory implements ViewFactory {
 			}
 		} finally {
 			writer.flush();
+			
 			// We don't close the stream here in order
 			// to enable Qlue to append to output as needed
 			// (which is done in development mode)
 		}
 	}
 
+	/**
+	 * Invokes callback for each of the object's fields.
+	 * 
+	 * @param object
+	 * @param callback
+	 */
 	void processPageFields(Object object, FieldCallback callback) {
 		Field[] fields = object.getClass().getFields();
+		if (fields == null) {
+			return;
+		}
 
-		if (fields != null) {
-			for (int i = 0; i < fields.length; i++) {
-				Field field = fields[i];
+		for (int i = 0; i < fields.length; i++) {
+			Field field = fields[i];
 
-				try {
-					Object fieldValue = field.get(object);
-					callback.processField(field.getName(), fieldValue);
-				} catch (Exception e) {
-					throw new RuntimeException(e);
-				}
+			try {
+				Object fieldValue = field.get(object);
+				callback.processField(field.getName(), fieldValue);
+			} catch (Exception e) {
+				throw new RuntimeException(e);
 			}
 		}
 	}
 
+	/**
+	 * Callback interface.
+	 */
 	static interface FieldCallback {
 		public void processField(String fieldName, Object fieldValue);
 	}
 
+	/**
+	 * Get the current Velocity template suffix.
+	 * 
+	 * @return
+	 */
 	public String getSuffix() {
 		return suffix;
 	}
 
+	/**
+	 * Set Velocity template suffix.
+	 * 
+	 * @param suffix
+	 */
 	public void setSuffix(String suffix) {
 		this.suffix = suffix;
 	}

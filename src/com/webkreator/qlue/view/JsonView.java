@@ -31,15 +31,21 @@ public class JsonView implements com.webkreator.qlue.view.View {
     private Object jsonObject;
 
     /**
+     * Create new view from the provided object.
+     * 
      * @param jsonObject Object we want to send to browser
      */
     public JsonView(Object jsonObject) {
         this.jsonObject = jsonObject;
     }
 
-
+    /**
+     * Render page by asking Gson to convert our object
+     * into its JSON representation.
+     */
     @Override
     public void render(Page page) throws Exception {
+    	// Set content type
         page.getContext().response.setContentType("application/json");
 
         Writer writer = page.getContext().response.getWriter();
