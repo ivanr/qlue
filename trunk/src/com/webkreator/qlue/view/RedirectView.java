@@ -55,7 +55,7 @@ public class RedirectView implements View {
 			throw new InvalidParameterException("RedirectView: Cannot redirect to null page");
 		}
 		
-		// XXX Shouldn't the page know what its URI is; why
+		// TODO Shouldn't the page know what its URI is; why
 		// does this class has to have that knowledge
 		redirection = new UriBuilder(page.getUri());
 

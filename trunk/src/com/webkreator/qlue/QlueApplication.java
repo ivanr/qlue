@@ -167,13 +167,6 @@ public class QlueApplication {
 	}
 
 	/**
-	 * 
-	 * @param context
-	 * @throws ServletException
-	 */
-
-
-	/**
 	 * This method is the main entry point for request processing.
 	 * 
 	 * @param servlet
@@ -277,7 +270,6 @@ public class QlueApplication {
 
 			// If we still don't have a page see if we can create a new one
 			if (page == null) {
-				// XXX We should not need to do this
 				String uri = context.getRequestUri();
 				int i = uri.indexOf('?');
 				if (i != -1) {
@@ -301,7 +293,7 @@ public class QlueApplication {
 			synchronized (page) {
 				page.setQlueApp(this);
 				page.setUri(context.getRequestUri());
-				page.constructDefaultView(viewResolver);
+				page.determineDefaultViewName(viewResolver);
 				page.setContext(context);
 				page.determineCommandObject();
 
@@ -358,7 +350,7 @@ public class QlueApplication {
 					// the name of the page in the view resolution process.
 					if (view instanceof DefaultView) {
 						// The page wants to use the default view.
-						view = constructView(page, page.getView());
+						view = constructView(page, page.getViewName());
 					} else if (view instanceof NamedView) {
 						// We don't have a view, we just have its name.
 						// Construct view using view factory.
@@ -570,8 +562,6 @@ public class QlueApplication {
 				// POST requests (irrespective of the state).
 				if (((qp.state().compareTo(Page.STATE_POST) == 0) && (page.context
 						.isPost()))
-						// XXX Shouldn't there be another condition below?
-						// What prevents binding to happen on subsequent GETs?
 						|| (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
 						|| (qp.state().compareTo(page.getState()) == 0)) {
 					// We have a parameter; dispatch to the appropriate handler.
@@ -1092,7 +1082,7 @@ public class QlueApplication {
 	/**
 	 * Remember the current page for later use (e.g., in an error handler).
 	 * 
-	 * XXX This does not belong here; move to context.
+	 * TODO This does not belong here; move to context.
 	 * 
 	 * @param page
 	 */
@@ -1104,7 +1094,7 @@ public class QlueApplication {
 	 * Retrieve the actual page that tried to handle
 	 * the current transaction and failed.
 	 * 
-	 * XXX This does not belong here; move to context.
+	 * TODO This does not belong here; move to context.
 	 * 
 	 * @param currentPage
 	 * @return

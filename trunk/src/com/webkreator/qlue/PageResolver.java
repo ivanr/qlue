@@ -36,7 +36,8 @@ public abstract class PageResolver {
 	protected abstract Class<Page> resolvePageClass(String uri) throws Exception;
 	
 	/**
-	 * XXX
+	 * Determines the page that would be used to handle the given URI,
+	 * then returns the name of the package it belongs to.
 	 * 
 	 * @param uri
 	 * @return
@@ -61,13 +62,9 @@ public abstract class PageResolver {
 		try {
 			return pageClass.newInstance();
 		} catch (InstantiationException e) {
-			// XXX
-			e.printStackTrace();
-			return null;
+			throw new RuntimeException("Qlue: Unexpected expection creating page", e);
 		} catch (IllegalAccessException e) {
-			// XXX
-			e.printStackTrace();
-			return null;
+			throw new RuntimeException("Qlue: Unexpected expection creating page", e);
 		}
 	}	
 }

@@ -17,9 +17,9 @@
 package com.webkreator.qlue.view;
 
 /**
- * The role of a view resolver is to map a URL to a view. This
- * simplest implementation will remove the suffix and return
- * the resulting string as view name.  
+ * The role of a view resolver is to map a URL to a view. This simplest
+ * implementation will remove the suffix and return the resulting string as view
+ * name.
  */
 public class ViewResolver {
 
@@ -30,13 +30,20 @@ public class ViewResolver {
 	 * @return
 	 */
 	public String resolveView(String requestUri) {
-		// XXX Do not allow .. in requestUri
-		
+		// We do not allow backreferences in view names
+		if (requestUri.indexOf("..") != -1) {
+			throw new RuntimeException(
+					"ViewResolver: backreferences not allowed in URI: "
+							+ requestUri);
+		}
+
+		// Remove suffix
 		int i = requestUri.lastIndexOf('.');
 		if (i != -1) {
-			requestUri = requestUri.substring(0, i);			
+			requestUri = requestUri.substring(0, i);
 		}
-				
+
+		// What's left is the view name in this implementation
 		return requestUri;
 	}
 }
