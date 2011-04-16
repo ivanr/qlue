@@ -61,8 +61,8 @@ import com.webkreator.qlue.view.ViewFactory;
 import com.webkreator.qlue.view.ViewResolver;
 
 /**
- * This class represents one Qlue application. Very simple applications might use
- * it directly, but most will need to subclass in order to support complex
+ * This class represents one Qlue application. Very simple applications might
+ * use it directly, but most will need to subclass in order to support complex
  * configuration (page resolver, view resolver, etc).
  */
 public class QlueApplication {
@@ -111,8 +111,8 @@ public class QlueApplication {
 	}
 
 	/**
-	 * This constructor is intended for use by very simple
-	 * web applications that consist of only one package.
+	 * This constructor is intended for use by very simple web applications that
+	 * consist of only one package.
 	 * 
 	 * @param pagesHome
 	 */
@@ -176,7 +176,7 @@ public class QlueApplication {
 	 * @throws java.io.IOException
 	 */
 	protected void service(HttpServlet servlet, HttpServletRequest request,
-			HttpServletResponse response) throws ServletException, 
+			HttpServletResponse response) throws ServletException,
 			java.io.IOException {
 		// Remember when processing began
 		long startTime = System.currentTimeMillis();
@@ -380,12 +380,12 @@ public class QlueApplication {
 
 			// Execute page commit. This is what it sounds like,
 			// an opportunity to use a simple approach to transaction
-			// management for simple applications.		
+			// management for simple applications.
 			if (page != null) {
 				page.commit();
 			}
 		} catch (RequestMethodException rme) {
-			// Execute rollback to undo any changes 
+			// Execute rollback to undo any changes
 			if (page != null) {
 				page.rollback();
 			}
@@ -422,9 +422,9 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Invoked to store the original text values for parameters. The text
-	 * is needed in the cases where it cannot be converted to the intended
-	 * type (e.g., integer).
+	 * Invoked to store the original text values for parameters. The text is
+	 * needed in the cases where it cannot be converted to the intended type
+	 * (e.g., integer).
 	 * 
 	 * @param page
 	 * @param context
@@ -459,15 +459,15 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Appends debugging information to the view, but only if the
-	 * development mode is active.
+	 * Appends debugging information to the view, but only if the development
+	 * mode is active.
 	 * 
 	 * @param context
 	 * @param page
 	 * @throws IOException
 	 */
-	protected void masterWriteRequestDevelopmentInformation(TransactionContext context,
-			Page page) throws IOException {
+	protected void masterWriteRequestDevelopmentInformation(
+			TransactionContext context, Page page) throws IOException {
 		// Check development mode
 		if (page.isDeveloperAccess() == false) {
 			return;
@@ -576,6 +576,139 @@ public class QlueApplication {
 	}
 
 	/**
+	 * XXX Not implemented.
+	 * 
+	 * @param commandObject
+	 * @param f
+	 * @param page
+	 * @param context
+	 */
+	private void bindArrayParameter(Object commandObject, Field f, Page page,
+			TransactionContext context) throws Exception {
+		// Find shadow input
+		ShadowInput shadowInput = page.getShadowInput();
+
+		// Get the annotation
+		QlueParameter qp = f.getAnnotation(QlueParameter.class);
+
+		// Look for a property editor, which will know how
+		// to convert text into a proper native type
+		PropertyEditor pe = editors.get(f.getType());
+		if (pe == null) {
+			throw new RuntimeException(
+					"Qlue: Binding does not know how to handle type: "
+							+ f.getType());
+		}
+
+		String[] values = context.getParameterValues(f.getName());
+		if (values.length != 0) {
+			shadowInput.set(f.getName(), values);
+		} else {
+			Object[] originalValues = (Object[]) f.get(commandObject);
+			String[] textValues = new String[originalValues.length];
+			for (int i = 0; i < originalValues.length; i++) {
+				textValues[i] = originalValues.toString();
+			}
+
+			shadowInput.set(f.getName(), textValues);
+		}
+
+		boolean hasErrors = false;
+		Object[] convertedValues = new Object[values.length];
+		for (int i = 0; i < values.length; i++) {
+			if (validateParameter(page, f, qp, values[i]) == true) {
+				convertedValues[i] = pe.fromText(f, values[i]);
+			} else {
+				hasErrors = true;
+			}
+		}
+
+		if (hasErrors == false) {
+			f.set(commandObject, convertedValues);
+		}
+	}
+
+	/**
+	 * Validate one parameter.
+	 * 
+	 * @param page
+	 * @param f
+	 * @param qp
+	 * @param value
+	 * @return
+	 */
+	protected Boolean validateParameter(Page page, Field f, QlueParameter qp,
+			String value) {
+		// Transform value according to the list
+		// of transformation functions supplied
+		String tfn = qp.tfn();
+
+		if (tfn.length() != 0) {
+			StringTokenizer st = new StringTokenizer(tfn, " ,");
+			while (st.hasMoreTokens()) {
+				String t = st.nextToken();
+				if (t.compareTo("trim") == 0) {
+					value = value.trim();
+				} else if (t.compareTo("lowercase") == 0) {
+					value = value.toLowerCase();
+				} else {
+					throw new RuntimeException(
+							"Qlue: Invalid parameter transformation function: "
+									+ t);
+				}
+			}
+		}
+
+		// If the parameter is mandatory, check that is
+		// not empty or that it does not consist only
+		// of whitespace characters.
+		if (qp.mandatory()) {
+			if (TextUtil.isEmptyOrWhitespace(value)) {
+				page.addError(f.getName(), getFieldMissingMessage(qp));
+				return false;
+			}
+		}
+
+		// Check size
+		if (qp.maxSize() != -1) {
+			if ((value.length() > qp.maxSize())) {
+				if (qp.ignoreInvalid() == false) {
+					page.addError(f.getName(), "qlue.validation.maxSize");
+					return false;
+				} else {
+					return null;
+				}
+			}
+		}
+
+		// Check that it conforms to the supplied regular expression
+		if (qp.pattern().length() != 0) {
+			Pattern p = null;
+
+			// Compile the pattern first
+			try {
+				p = Pattern.compile(qp.pattern(), Pattern.DOTALL);
+			} catch (PatternSyntaxException e) {
+				throw new RuntimeException("Qlue: Invalid pattern: "
+						+ qp.pattern());
+			}
+
+			// Try to match
+			Matcher m = p.matcher(value);
+			if ((m.matches() == false)) {
+				if (qp.ignoreInvalid() == false) {
+					page.addError(f.getName(), "qlue.validation.pattern");
+					return false;
+				} else {
+					return null;
+				}
+			}
+		}
+
+		return true;
+	}
+
+	/**
 	 * Bind a parameter that is not an array.
 	 * 
 	 * @param commandObject
@@ -614,79 +747,13 @@ public class QlueApplication {
 			shadowInput.set(f.getName(), value);
 		} else {
 			// Load from the command object
-			shadowInput.set(f.getName(), f.toString());
+			shadowInput.set(f.getName(), f.get(commandObject).toString());
 		}
 
 		// If the parameter is present in request, validate it
 		// and set on the command object
 		if (value != null) {
-			boolean hasErrors = false;
-
-			// Transform value according to the list
-			// of transformation functions supplied
-			String tfn = qp.tfn();
-			if (tfn.length() != 0) {
-				StringTokenizer st = new StringTokenizer(tfn, " ,");
-				while (st.hasMoreTokens()) {
-					String t = st.nextToken();
-					if (t.compareTo("trim") == 0) {
-						value = value.trim();
-					} else if (t.compareTo("lowercase") == 0) {
-						value = value.toLowerCase();
-					} else {
-						throw new RuntimeException(
-								"Qlue: Invalid parameter transformation function: "
-										+ t);
-					}
-				}
-			}
-
-			// If the parameter is mandatory, check that is
-			// not empty or that it does not consist only
-			// of whitespace characters.
-			if (qp.mandatory()) {
-				if (TextUtil.isEmptyOrWhitespace(value)) {
-					page.addError(f.getName(), getFieldMissingMessage(qp));
-					hasErrors = true;
-				}
-			}
-
-			// Check size
-			if (qp.maxSize() != -1) {
-				if ((value.length() > qp.maxSize())) {
-					hasErrors = true;
-
-					if (qp.ignoreInvalid() == false) {
-						page.addError(f.getName(), "qlue.validation.maxSize");
-					}
-				}
-			}
-
-			// Check that it conforms to the supplied regular expression
-			if (qp.pattern().length() != 0) {
-				Pattern p = null;
-
-				// Compile the pattern first
-				try {
-					p = Pattern.compile(qp.pattern(), Pattern.DOTALL);
-				} catch (PatternSyntaxException e) {
-					throw new RuntimeException("Qlue: Invalid pattern: "
-							+ qp.pattern());
-				}
-
-				// Try to match
-				Matcher m = p.matcher(value);
-				if ((m.matches() == false)) {
-					hasErrors = true;
-
-					if (qp.ignoreInvalid() == false) {
-						page.addError(f.getName(), "qlue.validation.pattern");
-					}
-				}
-			}		
-
-			// Bind the value only if there were no validation errors.
-			if (hasErrors == false) {
+			if (validateParameter(page, f, qp, value) == true) {
 				f.set(commandObject, pe.fromText(f, value));
 			}
 		} else {
@@ -697,12 +764,21 @@ public class QlueApplication {
 			}
 		}
 	}
-	
-	
+
 	private String getFieldMissingMessage(QlueParameter qp) {
-	    return (qp.fieldMissingMessage().length() > 0) ? qp.fieldMissingMessage() : "qlue.validation.mandatory";
+		return (qp.fieldMissingMessage().length() > 0) ? qp
+				.fieldMissingMessage() : "qlue.validation.mandatory";
 	}
 
+	/**
+	 * Bind file parameter.
+	 * 
+	 * @param commandObject
+	 * @param f
+	 * @param page
+	 * @param context
+	 * @throws Exception
+	 */
 	private void bindFileParameter(Object commandObject, Field f, Page page,
 			TransactionContext context) throws Exception {
 		QlueParameter qp = f.getAnnotation(QlueParameter.class);
@@ -724,19 +800,6 @@ public class QlueApplication {
 		qf.setContentType(fi.getContentType());
 
 		f.set(commandObject, qf);
-	}
-
-	/**
-	 * XXX Not implemented.
-	 * 
-	 * @param commandObject
-	 * @param f
-	 * @param page
-	 * @param context
-	 */
-	private void bindArrayParameter(Object commandObject, Field f, Page page,
-			TransactionContext context) {
-		throw new RuntimeException("Qlue: Not implemented");
 	}
 
 	/**
@@ -806,9 +869,9 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Retrieve this application's format tool, which is used in templates
-	 * to format output (but _not_ for output encoding). By default, that's
-	 * an instance of FormatTool, but subclasses can use something else.
+	 * Retrieve this application's format tool, which is used in templates to
+	 * format output (but _not_ for output encoding). By default, that's an
+	 * instance of FormatTool, but subclasses can use something else.
 	 */
 	public Object getFormatTool() {
 		return new FormatTool();
@@ -837,8 +900,8 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Set application prefix, which is used in logging 
-	 * as part of the unique transaction identifier.
+	 * Set application prefix, which is used in logging as part of the unique
+	 * transaction identifier.
 	 * 
 	 * @param prefix
 	 */
@@ -865,7 +928,7 @@ public class QlueApplication {
 	protected void setCharacterEncoding(String characterEncoding) {
 		this.characterEncoding = characterEncoding;
 	}
-	
+
 	/**
 	 * Retrieves application's character encoding.
 	 * 
@@ -903,8 +966,8 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Configure the set of IP addresses that are allowed to use
-	 * development mode.
+	 * Configure the set of IP addresses that are allowed to use development
+	 * mode.
 	 * 
 	 * @param developmentModeRanges
 	 */
@@ -913,8 +976,8 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Check if the current transaction comes from an IP address
-	 * that is allowed to use development mode.
+	 * Check if the current transaction comes from an IP address that is allowed
+	 * to use development mode.
 	 * 
 	 * @param context
 	 * @return
@@ -1010,8 +1073,8 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Retrieve a single named property as text, using
-	 * the supplied default value if the property is not set.
+	 * Retrieve a single named property as text, using the supplied default
+	 * value if the property is not set.
 	 * 
 	 * @param key
 	 * @param defaultValue
@@ -1042,8 +1105,8 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Retrieve a single integer proparty, using the
-	 * supplied default value if the property is not set.
+	 * Retrieve a single integer proparty, using the supplied default value if
+	 * the property is not set.
 	 * 
 	 * @param key
 	 * @param defaultValue
@@ -1091,8 +1154,8 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Retrieve the actual page that tried to handle
-	 * the current transaction and failed.
+	 * Retrieve the actual page that tried to handle the current transaction and
+	 * failed.
 	 * 
 	 * TODO This does not belong here; move to context.
 	 * 
@@ -1103,9 +1166,9 @@ public class QlueApplication {
 		return (Page) currentPage.context.request
 				.getAttribute(REQUEST_ACTUAL_PAGE_KEY);
 	}
-	
-	synchronized int allocatePageId() {		
+
+	synchronized int allocatePageId() {
 		txIdsCounter++;
-		return txIdsCounter;			
+		return txIdsCounter;
 	}
 }
