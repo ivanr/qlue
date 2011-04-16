@@ -16,14 +16,27 @@
  */
 package com.webkreator.qlue.util;
 
-import com.webkreator.canoe.HtmlEncoder;
-
+/**
+ * This tool assists with formating in HTML responses. 
+ */
 public class FormatTool {
 	
+	/**
+	 * Encodes integer as hexadecimal number.
+	 * 
+	 * @param i
+	 * @return
+	 */
 	public String hex(int i) {
 		return Integer.toHexString(i);
 	}
 
+	/**
+	 * Creates an indent, using four non-breaking spaces.
+	 *  
+	 * @param j
+	 * @return
+	 */
 	public String indent(int j) {		
 		if (j >=1) j -= 1;
 		String s = "";
@@ -33,6 +46,13 @@ public class FormatTool {
 		return s;
 	}
 
+	/**
+	 * Writes text to output, with a limit.
+	 * 
+	 * @param s
+	 * @param limit
+	 * @return
+	 */
 	public String limit(String s, int limit) {
 		if (s.length() > limit) {
 			return s.substring(0, limit);
@@ -41,6 +61,14 @@ public class FormatTool {
 		return s;
 	}
 
+	/**
+	 * Writes text to output, with a limit and also
+	 * uses an indication that the text was truncated.
+	 * 
+	 * @param s
+	 * @param limit
+	 * @return
+	 */
 	public String limitE(String s, int limit) {
 		if (s.length() > limit) {
 			return s.substring(0, limit) + " ...";
@@ -49,33 +77,27 @@ public class FormatTool {
 		return s;
 	}
 
+	/**
+	 * Formats millisecond time as whole seconds.
+	 * 
+	 * @param t
+	 * @return
+	 */
 	public static String formatLongTimeAsWholeSeconds(long t) {
 		return Integer.toString((int) t / 1000);
 	}
 
+	/**
+	 * Formats millisecond time as seconds and milliseconds.
+	 * 
+	 * @param t
+	 * @return
+	 */
 	public static String formatLongTimeAsSeconds(long t) {
 		StringBuffer sb = new StringBuffer();
 		sb.append((int) t / 1000);
 		sb.append(".");
 		sb.append(t - ((int) t / 1000) * 1000);
 		return sb.toString();
-	}
-
-	public static String html(Object o) {		
-		if (o == null) return null;
-		return HtmlEncoder.encodeForHTML(o.toString());
-	}
-
-	public static String url(String input) {
-		return HtmlEncoder.encodeForURL(input);
-	}
-
-	/**
-	 * 
-	 * @param input
-	 * @return
-	 */
-	public static String js(String input) {
-		return HtmlEncoder.encodeForJavaScript(input);
 	}
 }

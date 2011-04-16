@@ -25,6 +25,10 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 
+/**
+ * Run a web application (determined using the given home directory)
+ * using Tomcat on the given IP address and port. 
+ */
 public class TomcatMain {
 
 	public static void main(String args[]) throws Exception {
@@ -69,6 +73,7 @@ public class TomcatMain {
 		if (hostname != null) {
 			tomcat.setHostname(hostname);
 		}
+		
 		tomcat.setPort(port);
 		tomcat.addWebapp("/", home);		
 		tomcat.start();

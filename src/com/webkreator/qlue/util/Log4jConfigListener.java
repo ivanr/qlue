@@ -26,12 +26,21 @@ import org.apache.log4j.xml.DOMConfigurator;
 
 import com.webkreator.qlue.QlueConstants;
 
+/**
+ * This class serves as a bridge between the servlet container and
+ * log4j. It subscribes to context events, initialising log4j when
+ * the context is created, and shutting log4j when the context is
+ * destroyed. 
+ */
 public class Log4jConfigListener implements ServletContextListener {
 
 	protected String location = "/WEB-INF/log4j.properties";
 
 	protected Integer interval = null;
 
+	/**
+	 * Initialise log4j.
+	 */
 	public void contextInitialized(ServletContextEvent event) {
 		ServletContext servletContext = event.getServletContext();
 
@@ -81,6 +90,9 @@ public class Log4jConfigListener implements ServletContextListener {
 		}
 	}
 
+	/**
+	 * Shut down log4j.
+	 */
 	public void contextDestroyed(ServletContextEvent event) {
 		ServletContext servletContext = event.getServletContext();
 

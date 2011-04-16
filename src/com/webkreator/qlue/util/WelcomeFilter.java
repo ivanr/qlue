@@ -30,6 +30,14 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+/**
+ * When applications use web.xml configuration to handle requests
+ * that match a suffix (e.g., .html) they don't get directory
+ * requests (those that end with forward slash characters). This
+ * servlet filter will detect directory requests and expand them,
+ * adding the default page name (e.g., index.html). Once this change
+ * is made, the servlet container will correctly route the request.
+ */
 public class WelcomeFilter implements Filter {
 
 	public static final String DEFAULT_PAGE = "DEFAULT_PAGE";

@@ -18,11 +18,14 @@ package com.webkreator.qlue.util;
 
 import java.io.PrintWriter;
 
+/**
+ * This class contains various utility methods useful in web applications.
+ */
 public class WebUtil {
 
 	/**
 	 * Normalise a URI, by collapsing multiple occurrences of the forward slash
-	 * character to one. TODO Fix by implementing proper RFC normalisation.
+	 * character to one. XXX Fix by implementing proper RFC normalisation.
 	 * 
 	 * @param uri
 	 * @return
@@ -48,6 +51,13 @@ public class WebUtil {
 		return sb.toString();
 	}
 
+	/**
+	 * Internet will not display the output of non-200 pages that are
+	 * too small. Thus, we have to pad output in order to break over the
+	 * limit. This method outputs enough padding.
+	 * 
+	 * @param out
+	 */
 	public static void writePagePaddingforInternetExplorer(PrintWriter out) {
 		out.println("<!-- IE padding");
 		out.println("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");

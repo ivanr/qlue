@@ -18,10 +18,30 @@ package com.webkreator.qlue.util;
 
 import java.lang.reflect.Field;
 
+/**
+ * Property editors convert text into objects.
+ */
 public interface PropertyEditor {
 
+	/**
+	 * Returns the class that this editor deals with.
+	 * 
+	 * @return
+	 */
 	@SuppressWarnings("rawtypes")
 	public Class getEditorClass();
 	
+	/**
+	 * Creates object out of its textual representation.
+	 * 
+	 * @param field
+	 * @param text
+	 * @return
+	 */
 	public Object fromText(Field field, String text);
+	
+	// TODO Standardise on what exception is thrown if
+	//      the conversion is not possible. At the moment
+	//      BooleanEditor throws InvalidParameterException, whereas
+	//      we leave Integer to throw NumberFormatException.
 }

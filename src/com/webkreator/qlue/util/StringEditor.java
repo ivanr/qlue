@@ -18,6 +18,9 @@ package com.webkreator.qlue.util;
 
 import java.lang.reflect.Field;
 
+/**
+ * Property editors convert text into, well, text.
+ */
 public class StringEditor implements PropertyEditor {
 
 	@Override

@@ -34,6 +34,9 @@ public class UriBuilder {
 
 	private Pattern uriPattern = Pattern.compile("^(https?://[^/]+)(/.*)$");
 
+	/**
+	 * Instances of this class represent individual URI parameters (key-value pairs).
+	 */
 	class UriBuilderParam {
 
 		String name;
@@ -46,37 +49,79 @@ public class UriBuilder {
 		}
 	}
 
+	/**
+	 * Create new instance of the URI builder, starting with
+	 * the given base URI (which may contain parameters).
+	 * 
+	 * @param uri
+	 */
 	public UriBuilder(String uri) {
 		setUri(uri);
 	}
 
+	/**
+	 * Add parameter to URI.
+	 * 
+	 * @param name
+	 * @param value
+	 */
 	public void addParam(String name, int value) {
 		params.add(new UriBuilderParam(name, Integer.toString(value)));
 	}
 
+	/**
+	 * Add parameter to URI.
+	 * 
+	 * @param name
+	 * @param value
+	 */
 	public void addParam(String name, Integer value) {
-		params.add(new UriBuilderParam(name, value.toString()));
+		if (value == null) {
+			params.add(new UriBuilderParam(name, ""));
+		} else {
+			params.add(new UriBuilderParam(name, value.toString()));
+		}
 	}
 
+	/**
+	 * Add parameter to URI.
+	 * 
+	 * @param name
+	 * @param value
+	 */
 	public void addParam(String name, String value) {
 		params.add(new UriBuilderParam(name, value));
 	}
 
+	/**
+	 * Clear all parameters.
+	 */
 	public void clearParams() {
 		params.clear();
 	}
 
-	public void setUri(String uri) {		
+	/**
+	 * Initialise builder using the given URI.
+	 * 
+	 * @param uri
+	 */
+	protected void setUri(String uri) {
+		// Check if the URI is absolute, because
+		// we only need to work with the path part,
+		// not the protocol or the domain name
 		Matcher m = uriPattern.matcher(uri);
 		if (m.matches()) {			
 			prefix = m.group(1);
 			uri = m.group(2);
 		}	
 
+		// Look for parameters
 		int i = uri.indexOf('?');
 		if (i == -1) {
+			// No parameters, just store the normalised path
 			this.uri = WebUtil.normaliseUri(uri);
 		} else {
+			// Extract parameters into individual objects
 			this.uri = WebUtil.normaliseUri(uri.substring(0, i));
 			String qs = uri.substring(i + 1);
 			String[] pairs = qs.split("&");
@@ -96,19 +141,28 @@ public class UriBuilder {
 		}
 	}
 
+	/**
+	 * Construct URI as string.
+	 * 
+	 * @return
+	 */
 	public String getUri() {
 		StringBuilder sb = new StringBuilder();
+		
+		// Start with the prefix (protocol, domain name)
 		if (prefix != null) {
 			sb.append(prefix);
 		}
 
-		// Base URI
+		// Append base URI
 		sb.append(uri);
 
+		// Return straight away if there are no parameters
 		if (params.size() == 0) {
 			return sb.toString();
 		}
 
+		// Otherwise, append parameters
 		try {
 			sb.append("?");
 
