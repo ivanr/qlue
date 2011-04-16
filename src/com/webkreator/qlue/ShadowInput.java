@@ -20,13 +20,21 @@ import java.util.HashMap;
 
 public class ShadowInput {
 	
-	private HashMap<String, String> params = new HashMap<String, String>();
+	private HashMap<String, Object> params = new HashMap<String, Object>();
 
 	public String get(String name) {
-		return params.get(name);
+		return (String)params.get(name);
+	}
+	
+	public String[] getArray(String name) {
+		return (String[])params.get(name);
 	}
 
 	public void set(String name, String value) {
 		params.put(name, value);
+	}
+	
+	public void set(String name, String[] values) {
+		params.put(name, values);
 	}
 }

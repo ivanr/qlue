@@ -17,6 +17,7 @@
 package com.webkreator.qlue;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -347,7 +348,7 @@ public class TransactionContext {
 			return getRequest().getParameter(name);
 		}
 
-		// Alternatively, find the parameter in our own storage
+		// Otherwise, find the parameter in our own storage
 		for (int i = 0, n = multipartItems.size(); i < n; i++) {
 			FileItem fi = multipartItems.get(i);
 			if (fi.getFieldName().compareToIgnoreCase(name) == 0) {
@@ -363,6 +364,41 @@ public class TransactionContext {
 		}
 
 		return null;
+	}
+	
+	/**
+	 * Retrieves all values of parameters with the given name.
+	 * 
+	 * @param name
+	 * @return
+	 * @throws Exception
+	 */
+	public String[] getParameterValues(String name) throws Exception {
+		// If we're not dealing with a multipart/form-data
+		// request, simply refer to the underlying request object
+		if (isMultipart == false) {
+			return getRequest().getParameterValues(name);
+		}
+		
+		// Otherwise, find the parameter in our own storage
+		ArrayList<String> valuesList = new ArrayList<String>();
+		
+		for (int i = 0, n = multipartItems.size(); i < n; i++) {
+			FileItem fi = multipartItems.get(i);
+			if (fi.getFieldName().compareToIgnoreCase(name) == 0) {
+				if (fi.isFormField() == false) {
+					throw new RuntimeException(
+							"Qlue: Unexpected file parameter");
+				}
+				
+				// Add to the list
+				valuesList.add(fi.getString(app.getCharacterEncoding()));
+			}
+		}
+		
+		// Return all values in an array
+		String[] values = new String[valuesList.size()];
+		return (String[])valuesList.toArray(values);
 	}
 
 	/**
