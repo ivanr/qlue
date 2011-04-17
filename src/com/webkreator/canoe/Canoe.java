@@ -19,8 +19,11 @@ package com.webkreator.canoe;
 import java.io.IOException;
 import java.io.Writer;
 
-// TODO Have a list of white-listed HTML tags
-
+/**
+ * Canoe is a context-aware output encoder for HTML responses. It parses
+ * output in real time and thus knows exactly what output encoding to use
+ * to encode a piece of data.
+ */
 public class Canoe extends Writer {
 
 	public static final String EMPTY_STRING = "";
@@ -127,21 +130,33 @@ public class Canoe extends Writer {
 	
 	protected int tagCount;
 
+	/**
+	 * Create a Canoe instance.
+	 */
 	public Canoe(Writer writer) {
 		this.writer = writer;
 		this.state = HTML;
 	}
 
+	/**
+	 * Close stream.
+	 */
 	@Override
 	public void close() throws IOException {
 		writer.close();
 	}
 
+	/**
+	 * Flush stream.
+	 */
 	@Override
 	public void flush() throws IOException {
 		writer.flush();
 	}
 
+	/**
+	 * Write one or more characters to output.
+	 */
 	@Override
 	public void write(char[] cbuff, int offset, int len) throws IOException {
 		int i = offset;
@@ -942,6 +957,12 @@ public class Canoe extends Writer {
 		}
 	}
 
+	/**
+	 * Raise an error.
+	 * 
+	 * @param errorMessage
+	 * @throws IOException
+	 */
 	private void raiseError(String errorMessage) throws IOException {
 		state = INVALID;
 		this.errorMessage = ERROR_PREFIX + errorMessage + " (line: "
@@ -969,8 +990,6 @@ public class Canoe extends Writer {
 	 * @return current output context
 	 */
 	public int currentContext() {
-		// System.err.println("STATE = " + state);
-
 		switch (state) {
 		case HTML:
 			return CTX_HTML;
