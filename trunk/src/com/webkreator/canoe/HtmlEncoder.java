@@ -16,12 +16,19 @@
  */
 package com.webkreator.canoe;
 
+/**
+ * Contains a number of utility methods to properly
+ * encode data when preparing HTML responses.
+ */
 public class HtmlEncoder {
-
-	// TODO Improve hexadecimal conversion
 
 	protected static HtmlEncoder _instance;
 
+	/**
+	 * Creates an instance of this encoder. We'd normally not
+	 * need it, as all methods are static, but we need to pass
+	 * an object into the model used by Velocity templates.
+	 */
 	public static synchronized HtmlEncoder instance() {
 		if (_instance == null) {
 			_instance = new HtmlEncoder();
@@ -270,6 +277,12 @@ public class HtmlEncoder {
 		sb.append('\'');
 	}
 
+	/**
+	 * Encodes input for HTML, preserving whitespace.
+	 * 
+	 * @param input
+	 * @return
+	 */
 	public static String encodeForHTMLPreserveWhitespace(String input) {
 		if (input == null) {
 			return null;
@@ -281,6 +294,12 @@ public class HtmlEncoder {
 		return sb.toString();
 	}
 
+	/**
+	 * Encodes input for HTML, preserving whitespace.
+	 * 
+	 * @param input
+	 * @param sb
+	 */
 	public static void encodeForHTMLPreserveWhitespace(String input,
 			StringBuffer sb) {
 		if (input == null) {
