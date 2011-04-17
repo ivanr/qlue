@@ -19,17 +19,17 @@ package com.webkreator.canoe;
 import java.io.IOException;
 import java.io.Writer;
 
-// IDEA Have a list of white-listed HTML tags
+// TODO Have a list of white-listed HTML tags
 
 // TODO Support HTML comments
 
 // TODO Support DOCTYPE declarations
 
-// TODO Prevent output into CTX_JS
-
 // TODO Prevent output into script:src
 
 public class Canoe extends Writer {
+	
+	public static final String EMPTY_STRING = "";
 	
 	public static final int CTX_SUPPRESS = 0;
 
@@ -963,13 +963,17 @@ public class Canoe extends Writer {
 		case CTX_HTML:
 			return HtmlEncoder.encodeForHTML(input);
 		case CTX_JS:
-			return HtmlEncoder.encodeForJavaScript(input);
+			// Do not output anything into JS contexts
+			//return HtmlEncoder.encodeForJavaScript(input);
+			return EMPTY_STRING;
 		case CTX_URI:
 			return HtmlEncoder.encodeForURL(input);
+		case CTX_CSS:
+			return HtmlEncoder.encodeForCSS(input);
 		case CTX_SUPPRESS:
 		default:
 			// Do nothing -- suppressed output
-			return new String("");
+			return EMPTY_STRING;
 		}		
 	}
 

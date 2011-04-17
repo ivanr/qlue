@@ -17,10 +17,14 @@
 package com.webkreator.qlue.example.pages;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueParameter;
 import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.View;
 
 public class index extends Page {
+	
+	@QlueParameter(mandatory = false)
+	public String p;
 
 	@Override
 	public View onGet() {

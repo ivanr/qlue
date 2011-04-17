@@ -747,7 +747,10 @@ public class QlueApplication {
 			shadowInput.set(f.getName(), value);
 		} else {
 			// Load from the command object
-			shadowInput.set(f.getName(), f.get(commandObject).toString());
+			Object o = f.get(commandObject);
+			if (o != null) {
+				shadowInput.set(f.getName(), o.toString());
+			}
 		}
 
 		// If the parameter is present in request, validate it

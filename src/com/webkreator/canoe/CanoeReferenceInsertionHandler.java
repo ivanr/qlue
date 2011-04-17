@@ -49,24 +49,8 @@ public class CanoeReferenceInsertionHandler implements
 		if (arg1 == null) {
 			return null;
 		}
-
+		
 		// Now encode the text using the correct encoder
-		switch (qlueWriter.currentContext()) {
-		case Canoe.CTX_HTML:
-			return HtmlEncoder.encodeForHTML(arg1.toString());
-		case Canoe.CTX_JS:
-			return HtmlEncoder.encodeForJavaScript(arg1.toString());
-		case Canoe.CTX_URI:
-			return HtmlEncoder.encodeForURL(arg1.toString());
-		case Canoe.CTX_CSS:
-			return HtmlEncoder.encodeForCSS(arg1.toString());
-		case Canoe.CTX_SUPPRESS:
-		default:
-			// Do nothing
-			break;
-		}
-
-		// Suppressed output
-		return "";
+		return Canoe.encode(arg1.toString(), qlueWriter.currentContext());
 	}
 }
