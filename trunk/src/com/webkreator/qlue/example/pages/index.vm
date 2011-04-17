@@ -1,2 +1,6 @@
 Message: $_m.get("qlue.helloWorld")<br>
 Message: $_m.get("qlue.helloNamedPerson", "Ivan")<br>
+
+<script src=$p>$p</script>
+
+$p
