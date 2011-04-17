@@ -30,6 +30,7 @@ import java.io.Writer;
 // TODO Prevent output into script:src
 
 public class Canoe extends Writer {
+	
 	public static final int CTX_SUPPRESS = 0;
 
 	public static final int CTX_HTML = 1;
