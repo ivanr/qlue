@@ -18,6 +18,9 @@ package com.webkreator.canoe;
 
 import org.apache.velocity.app.event.ReferenceInsertionEventHandler;
 
+/**
+ * This class is a bridge between Canoe and Velocity.
+ */
 public class CanoeReferenceInsertionHandler implements
 		ReferenceInsertionEventHandler {
 
@@ -29,16 +32,25 @@ public class CanoeReferenceInsertionHandler implements
 		this.qlueWriter = qlueWriter;
 	}
 
+	/**
+	 * Encodes text for output. 
+	 */
 	@Override
 	public Object referenceInsert(String arg0, Object arg1) {
+		// We ignore references that start with the prefix
+		// we consider to be safe. This allows developers to
+		// bypass the automatic encoding mechanism and prepare
+		// output themselves.
 		if (arg0.startsWith(SAFE_REFERENCE_PREFIX)) {
 			return arg1;
 		}
 
+		// Give up if there's nothing to output
 		if (arg1 == null) {
 			return null;
 		}
 
+		// Now encode the text using the correct encoder
 		switch (qlueWriter.currentContext()) {
 		case Canoe.CTX_HTML:
 			return HtmlEncoder.encodeForHTML(arg1.toString());
@@ -55,6 +67,6 @@ public class CanoeReferenceInsertionHandler implements
 		}
 
 		// Suppressed output
-		return new String("");
+		return "";
 	}
 }
