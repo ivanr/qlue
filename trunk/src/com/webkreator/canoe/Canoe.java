@@ -21,16 +21,12 @@ import java.io.Writer;
 
 // TODO Have a list of white-listed HTML tags
 
-// TODO Support HTML comments
-
-// TODO Support DOCTYPE declarations
-
-// TODO Prevent output into script:src
+// XXX Support DOCTYPE declarations
 
 public class Canoe extends Writer {
-	
+
 	public static final String EMPTY_STRING = "";
-	
+
 	public static final int CTX_SUPPRESS = 0;
 
 	public static final int CTX_HTML = 1;
@@ -70,7 +66,17 @@ public class Canoe extends Writer {
 	public static final int URL = 11;
 
 	public static final int TAG_EMPTY_ENDING = 12;
+	
+	public static final int COMMENT_OPEN_1 = 13;
 
+	public static final int COMMENT_OPEN_2 = 14;
+	
+	public static final int COMMENT = 15;
+	
+	public static final int COMMENT_CLOSE_1 = 16;
+	
+	public static final int COMMENT_CLOSE_2 = 17;
+	
 	public static final int INVALID = 666;
 
 	public static final int QUOTE_NONE = 0;
@@ -579,13 +585,55 @@ public class Canoe extends Writer {
 					}
 				}
 				break;
+				
+			case COMMENT_OPEN_1 :
+				if (c == '-') {
+					state = COMMENT_OPEN_2;
+				} else {
+					raiseError("Invalid tag");
+				}
+				break;
+				
+			case COMMENT_OPEN_2 :
+				if (c == '-') {
+					state = COMMENT;
+				} else {
+					raiseError("Invalid tag");
+				}
+				break;
+				
+			case COMMENT :
+				if (c == '-') {
+					state = COMMENT_CLOSE_1;
+				}
+				break;
+				
+			case COMMENT_CLOSE_1 :
+				if (c == '-') {
+					state = COMMENT_CLOSE_2;
+				} else {
+					state = COMMENT;
+				}
+			break;
+			
+			case COMMENT_CLOSE_2 :
+				if (c == '>') {
+					state = HTML;
+				} else {
+					state = COMMENT;
+				}
+			break;
 
 			case TAG_NAME:
 				// On the first character, check if this is a closing tag
-				if ((bufLen == 0) && (c == '/')) {
-					// Closing tag
-					buf[bufLen++] = '/';
-					closingTag = true;
+				if (bufLen == 0) {
+					if (c == '/') {
+						// Closing tag
+						buf[bufLen++] = '/';
+						closingTag = true;
+					} else if (c == '!') {
+						state = COMMENT_OPEN_1;
+					}
 				} else {
 					// Not a closing tag
 
@@ -880,8 +928,8 @@ public class Canoe extends Writer {
 
 	private void raiseError(String errorMessage) throws IOException {
 		state = INVALID;
-		this.errorMessage = ERROR_PREFIX + errorMessage + " (line: " + currentLine
-				+ ", pos: " + currentPos + ")";
+		this.errorMessage = ERROR_PREFIX + errorMessage + " (line: "
+				+ currentLine + ", pos: " + currentPos + ")";
 		throw new IOException(this.errorMessage);
 	}
 
@@ -899,8 +947,8 @@ public class Canoe extends Writer {
 	}
 
 	/**
-	 * Determines the current output context based on the
-	 * parser's internal state.
+	 * Determines the current output context based on the parser's internal
+	 * state.
 	 * 
 	 * @return current output context
 	 */
@@ -964,7 +1012,7 @@ public class Canoe extends Writer {
 			return HtmlEncoder.encodeForHTML(input);
 		case CTX_JS:
 			// Do not output anything into JS contexts
-			//return HtmlEncoder.encodeForJavaScript(input);
+			// return HtmlEncoder.encodeForJavaScript(input);
 			return EMPTY_STRING;
 		case CTX_URI:
 			return HtmlEncoder.encodeForURL(input);
@@ -974,7 +1022,7 @@ public class Canoe extends Writer {
 		default:
 			// Do nothing -- suppressed output
 			return EMPTY_STRING;
-		}		
+		}
 	}
 
 	/**
