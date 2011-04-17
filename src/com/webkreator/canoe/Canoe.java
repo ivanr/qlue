@@ -21,8 +21,6 @@ import java.io.Writer;
 
 // TODO Have a list of white-listed HTML tags
 
-// XXX Support DOCTYPE declarations
-
 public class Canoe extends Writer {
 
 	public static final String EMPTY_STRING = "";
@@ -67,7 +65,7 @@ public class Canoe extends Writer {
 
 	public static final int TAG_EMPTY_ENDING = 12;
 	
-	public static final int COMMENT_OPEN_1 = 13;
+	public static final int COMMENT_OPEN_OR_DOCTYPE = 13;
 
 	public static final int COMMENT_OPEN_2 = 14;
 	
@@ -76,6 +74,8 @@ public class Canoe extends Writer {
 	public static final int COMMENT_CLOSE_1 = 16;
 	
 	public static final int COMMENT_CLOSE_2 = 17;
+	
+	public static final int DOCTYPE = 18;
 	
 	public static final int INVALID = 666;
 
@@ -124,6 +124,8 @@ public class Canoe extends Writer {
 	protected int currentPos = 1;
 
 	protected String errorMessage;
+	
+	protected int tagCount;
 
 	public Canoe(Writer writer) {
 		this.writer = writer;
@@ -574,6 +576,7 @@ public class Canoe extends Writer {
 					state = TAG_NAME;
 					closingTag = false;
 					bufLen = 0;
+					tagCount++;
 				} else {
 					// Non-markup character
 
@@ -586,9 +589,16 @@ public class Canoe extends Writer {
 				}
 				break;
 				
-			case COMMENT_OPEN_1 :
+			case COMMENT_OPEN_OR_DOCTYPE :
 				if (c == '-') {
 					state = COMMENT_OPEN_2;
+				} if ((c == 'D')||(c == 'd')) {
+					if (tagCount != 1) {
+						raiseError("DOCTYPE declaration must be at the beginning");
+					} else {
+						// TODO Check all the characters
+						state = DOCTYPE;
+					}
 				} else {
 					raiseError("Invalid tag");
 				}
@@ -623,6 +633,12 @@ public class Canoe extends Writer {
 					state = COMMENT;
 				}
 			break;
+			
+			case DOCTYPE :
+				if (c == '>') {
+					state = HTML;
+				}
+			break;
 
 			case TAG_NAME:
 				// On the first character, check if this is a closing tag
@@ -632,7 +648,7 @@ public class Canoe extends Writer {
 						buf[bufLen++] = '/';
 						closingTag = true;
 					} else if (c == '!') {
-						state = COMMENT_OPEN_1;
+						state = COMMENT_OPEN_OR_DOCTYPE;
 					}
 				} else {
 					// Not a closing tag
