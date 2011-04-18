@@ -11,8 +11,45 @@
     </info>
     <section>
         <title>WARNING</title>
-        <para>This manual does not currently
-            describe the code base accurately.</para>
+        <para>This manual does not currently describe the code base accurately.</para>
+        <para>To do:</para>
+        <itemizedlist>
+            <listitem>
+                <para>Properties (qlue.properties)</para>
+            </listitem>
+            <listitem>
+                <para>log4j integration (log4j.properties)</para>
+            </listitem>
+            <listitem>
+                <para>Spring integration</para>
+            </listitem>
+            <listitem>
+                <para>Creating an application from scratch (servlet bridge + application class +
+                    base page class + session class + pages)</para>
+            </listitem>
+            <listitem>
+                <para>Templates can be included with class files, or they can be in a separate
+                    location</para>
+            </listitem>
+            <listitem>
+                <para>Internationalization and localization</para>
+            </listitem>
+            <listitem>
+                <para>How to bypass automated output encoding</para>
+            </listitem>
+            <listitem>
+                <para>Built-in pages</para>
+            </listitem>
+            <listitem>
+                <para>Canoe (context-aware output encoder)</para>
+            </listitem>
+            <listitem>
+                <para>Welcome page filter</para>
+            </listitem>
+            <listitem>
+                <para>HSTS filter</para>
+            </listitem>
+        </itemizedlist>
     </section>
     <section>
         <title>Introduction</title>
@@ -32,17 +69,18 @@
             </listitem>
             <listitem>
                 <para>Processes that span multiple requests are modelled with persistent pages,
-                    which are subclasses of <literal>FormPage</literal>. Persistent pages come with
-                    CSRF defence built-in.</para>
+                    which are created at the beginning of the process, stay alive across requests,
+                    and terminate once the work is completed. Persistent pages come with CSRF
+                    defence built-in.</para>
             </listitem>
             <listitem>
-                <para>The framework supports safe parameter binding and input validation, which maps
+                <para>The framework supports safe parameter binding and input validation, which map
                     request parameters to annotated class fields.</para>
             </listitem>
             <listitem>
                 <para>The Velocity scripting language is used for output generation. Context-aware
                     output encoding was added to Velocity to transparently handle all data as it is
-                    sent to output.</para>
+                    sent to output (meaning that programmers need not manually encode data).</para>
             </listitem>
         </itemizedlist>
     </section>
@@ -233,8 +271,9 @@
             <itemizedlist>
                 <listitem>
                     <para>To respond to a POST requests, override <filename>onPost()</filename>. The
-                        default implementation of <filename>onPost()</filename> throws a 405 status
-                        code.</para>
+                        default implementation of <filename>onPost()</filename> throws a
+                            <literal>RequestMethodException</literal> instance, which ultimately
+                        results with a 405 response..</para>
                 </listitem>
                 <listitem>
                     <para>To respond to any request method, override the
@@ -249,8 +288,8 @@
             <title>Importing Request Parameters</title>
             <para>The recommended approach in Qlue is to process request parameters using the
                 built-in parameter binding, validation, and transformation. It uses annotations to
-                point out the page class fields that need to be populated from request parameters,
-                and to specify how that's done. For example:</para>
+                point out to the page class fields that need to be populated using request
+                parameters, and to specify how that's done. For example:</para>
             <programlisting>public class helloStranger1 extends Page {
 
     @QlueParameter
@@ -292,8 +331,8 @@
             </note>
         </section>
         <section>
-            <title>Using a command object</title>
-            <para>Although in some cases it is convenient to bind request parameters directly to
+            <title>Using a command object for input</title>
+            <para>Although in many cases it is convenient to bind request parameters directly to
                 page fields, sometimes you will need more flexibility. A page can specify any object
                 to serve as a command object, in which case request parameters will be bound to it.
                 To specify a command object, a page needs to override the
@@ -301,8 +340,8 @@
             <programlisting>public class commandObject extends Page {
 
     @Override
-    public Object determineCommandObject() {
-        return new MyCommandObject();
+    void determineCommandObject() {
+        commandObject = new MyCommandObject();
     }
 
     @Override
@@ -313,8 +352,9 @@
         </section>
         <section>
             <title>Adding your own property editors</title>
-            <para>Qlue implements only a small number of property editors. At the moment, it
-                supports the conversion for the following classes:</para>
+            <para>During parameter binding, property editors are used to convert from text to native
+                types. Qlue implements only a small number of property editors at the moment. The
+                supported types are the following:</para>
             <itemizedlist>
                 <listitem>
                     <para><literal>Boolean</literal></para>
@@ -341,8 +381,8 @@
     }
 }</programlisting>
             <para>The <literal>SomeClassEditor</literal> class must implement the
-                    <literal>PropertyEditor</literal> interface. Examine the
-                    <literal>BooleanEditor</literal> class for an example:</para>
+                    <literal>PropertyEditor</literal> interface. Examine a possible implementation
+                of <literal>BooleanEditor</literal>, for example:</para>
             <programlisting>public class BooleanEditor implements PropertyEditor {
 
 	@Override
@@ -359,9 +399,9 @@
         <section>
             <title>Retrieving original parameter values</title>
             <para>Parameter binding is a very useful feature, but it will only bind parameters to
-                the command objects when conversion is possible. Qlue keeps the original request
-                parameter values as <firstterm>shadow input</firstterm>. Shadow input is an
-                    <literal>ShadowInput</literal> instance that you obtain by calling
+                the command objects when conversion is possible. Qlue keeps original request
+                parameter values as <firstterm>shadow input</firstterm>. Shadow input is a
+                    <literal>ShadowInput</literal> instance that you can obtain by calling
                     <literal>page.getShadowInstance()</literal>. Only the annotated command object
                 fields will be stored in shadow input.</para>
         </section>
@@ -384,7 +424,7 @@
                 either one.</para>
         </section>
         <section>
-            <title>Using data in output</title>
+            <title>Using data in templates</title>
             <para>A number of objects will be automatically exposed by the framework, making them
                 available to use from Velocity. These objects, whose names always begin with an
                 underscore, are documented in XXX.</para>
@@ -406,7 +446,7 @@
                         </row>
                         <row>
                             <entry><literal>_cmd</literal></entry>
-                            <entry>Command object (the page itself, by default)</entry>
+                            <entry>Command object (the page itself by default)</entry>
                         </row>
                         <row>
                             <entry><literal>_ctx</literal></entry>
@@ -425,6 +465,10 @@
                             <entry>Shadow input</entry>
                         </row>
                         <row>
+                            <entry><literal>_m</literal></entry>
+                            <entry>Message source object</entry>
+                        </row>
+                        <row>
                             <entry><literal>_page</literal></entry>
                             <entry>Page object</entry>
                         </row>
@@ -436,17 +480,21 @@
                             <entry><literal>_res</literal></entry>
                             <entry>Response object</entry>
                         </row>
+                        <row>
+                            <entry><literal>_sess</literal></entry>
+                            <entry>Session object</entry>
+                        </row>
                     </tbody>
                 </tgroup>
             </table>
-            <para>The public fields of the command object are exposed as Velocity objects, under the
-                same names.</para>
+            <para>The public fields of the command object are also exposed as Velocity objects,
+                under their own names.</para>
             <para>Pages can expose any objects they choose by adding them to the map returned by
                     <literal>getModel()</literal>. You are advised not to use any names that begin
-                with underscores, to avoid potential clashes with the built-in objects. Also, the
-                addition of command object fields is doing just prior to view rendering, which means
-                that any fields that have the same name as the manually added objects will be
-                overwritten.</para>
+                with underscores, to avoid a potential clash with the built-in objects. The addition
+                of the built-in objects and the public fields of the command object takes place
+                after page execution and before view rendering. In the case of a name clash, your
+                object references will be overwritten and won't be accessible from the view.</para>
         </section>
         <section>
             <title>Development Mode</title>
@@ -532,7 +580,7 @@
             navigating to an URL such as <filename>/formExample.html</filename>:</para>
         <orderedlist>
             <listitem>
-                <para>Your browsers sends a GET request, which Qlue will be map to the appropriate
+                <para>Your browsers sends a GET request, which Qlue will map to the appropriate
                     page.</para>
             </listitem>
             <listitem>
