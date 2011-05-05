@@ -135,7 +135,7 @@ public abstract class Page {
 	 * 
 	 * @param state
 	 */
-	void setState(String state) {
+	protected void setState(String state) {
 		this.state = state;
 	}
 
@@ -410,7 +410,7 @@ public abstract class Page {
 	 * 
 	 * @param message
 	 */
-	void addError(String message) {
+	protected void addError(String message) {
 		errors.addError(message);
 	}
 
