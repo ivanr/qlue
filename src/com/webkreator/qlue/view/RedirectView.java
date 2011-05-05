@@ -22,27 +22,35 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.util.UriBuilder;
 
 /**
- * This specialized view implementation is actually a redirection,
- * supporting both pages and URIs as targets. There are no shortcuts
- * when redirecting to pages; when given a page we construct a URI
- * that leads back to it, then use that URI to issue a redirection
- * to the client.
+ * This specialized view implementation is actually a redirection, supporting
+ * both pages and URIs as targets. There are no shortcuts when redirecting to
+ * pages; when given a page we construct a URI that leads back to it, then use
+ * that URI to issue a redirection to the client.
  */
 public class RedirectView implements View {
 
+	public static final int REDIRECT = 302;
+	
+	public static final int REDIRECT_TEMPORARY = 307;
+	
+	public static final int REDIRECT_PERMANENT = 301;
+	
 	private UriBuilder redirection;
 
 	private Page page;
+
+	private int redirectStatus = REDIRECT;
 
 	/**
 	 * Redirect to an URI.
 	 */
 	public RedirectView(String uri) {
 		if (uri == null) {
-			throw new InvalidParameterException("RedirectView: Cannot redirect to null URI");
+			throw new InvalidParameterException(
+					"RedirectView: Cannot redirect to null URI");
 		}
-		
-		redirection = new UriBuilder(uri);	
+
+		redirection = new UriBuilder(uri);
 	}
 
 	/**
@@ -52,9 +60,10 @@ public class RedirectView implements View {
 	 */
 	public RedirectView(Page page) {
 		if (page == null) {
-			throw new InvalidParameterException("RedirectView: Cannot redirect to null page");
+			throw new InvalidParameterException(
+					"RedirectView: Cannot redirect to null page");
 		}
-		
+
 		// TODO Shouldn't the page know what its URI is; why
 		// does this class has to have that knowledge
 		redirection = new UriBuilder(page.getUri());
@@ -98,12 +107,26 @@ public class RedirectView implements View {
 	}
 
 	/**
+	 * Set the status code that will be used for the redirection.
+	 * 
+	 * @param redirectStatus
+	 */
+	public void setStatus(int redirectStatus) {
+		if ((redirectStatus != 301) && (redirectStatus != 302)
+				&& (redirectStatus != 307)) {
+			throw new InvalidParameterException("Invalid redirection status: "
+					+ redirectStatus);
+		}
+
+		this.redirectStatus = redirectStatus;
+	}
+
+	/**
 	 * Issue a redirection to a page or a URI.
 	 */
 	@Override
 	public void render(Page page) throws Exception {
-		// TODO This issues a 302 redirection. How can we
-		//      support other status codes, such as 301 or 307?
-		page.getContext().response.sendRedirect(redirection.getUri());
+		page.getContext().response.setStatus(redirectStatus);
+		page.getContext().response.setHeader("Location", redirection.getUri());
 	}
 }
