@@ -43,8 +43,6 @@ import com.webkreator.qlue.view.FinalRedirectView;
  */
 public class TransactionContext {
 
-	public static final String QLUE_SESSION_STORAGE_ID = "QLUE_PAGE_MANAGER";
-
 	public int txId;
 
 	public ServletConfig servletConfig;
@@ -89,11 +87,12 @@ public class TransactionContext {
 		// Get the QlueSession instance
 		synchronized (session) {
 			qluePageManager = (QluePageManager) session
-					.getAttribute(QLUE_SESSION_STORAGE_ID);
-			// Not found? Then create a new one...
+					.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
+			// Not page manager? Then create a new one...
 			if (qluePageManager == null) {
 				qluePageManager = new QluePageManager();
-				session.setAttribute(QLUE_SESSION_STORAGE_ID, qluePageManager);
+				session.setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER,
+						qluePageManager);
 			}
 		}
 
@@ -365,7 +364,7 @@ public class TransactionContext {
 
 		return null;
 	}
-	
+
 	/**
 	 * Retrieves all values of parameters with the given name.
 	 * 
@@ -379,10 +378,10 @@ public class TransactionContext {
 		if (isMultipart == false) {
 			return getRequest().getParameterValues(name);
 		}
-		
+
 		// Otherwise, find the parameter in our own storage
 		ArrayList<String> valuesList = new ArrayList<String>();
-		
+
 		for (int i = 0, n = multipartItems.size(); i < n; i++) {
 			FileItem fi = multipartItems.get(i);
 			if (fi.getFieldName().compareToIgnoreCase(name) == 0) {
@@ -390,15 +389,15 @@ public class TransactionContext {
 					throw new RuntimeException(
 							"Qlue: Unexpected file parameter");
 				}
-				
+
 				// Add to the list
 				valuesList.add(fi.getString(app.getCharacterEncoding()));
 			}
 		}
-		
+
 		// Return all values in an array
 		String[] values = new String[valuesList.size()];
-		return (String[])valuesList.toArray(values);
+		return (String[]) valuesList.toArray(values);
 	}
 
 	/**
@@ -415,7 +414,7 @@ public class TransactionContext {
 			throw new RuntimeException("Qlue: multipart/form-data expected");
 		}
 
-		// Find the requested file among out parameters 
+		// Find the requested file among out parameters
 		for (int i = 0, n = multipartItems.size(); i < n; i++) {
 			FileItem fi = multipartItems.get(i);
 			if (fi.getFieldName().compareToIgnoreCase(name) == 0) {

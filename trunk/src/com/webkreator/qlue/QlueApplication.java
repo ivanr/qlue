@@ -69,8 +69,6 @@ public class QlueApplication {
 
 	public static final String PROPERTIES_FILENAME = "/WEB-INF/qlue.properties";
 
-	public static final String SESSION_OBJECT_KEY = "QLUE_APPLICATION_SESSION_OBJECT";
-
 	public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
 
 	private String messagesFilename = "com/webkreator/qlue/messages";
@@ -190,7 +188,7 @@ public class QlueApplication {
 		if (session.isNew()) {
 			Object o = createNewSessionObject();
 			if (o != null) {
-				session.setAttribute(SESSION_OBJECT_KEY, o);
+				session.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, o);
 			}
 		}
 
@@ -961,7 +959,7 @@ public class QlueApplication {
 	 */
 	public QlueSession getQlueSession(HttpServletRequest request) {
 		return (QlueSession) request.getSession().getAttribute(
-				SESSION_OBJECT_KEY);
+				QlueConstants.QLUE_SESSION_OBJECT);
 	}
 
 	/**
@@ -975,7 +973,8 @@ public class QlueApplication {
 	public void regenerateSession(HttpServletRequest request) {
 		QlueSession qlueSession = getQlueSession(request);
 		request.getSession().invalidate();
-		request.getSession(true).setAttribute(SESSION_OBJECT_KEY, qlueSession);
+		request.getSession(true).setAttribute(
+				QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
 	}
 
 	/**

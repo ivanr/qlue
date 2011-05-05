@@ -46,16 +46,16 @@ public class QluePageManager {
 
 		// Generate secret token
 		byte[] randomBytes = new byte[16];
-		random.nextBytes(randomBytes);		
+		random.nextBytes(randomBytes);
 
-		// Generate the first persistent ID we are going to use. 
+		// Generate the first persistent ID we are going to use.
 		// We randomize a bit to avoid being predictable.
 		nextPersistentPageId = 100000 + random.nextInt(900000);
 	}
 
 	/**
 	 * Find persistent page with given ID.
-	 *  
+	 * 
 	 * @param id
 	 * @return
 	 */
@@ -78,8 +78,8 @@ public class QluePageManager {
 		// the page for the first time.
 		if (page.getId() == null) {
 			page.setId(new Integer(generatePageId()));
-			pages.put(page.getId(), new PersistentPageRecord(System.currentTimeMillis(),
-					page));
+			pages.put(page.getId(),
+					new PersistentPageRecord(System.currentTimeMillis(), page));
 		} else {
 			// A page that already has an ID probably also
 			// has a record. Look it up.
@@ -102,15 +102,17 @@ public class QluePageManager {
 			pages.remove(oldestId);
 
 			if (log.isWarnEnabled()) {
-				// TODO Log session ID, username if we know them.
 				log.warn("Forced removal of page from session storage: "
-						+ oldestId);
+						+ oldestId + " (sessionId="
+						+ page.getContext().getRequest().getSession().getId()
+						+ ")");
 			}
 		}
 	}
 
 	/**
 	 * Generate unique persistent page ID.
+	 * 
 	 * @return
 	 */
 	public synchronized int generatePageId() {
@@ -127,7 +129,7 @@ public class QluePageManager {
 	public void replacePage(Page page, FinalRedirectView view) {
 		PersistentPageRecord record = pages.get(page.getId());
 		record.page = null;
-		record.replacementUri = view.getUri();		
+		record.replacementUri = view.getUri();
 	}
 
 	/**
@@ -137,6 +139,6 @@ public class QluePageManager {
 	 * @return
 	 */
 	public PersistentPageRecord findPageRecord(int id) {
-		return pages.get(id);		
+		return pages.get(id);
 	}
 }
