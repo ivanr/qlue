@@ -20,9 +20,9 @@ import java.io.IOException;
 import java.io.Writer;
 
 /**
- * Canoe is a context-aware output encoder for HTML responses. It parses
- * output in real time and thus knows exactly what output encoding to use
- * to encode a piece of data.
+ * Canoe is a context-aware output encoder for HTML responses. It parses output
+ * in real time and thus knows exactly what output encoding to use to encode a
+ * piece of data.
  */
 public class Canoe extends Writer {
 
@@ -67,19 +67,19 @@ public class Canoe extends Writer {
 	public static final int URL = 11;
 
 	public static final int TAG_EMPTY_ENDING = 12;
-	
+
 	public static final int COMMENT_OPEN_OR_DOCTYPE = 13;
 
 	public static final int COMMENT_OPEN_2 = 14;
-	
+
 	public static final int COMMENT = 15;
-	
+
 	public static final int COMMENT_CLOSE_1 = 16;
-	
+
 	public static final int COMMENT_CLOSE_2 = 17;
-	
+
 	public static final int DOCTYPE = 18;
-	
+
 	public static final int INVALID = 666;
 
 	public static final int QUOTE_NONE = 0;
@@ -127,7 +127,7 @@ public class Canoe extends Writer {
 	protected int currentPos = 1;
 
 	protected String errorMessage;
-	
+
 	protected int tagCount;
 
 	/**
@@ -603,11 +603,12 @@ public class Canoe extends Writer {
 					}
 				}
 				break;
-				
-			case COMMENT_OPEN_OR_DOCTYPE :
+
+			case COMMENT_OPEN_OR_DOCTYPE:
 				if (c == '-') {
 					state = COMMENT_OPEN_2;
-				} if ((c == 'D')||(c == 'd')) {
+				}
+				if ((c == 'D') || (c == 'd')) {
 					if (tagCount != 1) {
 						raiseError("DOCTYPE declaration must be at the beginning");
 					} else {
@@ -618,116 +619,117 @@ public class Canoe extends Writer {
 					raiseError("Invalid tag");
 				}
 				break;
-				
-			case COMMENT_OPEN_2 :
+
+			case COMMENT_OPEN_2:
 				if (c == '-') {
 					state = COMMENT;
 				} else {
 					raiseError("Invalid tag");
 				}
 				break;
-				
-			case COMMENT :
+
+			case COMMENT:
 				if (c == '-') {
 					state = COMMENT_CLOSE_1;
 				}
 				break;
-				
-			case COMMENT_CLOSE_1 :
+
+			case COMMENT_CLOSE_1:
 				if (c == '-') {
 					state = COMMENT_CLOSE_2;
 				} else {
 					state = COMMENT;
 				}
-			break;
-			
-			case COMMENT_CLOSE_2 :
+				break;
+
+			case COMMENT_CLOSE_2:
 				if (c == '>') {
 					state = HTML;
 				} else {
 					state = COMMENT;
 				}
-			break;
-			
-			case DOCTYPE :
+				break;
+
+			case DOCTYPE:
 				if (c == '>') {
 					state = HTML;
 				}
-			break;
+				break;
 
 			case TAG_NAME:
-				// On the first character, check if this is a closing tag
+				// On the first character, check if this is a closing tag,
+				// a comment, or a DOCTYPE declaration
 				if (bufLen == 0) {
 					if (c == '/') {
 						// Closing tag
 						buf[bufLen++] = '/';
 						closingTag = true;
+						continue;
 					} else if (c == '!') {
 						state = COMMENT_OPEN_OR_DOCTYPE;
+						continue;
 					}
+				}
+
+				// Check if character is part of tag name
+				if (isTagNameChar(c, bufLen)) {
+					// Character is part of tag name
+
+					// Check tag name length
+					if (bufLen == buf.length - 1) {
+						raiseError("Tag name too long");
+						return;
+					}
+
+					// Copy tag name character into buffer
+					buf[bufLen++] = Character.toLowerCase(c);
 				} else {
-					// Not a closing tag
+					// Found tag name (the current
+					// character not part of name)
 
-					// Check if character is part of tag name
-					if (isTagNameChar(c, bufLen)) {
-						// Character is part of tag name
+					buf[bufLen++] = '\0';
+					// System.err.println("TAG NAME: " + inBuf());
 
-						// Check tag name length
-						if (bufLen == buf.length - 1) {
-							raiseError("Tag name too long");
-							return;
-						}
-
-						// Copy tag name character into buffer
-						buf[bufLen++] = Character.toLowerCase(c);
-					} else {
-						// Found tag name (the current
-						// character not part of name)
-
-						buf[bufLen++] = '\0';
-						// System.err.println("TAG NAME: " + inBuf());
-
-						// Do we have at least one character in tag name?
-						if (((closingTag == false) && (bufLen == 1))
-								|| (closingTag == true) && (bufLen == 2)) {
-							raiseError("Tag name too short");
-							return;
-						}
-
-						// Char after tag name must be '>' or whitespace
-						if ((Character.isWhitespace(c) == false) && (c != '>')) {
-							raiseError("Invalid character after tag name");
-							return;
-						}
-
-						// By default, the next state
-						// (inside tag) is HTML
-						nextState = HTML;
-
-						// Detect <script> and <style> tags
-						if (!closingTag) {
-							if ((buf[0] == 's') && (buf[1] == 'c')
-									&& (buf[2] == 'r') && (buf[3] == 'i')
-									&& (buf[4] == 'p') && (buf[5] == 't')
-									&& (buf[6] == '\0')) {
-								// Script
-								nextState = SCRIPT;
-							}
-
-							if ((buf[0] == 's') && (buf[1] == 't')
-									&& (buf[2] == 'y') && (buf[3] == 'l')
-									&& (buf[4] == 'e') && (buf[5] == '\0')) {
-								// Style
-								nextState = CSS;
-							}
-						}
-
-						// We're in a tag now
-						state = TAG;
-
-						// Still need to consume the character
-						charNeedsProcessing = true;
+					// Do we have at least one character in tag name?
+					if (((closingTag == false) && (bufLen == 1))
+							|| (closingTag == true) && (bufLen == 2)) {
+						raiseError("Tag name too short");
+						return;
 					}
+
+					// Char after tag name must be '>' or whitespace
+					if ((Character.isWhitespace(c) == false) && (c != '>')) {
+						raiseError("Invalid character after tag name");
+						return;
+					}
+
+					// By default, the next state
+					// (inside tag) is HTML
+					nextState = HTML;
+
+					// Detect <script> and <style> tags
+					if (!closingTag) {
+						if ((buf[0] == 's') && (buf[1] == 'c')
+								&& (buf[2] == 'r') && (buf[3] == 'i')
+								&& (buf[4] == 'p') && (buf[5] == 't')
+								&& (buf[6] == '\0')) {
+							// Script
+							nextState = SCRIPT;
+						}
+
+						if ((buf[0] == 's') && (buf[1] == 't')
+								&& (buf[2] == 'y') && (buf[3] == 'l')
+								&& (buf[4] == 'e') && (buf[5] == '\0')) {
+							// Style
+							nextState = CSS;
+						}
+					}
+
+					// We're in a tag now
+					state = TAG;
+
+					// Still need to consume the character
+					charNeedsProcessing = true;
 				}
 				break;
 
