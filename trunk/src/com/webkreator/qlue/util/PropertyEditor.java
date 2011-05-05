@@ -47,9 +47,4 @@ public interface PropertyEditor {
 	 * @return
 	 */
 	public String toText(Object o);
-	
-	// TODO Standardise on what exception is thrown if
-	//      the conversion is not possible. At the moment
-	//      BooleanEditor throws InvalidParameterException, whereas
-	//      we leave Integer to throw NumberFormatException.
 }

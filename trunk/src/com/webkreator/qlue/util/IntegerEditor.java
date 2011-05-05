@@ -17,6 +17,7 @@
 package com.webkreator.qlue.util;
 
 import java.lang.reflect.Field;
+import java.security.InvalidParameterException;
 
 /**
  * Handle conversion to and from Integer fields.
@@ -25,17 +26,22 @@ public class IntegerEditor implements PropertyEditor {
 
 	@Override
 	public Integer fromText(Field field, String text) {
-		return Integer.valueOf(text);
+		try {
+			return Integer.valueOf(text);
+		} catch (NumberFormatException nfe) {
+			throw new InvalidParameterException(
+					"IntegerEditor: Invalid integer value: " + text);
+		}
 	}
 
 	@SuppressWarnings("rawtypes")
 	@Override
-	public Class getEditorClass() {		
+	public Class getEditorClass() {
 		return Integer.class;
 	}
 
 	@Override
 	public String toText(Object o) {
-		return ((Integer)o).toString();
+		return ((Integer) o).toString();
 	}
 }
