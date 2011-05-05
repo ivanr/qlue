@@ -40,6 +40,14 @@ public interface PropertyEditor {
 	 */
 	public Object fromText(Field field, String text);
 	
+	/**
+	 * Converts object to text.
+	 * 
+	 * @param o
+	 * @return
+	 */
+	public String toText(Object o);
+	
 	// TODO Standardise on what exception is thrown if
 	//      the conversion is not possible. At the moment
 	//      BooleanEditor throws InvalidParameterException, whereas
