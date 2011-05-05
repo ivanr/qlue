@@ -1223,8 +1223,6 @@ public class QlueApplication {
 	/**
 	 * Remember the current page for later use (e.g., in an error handler).
 	 * 
-	 * TODO This does not belong here; move to context.
-	 * 
 	 * @param page
 	 */
 	void setActualPage(Page page) {
@@ -1234,8 +1232,6 @@ public class QlueApplication {
 	/**
 	 * Retrieve the actual page that tried to handle the current transaction and
 	 * failed.
-	 * 
-	 * TODO This does not belong here; move to context.
 	 * 
 	 * @param currentPage
 	 * @return

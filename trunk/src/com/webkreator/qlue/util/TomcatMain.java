@@ -38,8 +38,6 @@ public class TomcatMain {
 		options.addOption("I", "ip", true, "IP address");
 		options.addOption("P", "port", true, "port");
 
-		// TODO Add support for access logging
-
 		CommandLineParser parser = new PosixParser();
 		CommandLine commandLine = null;
 

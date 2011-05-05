@@ -39,9 +39,6 @@ public class DownloadUtil {
 	public static void sendInlineFile(HttpServletResponse response, File f)
 			throws Exception {
 		// Set MIME type
-		// TODO It would be nice to have support for many
-		//      MIME types here. Also, extract this functionality
-		//      as a separate method.
 		if (f.getName().endsWith(".png")) {
 			response.setContentType("image/png");
 		} else if (f.getName().endsWith(".pdf")) {

@@ -64,8 +64,6 @@ public class RedirectView implements View {
 					"RedirectView: Cannot redirect to null page");
 		}
 
-		// TODO Shouldn't the page know what its URI is; why
-		// does this class has to have that knowledge
 		redirection = new UriBuilder(page.getUri());
 
 		if (page.getId() != null) {
