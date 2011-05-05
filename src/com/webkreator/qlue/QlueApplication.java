@@ -953,6 +953,20 @@ public class QlueApplication {
 		return (QlueSession) request.getSession().getAttribute(
 				SESSION_OBJECT_KEY);
 	}
+	
+	/**
+	 * Invalidates the existing session and creates a new one, preserving
+	 * the QlueSession object in the process. This method should be invoked
+	 * immediately after a user is authenticated to prevent session
+	 * fixation attacks.
+	 * 
+	 * @param request
+	 */
+	public void regenerateSession(HttpServletRequest request) {
+		QlueSession qlueSession = getQlueSession(request);		
+		request.getSession().invalidate();		
+		request.getSession(true).setAttribute(SESSION_OBJECT_KEY, qlueSession);
+	}
 
 	/**
 	 * Set application prefix, which is used in logging as part of the unique
