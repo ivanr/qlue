@@ -449,9 +449,19 @@ public class QlueApplication {
 			if (f.isAnnotationPresent(QlueParameter.class)) {
 				// Update missing shadow input fields
 				if (shadowInput.get(f.getName()) == null) {
+					// Find the property editor
+					PropertyEditor pe = editors.get(f.getType());
+					if (pe == null) {
+						throw new RuntimeException(
+								"Qlue: Binding does not know how to handle type: "
+										+ f.getType());
+					}
+
+					// If the object exists, convert it to
+					// text using the property editor
 					Object o = f.get(commandObject);
 					if (o != null) {
-						shadowInput.set(f.getName(), o.toString());
+						shadowInput.set(f.getName(), pe.toText(o));
 					}
 				}
 			}
@@ -749,7 +759,7 @@ public class QlueApplication {
 			// Load from the command object
 			Object o = f.get(commandObject);
 			if (o != null) {
-				shadowInput.set(f.getName(), o.toString());
+				shadowInput.set(f.getName(), pe.toText(o));
 			}
 		}
 
@@ -769,8 +779,8 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Retrieve field message that we need to emit when
-	 * a mandatory parameter is missing.
+	 * Retrieve field message that we need to emit when a mandatory parameter is
+	 * missing.
 	 * 
 	 * @param qp
 	 * @return
@@ -953,18 +963,18 @@ public class QlueApplication {
 		return (QlueSession) request.getSession().getAttribute(
 				SESSION_OBJECT_KEY);
 	}
-	
+
 	/**
-	 * Invalidates the existing session and creates a new one, preserving
-	 * the QlueSession object in the process. This method should be invoked
-	 * immediately after a user is authenticated to prevent session
-	 * fixation attacks.
+	 * Invalidates the existing session and creates a new one, preserving the
+	 * QlueSession object in the process. This method should be invoked
+	 * immediately after a user is authenticated to prevent session fixation
+	 * attacks.
 	 * 
 	 * @param request
 	 */
 	public void regenerateSession(HttpServletRequest request) {
-		QlueSession qlueSession = getQlueSession(request);		
-		request.getSession().invalidate();		
+		QlueSession qlueSession = getQlueSession(request);
+		request.getSession().invalidate();
 		request.getSession(true).setAttribute(SESSION_OBJECT_KEY, qlueSession);
 	}
 

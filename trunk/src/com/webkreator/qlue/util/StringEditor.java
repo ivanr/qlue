@@ -33,4 +33,9 @@ public class StringEditor implements PropertyEditor {
 	public Class getEditorClass() {		
 		return String.class;
 	}
+
+	@Override
+	public String toText(Object o) {
+		return (String)o;
+	}
 }

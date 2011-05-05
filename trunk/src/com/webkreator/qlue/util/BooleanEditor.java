@@ -50,4 +50,9 @@ public class BooleanEditor implements PropertyEditor {
 	public Class getEditorClass() {
 		return Boolean.class;
 	}
+
+	@Override
+	public String toText(Object o) {
+		return ((Boolean)o).toString();
+	}
 }
