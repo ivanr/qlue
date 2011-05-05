@@ -34,7 +34,7 @@ import com.webkreator.qlue.Page;
 
 /**
  * Base class for the view implementation that uses Velocity. Needs subclassing
- * to provide initialisation and decide where to look for template files.
+ * to provide initialization and decide where to look for template files.
  */
 public abstract class VelocityViewFactory implements ViewFactory {
 

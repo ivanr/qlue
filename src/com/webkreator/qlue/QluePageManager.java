@@ -39,7 +39,7 @@ public class QluePageManager {
 	private Map<Integer, PersistentPageRecord> pages = new HashMap<Integer, PersistentPageRecord>();
 
 	/**
-	 * Initialise a new page manager.
+	 * Initialize a new page manager.
 	 */
 	QluePageManager() {
 		SecureRandom random = new SecureRandom();
@@ -49,7 +49,7 @@ public class QluePageManager {
 		random.nextBytes(randomBytes);		
 
 		// Generate the first persistent ID we are going to use. 
-		// We randomise a bit to avoid being predictable.
+		// We randomize a bit to avoid being predictable.
 		nextPersistentPageId = 100000 + random.nextInt(900000);
 	}
 

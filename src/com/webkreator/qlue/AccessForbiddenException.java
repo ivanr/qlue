@@ -18,7 +18,7 @@ package com.webkreator.qlue;
 
 /**
  * Thrown when request processing is interrupted because the
- * current user is not authorised. 
+ * current user is not authorized. 
  */
 public class AccessForbiddenException extends QlueException {
 

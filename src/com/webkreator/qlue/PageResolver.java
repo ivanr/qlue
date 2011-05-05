@@ -20,7 +20,7 @@ import javax.servlet.http.HttpServletRequest;
 
 /**
  * Page resolver maps request URIs to pages. A subclass
- * should inherit this class and provide a translaction
+ * should inherit this class and provide a transaction
  * mechanism.
  */
 public abstract class PageResolver {

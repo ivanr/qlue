@@ -101,7 +101,7 @@ public class UriBuilder {
 	}
 
 	/**
-	 * Initialise builder using the given URI.
+	 * Initialize builder using the given URI.
 	 * 
 	 * @param uri
 	 */
@@ -118,7 +118,7 @@ public class UriBuilder {
 		// Look for parameters
 		int i = uri.indexOf('?');
 		if (i == -1) {
-			// No parameters, just store the normalised path
+			// No parameters, just store the normalized path
 			this.uri = WebUtil.normaliseUri(uri);
 		} else {
 			// Extract parameters into individual objects

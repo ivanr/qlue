@@ -41,7 +41,7 @@ public class QlueSession {
 	private Integer developmentMode = null;
 
 	/**
-	 * Initialise a new user session.
+	 * Initialize a new user session.
 	 */
 	public QlueSession(QlueApplication qlueApp) {
 		this.qlueApp = qlueApp;
@@ -58,8 +58,8 @@ public class QlueSession {
 	}
 
 	/**
-	 * Generate a new nonce for this session. Nonces are used as part of the
-	 * CSRF defence.
+	 * Generate a new nonce for this session. Nonces
+	 * are used as part of the CSRF defense.
 	 */
 	private void generateNonce() {
 		Random random = new SecureRandom();
@@ -103,7 +103,7 @@ public class QlueSession {
 
 	/**
 	 * Retrieve this session's message source. Using per-session message sources
-	 * allows us to offer differnt languages and locales to each user.
+	 * allows us to offer different languages and locales to each user.
 	 * 
 	 * @return
 	 */

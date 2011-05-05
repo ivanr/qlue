@@ -22,7 +22,7 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.util.UriBuilder;
 
 /**
- * This specialised view implementation is actually a redirection,
+ * This specialized view implementation is actually a redirection,
  * supporting both pages and URIs as targets. There are no shortcuts
  * when redirecting to pages; when given a page we construct a URI
  * that leads back to it, then use that URI to issue a redirection
