@@ -608,6 +608,7 @@ public class Canoe extends Writer {
 				if (c == '-') {
 					state = COMMENT_OPEN_2;
 				}
+				
 				if ((c == 'D') || (c == 'd')) {
 					if (tagCount != 1) {
 						raiseError("DOCTYPE declaration must be at the beginning");
