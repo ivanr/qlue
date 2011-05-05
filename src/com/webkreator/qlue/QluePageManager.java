@@ -19,6 +19,7 @@ package com.webkreator.qlue;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -116,8 +117,7 @@ public class QluePageManager {
 	 * @return
 	 */
 	public synchronized int generatePageId() {
-		// TODO Randomly increment IDs
-		return nextPersistentPageId++;
+		return nextPersistentPageId + new Random().nextInt(1000);
 	}
 
 	/**

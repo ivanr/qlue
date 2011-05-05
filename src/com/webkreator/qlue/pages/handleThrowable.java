@@ -42,7 +42,7 @@ public class handleThrowable extends Page {
 		Throwable t = (Throwable) context.request
 				.getAttribute("javax.servlet.error.exception");
 		if (t == null) {
-			// TODO Refuse direct access, log
+			throw new Exception("handleThrowable: direct access not allowed");
 		}
 
 		if (t instanceof ValidationException) {

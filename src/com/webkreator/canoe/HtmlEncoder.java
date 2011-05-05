@@ -214,8 +214,6 @@ public class HtmlEncoder {
 					}
 					sb.append(hex);
 				} else {
-					// TODO Consider doing something else here to
-					// avoid loss of information.
 					sb.append('?');
 				}
 			}
@@ -267,8 +265,6 @@ public class HtmlEncoder {
 					}
 					sb.append(hex);
 				} else {
-					// TODO Consider doing something else here to
-					// avoid loss of information.
 					sb.append('?');
 				}
 			}

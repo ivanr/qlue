@@ -71,7 +71,6 @@ public abstract class QlueServlet extends HttpServlet {
 		s = getInitParameter(QlueConstants.QLUE_DEVMODE_RANGES);
 		if (s != null) {
 			developmentModeRanges = s.split("[;,\\x20]");
-			// TODO Verify each IP address
 		}
 
 		// Let subclasses do their own initialization
