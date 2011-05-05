@@ -183,7 +183,7 @@ public abstract class Page {
 	/**
 	 * This method will determine what the command object is supposed to be. The
 	 * page itself is the default command object, but subclass can override this
-	 * behaviour.
+	 * behavior.
 	 */
 	void determineCommandObject() {
 		commandObject = this;
@@ -521,7 +521,7 @@ public abstract class Page {
 	 * @throws Exception
 	 */
 	public void loadData() throws Exception {
-		// This method exists to be overrided in subclasses
+		// This method exists to be overrided in a subclass
 	}
 
 	/**

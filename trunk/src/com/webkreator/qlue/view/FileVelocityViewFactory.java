@@ -33,11 +33,11 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 	protected String prefix = "/WEB-INF/vm/";
 
 	/**
-	 * Initialise factory.
+	 * Initialize factory.
 	 */
 	@Override
 	public void init(QlueApplication qlueApp) throws Exception {
-		// Initialise properties
+		// Initialize properties
 		Properties properties = new Properties();
 		properties.setProperty("file.resource.loader.path",
 				qlueApp.getApplicationRoot() + "/" + prefix);
@@ -45,7 +45,7 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 		properties.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS,
 				logChute);
 
-		// Initialise engine
+		// Initialize engine
 		velocityEngine = new VelocityEngine(properties);
 	}
 

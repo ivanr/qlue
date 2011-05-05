@@ -24,7 +24,7 @@ import org.springframework.web.context.support.XmlWebApplicationContext;
 /**
  * This servlet will load a Spring application context from
  * applicationContext.xml, locate an instance of QlueApp (bean with "qlueApp"
- * ID, initialise it, then delegate processing of all requests to it.
+ * ID, initialize it, then delegate processing of all requests to it.
  */
 public class QlueSpringServlet extends QlueServlet {
 
@@ -45,7 +45,7 @@ public class QlueSpringServlet extends QlueServlet {
 						"Unable to find Qlue application (bean \"qlueApp\").");
 			}
 
-			// Initialise application
+			// Initialize application
 			qlueApp.init(this);
 
 			setApplication(qlueApp);

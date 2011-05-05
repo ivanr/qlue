@@ -22,7 +22,7 @@ import com.google.gson.Gson;
 import com.webkreator.qlue.Page;
 
 /**
- * View class specialised for JSON objects. Constructor takes a Java object and
+ * View class specialized for JSON objects. Constructor takes a Java object and
  * render() function will send that object to browser in JSON notation, and set
  * response content type to application/json.
  */

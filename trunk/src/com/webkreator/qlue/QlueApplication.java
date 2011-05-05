@@ -131,8 +131,8 @@ public class QlueApplication {
 	// -- Main entry points --
 
 	/**
-	 * Initialise QlueApp instance. Qlue applications are designed to be used by
-	 * servlets to delegate both initialisation and request processing.
+	 * Initialize QlueApp instance. Qlue applications are designed to be used by
+	 * servlets to delegate both initialization and request processing.
 	 * 
 	 * @param servlet
 	 * @throws Exception
@@ -238,7 +238,7 @@ public class QlueApplication {
 			// -- Page resolution --
 
 			// Check if this is a request for a persistent page. We can
-			// honour such requests only if we are not handling errors
+			// honor such requests only if we are not handling errors
 			if (context.isErrorHandler() == false) {
 				// Is this request for a persistent page?
 				String pid = context.getParameter("_pid");
@@ -284,10 +284,10 @@ public class QlueApplication {
 				}
 			}
 
-			// Page access in Qlue is synchronised, which means that
+			// Page access in Qlue is synchronized, which means that
 			// it can process only one request at a time. This is not
 			// a problem for non-persistent pages, which are created
-			// on per-request basis. Synchronisation may be a problem,
+			// on per-request basis. Synchronization may be a problem,
 			// but only if you abuse persistent pages, which were designed
 			// to be used by one user at a time (on per-session basis).
 			synchronized (page) {
@@ -313,7 +313,7 @@ public class QlueApplication {
 					page.updateState();
 
 					// Binds parameters of a persistent page initially when
-					// the page is initialised, but later only on POST requests
+					// the page is initialized, but later only on POST requests
 					if ((page.getState().compareTo(Page.STATE_NEW) == 0)
 							|| (context.isPost())) {
 						page.getErrors().clear();
@@ -321,7 +321,7 @@ public class QlueApplication {
 					}
 
 					if (page.getState().compareTo(Page.STATE_NEW) == 0) {
-						// Give page the opportunity to initialise
+						// Give page the opportunity to initialize
 						page.loadData();
 
 						// Update shadow input
@@ -1184,7 +1184,7 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Retrieve a single integer proparty, using the supplied default value if
+	 * Retrieve a single integer property, using the supplied default value if
 	 * the property is not set.
 	 * 
 	 * @param key
@@ -1201,7 +1201,7 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Configure the path to the file that contains localised messages.
+	 * Configure the path to the file that contains localized messages.
 	 * 
 	 * @param messagesFilename
 	 */

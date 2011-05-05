@@ -35,11 +35,11 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 	protected String macroPath = "";
 
 	/**
-	 * Initialise factory.
+	 * Initialize factory.
 	 */
 	@Override
 	public void init(QlueApplication qlueApp) throws Exception {
-		// Initialise properties
+		// Initialize properties
 		Properties properties = new Properties();
 		properties.setProperty("input.encoding", inputEncoding);
 		properties.setProperty("resource.loader", "class");
@@ -50,7 +50,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 		properties.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS,
 				logChute);
 
-		// Initialise engine
+		// Initialize engine
 		velocityEngine = new VelocityEngine(properties);
 	}
 

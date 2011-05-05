@@ -44,7 +44,7 @@ public abstract class QlueServlet extends HttpServlet {
 	private String[] developmentModeRanges = null;
 
 	/**
-	 * Retrieve servlet parameters from web.xml and initialise application.
+	 * Retrieve servlet parameters from web.xml and initialize application.
 	 */
 	@Override
 	public final void init() throws ServletException {
@@ -82,7 +82,7 @@ public abstract class QlueServlet extends HttpServlet {
 					"QlueServlet: Application object not set in subclass");
 		}
 
-		// Initialise application
+		// Initialize application
 		try {
 			qlueApplication.init(this);
 		} catch (Exception e) {
@@ -125,7 +125,7 @@ public abstract class QlueServlet extends HttpServlet {
 
 	/**
 	 * This empty method exists to allow subclasses to perform
-	 * their own initialisation, following the main initialisation
+	 * their own initialization, following the main initialization
 	 * carried out in this class.
 	 * 
 	 * @throws ServletException

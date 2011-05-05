@@ -26,7 +26,7 @@ import java.net.URISyntaxException;
 public class WebUtil {
 
 	/**
-	 * Normalise a URI, first by using the RFC 2396 algorithm,
+	 * Normalize a URI, first by using the RFC 2396 algorithm,
 	 * following by compressing multiple occurrences of the forward slash
 	 * character to one.
 	 * 

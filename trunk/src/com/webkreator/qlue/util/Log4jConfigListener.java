@@ -28,7 +28,7 @@ import com.webkreator.qlue.QlueConstants;
 
 /**
  * This class serves as a bridge between the servlet container and
- * log4j. It subscribes to context events, initialising log4j when
+ * log4j. It subscribes to context events, initializing log4j when
  * the context is created, and shutting log4j when the context is
  * destroyed. 
  */

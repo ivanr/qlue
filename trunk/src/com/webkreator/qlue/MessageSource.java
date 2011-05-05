@@ -44,7 +44,7 @@ public class MessageSource {
 	}
 
 	/**
-	 * Resolve a non-parametarised message code.
+	 * Resolve a non-parameterized message code.
 	 * 
 	 * @param code
 	 * @return
@@ -58,7 +58,7 @@ public class MessageSource {
 	}
 
 	/**
-	 * Resolve a message code using the given paramters.
+	 * Resolve a message code using the given parameters.
 	 * 
 	 * @param code
 	 * @param params
