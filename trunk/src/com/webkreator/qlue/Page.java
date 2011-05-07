@@ -515,12 +515,13 @@ public abstract class Page {
 
 	/**
 	 * Invoked after data validation and binding, but before request
-	 * processing, giving the page a chance to retrieve any additional
-	 * data it may need (e.g., from a database).
+	 * processing, giving the page a chance to initialize itself. This
+	 * method is invoked only when the state is STATE_NEW (which means
+	 * only once for a page).
 	 * 
 	 * @throws Exception
 	 */
-	public void loadData() throws Exception {
+	public void init() throws Exception {
 		// This method exists to be overrided in a subclass
 	}
 
