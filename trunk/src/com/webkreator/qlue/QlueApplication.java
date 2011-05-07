@@ -16,11 +16,15 @@
  */
 package com.webkreator.qlue;
 
+import it.sauronsoftware.cron4j.InvalidPatternException;
+import it.sauronsoftware.cron4j.Scheduler;
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -100,6 +104,8 @@ public class QlueApplication {
 
 	private String[] developmentModeRanges = null;
 
+	private Scheduler scheduler;
+
 	/**
 	 * This is the default constructor. The idea is that a subclass will
 	 * override it and supplement with its own configuration.
@@ -160,8 +166,66 @@ public class QlueApplication {
 			throw new Exception("View factory not configured");
 		}
 
-		// Initialise Velocity
+		// Initialize Velocity
 		viewFactory.init(this);
+
+		// Schedule application jobs
+		scheduleApplicationJobs();
+	}
+
+	/**
+	 * Schedules application jobs for execution.
+	 */
+	private void scheduleApplicationJobs() {
+		// Create scheduler
+		scheduler = new Scheduler();
+		scheduler.start();
+
+		// Enumerate all application methods and look
+		// for the QlueSchedule annotation
+		Method[] methods = this.getClass().getMethods();
+		for (Method m : methods) {
+			if (m.isAnnotationPresent(QlueSchedule.class)) {
+				QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
+				try {
+					scheduler.schedule(qs.value(),
+							new QlueScheduleMethodTaskWrapper(this, m));
+				} catch (InvalidPatternException ipe) {
+					log.error("QlueSchedule: Invalid schedule pattern: "
+							+ qs.value());
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Schedules the supplied task.
+	 * 
+	 * @param task
+	 * @param schedule
+	 * @return Task ID, which can later be used to cancel, or reschedule the task.
+	 */
+	public String scheduleTask(Runnable task, String schedule) {
+		return scheduler.schedule(schedule, task);
+	}
+	
+	/**
+	 * Deschedules task with the given ID.
+	 * 
+	 * @param taskId
+	 */
+	public void descheduleTask(String taskId) {
+		scheduler.deschedule(taskId);
+	}
+	
+	/**
+	 * Reschedules an existing task.
+	 * 
+	 * @param taskId
+	 * @param newSchedule
+	 */
+	public void reschedule(String taskId, String newSchedule) {
+		scheduler.reschedule(taskId, newSchedule);
 	}
 
 	/**

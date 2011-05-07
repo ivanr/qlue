@@ -3,6 +3,5 @@
 
 - Have an URL rewrite phase that changes the actual path into something else
 
-- Support task scheduling via annotations on the main application object
   
   

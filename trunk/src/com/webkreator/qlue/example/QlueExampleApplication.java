@@ -17,6 +17,7 @@
 package com.webkreator.qlue.example;
 
 import com.webkreator.qlue.QlueApplication;
+import com.webkreator.qlue.QlueSchedule;
 import com.webkreator.qlue.view.ClasspathVelocityViewFactory;
 
 public class QlueExampleApplication extends QlueApplication {
@@ -26,5 +27,10 @@ public class QlueExampleApplication extends QlueApplication {
 		
 		ClasspathVelocityViewFactory viewFactory = new ClasspathVelocityViewFactory();		
 		setViewFactory(viewFactory);
+	}
+	
+	@QlueSchedule("* * * * * ")
+	public void scheduleTest() {
+		System.err.println("Hello World!");
 	}
 }
