@@ -191,7 +191,7 @@ public class QlueApplication {
 
 		// Enumerate all application methods and look
 		// for the QlueSchedule annotation
-		Method[] methods = this.getClass().getMethods();
+		Method[] methods = this.getClass().getDeclaredMethods();
 		for (Method m : methods) {
 			if (m.isAnnotationPresent(QlueSchedule.class)) {
 				QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
