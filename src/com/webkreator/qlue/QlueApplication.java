@@ -320,7 +320,7 @@ public class QlueApplication {
 
 					if (page.getState().compareTo(Page.STATE_NEW) == 0) {
 						// Give page the opportunity to initialize
-						page.loadData();
+						page.init();
 
 						// Update shadow input
 						updateShadowInput(page, context);
