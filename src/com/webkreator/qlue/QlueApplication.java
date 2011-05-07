@@ -172,6 +172,14 @@ public class QlueApplication {
 		// Schedule application jobs
 		scheduleApplicationJobs();
 	}
+	
+	/**
+	 * Destroys application resources.
+	 */
+	public void destroy() {
+		// Stop scheduler
+		scheduler.stop();
+	}
 
 	/**
 	 * Schedules application jobs for execution.
