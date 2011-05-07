@@ -160,4 +160,16 @@ public abstract class QlueServlet extends HttpServlet {
 		// Forward request to the application.
 		qlueApplication.service(this, request, response);
 	}
+	
+	/**
+	 * Invokes the destroy() method on the application object.
+	 */
+	@Override
+	public void destroy() {
+		if (qlueApplication == null) {
+			return;
+		}
+		
+		qlueApplication.destroy();
+	}
 }
