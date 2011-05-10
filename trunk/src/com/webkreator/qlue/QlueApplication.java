@@ -172,7 +172,7 @@ public class QlueApplication {
 		// Schedule application jobs
 		scheduleApplicationJobs();
 	}
-	
+
 	/**
 	 * Destroys application resources.
 	 */
@@ -205,18 +205,19 @@ public class QlueApplication {
 			}
 		}
 	}
-	
+
 	/**
 	 * Schedules the supplied task.
 	 * 
 	 * @param task
 	 * @param schedule
-	 * @return Task ID, which can later be used to cancel, or reschedule the task.
+	 * @return Task ID, which can later be used to cancel, or reschedule the
+	 *         task.
 	 */
 	public String scheduleTask(Runnable task, String schedule) {
 		return scheduler.schedule(schedule, task);
 	}
-	
+
 	/**
 	 * Deschedules task with the given ID.
 	 * 
@@ -225,7 +226,7 @@ public class QlueApplication {
 	public void descheduleTask(String taskId) {
 		scheduler.deschedule(taskId);
 	}
-	
+
 	/**
 	 * Reschedules an existing task.
 	 * 
@@ -1044,9 +1045,13 @@ public class QlueApplication {
 	 */
 	public void regenerateSession(HttpServletRequest request) {
 		QlueSession qlueSession = getQlueSession(request);
+		QluePageManager pageManager = (QluePageManager) request.getSession()
+				.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
 		request.getSession().invalidate();
 		request.getSession(true).setAttribute(
 				QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
+		request.getSession().setAttribute(
+				QlueConstants.QLUE_SESSION_PAGE_MANAGER, pageManager);
 	}
 
 	/**
