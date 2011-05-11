@@ -697,7 +697,9 @@ public class QlueApplication {
 		boolean hasErrors = false;
 		Object[] convertedValues = new Object[values.length];
 		for (int i = 0; i < values.length; i++) {
-			if (validateParameter(page, f, qp, values[i]) == true) {
+			String newValue = validateParameter(page, f, qp, values[i]);			
+			if (newValue == null) {
+				values[i] = newValue;
 				convertedValues[i] = pe.fromText(f, values[i]);
 			} else {
 				hasErrors = true;
@@ -718,7 +720,7 @@ public class QlueApplication {
 	 * @param value
 	 * @return
 	 */
-	protected Boolean validateParameter(Page page, Field f, QlueParameter qp,
+	protected String validateParameter(Page page, Field f, QlueParameter qp,
 			String value) {
 		// Transform value according to the list
 		// of transformation functions supplied
@@ -746,7 +748,7 @@ public class QlueApplication {
 		if (qp.mandatory()) {
 			if (TextUtil.isEmptyOrWhitespace(value)) {
 				page.addError(f.getName(), getFieldMissingMessage(qp));
-				return false;
+				return null;
 			}
 		}
 
@@ -755,7 +757,7 @@ public class QlueApplication {
 			if ((value.length() > qp.maxSize())) {
 				if (qp.ignoreInvalid() == false) {
 					page.addError(f.getName(), "qlue.validation.maxSize");
-					return false;
+					return null;
 				} else {
 					return null;
 				}
@@ -779,14 +781,14 @@ public class QlueApplication {
 			if ((m.matches() == false)) {
 				if (qp.ignoreInvalid() == false) {
 					page.addError(f.getName(), "qlue.validation.pattern");
-					return false;
+					return null;
 				} else {
 					return null;
 				}
 			}
 		}
 
-		return true;
+		return value;
 	}
 
 	/**
@@ -813,7 +815,7 @@ public class QlueApplication {
 		}
 
 		// Look for a property editor, which will know how
-		// to convert text into a proper native type
+		// to convert text into a native type
 		PropertyEditor pe = editors.get(f.getType());
 		if (pe == null) {
 			throw new RuntimeException(
@@ -837,7 +839,9 @@ public class QlueApplication {
 		// If the parameter is present in request, validate it
 		// and set on the command object
 		if (value != null) {
-			if (validateParameter(page, f, qp, value) == true) {
+			String newValue = validateParameter(page, f, qp, value);			
+			if (newValue != null) {
+				value = newValue;
 				f.set(commandObject, pe.fromText(f, value));
 			}
 		} else {
