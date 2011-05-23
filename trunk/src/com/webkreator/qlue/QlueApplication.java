@@ -396,7 +396,8 @@ public class QlueApplication {
 						page.init();
 
 						// Update shadow input
-						updateShadowInput(page, context);
+						// XXX
+						// updateShadowInput(page, context);
 					}
 
 					// -- Process request --
@@ -674,25 +675,35 @@ public class QlueApplication {
 
 		// Look for a property editor, which will know how
 		// to convert text into a proper native type
-		PropertyEditor pe = editors.get(f.getType());
+		PropertyEditor pe = editors.get(f.getType().getComponentType());
 		if (pe == null) {
 			throw new RuntimeException(
 					"Qlue: Binding does not know how to handle type: "
-							+ f.getType());
+							+ f.getType().getComponentType());
 		}
 
 		String[] values = context.getParameterValues(f.getName());
-		if (values.length != 0) {
-			shadowInput.set(f.getName(), values);
-		} else {
-			Object[] originalValues = (Object[]) f.get(commandObject);
-			String[] textValues = new String[originalValues.length];
-			for (int i = 0; i < originalValues.length; i++) {
-				textValues[i] = originalValues.toString();
-			}
+		if ((values == null) || (values.length == 0)) {
+			// Parameter not in input
 
-			shadowInput.set(f.getName(), textValues);
+			// If there is any data in the command object
+			// use it to populate shadow input
+			if (f.get(commandObject) != null) {
+				Object[] originalValues = (Object[]) f.get(commandObject);
+				String[] textValues = new String[originalValues.length];
+				for (int i = 0; i < originalValues.length; i++) {
+					textValues[i] = originalValues.toString();
+				}
+
+				shadowInput.set(f.getName(), textValues);
+			}
+			
+			return;
 		}
+		
+		// Parameter in input
+
+		shadowInput.set(f.getName(), values);		
 
 		boolean hasErrors = false;
 		Object[] convertedValues = new Object[values.length];
@@ -700,7 +711,8 @@ public class QlueApplication {
 			String newValue = validateParameter(page, f, qp, values[i]);
 			if (newValue == null) {
 				values[i] = newValue;
-				convertedValues[i] = pe.fromText(f, values[i], f.get(commandObject));
+				convertedValues[i] = pe.fromText(f, values[i],
+						f.get(commandObject));
 			} else {
 				hasErrors = true;
 			}
