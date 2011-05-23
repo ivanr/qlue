@@ -28,6 +28,9 @@ public class formExample extends Page {
 	@QlueParameter(mandatory = true, state = Page.STATE_SUBMIT)
 	public String username;
 	
+	@QlueParameter()
+	public Integer[] something;
+	
 	@Override
 	public View onGet() {		
 		// If we are done, display the final
