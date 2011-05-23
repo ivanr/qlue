@@ -25,7 +25,11 @@ import java.security.InvalidParameterException;
 public class BooleanEditor implements PropertyEditor {
 
 	@Override
-	public Boolean fromText(Field field, String text) {
+	public Boolean fromText(Field field, String text, Object currentValue) {
+		if (text == null) {
+			return Boolean.FALSE;
+		}
+		
 		if ((text.compareToIgnoreCase("on") == 0)
 				|| (text.compareToIgnoreCase("true") == 0)
 				|| (text.compareToIgnoreCase("yes") == 0)

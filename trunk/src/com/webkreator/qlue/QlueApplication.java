@@ -697,10 +697,10 @@ public class QlueApplication {
 		boolean hasErrors = false;
 		Object[] convertedValues = new Object[values.length];
 		for (int i = 0; i < values.length; i++) {
-			String newValue = validateParameter(page, f, qp, values[i]);			
+			String newValue = validateParameter(page, f, qp, values[i]);
 			if (newValue == null) {
 				values[i] = newValue;
-				convertedValues[i] = pe.fromText(f, values[i]);
+				convertedValues[i] = pe.fromText(f, values[i], f.get(commandObject));
 			} else {
 				hasErrors = true;
 			}
@@ -839,12 +839,14 @@ public class QlueApplication {
 		// If the parameter is present in request, validate it
 		// and set on the command object
 		if (value != null) {
-			String newValue = validateParameter(page, f, qp, value);			
+			String newValue = validateParameter(page, f, qp, value);
 			if (newValue != null) {
 				value = newValue;
-				f.set(commandObject, pe.fromText(f, value));
+				f.set(commandObject,
+						pe.fromText(f, value, f.get(commandObject)));
 			}
 		} else {
+			f.set(commandObject, pe.fromText(f, value, f.get(commandObject)));
 			// We are here if the parameter is not in request, in which
 			// case we need to check of the parameter is mandatory
 			if (qp.mandatory()) {

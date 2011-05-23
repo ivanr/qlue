@@ -38,7 +38,7 @@ public interface PropertyEditor {
 	 * @param text
 	 * @return
 	 */
-	public Object fromText(Field field, String text);
+	public Object fromText(Field field, String text, Object currentValue);
 	
 	/**
 	 * Converts object to text.

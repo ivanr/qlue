@@ -24,7 +24,11 @@ import java.lang.reflect.Field;
 public class StringEditor implements PropertyEditor {
 
 	@Override
-	public String fromText(Field field, String text) {
+	public String fromText(Field field, String text, Object currentValue) {
+		if (text == null) {
+			return (String)currentValue;
+		}
+		
 		return text;
 	}
 	

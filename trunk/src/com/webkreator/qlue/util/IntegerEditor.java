@@ -25,7 +25,11 @@ import java.security.InvalidParameterException;
 public class IntegerEditor implements PropertyEditor {
 
 	@Override
-	public Integer fromText(Field field, String text) {
+	public Integer fromText(Field field, String text, Object currentValue) {
+		if (text == null) {
+			return (Integer)currentValue;
+		}
+		
 		try {
 			return Integer.valueOf(text);
 		} catch (NumberFormatException nfe) {
