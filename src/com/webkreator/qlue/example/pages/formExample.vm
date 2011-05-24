@@ -36,6 +36,9 @@ Username: <font color=red>*</font><br>
 </div>
 #end
 
+<input type="text" name="something" value="1001"><br>
+<input type="text" name="something" value="1002"><br>
+
 <br><br>
 <input type="submit" value="Submit">
 </form>

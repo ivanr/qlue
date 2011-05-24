@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -697,19 +698,20 @@ public class QlueApplication {
 
 				shadowInput.set(f.getName(), textValues);
 			}
-			
+
 			return;
 		}
-		
+
 		// Parameter in input
 
-		shadowInput.set(f.getName(), values);		
+		shadowInput.set(f.getName(), values);
 
 		boolean hasErrors = false;
-		Object[] convertedValues = new Object[values.length];
+		Object[] convertedValues = (Object[]) Array.newInstance(f.getType()
+				.getComponentType(), values.length);
 		for (int i = 0; i < values.length; i++) {
 			String newValue = validateParameter(page, f, qp, values[i]);
-			if (newValue == null) {
+			if (newValue != null) {
 				values[i] = newValue;
 				convertedValues[i] = pe.fromText(f, values[i],
 						f.get(commandObject));
