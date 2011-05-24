@@ -371,7 +371,7 @@ public class QlueApplication {
 
 				// Persist persistent pages when we see a POST
 				// if ((page.isPersistent()) && (context.isPost())) {
-				if (page.isPersistent()) {					
+				if (page.isPersistent()) {
 					context.persistPage(page);
 				}
 
@@ -398,8 +398,7 @@ public class QlueApplication {
 						page.init();
 
 						// Update shadow input
-						// XXX
-						// updateShadowInput(page, context);
+						updateShadowInput(page, context);
 					}
 
 					// -- Process request --
@@ -513,8 +512,6 @@ public class QlueApplication {
 			throw new RuntimeException("Qlue: Command object cannot be null.");
 		}
 
-		ShadowInput shadowInput = page.getShadowInput();
-
 		// Loop through the command object fields in order to determine
 		// if any are annotated as parameters. Remember the original
 		// text values of parameters.
@@ -522,23 +519,36 @@ public class QlueApplication {
 		for (Field f : fields) {
 			if (f.isAnnotationPresent(QlueParameter.class)) {
 				// Update missing shadow input fields
-				if (shadowInput.get(f.getName()) == null) {
-					// Find the property editor
-					PropertyEditor pe = editors.get(f.getType());
-					if (pe == null) {
-						throw new RuntimeException(
-								"Qlue: Binding does not know how to handle type: "
-										+ f.getType());
-					}
-
-					// If the object exists, convert it to
-					// text using the property editor
-					Object o = f.get(commandObject);
-					if (o != null) {
-						shadowInput.set(f.getName(), pe.toText(o));
+				if (page.getShadowInput().get(f.getName()) == null) {
+					if (f.getType().isArray()) {
+						updateShadowInputArrayParam(page, context, f);
+					} else {
+						updateShadowInputNonArrayParam(page, context, f);
 					}
 				}
 			}
+		}
+	}
+
+	private void updateShadowInputArrayParam(Page page,
+			TransactionContext context, Field f) throws Exception {
+		// TODO
+	}
+
+	private void updateShadowInputNonArrayParam(Page page,
+			TransactionContext context, Field f) throws Exception {
+		PropertyEditor pe = editors.get(f.getType());
+		if (pe == null) {
+			throw new RuntimeException(
+					"Qlue: Binding does not know how to handle type: "
+							+ f.getType());
+		}
+
+		// If the object exists, convert it to
+		// text using the property editor
+		Object o = f.get(page.getCommandObject());
+		if (o != null) {
+			page.getShadowInput().set(f.getName(), pe.toText(o));
 		}
 	}
 
