@@ -3,5 +3,14 @@
 
 - Have an URL rewrite phase that changes the actual path into something else
 
+- In debug mode:
+
+  - Sort page fields
+  
+  - Do not display static Page fields
+  
+- Reset array parameter to null or empty array when there are no parameters
+
+
   
   
