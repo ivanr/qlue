@@ -370,7 +370,8 @@ public class QlueApplication {
 				page.determineCommandObject();
 
 				// Persist persistent pages when we see a POST
-				if ((page.isPersistent()) && (context.isPost())) {
+				// if ((page.isPersistent()) && (context.isPost())) {
+				if (page.isPersistent()) {					
 					context.persistPage(page);
 				}
 
