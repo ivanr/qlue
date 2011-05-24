@@ -375,7 +375,7 @@ public class TransactionContext {
 	public String[] getParameterValues(String name) throws Exception {
 		// If we're not dealing with a multipart/form-data
 		// request, simply refer to the underlying request object
-		if (isMultipart == false) {
+		if (isMultipart == false) {			
 			return getRequest().getParameterValues(name);
 		}
 

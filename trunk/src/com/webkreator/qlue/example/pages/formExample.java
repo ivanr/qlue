@@ -18,17 +18,19 @@ package com.webkreator.qlue.example.pages;
 
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueParameter;
+import com.webkreator.qlue.QluePersistentPage;
 import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.FinalRedirectView;
 import com.webkreator.qlue.view.RedirectView;
 import com.webkreator.qlue.view.View;
 
+@QluePersistentPage
 public class formExample extends Page {
 	
 	@QlueParameter(mandatory = true, state = Page.STATE_SUBMIT)
 	public String username;
 	
-	@QlueParameter()
+	@QlueParameter(state = Page.STATE_SUBMIT)
 	public Integer[] something;
 	
 	@Override
@@ -44,7 +46,7 @@ public class formExample extends Page {
 	}
 	
 	@Override
-	public View onPost() {
+	public View onPost() {		
 		// Check for Qlue validation errors; if there
 		// are any we just redirect back to ourselves, which
 		// will show the form with the errors.
@@ -55,7 +57,7 @@ public class formExample extends Page {
 		// A real form would perform some further validation
 		// here then do some work before responding with a
 		// final redirection. 
-		//return new FinalRedirectView(this);
+		// return new FinalRedirectView(this);
 		return new FinalRedirectView("/formExample_finished.html");
 	}
 }
