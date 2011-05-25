@@ -61,6 +61,8 @@ public class TransactionContext {
 
 	public String requestUri;
 
+	public String requestUriWithQueryString;
+
 	private boolean isMultipart;
 
 	private List<FileItem> multipartItems;
@@ -217,6 +219,10 @@ public class TransactionContext {
 	 * 
 	 * @return
 	 */
+	public String getRequestUriWithQueryString() {
+		return requestUriWithQueryString;
+	}
+	
 	public String getRequestUri() {
 		return requestUri;
 	}
@@ -228,23 +234,24 @@ public class TransactionContext {
 	 */
 	private void initRequestUri() throws ServletException {
 		// Retrieve URI and normalise it
-		String uri = WebUtil.normaliseUri(request.getRequestURI());
+		requestUri = WebUtil.normaliseUri(request.getRequestURI());
 
 		// We want our URI to include the query string
 		if (request.getQueryString() != null) {
-			uri = uri + "?" + request.getQueryString();
+			requestUriWithQueryString = requestUri + "?"
+					+ request.getQueryString();
+		} else {
+			requestUriWithQueryString = requestUri;
 		}
 
 		// We are not expecting back-references in the URI, so
 		// respond with an error if we do see one
-		if (uri.indexOf("..") != -1) {
+		if (requestUriWithQueryString.indexOf("..") != -1) {
 			throw new ServletException(
 					"Security violation: directory backreference "
-							+ "detected in request URI: " + uri);
+							+ "detected in request URI: "
+							+ requestUriWithQueryString);
 		}
-
-		// Store URI in context
-		requestUri = uri;
 	}
 
 	/**
@@ -375,7 +382,7 @@ public class TransactionContext {
 	public String[] getParameterValues(String name) throws Exception {
 		// If we're not dealing with a multipart/form-data
 		// request, simply refer to the underlying request object
-		if (isMultipart == false) {			
+		if (isMultipart == false) {
 			return getRequest().getParameterValues(name);
 		}
 
