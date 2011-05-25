@@ -330,7 +330,7 @@ public class QlueApplication {
 					// redirect the user to where he is supposed to go
 					if ((page == null) && (pageRecord.replacementUri != null)) {
 						// But not if we're already there
-						if (context.getRequestUri().compareTo(
+						if (context.getRequestUriWithQueryString().compareTo(
 								pageRecord.replacementUri) != 0) {
 							context.getResponse().sendRedirect(
 									pageRecord.replacementUri);
@@ -342,7 +342,7 @@ public class QlueApplication {
 
 			// If we still don't have a page see if we can create a new one
 			if (page == null) {
-				String uri = context.getRequestUri();
+				String uri = context.getRequestUriWithQueryString();
 				int i = uri.indexOf('?');
 				if (i != -1) {
 					uri = uri.substring(0, i);
@@ -364,7 +364,7 @@ public class QlueApplication {
 			// to be used by one user at a time (on per-session basis).
 			synchronized (page) {
 				page.setQlueApp(this);
-				page.setUri(context.getRequestUri());
+				page.setUri(context.getRequestUriWithQueryString());
 				page.determineDefaultViewName(viewResolver);
 				page.setContext(context);
 				page.determineCommandObject();
