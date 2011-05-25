@@ -11,6 +11,9 @@
   
 - Reset array parameter to null or empty array when there are no parameters
 
+- Debugging mode is useless when running behind a proxy because we always
+  work with the proxy's IP address. Need a way to extract client IP address
+  from X-Forwarded-For.
 
   
   
