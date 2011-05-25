@@ -46,6 +46,8 @@ public abstract class Page {
 
 	public static final String STATE_NEW_OR_POST = "NEW_OR_POST";
 
+	public static final String STATE_URL = "STATE_URL";
+	
 	private Integer id;
 
 	private String state = STATE_NEW;

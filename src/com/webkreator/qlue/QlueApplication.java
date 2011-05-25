@@ -642,6 +642,15 @@ public class QlueApplication {
 			throw new RuntimeException("Qlue: Command object cannot be null");
 		}
 
+		// First check if there are any parameters in the URL
+		Matcher urlParamMatcher = null;
+		QlueUrlParams qup = page.getClass().getAnnotation(QlueUrlParams.class);
+		if (qup != null) {
+			// TODO We may consider caching compiled patterns
+			Pattern pattern = Pattern.compile(qup.value());
+			urlParamMatcher = pattern.matcher(page.context.getRequestUri());
+		}
+
 		// Loop through the command object fields in order to determine
 		// if any are annotated as parameters. Validate those that are,
 		// then bind them.
@@ -650,19 +659,34 @@ public class QlueApplication {
 			if (f.isAnnotationPresent(QlueParameter.class)) {
 				QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
-				// Process only the parameters that are
-				// in the same state as the page, or if the parameter
-				// uses the special state POST, which triggers on all
-				// POST requests (irrespective of the state).
-				if (((qp.state().compareTo(Page.STATE_POST) == 0) && (page.context
-						.isPost()))
-						|| (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
-						|| (qp.state().compareTo(page.getState()) == 0)) {
-					// We have a parameter; dispatch to the appropriate handler.
-					if (f.getType().isArray()) {
-						bindArrayParameter(commandObject, f, page, context);
+				if (qp.state().compareTo(Page.STATE_URL) == 0) {
+					// Bind parameters transported in URL
+
+					if ((urlParamMatcher != null)
+							&& (urlParamMatcher.matches())) {
+						bindParameterFromString(commandObject, f, page,
+								context, urlParamMatcher.group(qp.urlParam()));
 					} else {
-						bindNonArrayParameter(commandObject, f, page, context);
+						// TODO Handle mandatory parameter not present
+					}
+				} else {
+					// Process only the parameters that are
+					// in the same state as the page, or if the parameter
+					// uses the special state POST, which triggers on all
+					// POST requests (irrespective of the state).
+
+					if (((qp.state().compareTo(Page.STATE_POST) == 0) && (page.context
+							.isPost()))
+							|| (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
+							|| (qp.state().compareTo(page.getState()) == 0)) {
+						// We have a parameter; dispatch 
+						// to the appropriate handler.
+						if (f.getType().isArray()) {
+							bindArrayParameter(commandObject, f, page, context);
+						} else {
+							bindNonArrayParameter(commandObject, f, page,
+									context);
+						}
 					}
 				}
 			}
@@ -850,6 +874,61 @@ public class QlueApplication {
 
 		// Keep track of the original text parameter value
 		String value = context.getParameter(f.getName());
+		if (value != null) {
+			// Load from the parameter
+			shadowInput.set(f.getName(), value);
+		} else {
+			// Load from the command object
+			Object o = f.get(commandObject);
+			if (o != null) {
+				shadowInput.set(f.getName(), pe.toText(o));
+			}
+		}
+
+		// If the parameter is present in request, validate it
+		// and set on the command object
+		if (value != null) {
+			String newValue = validateParameter(page, f, qp, value);
+			if (newValue != null) {
+				value = newValue;
+				f.set(commandObject,
+						pe.fromText(f, value, f.get(commandObject)));
+			}
+		} else {
+			f.set(commandObject, pe.fromText(f, value, f.get(commandObject)));
+			// We are here if the parameter is not in request, in which
+			// case we need to check of the parameter is mandatory
+			if (qp.mandatory()) {
+				page.addError(f.getName(), getFieldMissingMessage(qp));
+			}
+		}
+	}
+
+	private void bindParameterFromString(Object commandObject, Field f,
+			Page page, TransactionContext context, String value)
+			throws Exception {
+		// Find shadow input
+		ShadowInput shadowInput = page.getShadowInput();
+
+		// Get the annotation
+		QlueParameter qp = f.getAnnotation(QlueParameter.class);
+
+		// First check if the parameter is a file
+		if (QlueFile.class.isAssignableFrom(f.getType())) {
+			// XXX
+			return;
+		}
+
+		// Look for a property editor, which will know how
+		// to convert text into a native type
+		PropertyEditor pe = editors.get(f.getType());
+		if (pe == null) {
+			throw new RuntimeException(
+					"Qlue: Binding does not know how to handle type: "
+							+ f.getType());
+		}
+
+		// Keep track of the original text parameter value
 		if (value != null) {
 			// Load from the parameter
 			shadowInput.set(f.getName(), value);
