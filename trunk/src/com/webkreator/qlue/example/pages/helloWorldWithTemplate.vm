@@ -1,1 +1,3 @@
 Hello World (template)!
+
+$_x.asis("xyz")
