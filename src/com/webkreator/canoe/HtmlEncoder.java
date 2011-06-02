@@ -351,4 +351,8 @@ public class HtmlEncoder {
 			}
 		}
 	}
+	
+	public static String asis(String input) {
+		return input;
+	}
 }
