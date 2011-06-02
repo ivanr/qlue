@@ -24,7 +24,10 @@ import org.apache.velocity.app.event.ReferenceInsertionEventHandler;
 public class CanoeReferenceInsertionHandler implements
 		ReferenceInsertionEventHandler {
 
-	public static final String SAFE_REFERENCE_PREFIX = "$_x.";
+	public static final String SAFE_REFERENCE_NAME = "_x";
+
+	public static final String SAFE_REFERENCE_PREFIX = "$"
+			+ SAFE_REFERENCE_NAME + ".";
 
 	protected Canoe qlueWriter;
 
@@ -33,7 +36,7 @@ public class CanoeReferenceInsertionHandler implements
 	}
 
 	/**
-	 * Encodes text for output. 
+	 * Encodes text for output.
 	 */
 	@Override
 	public Object referenceInsert(String arg0, Object arg1) {
@@ -49,7 +52,7 @@ public class CanoeReferenceInsertionHandler implements
 		if (arg1 == null) {
 			return null;
 		}
-		
+
 		// Now encode the text using the correct encoder
 		return Canoe.encode(arg1.toString(), qlueWriter.currentContext());
 	}
