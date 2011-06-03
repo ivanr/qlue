@@ -14,6 +14,15 @@
 - Debugging mode is useless when running behind a proxy because we always
   work with the proxy's IP address. Need a way to extract client IP address
   from X-Forwarded-For.
+  
+- Add URL parameters to Transaction.
+
+- Make it possible for the effective URL to be change. 
+  
+- Change PageResolver to Router, and enable it to respond with a View if it
+  wants to.
+  
+- Handle all application requests and serve static resources.   
 
   
   
