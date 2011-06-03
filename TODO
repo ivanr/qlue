@@ -24,5 +24,6 @@
   
 - Handle all application requests and serve static resources.   
 
-  
+- When in debug mode, override redirections in order to display in-page
+  debugging information.  
   
