@@ -27,8 +27,8 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 
 /**
- * This variant of VelocityViewFactory expects templates to
- * be stored on the classpath. 
+ * This variant of VelocityViewFactory expects templates to be stored on the
+ * classpath.
  */
 public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 
@@ -42,7 +42,12 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 		// Initialize properties
 		Properties properties = new Properties();
 		properties.setProperty("input.encoding", inputEncoding);
-		properties.setProperty("resource.loader", "class");
+		properties.setProperty("resource.loader", "class,string");
+		properties
+				.setProperty("string.resource.loader.class",
+						"org.apache.velocity.runtime.resource.loader.StringResourceLoader");
+		properties.setProperty("string.resource.loader.repository.name",
+				VELOCITY_STRING_RESOURCE_LOADER_KEY);
 		properties
 				.setProperty("class.resource.loader.class",
 						"org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
@@ -60,7 +65,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 	@Override
 	public View constructView(Page page, String viewName) throws Exception {
 		String name = null;
-				
+
 		if (viewName.charAt(0) == '/') {
 			// Absolute view
 			String packageName = page.getQlueApp().getPageResolver()
@@ -70,7 +75,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 						+ viewName);
 			}
 
-			name = packageName.replace('.', '/') + suffix;			
+			name = packageName.replace('.', '/') + suffix;
 		} else {
 			// Relative view
 			String lastToken = null;

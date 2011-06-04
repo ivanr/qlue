@@ -16,21 +16,27 @@
  */
 package com.webkreator.qlue.view;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.reflect.Field;
 import java.util.Map;
 
+import org.apache.commons.collections.ExtendedProperties;
+import org.apache.commons.io.FileUtils;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.app.event.EventCartridge;
+import org.apache.velocity.runtime.resource.loader.FileResourceLoader;
+import org.apache.velocity.runtime.resource.loader.StringResourceLoader;
+import org.apache.velocity.runtime.resource.util.StringResourceRepository;
 
 import com.webkreator.canoe.Canoe;
 import com.webkreator.canoe.CanoeReferenceInsertionHandler;
 import com.webkreator.canoe.HtmlEncoder;
-import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.TransactionContext;
 
 /**
  * Base class for the view implementation that uses Velocity. Needs subclassing
@@ -45,6 +51,8 @@ public abstract class VelocityViewFactory implements ViewFactory {
 	protected String logChute = "com.webkreator.qlue.util.VelocityLog4jLogChute";
 
 	protected VelocityEngine velocityEngine;
+
+	protected String VELOCITY_STRING_RESOURCE_LOADER_KEY = "_QLUE_LOADER";
 
 	/**
 	 * Generate output, given page and view.
@@ -122,7 +130,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 			}
 		} finally {
 			writer.flush();
-			
+
 			// We don't close the stream here in order
 			// to enable Qlue to append to output as needed
 			// (which is done in development mode)
@@ -176,5 +184,17 @@ public abstract class VelocityViewFactory implements ViewFactory {
 	 */
 	public void setSuffix(String suffix) {
 		this.suffix = suffix;
+	}
+
+	public View constructView(Page page, File viewFile) throws Exception {
+		// Find our repository
+		StringResourceRepository repo = StringResourceLoader
+				.getRepository(VELOCITY_STRING_RESOURCE_LOADER_KEY);
+		// Add this file
+		repo.putStringResource(viewFile.getAbsolutePath(),
+				FileUtils.readFileToString(viewFile));
+		// Construct view
+		return new VelocityView(this, velocityEngine.getTemplate(viewFile
+				.getAbsolutePath()));
 	}
 }

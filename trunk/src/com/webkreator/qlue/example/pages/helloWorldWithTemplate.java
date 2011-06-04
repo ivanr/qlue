@@ -16,14 +16,21 @@
  */
 package com.webkreator.qlue.example.pages;
 
+import java.io.File;
+
 import com.webkreator.qlue.Page;
-import com.webkreator.qlue.view.DefaultView;
+import com.webkreator.qlue.view.NamedView;
 import com.webkreator.qlue.view.View;
 
 public class helloWorldWithTemplate extends Page {
 	
 	@Override
 	public View onGet() throws Exception {			
-		return new DefaultView();
+		//return new DefaultView();
+		File f = new File("c:/test.vm");
+		if (f.exists()) {
+			System.err.println(" file exists");
+		}
+		return new NamedView(f);
 	}
 }

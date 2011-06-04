@@ -427,8 +427,13 @@ public class QlueApplication {
 					} else if (view instanceof NamedView) {
 						// We don't have a view, we just have its name.
 						// Construct view using view factory.
-						view = constructView(page,
-								((NamedView) view).getViewName());
+						NamedView namedView = (NamedView) view;
+
+						if (namedView.getViewFile() != null) {
+							view = constructView(page, namedView.getViewFile());
+						} else {
+							view = constructView(page, namedView.getViewName());
+						}
 					} else if (view instanceof FinalRedirectView) {
 						page.setState(Page.STATE_FINISHED);
 
@@ -679,7 +684,7 @@ public class QlueApplication {
 							.isPost()))
 							|| (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
 							|| (qp.state().compareTo(page.getState()) == 0)) {
-						// We have a parameter; dispatch 
+						// We have a parameter; dispatch
 						// to the appropriate handler.
 						if (f.getType().isArray()) {
 							bindArrayParameter(commandObject, f, page, context);
@@ -1029,8 +1034,12 @@ public class QlueApplication {
 	 * @return
 	 * @throws Exception
 	 */
-	View constructView(Page page, String name) throws Exception {
-		return viewFactory.constructView(page, name);
+	View constructView(Page page, String viewName) throws Exception {
+		return viewFactory.constructView(page, viewName);
+	}
+	
+	View constructView(Page page, File viewFile) throws Exception {
+		return viewFactory.constructView(page, viewFile);
 	}
 
 	/**

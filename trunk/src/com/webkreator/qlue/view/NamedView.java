@@ -16,6 +16,8 @@
  */
 package com.webkreator.qlue.view;
 
+import java.io.File;
+
 import com.webkreator.qlue.Page;
 
 /**
@@ -28,13 +30,23 @@ import com.webkreator.qlue.Page;
 public class NamedView implements View {
 
 	private String viewName;
+	
+	private File viewFile;
 
 	public NamedView(String viewName) {
 		this.viewName = viewName;
 	}
+	
+	public NamedView(File viewFile) {
+		this.viewFile = viewFile;
+	}
 
 	public String getViewName() {
 		return viewName;
+	}
+	
+	public File getViewFile() {
+		return viewFile;
 	}
 
 	@Override
