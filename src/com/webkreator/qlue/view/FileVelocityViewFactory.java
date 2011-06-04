@@ -25,8 +25,8 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 
 /**
- * Implementation of VelocityViewFactory that
- * keeps templates in a single location.
+ * Implementation of VelocityViewFactory that keeps templates in a single
+ * location.
  */
 public class FileVelocityViewFactory extends VelocityViewFactory {
 
@@ -39,6 +39,12 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 	public void init(QlueApplication qlueApp) throws Exception {
 		// Initialize properties
 		Properties properties = new Properties();
+		properties.setProperty("resource.loader", "file,string");
+		properties
+				.setProperty("string.resource.loader.class",
+						"org.apache.velocity.runtime.resource.loader.StringResourceLoader");
+		properties.setProperty("string.resource.loader.repository.name",
+				VELOCITY_STRING_RESOURCE_LOADER_KEY);
 		properties.setProperty("file.resource.loader.path",
 				qlueApp.getApplicationRoot() + "/" + prefix);
 		properties.setProperty("input.encoding", inputEncoding);
@@ -82,8 +88,8 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 
 	/**
 	 * Get the location where we expect the templates to be stored. The location
-	 * is in the form of a prefix relative to the root of the web application. For
-	 * example, /WEB-INF/vm/ is used by default.
+	 * is in the form of a prefix relative to the root of the web application.
+	 * For example, /WEB-INF/vm/ is used by default.
 	 * 
 	 * @return
 	 */
@@ -92,9 +98,9 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 	}
 
 	/**
-	 * Set the location where the templates are stored. The location is
-	 * in the form of a path relative to the root of the web application. For
-	 * example, /WEB-INF/vm/ is used by default.
+	 * Set the location where the templates are stored. The location is in the
+	 * form of a path relative to the root of the web application. For example,
+	 * /WEB-INF/vm/ is used by default.
 	 * 
 	 * @param prefix
 	 */
