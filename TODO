@@ -1,9 +1,6 @@
 
 - Why does Page have field uri (when we have a reference to context, which we
   can use to retrieve URI)?
-
-- Handle all application requests for the dynamic part of the application.
-  Remove WelcomeFilter.
     
 - Deliver static files ourselves
 
