@@ -19,6 +19,7 @@ package com.webkreator.qlue.view;
 import org.apache.velocity.Template;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.TransactionContext;
 
 /**
  * Handle a view implemented as a Velocity template.
@@ -53,7 +54,7 @@ public class VelocityView implements View {
 	 * Render output for the given page.
 	 */
 	@Override
-	public void render(Page page) throws Exception {
+	public void render(TransactionContext tx, Page page) throws Exception {
 		viewFactory.render(page, this);
 	}
 }

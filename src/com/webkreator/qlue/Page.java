@@ -354,7 +354,7 @@ public abstract class Page {
 	 * @param resolver
 	 */
 	void determineDefaultViewName(ViewResolver resolver) {
-		viewName = resolver.resolveView(getNoParamUri());
+		viewName = this.getClass().getSimpleName();
 	}
 
 	/**

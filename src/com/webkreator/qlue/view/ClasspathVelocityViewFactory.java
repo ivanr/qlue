@@ -64,35 +64,20 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 	 */
 	@Override
 	public View constructView(Page page, String viewName) throws Exception {
-		String name = null;
-
-		if (viewName.charAt(0) == '/') {
-			// Absolute view
-			String packageName = page.getQlueApp().getPageResolver()
-					.resolvePackage(viewName);
-			if (packageName == null) {
-				throw new Exception("Unable to find package for path: "
-						+ viewName);
+		String lastToken = null;
+		StringTokenizer st = new StringTokenizer(page.getClass().getName(), ".");
+		StringBuffer sb = new StringBuffer();
+		while (st.hasMoreTokens()) {
+			if (lastToken != null) {
+				sb.append("/");
+				sb.append(lastToken);
 			}
 
-			name = packageName.replace('.', '/') + suffix;
-		} else {
-			// Relative view
-			String lastToken = null;
-			StringTokenizer st = new StringTokenizer(page.getClass().getName(),
-					".");
-			StringBuffer sb = new StringBuffer();
-			while (st.hasMoreTokens()) {
-				if (lastToken != null) {
-					sb.append("/");
-					sb.append(lastToken);
-				}
-
-				lastToken = st.nextToken();
-			}
-
-			name = sb.toString() + "/" + new File(viewName).getName() + suffix;
+			lastToken = st.nextToken();
 		}
+
+		String name = sb.toString() + "/" + new File(viewName).getName()
+				+ suffix;
 
 		return new VelocityView(this, velocityEngine.getTemplate(name));
 	}

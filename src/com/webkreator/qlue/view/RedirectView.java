@@ -19,6 +19,7 @@ package com.webkreator.qlue.view;
 import java.security.InvalidParameterException;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.util.UriBuilder;
 
 /**
@@ -123,8 +124,8 @@ public class RedirectView implements View {
 	 * Issue a redirection to a page or a URI.
 	 */
 	@Override
-	public void render(Page page) throws Exception {
-		page.getContext().response.setStatus(redirectStatus);
-		page.getContext().response.setHeader("Location", redirection.getUri());
+	public void render(TransactionContext context, Page page) throws Exception {
+		context.response.setStatus(redirectStatus);
+		context.response.setHeader("Location", redirection.getUri());
 	}
 }

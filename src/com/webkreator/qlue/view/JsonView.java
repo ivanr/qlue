@@ -20,6 +20,7 @@ import java.io.Writer;
 
 import com.google.gson.Gson;
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.TransactionContext;
 
 /**
  * View class specialized for JSON objects. Constructor takes a Java object and
@@ -44,7 +45,7 @@ public class JsonView implements com.webkreator.qlue.view.View {
      * into its JSON representation.
      */
     @Override
-    public void render(Page page) throws Exception {
+    public void render(TransactionContext tx, Page page) throws Exception {
     	// Set content type
         page.getContext().response.setContentType("application/json");
 

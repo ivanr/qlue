@@ -68,6 +68,4 @@ public @interface QlueParameter {
 	 * are used.
 	 */
 	String state() default Page.STATE_NEW;
-
-	int urlParam() default 0;
 }

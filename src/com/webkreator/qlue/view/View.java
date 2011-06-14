@@ -17,6 +17,7 @@
 package com.webkreator.qlue.view;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.TransactionContext;
 
 /**
  * In the Qlue framework, a View instance is responsible
@@ -33,5 +34,5 @@ public interface View {
 	 * @param page
 	 * @throws Exception
 	 */
-	public abstract void render(Page page) throws Exception;
+	public abstract void render(TransactionContext tx, Page page) throws Exception;
 }

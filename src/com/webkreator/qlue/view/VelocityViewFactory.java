@@ -153,8 +153,10 @@ public abstract class VelocityViewFactory implements ViewFactory {
 			Field field = fields[i];
 
 			try {
-				Object fieldValue = field.get(object);
-				callback.processField(field.getName(), fieldValue);
+				if (field.getName().startsWith("STATE_") == false) {
+					Object fieldValue = field.get(object);
+					callback.processField(field.getName(), fieldValue);
+				}
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}

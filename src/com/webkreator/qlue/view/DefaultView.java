@@ -17,6 +17,7 @@
 package com.webkreator.qlue.view;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.TransactionContext;
 
 /**
  * This class is used as a placeholder to indicate that
@@ -25,7 +26,7 @@ import com.webkreator.qlue.Page;
 public class DefaultView implements View {
 
 	@Override
-	public void render(Page page) {
+	public void render(TransactionContext tx, Page page) {
 		// Do nothing. This method is never invoked.
 		throw new RuntimeException("Qlue: This method shouldn't have been invoked.");
 	}
