@@ -26,9 +26,7 @@ import java.io.PrintWriter;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.PropertyResourceBundle;
@@ -74,6 +72,8 @@ public class QlueApplication {
 
 	public static final String PROPERTIES_FILENAME = "/WEB-INF/qlue.properties";
 
+	public static final String ROUTES_FILENAME = "/WEB-INF/qlue-routes.conf";
+
 	public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
 
 	private String messagesFilename = "com/webkreator/qlue/messages";
@@ -88,7 +88,7 @@ public class QlueApplication {
 
 	private Log log = LogFactory.getLog(QlueApplication.class);
 
-	private PageResolver pageResolver;
+	private QlueRouter qlueRouter = new QlueRouter();
 
 	private ViewResolver viewResolver = new ViewResolver();
 
@@ -124,13 +124,10 @@ public class QlueApplication {
 	public QlueApplication(String pagesHome) {
 		initPropertyEditors();
 
-		PrefixPageResolver pageResolver = new PrefixPageResolver();
-		List<UriMapping> mappings = new ArrayList<UriMapping>();
-		mappings.add(new UriMapping("/_qlue/", "com.webkreator.qlue.pages"));
-		mappings.add(new UriMapping("/", pagesHome));
-		pageResolver.setMappings(mappings);
-
-		this.pageResolver = pageResolver;
+		// Default routes
+		qlueRouter.add(RouteFactory
+				.create("/_qlue package:com.webkreator.qlue.pages"));
+		qlueRouter.add(RouteFactory.create("/ package:" + pagesHome));
 	}
 
 	// -- Main entry points --
@@ -152,9 +149,11 @@ public class QlueApplication {
 			properties.load(new FileReader(propsFile));
 		}
 
-		// Must have a page resolver
-		if (pageResolver == null) {
-			throw new Exception("Page resolver not configured");
+		// Load routes
+		File routesFile = new File(servlet.getServletContext().getRealPath(
+				ROUTES_FILENAME));
+		if (routesFile.exists()) {
+			qlueRouter.load(routesFile);
 		}
 
 		// Must have a view resolver
@@ -348,11 +347,19 @@ public class QlueApplication {
 					uri = uri.substring(0, i);
 				}
 
-				// Ask the resolver to create a page for us
-				page = pageResolver.resolvePage(context.request, uri);
-				if (page == null) {
-					// Page not found
+				Object routeObject = qlueRouter.route(context);
+				if (routeObject == null) {
 					throw new PageNotFoundException();
+				} else if (routeObject instanceof View) {
+					// TODO Only RedirectView or StatusCodeView
+					renderView((View) routeObject, context, null);
+					// TODO Dev. output
+					return;
+				} else if (routeObject instanceof Page) {
+					page = (Page) routeObject;
+				} else {
+					throw new RuntimeException(
+							"Qlue: Unexpected router response: " + routeObject);
 				}
 			}
 
@@ -418,41 +425,11 @@ public class QlueApplication {
 
 				// Render view
 				if (view != null) {
-					// If we get a DefaultView or NamedView instance
-					// we have to replace them with a real view, using
-					// the name of the page in the view resolution process.
-					if (view instanceof DefaultView) {
-						// The page wants to use the default view.
-						view = constructView(page, page.getViewName());
-					} else if (view instanceof NamedView) {
-						// We don't have a view, we just have its name.
-						// Construct view using view factory.
-						NamedView namedView = (NamedView) view;
-
-						if (namedView.getViewFile() != null) {
-							view = constructView(page, namedView.getViewFile());
-						} else {
-							view = constructView(page, namedView.getViewName());
-						}
-					} else if (view instanceof FinalRedirectView) {
-						page.setState(Page.STATE_FINISHED);
-
-						if (((RedirectView) view).getPage() != null) {
-							context.replacePage(page, (FinalRedirectView) view);
-						}
-					}
-
-					if (view == null) {
-						throw new RuntimeException(
-								"Qlue: Unable to resolve view");
-					}
-
-					// Render page
-					view.render(page);
+					renderView(view, context, page);
 				}
 
-				// In development mode, append debugging information
-				// to the end of the page
+				// In development mode, append debugging
+				// information to the end of the page
 				masterWriteRequestDevelopmentInformation(context, page);
 			}
 
@@ -497,6 +474,40 @@ public class QlueApplication {
 
 			throw new ServletException(t);
 		}
+	}
+
+	public void renderView(View view, TransactionContext tx, Page page)
+			throws Exception {
+		// If we get a DefaultView or NamedView instance
+		// we have to replace them with a real view, using
+		// the name of the page in the view resolution process.
+		if (view instanceof DefaultView) {
+			// The page wants to use the default view.
+			view = constructView(page, page.getViewName());
+		} else if (view instanceof NamedView) {
+			// We don't have a view, we just have its name.
+			// Construct view using view factory.
+			NamedView namedView = (NamedView) view;
+
+			if (namedView.getViewFile() != null) {
+				view = constructView(page, namedView.getViewFile());
+			} else {
+				view = constructView(page, namedView.getViewName());
+			}
+		} else if (view instanceof FinalRedirectView) {
+			page.setState(Page.STATE_FINISHED);
+
+			if (((RedirectView) view).getPage() != null) {
+				page.context.replacePage(page, (FinalRedirectView) view);
+			}
+		}
+
+		if (view == null) {
+			throw new RuntimeException("Qlue: Unable to resolve view");
+		}
+
+		// Render page
+		view.render(tx, page);
 	}
 
 	/**
@@ -647,15 +658,6 @@ public class QlueApplication {
 			throw new RuntimeException("Qlue: Command object cannot be null");
 		}
 
-		// First check if there are any parameters in the URL
-		Matcher urlParamMatcher = null;
-		QlueUrlParams qup = page.getClass().getAnnotation(QlueUrlParams.class);
-		if (qup != null) {
-			// TODO We may consider caching compiled patterns
-			Pattern pattern = Pattern.compile(qup.value());
-			urlParamMatcher = pattern.matcher(page.context.getRequestUri());
-		}
-
 		// Loop through the command object fields in order to determine
 		// if any are annotated as parameters. Validate those that are,
 		// then bind them.
@@ -666,14 +668,8 @@ public class QlueApplication {
 
 				if (qp.state().compareTo(Page.STATE_URL) == 0) {
 					// Bind parameters transported in URL
-
-					if ((urlParamMatcher != null)
-							&& (urlParamMatcher.matches())) {
-						bindParameterFromString(commandObject, f, page,
-								context, urlParamMatcher.group(qp.urlParam()));
-					} else {
-						// TODO Handle mandatory parameter not present
-					}
+					bindParameterFromString(commandObject, f, page, context,
+							context.getUrlParameter(f.getName()));
 				} else {
 					// Process only the parameters that are
 					// in the same state as the page, or if the parameter
@@ -1037,27 +1033,9 @@ public class QlueApplication {
 	View constructView(Page page, String viewName) throws Exception {
 		return viewFactory.constructView(page, viewName);
 	}
-	
+
 	View constructView(Page page, File viewFile) throws Exception {
 		return viewFactory.constructView(page, viewFile);
-	}
-
-	/**
-	 * Retrieve page resolver.
-	 * 
-	 * @return
-	 */
-	public PageResolver getPageResolver() {
-		return pageResolver;
-	}
-
-	/**
-	 * Set page resolver.
-	 * 
-	 * @param pageResolver
-	 */
-	protected void setPageResolver(PageResolver pageResolver) {
-		this.pageResolver = pageResolver;
 	}
 
 	/**

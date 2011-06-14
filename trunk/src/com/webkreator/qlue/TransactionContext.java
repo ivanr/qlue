@@ -19,7 +19,9 @@ package com.webkreator.qlue;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
@@ -67,6 +69,10 @@ public class TransactionContext {
 
 	private List<FileItem> multipartItems;
 
+	private Map<String, String> urlParams = new HashMap<String, String>();
+	
+	private String pathInfo;
+	
 	/**
 	 * Initialise context instance.
 	 * 
@@ -435,5 +441,25 @@ public class TransactionContext {
 		}
 
 		return null;
+	}
+	
+	public String getUrlParameter(String name) {
+		return urlParams.get(name);
+	}
+	
+	public void setUrlParameter(String name, String value) {
+		urlParams.put(name, value);
+	}
+
+	public void addUrlParameter(String name, String value) {
+		setUrlParameter(name, value);
+	}
+
+	public void setPathInfo(String pathInfo) {
+		this.pathInfo = pathInfo;
+	}
+	
+	public String getPathInfo() {
+		return pathInfo;
 	}
 }

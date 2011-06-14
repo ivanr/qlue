@@ -19,6 +19,7 @@ package com.webkreator.qlue.view;
 import java.io.File;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.TransactionContext;
 
 /**
  * This class is used as a placeholder. A page that wishes to
@@ -50,7 +51,7 @@ public class NamedView implements View {
 	}
 
 	@Override
-	public void render(Page page) {
+	public void render(TransactionContext tx, Page page) {
 		// Do nothing. This method is never invoked.
 		throw new RuntimeException("This method shouldn't have been invoked.");
 	}

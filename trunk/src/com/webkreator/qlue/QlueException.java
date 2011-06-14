@@ -20,7 +20,7 @@ package com.webkreator.qlue;
  * This is the base exceptions, typically used as base
  * class for more specific exceptions.
  */
-public class QlueException extends Exception {
+public class QlueException extends RuntimeException {
 
 	protected static final long serialVersionUID = 1L;
 	

@@ -16,35 +16,13 @@
  */
 package com.webkreator.qlue.example;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import com.webkreator.qlue.PrefixPageResolver;
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.QlueSchedule;
-import com.webkreator.qlue.UriMapping;
 import com.webkreator.qlue.view.ClasspathVelocityViewFactory;
 
 public class QlueExampleApplication extends QlueApplication {
 	
 	public QlueExampleApplication() {
-		//super("com.webkreator.qlue.example.pages");
-		
-		// Custom page mapping
-        PrefixPageResolver pageResolver = new PrefixPageResolver();
-        List<UriMapping> mappings = new ArrayList<UriMapping>();
-        mappings.add(new UriMapping("/_qlue/", "com.webkreator.qlue.pages"));
-
-        UriMapping onlineReadingMapping = new UriMapping("/test/", null);
-        onlineReadingMapping.setClassMapping("com.webkreator.qlue.example.pages.pathParamTest");
-        mappings.add(onlineReadingMapping);
-
-        // The rest of the application
-        mappings.add(new UriMapping("/", "com.webkreator.qlue.example.pages"));
-
-        pageResolver.setMappings(mappings);
-        setPageResolver(pageResolver);
-		
 		ClasspathVelocityViewFactory viewFactory = new ClasspathVelocityViewFactory();		
 		setViewFactory(viewFactory);
 	}
