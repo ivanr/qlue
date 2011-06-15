@@ -88,6 +88,9 @@ public class RouteFactory {
 						"Qlue: Invalid status code in route: "
 								+ statusCodeString);
 			}
+		} else if (action.startsWith("static:")) {
+			// Static route
+			router = new StaticFileRouter(action.substring(7).trim());
 		} else {
 			// Class name
 			router = new ClassRouter(action);

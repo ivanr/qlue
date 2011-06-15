@@ -1,22 +1,16 @@
     
-- Deliver static files ourselves
-
-  - Add variables to the router (how else are we going to know where the root folder is?)
-  
-  - Add static: prefix
-  
 - In debug mode page trailer:
 
   - Sort model fields by name
-  
-- Reset array parameter to null or empty array when there are no parameters
 
 - Debugging mode is useless when running behind a proxy because we always
   work with the proxy's IP address. Need a way to extract client IP address
   from X-Forwarded-For.
 
 - When in debug mode, override redirections in order to display in-page
-  debugging information.  
+  debugging information.
+  
+- Reset array parameter to null or empty array when there are no parameters
   
 - Write minimal documentation
   
