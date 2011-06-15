@@ -99,7 +99,7 @@ public class QlueApplication {
 
 	private Log log = LogFactory.getLog(QlueApplication.class);
 
-	private RouteManager qlueRouter = new RouteManager();
+	private RouteManager qlueRouter = new RouteManager(this);
 
 	private ViewResolver viewResolver = new ViewResolver();
 
@@ -152,10 +152,10 @@ public class QlueApplication {
 	 */
 	public void init(HttpServlet servlet) throws Exception {
 		this.servlet = servlet;
-		
+
 		// Load properties
 		loadProperties();
-		
+
 		// Load routes
 		File routesFile = new File(servlet.getServletContext().getRealPath(
 				ROUTES_FILENAME));
@@ -179,7 +179,7 @@ public class QlueApplication {
 		// Schedule application jobs
 		scheduleApplicationJobs();
 	}
-	
+
 	void loadProperties() throws Exception {
 		// Load Qlue properties if the file exists
 		File propsFile = new File(servlet.getServletContext().getRealPath(
@@ -187,6 +187,10 @@ public class QlueApplication {
 		if (propsFile.exists()) {
 			properties.load(new FileReader(propsFile));
 		}
+		
+		// Expose WEB-INF path in properties
+		properties.setProperty("webInfPath", servlet.getServletContext()
+				.getRealPath("/WEB-INF/"));
 
 		if (properties.getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
 			setCharacterEncoding(properties
@@ -1238,7 +1242,7 @@ public class QlueApplication {
 			developmentMode = QlueConstants.DEVMODE_ONDEMAND;
 			return;
 		}
-		
+
 		throw new InvalidParameterException(
 				"Invalid value for development mode: " + input);
 	}
