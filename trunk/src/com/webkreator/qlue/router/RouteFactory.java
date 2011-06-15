@@ -1,4 +1,5 @@
-package com.webkreator.qlue;
+package com.webkreator.qlue.router;
+
 
 public class RouteFactory {
 
