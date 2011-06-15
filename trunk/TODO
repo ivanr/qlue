@@ -1,6 +1,3 @@
-
-- Why does Page have field uri (when we have a reference to context, which we
-  can use to retrieve URI)?
     
 - Deliver static files ourselves
 
@@ -22,8 +19,6 @@
 
 - When in debug mode, override redirections in order to display in-page
   debugging information.  
-  
-  
   
 - Write minimal documentation
   

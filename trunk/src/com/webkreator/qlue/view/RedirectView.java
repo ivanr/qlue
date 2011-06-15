@@ -65,7 +65,7 @@ public class RedirectView implements View {
 					"RedirectView: Cannot redirect to null page");
 		}
 
-		redirection = new UriBuilder(page.getUri());
+		redirection = new UriBuilder(page.getContext().getRequestUri());
 
 		if (page.getId() != null) {
 			redirection.clearParams();

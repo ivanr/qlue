@@ -26,7 +26,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.webkreator.canoe.HtmlEncoder;
-import com.webkreator.qlue.util.UriBuilder;
 import com.webkreator.qlue.view.View;
 import com.webkreator.qlue.view.ViewResolver;
 
@@ -55,8 +54,6 @@ public abstract class Page {
 	private Log log = LogFactory.getLog(Page.class);
 
 	protected QlueApplication qlueApp;
-
-	private String uri;
 
 	protected TransactionContext context;
 
@@ -309,36 +306,6 @@ public abstract class Page {
 	}
 
 	/**
-	 * Retrieve the URI that is associated with this page. If the page was
-	 * assigned a unique ID (meaning the page is persistent), the URI will
-	 * include the ID and thus map back to the page.
-	 * 
-	 * @return
-	 */
-	public String getUri() {
-		if (id == null) {
-			// Non-persistent pages can return the original URI
-			return uri;
-		} else {
-			// Persistent pages include page's unique ID
-			UriBuilder r = new UriBuilder(uri);
-			r.clearParams();
-			r.addParam("_pid", id);
-
-			return r.getUri();
-		}
-	}
-
-	/**
-	 * Set page's URI.
-	 * 
-	 * @param uri
-	 */
-	void setUri(String uri) {
-		this.uri = uri;
-	}
-
-	/**
 	 * Return page's format tool. By default, we respond with application's
 	 * format tool, but pages (subclasses) can create their own.
 	 * 
@@ -444,12 +411,7 @@ public abstract class Page {
 	}
 
 	public String getNoParamUri() {
-		int i = uri.indexOf('?');
-		if (i == -1) {
-			return uri;
-		} else {
-			return uri.substring(0, i);
-		}
+		return context.getRequestUri();
 	}
 
 	/**

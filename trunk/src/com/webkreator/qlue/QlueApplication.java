@@ -371,7 +371,6 @@ public class QlueApplication {
 			// to be used by one user at a time (on per-session basis).
 			synchronized (page) {
 				page.setQlueApp(this);
-				page.setUri(context.getRequestUriWithQueryString());
 				page.determineDefaultViewName(viewResolver);
 				page.setContext(context);
 				page.determineCommandObject();
