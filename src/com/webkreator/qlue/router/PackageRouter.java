@@ -38,7 +38,7 @@ public class PackageRouter implements Router {
 	}
 
 	@Override
-	public Object route(TransactionContext tx, String extraPath) {
+	public Object route(TransactionContext context, String extraPath) {
 		return resolveUri(extraPath, packageName);
 	}
 

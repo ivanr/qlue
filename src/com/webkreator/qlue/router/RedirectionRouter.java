@@ -35,7 +35,7 @@ public class RedirectionRouter implements Router {
 	}
 
 	@Override
-	public Object route(TransactionContext tx, String extraPath) {
+	public Object route(TransactionContext context, String extraPath) {
 		RedirectView redirectView = new RedirectView(uri);
 		redirectView.setStatus(status);
 		return redirectView;
