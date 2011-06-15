@@ -1,4 +1,10 @@
     
+- Static file handling
+
+  - Implement proper MIME type resolution
+  
+  - Implement downloads with support for caching and resumption
+    
 - In debug mode page trailer:
 
   - Sort model fields by name
