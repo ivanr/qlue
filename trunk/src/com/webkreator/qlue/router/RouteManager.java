@@ -73,11 +73,11 @@ public class RouteManager {
 		routes.add(route);
 	}
 
-	public Object route(TransactionContext tx) {
+	public Object route(TransactionContext context) {
 		Object r = null;
 		
 		if (log.isDebugEnabled()) {
-			log.debug("QlueRouter: Asked to route: " + tx.getRequestUri());
+			log.debug("QlueRouter: Asked to route: " + context.getRequestUri());
 		}
 		
 		for (Route route : routes) {
@@ -85,7 +85,7 @@ public class RouteManager {
 				log.debug("QlueRouter: Trying " + route.getPath());
 			}
 		
-			r = route.route(tx);
+			r = route.route(context);
 			if (r != null) {
 				return r;
 			}

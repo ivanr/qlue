@@ -20,5 +20,5 @@ import com.webkreator.qlue.TransactionContext;
 
 public interface Router {
 
-	public Object route(TransactionContext tx, String extraPath);
+	public Object route(TransactionContext context, String extraPath);
 }

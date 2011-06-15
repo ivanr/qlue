@@ -52,8 +52,8 @@ public class ClassRouter implements Router {
 	}
 
 	@Override
-	public Object route(TransactionContext tx, String extraPath) {
-		tx.setPathInfo(extraPath);
+	public Object route(TransactionContext context, String extraPath) {
+		context.setPathInfo(extraPath);
 
 		try {
 			return page.newInstance();
