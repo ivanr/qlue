@@ -16,8 +16,6 @@
  */
 package com.webkreator.qlue.pages;
 
-import java.io.PrintWriter;
-
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.View;
@@ -28,14 +26,8 @@ import com.webkreator.qlue.view.View;
 public class handlePageNotFound extends Page {
 
 	@Override
-	public View service() throws Exception {		
-		context.response.setContentType("text/html");
-		PrintWriter out = context.response.getWriter();
-		out.println("<html><head><title>Not Found</title></head>");
-		out.println("<body><h1>Not Found</h1>");
-		WebUtil.writePagePaddingforInternetExplorer(out);		
-		out.println("</body></html>");			
-		
+	public View service() throws Exception {
+		WebUtil.writeMessage(context, "Not Found");
 		return null;
 	}
 }
