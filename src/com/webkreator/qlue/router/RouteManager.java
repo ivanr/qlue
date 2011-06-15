@@ -11,9 +11,9 @@ import org.apache.commons.logging.LogFactory;
 
 import com.webkreator.qlue.TransactionContext;
 
-public class QlueRouter {
+public class RouteManager {
 	
-	private Log log = LogFactory.getLog(QlueRouter.class);
+	private Log log = LogFactory.getLog(RouteManager.class);
 
 	private List<Route> routes = new ArrayList<Route>();
 
