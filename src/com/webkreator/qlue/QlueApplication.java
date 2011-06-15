@@ -388,7 +388,7 @@ public class QlueApplication {
 				if (routeObject == null) {
 					throw new PageNotFoundException();
 				} else if (routeObject instanceof View) {
-					// TODO Only RedirectView or StatusCodeView
+					// TODO Only RedirectView, StatusCodeView, or DownloadView
 					renderView((View) routeObject, context, null);
 					// TODO Dev. output
 					return;
@@ -584,7 +584,7 @@ public class QlueApplication {
 
 	private void updateShadowInputArrayParam(Page page,
 			TransactionContext context, Field f) throws Exception {
-		// TODO
+		// XXX
 	}
 
 	private void updateShadowInputNonArrayParam(Page page,

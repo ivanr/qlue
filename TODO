@@ -17,6 +17,8 @@
   debugging information.
   
 - Reset array parameter to null or empty array when there are no parameters
+
+- Fix TODO and XXX markers
   
 - Write minimal documentation
   
