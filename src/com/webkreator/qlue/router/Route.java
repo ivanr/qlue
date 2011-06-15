@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -105,8 +106,11 @@ public class Route {
 
 		sb.append("(/.*)?$");
 
-		// TODO Replace compilation failure with a friendly message
-		pattern = Pattern.compile(sb.toString());
+		try {
+			pattern = Pattern.compile(sb.toString());
+		} catch (PatternSyntaxException pse) {
+			throw new RuntimeException("Failed to compile route: " + path, pse);
+		}
 	}
 
 	public Object route(TransactionContext tx) {
