@@ -378,19 +378,12 @@ public class QlueApplication {
 
 			// If we still don't have a page see if we can create a new one
 			if (page == null) {
-				String uri = context.getRequestUriWithQueryString();
-				int i = uri.indexOf('?');
-				if (i != -1) {
-					uri = uri.substring(0, i);
-				}
-
 				Object routeObject = qlueRouter.route(context);
 				if (routeObject == null) {
 					throw new PageNotFoundException();
 				} else if (routeObject instanceof View) {
-					// TODO Only RedirectView, StatusCodeView, or DownloadView
 					renderView((View) routeObject, context, null);
-					// TODO Dev. output
+					masterWriteRequestDevelopmentInformation(context, page);
 					return;
 				} else if (routeObject instanceof Page) {
 					page = (Page) routeObject;
@@ -614,6 +607,10 @@ public class QlueApplication {
 	 */
 	protected void masterWriteRequestDevelopmentInformation(
 			TransactionContext context, Page page) throws IOException {
+		if (page == null) {
+			return;
+		}
+		
 		// Check development mode
 		if (page.isDeveloperAccess() == false) {
 			return;
