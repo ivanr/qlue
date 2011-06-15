@@ -35,44 +35,11 @@ public abstract class QlueServlet extends HttpServlet {
 
 	private QlueApplication qlueApplication;
 
-	private String characterEncoding = null;
-
-	private Integer developmentMode = QlueConstants.DEVMODE_DISABLED;
-
-	private String developmentModePassword = null;
-
-	private String[] developmentModeRanges = null;
-
 	/**
 	 * Retrieve servlet parameters from web.xml and initialize application.
 	 */
 	@Override
 	public final void init() throws ServletException {
-		String s = null;
-
-		// Character encoding
-		characterEncoding = getInitParameter(QlueConstants.QLUE_CHARACTER_ENCODING);
-
-		// Development mode enabled
-		s = getInitParameter(QlueConstants.QLUE_DEVMODE_ENABLED);
-		if (s != null) {
-			if (setDevelopmentModeFromString(s) == false) {
-				throw new UnavailableException(
-						"QlueServlet: Invalid value for the "
-								+ QlueConstants.QLUE_DEVMODE_ENABLED
-								+ " parameter");
-			}
-		}
-
-		// Development mode password
-		developmentModePassword = getInitParameter(QlueConstants.QLUE_DEVMODE_PASSWORD);
-
-		// Development mode IP address ranges
-		s = getInitParameter(QlueConstants.QLUE_DEVMODE_RANGES);
-		if (s != null) {
-			developmentModeRanges = s.split("[;,\\x20]");
-		}
-
 		// Let subclasses do their own initialization
 		subclassInit();
 
@@ -87,39 +54,6 @@ public abstract class QlueServlet extends HttpServlet {
 		} catch (Exception e) {
 			throw new ServletException(e);
 		}
-
-		if (characterEncoding != null) {
-			qlueApplication.setCharacterEncoding(characterEncoding);
-		}
-
-		if (developmentMode != null) {
-			qlueApplication.setApplicationDevelopmentMode(developmentMode);
-		}
-
-		qlueApplication.setDevelopmentModePassword(developmentModePassword);
-
-		qlueApplication.setDevelopmentModeRanges(developmentModeRanges);
-	}
-
-	/**
-	 * Configures development mode based on the parameter setting.
-	 * 
-	 * @param s
-	 * @return
-	 */
-	private boolean setDevelopmentModeFromString(String s) {
-		if (s.compareToIgnoreCase("on") == 0) {
-			developmentMode = QlueConstants.DEVMODE_ENABLED;
-			return true;
-		} else if (s.compareToIgnoreCase("off") == 0) {
-			developmentMode = QlueConstants.DEVMODE_DISABLED;
-			return true;
-		} else if (s.compareToIgnoreCase("ondemand") == 0) {
-			developmentMode = QlueConstants.DEVMODE_ONDEMAND;
-			return true;
-		}
-
-		return false;
 	}
 
 	/**

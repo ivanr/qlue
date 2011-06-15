@@ -5,8 +5,6 @@
   
   - Add static: prefix
   
-- Move initialization parameters from web.xml into qlue.properties
-
 - In debug mode page trailer:
 
   - Sort model fields by name

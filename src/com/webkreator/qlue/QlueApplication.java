@@ -26,6 +26,7 @@ import java.io.PrintWriter;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Properties;
@@ -48,8 +49,8 @@ import org.apache.log4j.NDC;
 import org.apache.tomcat.util.http.fileupload.FileItem;
 
 import com.webkreator.canoe.HtmlEncoder;
-import com.webkreator.qlue.router.RouteManager;
 import com.webkreator.qlue.router.RouteFactory;
+import com.webkreator.qlue.router.RouteManager;
 import com.webkreator.qlue.util.BooleanEditor;
 import com.webkreator.qlue.util.FormatTool;
 import com.webkreator.qlue.util.IntegerEditor;
@@ -77,6 +78,14 @@ public class QlueApplication {
 	public static final String ROUTES_FILENAME = "/WEB-INF/qlue-routes.conf";
 
 	public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
+
+	private static final String PROPERTY_CHARACTER_ENCODING = "qlue.character-encoding";
+
+	private static final String PROPERTY_DEVMODE_ENABLED = "qlue.devmode-enabled";
+
+	private static final String PROPERTY_DEVMODE_RANGES = "qlue.devmode.ranges";
+
+	private static final String PROPERTY_DEVMODE_PASSWORD = "qlue.devmode.password";
 
 	private String messagesFilename = "com/webkreator/qlue/messages";
 
@@ -143,14 +152,10 @@ public class QlueApplication {
 	 */
 	public void init(HttpServlet servlet) throws Exception {
 		this.servlet = servlet;
-
-		// Load Qlue properties if the file exists
-		File propsFile = new File(servlet.getServletContext().getRealPath(
-				PROPERTIES_FILENAME));
-		if (propsFile.exists()) {
-			properties.load(new FileReader(propsFile));
-		}
-
+		
+		// Load properties
+		loadProperties();
+		
 		// Load routes
 		File routesFile = new File(servlet.getServletContext().getRealPath(
 				ROUTES_FILENAME));
@@ -173,6 +178,32 @@ public class QlueApplication {
 
 		// Schedule application jobs
 		scheduleApplicationJobs();
+	}
+	
+	void loadProperties() throws Exception {
+		// Load Qlue properties if the file exists
+		File propsFile = new File(servlet.getServletContext().getRealPath(
+				PROPERTIES_FILENAME));
+		if (propsFile.exists()) {
+			properties.load(new FileReader(propsFile));
+		}
+
+		if (properties.getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
+			setCharacterEncoding(properties
+					.getProperty(PROPERTY_CHARACTER_ENCODING));
+		}
+
+		if (properties.getProperty(PROPERTY_DEVMODE_ENABLED) != null) {
+			setApplicationDevelopmentMode(properties
+					.getProperty(PROPERTY_DEVMODE_ENABLED));
+		}
+
+		setDevelopmentModeRanges(properties
+				.getProperty(PROPERTY_DEVMODE_RANGES).split("[;,\\x20]"));
+
+		developmentModePassword = properties
+				.getProperty(PROPERTY_DEVMODE_PASSWORD);
+
 	}
 
 	/**
@@ -1196,8 +1227,20 @@ public class QlueApplication {
 	 * 
 	 * @param developmentMode
 	 */
-	protected void setApplicationDevelopmentMode(Integer developmentMode) {
-		this.developmentMode = developmentMode;
+	protected void setApplicationDevelopmentMode(String input) {
+		if (input.compareToIgnoreCase("on") == 0) {
+			developmentMode = QlueConstants.DEVMODE_ENABLED;
+			return;
+		} else if (input.compareToIgnoreCase("off") == 0) {
+			developmentMode = QlueConstants.DEVMODE_DISABLED;
+			return;
+		} else if (input.compareToIgnoreCase("ondemand") == 0) {
+			developmentMode = QlueConstants.DEVMODE_ONDEMAND;
+			return;
+		}
+		
+		throw new InvalidParameterException(
+				"Invalid value for development mode: " + input);
 	}
 
 	/**

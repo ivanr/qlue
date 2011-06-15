@@ -35,28 +35,6 @@
 		</servlet-class>
 
 		<load-on-startup>1</load-on-startup>
-
-		<init-param>
-			<param-name>QLUE_CHARACTER_ENCODING</param-name>
-			<param-value>UTF-8</param-value>
-		</init-param>
-
-		<init-param>
-			<param-name>QLUE_DEVMODE_ENABLED</param-name>
-			<!-- Possible values: On, Off, or OnDemand -->
-			<param-value>On</param-value>
-		</init-param>
-
-		<init-param>
-			<param-name>QLUE_DEVMODE_RANGES</param-name>
-			<!-- One or more IP addresses separated with spaces -->
-			<param-value>127.0.0.1</param-value>
-		</init-param>
-
-		<init-param>
-			<param-name>QLUE_DEVMODE_PASSWORD</param-name>
-			<param-value>jupiter</param-value>
-		</init-param>
 	</servlet>
 
 	<servlet-mapping>
