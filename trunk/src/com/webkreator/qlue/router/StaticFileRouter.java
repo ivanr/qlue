@@ -32,7 +32,12 @@ public class StaticFileRouter implements Router {
 
 	@Override
 	public Object route(TransactionContext context, String extraPath) {
-		if (extraPath.indexOf("..") != -1) {
+		if (extraPath.contains("..")) {
+			throw new SecurityException("StaticFileRouter: Invalid path: "
+					+ extraPath);
+		}
+
+		if (extraPath.toLowerCase().contains("web-inf")) {
 			throw new SecurityException("StaticFileRouter: Invalid path: "
 					+ extraPath);
 		}
@@ -40,6 +45,8 @@ public class StaticFileRouter implements Router {
 		File file = new File(path, extraPath);
 		if (file.exists()) {
 			if (file.isDirectory()) {
+				// TODO It should be possible to change the default
+				// file, or maybe even list several variants
 				file = new File(file, "/index.html");
 				if (file.exists()) {
 					return new DownloadView(file);

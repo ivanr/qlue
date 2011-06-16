@@ -3,7 +3,7 @@
 
   - Implement proper MIME type resolution
   
-  - Implement downloads with support for caching and resumption
+  - Implement downloads with support for caching and resumption   
     
 - In debug mode page trailer:
 
@@ -19,6 +19,8 @@
 - Reset array parameter to null or empty array when there are no parameters
 
 - Fix TODO and XXX markers
+
+- Implement logging consistently throughout the framework
   
 - Write minimal documentation
   

@@ -31,6 +31,7 @@ public class PackageRouter implements Router {
 
 	private String packageName;
 
+	// TODO Make it possible for framework users to change suffix
 	private String uriSuffix = ".html";
 
 	public PackageRouter(String packageName) {
@@ -86,6 +87,7 @@ public class PackageRouter implements Router {
 		pageClass = classForName(className);
 		if (pageClass == null) {
 			// Try as a folder
+			// TODO Default file(s) should be configurable
 			pageClass = classForName(className + ".index");
 			if (pageClass == null) {
 				return null;
