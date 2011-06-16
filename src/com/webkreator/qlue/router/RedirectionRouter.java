@@ -32,6 +32,8 @@ public class RedirectionRouter implements Router {
 	public RedirectionRouter(String uri, int status) {
 		this.uri = uri;
 		this.status = status;
+		// TODO Only accept status codes that can
+		// be used for redirection
 	}
 
 	@Override
