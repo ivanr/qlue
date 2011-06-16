@@ -189,8 +189,8 @@ public class QlueApplication {
 		}
 		
 		// Expose WEB-INF path in properties
-		properties.setProperty("webInfPath", servlet.getServletContext()
-				.getRealPath("/WEB-INF/"));
+		properties.setProperty("webRoot", servlet.getServletContext()
+				.getRealPath("/"));
 
 		if (properties.getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
 			setCharacterEncoding(properties

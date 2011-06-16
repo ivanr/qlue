@@ -30,6 +30,8 @@ public class RouteFactory {
 
 		// Path
 		String path = tokens[0];
+		
+		// TODO Normalize path
 
 		// Remove trailing slash from path
 		if ((path.length() > 0) && (path.charAt(path.length() - 1) == '/')) {
