@@ -80,6 +80,8 @@ public class Canoe extends Writer {
 
 	public static final int DOCTYPE = 18;
 
+	public static final int DOCTYPE_TEST = 19;
+
 	public static final int INVALID = 666;
 
 	public static final int QUOTE_NONE = 0;
@@ -121,6 +123,8 @@ public class Canoe extends Writer {
 	protected String cssEnd = "/style";
 
 	protected String jsEnd = "/script";
+
+	protected String doctypeText = "doctype";
 
 	protected int currentLine = 1;
 
@@ -607,17 +611,27 @@ public class Canoe extends Writer {
 			case COMMENT_OPEN_OR_DOCTYPE:
 				if (c == '-') {
 					state = COMMENT_OPEN_2;
-				}
-				
-				if ((c == 'D') || (c == 'd')) {
+				} else if ((c == 'D') || (c == 'd')) {
 					if (tagCount != 1) {
 						raiseError("DOCTYPE declaration must be at the beginning");
 					} else {
-						// TODO Check all the characters
-						state = DOCTYPE;
+						bufLen = 1;
+						state = DOCTYPE_TEST;
 					}
 				} else {
 					raiseError("Invalid tag");
+				}
+				break;
+
+			case DOCTYPE_TEST:
+				if (Character.toLowerCase(c) != doctypeText.charAt(bufLen)) {
+					raiseError("Invalid DOCTYPE declaration");
+				} else {
+					if (bufLen == doctypeText.length() - 1) {
+						state = DOCTYPE;
+					} else {
+						bufLen++;
+					}
 				}
 				break;
 
