@@ -75,7 +75,7 @@ public class QlueApplication {
 
 	public static final String PROPERTIES_FILENAME = "/WEB-INF/qlue.properties";
 
-	public static final String ROUTES_FILENAME = "/WEB-INF/qlue-routes.conf";
+	public static final String ROUTES_FILENAME = "/WEB-INF/routes.conf";
 
 	public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
 
