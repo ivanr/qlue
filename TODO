@@ -1,6 +1,4 @@
-
-- Fix TODO and XXX markers
-    
+  
 - Static file handling
 
   - Implement proper MIME type resolution
