@@ -136,9 +136,10 @@ public class QlueApplication {
 		initPropertyEditors();
 
 		// Default routes
-		routeManager.add(RouteFactory
-				.create(routeManager, "/_qlue package:com.webkreator.qlue.pages"));
-		routeManager.add(RouteFactory.create(routeManager, "/ package:" + pagesHome));
+		routeManager.add(RouteFactory.create(routeManager,
+				"/_qlue package:com.webkreator.qlue.pages"));
+		routeManager.add(RouteFactory.create(routeManager, "/ package:"
+				+ pagesHome));
 	}
 
 	// -- Main entry points --
@@ -187,7 +188,7 @@ public class QlueApplication {
 		if (propsFile.exists()) {
 			properties.load(new FileReader(propsFile));
 		}
-		
+
 		// Expose WEB-INF path in properties
 		properties.setProperty("webRoot", servlet.getServletContext()
 				.getRealPath("/"));
@@ -577,11 +578,30 @@ public class QlueApplication {
 
 	private void updateShadowInputArrayParam(Page page,
 			TransactionContext context, Field f) throws Exception {
-		// XXX
+		// Find the property editor
+		PropertyEditor pe = editors.get(f.getType().getComponentType());
+		if (pe == null) {
+			throw new RuntimeException(
+					"Qlue: Binding does not know how to handle type: "
+							+ f.getType().getComponentType());
+		}
+			
+		// If there is any data in the command object
+		// use it to populate shadow input
+		if (f.get(page.getCommandObject()) != null) {
+			Object[] originalValues = (Object[]) f.get(page.getCommandObject());
+			String[] textValues = new String[originalValues.length];
+			for (int i = 0; i < originalValues.length; i++) {
+				textValues[i] = pe.toText(originalValues[i]);
+			}
+
+			page.getShadowInput().set(f.getName(), textValues);
+		}
 	}
 
 	private void updateShadowInputNonArrayParam(Page page,
 			TransactionContext context, Field f) throws Exception {
+		// Find the property editor
 		PropertyEditor pe = editors.get(f.getType());
 		if (pe == null) {
 			throw new RuntimeException(
@@ -610,7 +630,7 @@ public class QlueApplication {
 		if (page == null) {
 			return;
 		}
-		
+
 		// Check development mode
 		if (page.isDeveloperAccess() == false) {
 			return;
@@ -762,7 +782,7 @@ public class QlueApplication {
 				Object[] originalValues = (Object[]) f.get(commandObject);
 				String[] textValues = new String[originalValues.length];
 				for (int i = 0; i < originalValues.length; i++) {
-					textValues[i] = originalValues.toString();
+					textValues[i] = pe.toText(originalValues[i]);
 				}
 
 				shadowInput.set(f.getName(), textValues);
@@ -949,8 +969,8 @@ public class QlueApplication {
 
 		// First check if the parameter is a file
 		if (QlueFile.class.isAssignableFrom(f.getType())) {
-			// XXX
-			return;
+			throw new RuntimeException(
+					"Qlue: Unable to bind a string to file parameter");
 		}
 
 		// Look for a property editor, which will know how
