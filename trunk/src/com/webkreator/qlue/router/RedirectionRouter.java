@@ -16,24 +16,32 @@
  */
 package com.webkreator.qlue.router;
 
+import java.security.InvalidParameterException;
+
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.view.RedirectView;
 
 public class RedirectionRouter implements Router {
-	
+
 	private String uri;
-	
+
 	private int status = 301;
-	
+
 	public RedirectionRouter(String uri) {
 		this.uri = uri;
 	}
-	
+
 	public RedirectionRouter(String uri, int status) {
+		// Check that the status code is appropriate
+		if ((status != 301) && (status != 302) && (status != 303)
+				&& (status != 307)) {
+			throw new InvalidParameterException(
+					"RedirectionRouter: Status code cannot be used for redirection: "
+							+ status);
+		}
+
 		this.uri = uri;
 		this.status = status;
-		// TODO Only accept status codes that can
-		// be used for redirection
 	}
 
 	@Override
