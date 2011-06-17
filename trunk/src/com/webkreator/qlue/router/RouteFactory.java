@@ -33,7 +33,7 @@ public class RouteFactory {
 		
 		// TODO Normalize path
 
-		// Remove trailing slash from path
+		// Remove trailing slash from the path
 		if ((path.length() > 0) && (path.charAt(path.length() - 1) == '/')) {
 			path = path.substring(0, path.length() - 1);
 		}
