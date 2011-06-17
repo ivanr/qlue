@@ -20,12 +20,14 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.OutputStream;
+import java.text.CharacterIterator;
+import java.text.StringCharacterIterator;
 
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * This utility class can send a file from the filesystem, either
- * inline or as an attachment. 
+ * This utility class can send a file from the filesystem, either inline or as
+ * an attachment.
  */
 public class DownloadUtil {
 
@@ -82,14 +84,32 @@ public class DownloadUtil {
 			response.setContentType("application/pdf");
 		}
 
+		// Do not allow control characters in the name
+		StringBuffer sb = new StringBuffer();
+		CharacterIterator it = new StringCharacterIterator(name);
+		for (char c = it.first(); c != CharacterIterator.DONE; c = it.next()) {
+			if (c < 0x20) {
+				throw new SecurityException("Invalid character in filename: "
+						+ c);
+			}
+			
+			if ((c == '\\')||(c == '"')) {
+				sb.append('\\');
+				sb.append(c);
+			} else {
+				sb.append(c);
+			}
+		}
+		
+		String escapedName = sb.toString();
+
 		// Set name
-		// TODO Validate name
 		if (isAttachment) {
 			response.setHeader("Content-Disposition", "attachment; filename="
-					+ name);
+					+ escapedName);
 		} else {
 			response.setHeader("Content-Disposition", "inline; filename="
-					+ name);
+					+ escapedName);
 		}
 
 		// Set size
