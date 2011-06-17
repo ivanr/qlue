@@ -50,7 +50,7 @@ import org.apache.tomcat.util.http.fileupload.FileItem;
 
 import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.router.RouteFactory;
-import com.webkreator.qlue.router.RouteManager;
+import com.webkreator.qlue.router.QlueRouteManager;
 import com.webkreator.qlue.util.BooleanEditor;
 import com.webkreator.qlue.util.FormatTool;
 import com.webkreator.qlue.util.IntegerEditor;
@@ -99,7 +99,7 @@ public class QlueApplication {
 
 	private Log log = LogFactory.getLog(QlueApplication.class);
 
-	private RouteManager qlueRouter = new RouteManager(this);
+	private QlueRouteManager routeManager = new QlueRouteManager(this);
 
 	private ViewResolver viewResolver = new ViewResolver();
 
@@ -136,9 +136,9 @@ public class QlueApplication {
 		initPropertyEditors();
 
 		// Default routes
-		qlueRouter.add(RouteFactory
-				.create("/_qlue package:com.webkreator.qlue.pages"));
-		qlueRouter.add(RouteFactory.create("/ package:" + pagesHome));
+		routeManager.add(RouteFactory
+				.create(routeManager, "/_qlue package:com.webkreator.qlue.pages"));
+		routeManager.add(RouteFactory.create(routeManager, "/ package:" + pagesHome));
 	}
 
 	// -- Main entry points --
@@ -160,7 +160,7 @@ public class QlueApplication {
 		File routesFile = new File(servlet.getServletContext().getRealPath(
 				ROUTES_FILENAME));
 		if (routesFile.exists()) {
-			qlueRouter.load(routesFile);
+			routeManager.load(routesFile);
 		}
 
 		// Must have a view resolver
@@ -378,7 +378,7 @@ public class QlueApplication {
 
 			// If we still don't have a page see if we can create a new one
 			if (page == null) {
-				Object routeObject = qlueRouter.route(context);
+				Object routeObject = routeManager.route(context);
 				if (routeObject == null) {
 					throw new PageNotFoundException();
 				} else if (routeObject instanceof View) {

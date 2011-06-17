@@ -26,15 +26,15 @@ import com.webkreator.qlue.SecurityException;
 import com.webkreator.qlue.TransactionContext;
 
 public class PackageRouter implements Router {
+	
+	protected RouteManager manager;
 
 	private Log log = LogFactory.getLog(ClassRouter.class);
 
-	private String packageName;
+	private String packageName;	
 
-	// TODO Make it possible for framework users to change suffix
-	private String uriSuffix = ".html";
-
-	public PackageRouter(String packageName) {
+	public PackageRouter(RouteManager manager, String packageName) {
+		this.manager = manager;
 		this.packageName = packageName;
 	}
 
@@ -53,7 +53,8 @@ public class PackageRouter implements Router {
 		}
 
 		// Handle URI suffix
-		if ((uriSuffix != null) && (uri.endsWith(uriSuffix))) {
+		String suffix = manager.getSuffix();
+		if ((suffix != null) && (uri.endsWith(suffix))) {
 			// Remove suffix from URI
 			uri = uri.substring(0, uri.length() - 5);
 		}
@@ -85,10 +86,8 @@ public class PackageRouter implements Router {
 		
 		// Look for a class with this name
 		pageClass = classForName(className);
-		if (pageClass == null) {
-			// Try as a folder
-			// TODO Default file(s) should be configurable
-			pageClass = classForName(className + ".index");
+		if (pageClass == null) {			
+			pageClass = classForName(className + "." + manager.getIndex());
 			if (pageClass == null) {
 				return null;
 			}

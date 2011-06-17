@@ -23,10 +23,13 @@ import com.webkreator.qlue.view.DownloadView;
 import com.webkreator.qlue.view.StatusCodeView;
 
 public class StaticFileRouter implements Router {
+	
+	protected RouteManager manager;
 
 	private String path;
 
-	public StaticFileRouter(String path) {
+	public StaticFileRouter(RouteManager manager, String path) {
+		this.manager = manager;
 		this.path = path;
 	}
 
@@ -45,9 +48,8 @@ public class StaticFileRouter implements Router {
 		File file = new File(path, extraPath);
 		if (file.exists()) {
 			if (file.isDirectory()) {
-				// TODO It should be possible to change the default
-				// file, or maybe even list several variants
-				file = new File(file, "/index.html");
+				file = new File(file, manager.getIndex() + "."
+						+ manager.getSuffix());
 				if (file.exists()) {
 					return new DownloadView(file);
 				} else {

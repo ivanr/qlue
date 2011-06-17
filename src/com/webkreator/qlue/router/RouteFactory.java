@@ -19,7 +19,7 @@ package com.webkreator.qlue.router;
 
 public class RouteFactory {
 
-	public static Route create(String route) {
+	public static Route create(RouteManager manager, String route) {
 		Router router = null;
 
 		// Split route into tokens
@@ -47,7 +47,7 @@ public class RouteFactory {
 		if (action.startsWith("package:")) {
 			// Package name
 			String packageName = action.substring(8).trim();
-			router = new PackageRouter(packageName);
+			router = new PackageRouter(manager, packageName);
 		} else if (action.startsWith("router:")) {
 			// Custom router; instantiate
 			// the named Router instance
@@ -108,7 +108,7 @@ public class RouteFactory {
 			}
 		} else if (action.startsWith("static:")) {
 			// Static route
-			router = new StaticFileRouter(action.substring(7).trim());
+			router = new StaticFileRouter(manager, action.substring(7).trim());
 		} else {
 			// Class name
 			router = new ClassRouter(action);
