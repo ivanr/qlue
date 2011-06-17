@@ -1,9 +1,14 @@
+
+- Fix TODO and XXX markers
     
 - Static file handling
 
   - Implement proper MIME type resolution
   
-  - Implement downloads with support for caching and resumption   
+  - Implement downloads with support for caching and resumption
+  
+  - Refuse to download anything from WEB-INF, even if such configuration
+    is used by the developer (and via an external request)?   
     
 - In debug mode page trailer:
 
@@ -18,9 +23,18 @@
   
 - Reset array parameter to null or empty array when there are no parameters
 
-- Fix TODO and XXX markers
 
-- Implement logging consistently throughout the framework
+- Finally (before release candidate):
+
+  - Implement logging consistently throughout the framework
   
-- Write minimal documentation
+  - Have consistent error messages
+  
+  - Review code comments and documentation
+  
+  - Review code
+  
+  - Review access permissions
+  
+  - Write minimal documentation
   
