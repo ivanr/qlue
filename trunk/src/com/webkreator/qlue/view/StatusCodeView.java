@@ -30,7 +30,7 @@ public class StatusCodeView implements View {
 		this.status = status;
 		this.message = WebUtil.getStatusMessage(status);
 		if (this.message == null) {
-			this.message = "Error";
+			this.message = "Unknown Status Code";
 		}
 	}
 
