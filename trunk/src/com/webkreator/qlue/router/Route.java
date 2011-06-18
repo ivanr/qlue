@@ -54,6 +54,7 @@ public class Route {
 		sb.append('^');
 
 		String haystack = path;
+		boolean terminated = false;
 		Matcher m = p.matcher(haystack);
 		while ((m != null) && (m.find())) {
 			sb.append(m.group(1));
@@ -62,28 +63,30 @@ public class Route {
 			String name = m.group(2);
 			name = name.substring(1, name.length() - 1).trim();
 
-			if (name.length() == 0) {
-				throw new RuntimeException(
-						"Qlue: Empty URL parameter name in route");
-			}
-
 			String pattern = "[^/]+";
 
-			// Check for a custom pattern
-			if (name.charAt(0) == '<') {
-				pattern = name.substring(1, name.indexOf('>'));
-				name = name.substring(name.indexOf('>') + 1);
-			}
-
+			// Is this the terminating parameter?
 			if (name.length() == 0) {
-				throw new RuntimeException(
-						"Qlue: Empty URL parameter name in route");
-			}
+				pattern = ".*";
+				terminated = true;
+				name = "routeSuffix";
+			} else {
+				// Check for a custom pattern
+				if (name.charAt(0) == '<') {
+					pattern = name.substring(1, name.indexOf('>'));
+					name = name.substring(name.indexOf('>') + 1);
+				}
 
-			Matcher nameMatcher = namePattern.matcher(name);
-			if (nameMatcher.matches() == false) {
-				throw new RuntimeException("Qlue: Invalid URL parameter: "
-						+ name);
+				if (name.length() == 0) {
+					throw new RuntimeException(
+							"Qlue: Empty URL parameter name in route");
+				}
+
+				Matcher nameMatcher = namePattern.matcher(name);
+				if (nameMatcher.matches() == false) {
+					throw new RuntimeException("Qlue: Invalid URL parameter: "
+							+ name);
+				}
 			}
 
 			names.add(name);
@@ -93,7 +96,12 @@ public class Route {
 
 			haystack = m.group(3);
 
-			if (haystack != null) {
+			if ((haystack != null) && (haystack.length() > 0)) {
+				if (terminated) {
+					throw new RuntimeException(
+							"Qlue: Terminating URI parameter must be at the end");
+				}
+
 				m = p.matcher(haystack);
 			} else {
 				m = null;
@@ -104,7 +112,8 @@ public class Route {
 			sb.append(haystack);
 		}
 
-		sb.append("(/.*)?$");
+		// sb.append("(/.*)?$");
+		sb.append("$");
 
 		try {
 			pattern = Pattern.compile(sb.toString());
@@ -122,6 +131,7 @@ public class Route {
 
 		// Extract URL parameters
 		int count = 1;
+		String routeSuffix = null;
 		for (String name : names) {
 			String value = m.group(count++);
 
@@ -130,20 +140,14 @@ public class Route {
 			}
 
 			tx.addUrlParameter(name, value);
-		}
-
-		String extraPath = null;
-
-		if (m.groupCount() >= count) {
-			extraPath = m.group(count);
-		}
-
-		if (log.isDebugEnabled()) {
-			log.debug("Route: Extra path: " + extraPath);
+			
+			if (name.compareTo("routeSuffix") == 0) {
+				routeSuffix = value;
+			}
 		}
 
 		// Return the route
-		return router.route(tx, extraPath);
+		return router.route(tx, routeSuffix);
 	}
 
 	public String getPath() {

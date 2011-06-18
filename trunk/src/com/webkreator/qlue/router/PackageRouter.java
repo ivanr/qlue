@@ -43,20 +43,20 @@ public class PackageRouter implements Router {
 		return resolveUri(extraPath, packageName);
 	}
 
-	public Object resolveUri(String uri, String rootPackage) {
+	public Object resolveUri(String routeSuffix, String rootPackage) {
 		@SuppressWarnings("rawtypes")
 		Class pageClass = null;
 
-		if (uri.indexOf("..") != -1) {
+		if (routeSuffix.indexOf("..") != -1) {
 			throw new SecurityException(
 					"Directory backreferences not allowed in path");
 		}
 
 		// Handle URI suffix
 		String suffix = manager.getSuffix();
-		if ((suffix != null) && (uri.endsWith(suffix))) {
+		if ((suffix != null) && (routeSuffix.endsWith(suffix))) {
 			// Remove suffix from URI
-			uri = uri.substring(0, uri.length() - 5);
+			routeSuffix = routeSuffix.substring(0, routeSuffix.length() - 5);
 		}
 
 		// Start building class name.
@@ -67,7 +67,7 @@ public class PackageRouter implements Router {
 
 		// Each folder in the URI corresponds to a package name.
 		String lastToken = null;
-		StringTokenizer st = new StringTokenizer(uri, "/");
+		StringTokenizer st = new StringTokenizer(routeSuffix, "/");
 		while (st.hasMoreTokens()) {
 			if (lastToken != null) {
 				sb.append(".");

@@ -34,18 +34,18 @@ public class StaticFileRouter implements Router {
 	}
 
 	@Override
-	public Object route(TransactionContext context, String extraPath) {
-		if (extraPath.contains("..")) {
+	public Object route(TransactionContext context, String routeSuffix) {
+		if (routeSuffix.contains("..")) {
 			throw new SecurityException("StaticFileRouter: Invalid path: "
-					+ extraPath);
+					+ routeSuffix);
 		}
 
-		if (extraPath.toLowerCase().contains("web-inf")) {
+		if (routeSuffix.toLowerCase().contains("web-inf")) {
 			throw new SecurityException("StaticFileRouter: Invalid path: "
-					+ extraPath);
+					+ routeSuffix);
 		}
 
-		File file = new File(path, extraPath);
+		File file = new File(path, routeSuffix);
 		if (file.exists()) {
 			if (file.isDirectory()) {
 				file = new File(file, manager.getIndex() + "."
