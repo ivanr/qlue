@@ -33,12 +33,7 @@ public class RouteFactory {
 		
 		// Remove multiple consecutive forward slashes, which could
 		// have been introduced through variable expansion
-		path = path.replaceAll("/{2,}", "/");			
-
-		// Remove trailing slash from the path
-		if ((path.length() > 0) && (path.charAt(path.length() - 1) == '/')) {
-			path = path.substring(0, path.length() - 1);
-		}			
+		path = path.replaceAll("/{2,}", "/");		
 
 		// Action
 		String action = tokens[1];
