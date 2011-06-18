@@ -44,7 +44,7 @@ public class Route {
 	private static final Pattern namePattern = Pattern
 			.compile("^[a-zA-Z][a-zA-Z0-9_]{0,32}$");
 
-	public Route(String path, Router router) {
+	public Route(String path, Router router) {		
 		this.path = path;
 		this.router = router;
 		processPath();
@@ -150,7 +150,7 @@ public class Route {
 	}
 
 	public Object route(TransactionContext tx) {
-		// Try to match
+		// Try to match			
 		Matcher m = pattern.matcher(tx.getRequestUri());
 		if (m.matches() == false) {
 			return null;

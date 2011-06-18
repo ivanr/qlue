@@ -38,7 +38,7 @@ public class QlueRouteManager implements RouteManager {
 
 	private List<Route> routes = new ArrayList<Route>();
 	
-	private Pattern propertyPattern = Pattern.compile("([^{]*)\\$\\{([^}]*)\\}(.+)?");
+	private Pattern propertyPattern = Pattern.compile("([^$]*)\\$\\{([^}]*)\\}(.+)?");
 	
 	private String suffix = ".html";
 	
@@ -62,9 +62,9 @@ public class QlueRouteManager implements RouteManager {
 			line = line.trim();
 			if ((line.length() == 0) || (line.charAt(0) == '#')) {
 				continue;
-			}
+			}					
 			
-			line = expandProperties(line);
+			line = expandProperties(line);					
 			
 			// Add route
 			add(RouteFactory.create(this, line));
@@ -98,21 +98,20 @@ public class QlueRouteManager implements RouteManager {
 		return null;
 	}
 	
-	String expandProperties(String input) {
-		
+	String expandProperties(String input) {		
 		StringBuffer sb = new StringBuffer();
 		String haystack = input;
 		Matcher m = propertyPattern.matcher(haystack);
-		while ((m != null) && (m.find())) {
-			sb.append(m.group(1));
+		while ((m != null) && (m.find())) {					
+			sb.append(m.group(1));					
 			
-			String propertyName = m.group(2);
+			String propertyName = m.group(2);					
 			
 			if (app.getProperty(propertyName) != null) {
 				sb.append(app.getProperty(propertyName));
 			}
 			
-			haystack = m.group(3);
+			haystack = m.group(3);					
 			
 			if (haystack != null) {
 				m = propertyPattern.matcher(haystack);

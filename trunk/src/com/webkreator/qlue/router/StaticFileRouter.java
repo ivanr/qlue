@@ -18,11 +18,16 @@ package com.webkreator.qlue.router;
 
 import java.io.File;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.view.DownloadView;
 import com.webkreator.qlue.view.StatusCodeView;
 
 public class StaticFileRouter implements Router {
+	
+	private Log log = LogFactory.getLog(StaticFileRouter.class);
 	
 	protected RouteManager manager;
 
@@ -46,6 +51,11 @@ public class StaticFileRouter implements Router {
 		}
 
 		File file = new File(path, routeSuffix);
+		
+		if (log.isDebugEnabled()) {
+			log.debug("StaticFileRouter: Trying file: " + file);
+		}
+		
 		if (file.exists()) {
 			if (file.isDirectory()) {
 				file = new File(file, manager.getIndex() + "."

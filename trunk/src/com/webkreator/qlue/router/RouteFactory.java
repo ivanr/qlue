@@ -29,16 +29,16 @@ public class RouteFactory {
 		}
 
 		// Path
-		String path = tokens[0];
+		String path = tokens[0];			
 		
 		// Remove multiple consecutive forward slashes, which could
 		// have been introduced through variable expansion
-		path = path.replaceAll("/{2,}", "/");
+		path = path.replaceAll("/{2,}", "/");			
 
 		// Remove trailing slash from the path
 		if ((path.length() > 0) && (path.charAt(path.length() - 1) == '/')) {
 			path = path.substring(0, path.length() - 1);
-		}
+		}			
 
 		// Action
 		String action = tokens[1];
@@ -110,7 +110,29 @@ public class RouteFactory {
 			}
 		} else if (action.startsWith("static:")) {
 			// Static route
-			router = new StaticFileRouter(manager, action.substring(7).trim());
+			String staticPath = action.substring(7).trim();
+			
+			if (tokens.length > 2) {
+				// Recombine the remaining tokens back
+				// into a single string
+				StringBuffer sb = new StringBuffer();
+				sb.append(staticPath);
+				sb.append(' ');
+				
+				for(int i = 2; i <= tokens.length -1; i++) {
+					if (i > 2) {
+						sb.append(' ');
+					}
+					
+					sb.append(tokens[i]);
+				}
+				
+				// Status code and message
+				router = new StaticFileRouter(manager, sb.toString());
+			} else {
+				// Status code only
+				router = new StaticFileRouter(manager, staticPath);
+			}					
 		} else {
 			// Class name
 			router = new ClassRouter(action);
