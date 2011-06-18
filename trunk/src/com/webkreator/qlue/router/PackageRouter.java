@@ -75,6 +75,13 @@ public class PackageRouter implements Router {
 			}
 
 			lastToken = st.nextToken();
+			
+			// We don'tserve a path segments whose
+			// names begin with $. Such packages are considered
+			// private.
+			if ((lastToken.length() > 0)&&(lastToken.charAt(0) == '$')) {
+				return null;
+			}
 		}
 
 		if (lastToken != null) {
