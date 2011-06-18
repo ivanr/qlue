@@ -203,8 +203,10 @@ public class QlueApplication {
 					.getProperty(PROPERTY_DEVMODE_ENABLED));
 		}
 
-		setDevelopmentModeRanges(properties
-				.getProperty(PROPERTY_DEVMODE_RANGES).split("[;,\\x20]"));
+		if (properties.getProperty(PROPERTY_DEVMODE_RANGES) != null) {
+			setDevelopmentModeRanges(properties.getProperty(
+					PROPERTY_DEVMODE_RANGES).split("[;,\\x20]"));
+		}
 
 		developmentModePassword = properties
 				.getProperty(PROPERTY_DEVMODE_PASSWORD);
@@ -585,7 +587,7 @@ public class QlueApplication {
 					"Qlue: Binding does not know how to handle type: "
 							+ f.getType().getComponentType());
 		}
-			
+
 		// If there is any data in the command object
 		// use it to populate shadow input
 		if (f.get(page.getCommandObject()) != null) {
