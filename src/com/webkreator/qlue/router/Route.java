@@ -16,6 +16,8 @@
  */
 package com.webkreator.qlue.router;
 
+import java.text.CharacterIterator;
+import java.text.StringCharacterIterator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -57,7 +59,7 @@ public class Route {
 		boolean terminated = false;
 		Matcher m = p.matcher(haystack);
 		while ((m != null) && (m.find())) {
-			sb.append(m.group(1));
+			sb.append(escapePatternMetacharsExceptQuestionMark(m.group(1)));
 
 			// Extract name by removing the curly braces
 			String name = m.group(2);
@@ -112,7 +114,6 @@ public class Route {
 			sb.append(haystack);
 		}
 
-		// sb.append("(/.*)?$");
 		sb.append("$");
 
 		try {
@@ -120,6 +121,32 @@ public class Route {
 		} catch (PatternSyntaxException pse) {
 			throw new RuntimeException("Failed to compile route: " + path, pse);
 		}
+	}
+
+	private String escapePatternMetacharsExceptQuestionMark(String input) {
+		StringBuffer sb = new StringBuffer();
+		
+		CharacterIterator it = new StringCharacterIterator(input);
+		for (char c = it.first(); c != CharacterIterator.DONE; c = it.next()) {
+			switch (c) {
+			case '{':
+			case '}':
+			case '+':
+			case '.':
+			case '[':
+			case ']':
+			case '*':
+			case '^':
+			case '$':
+			case '\\':
+			case '|':
+					sb.append('\\');
+				default :
+					sb.append(c);
+			}
+		}
+		
+		return sb.toString();
 	}
 
 	public Object route(TransactionContext tx) {
