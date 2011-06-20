@@ -30,7 +30,7 @@ import javax.servlet.http.HttpServletResponse;
  * an attachment.
  */
 public class DownloadUtil {
-
+	
 	/**
 	 * Send file inline.
 	 * 
@@ -39,12 +39,32 @@ public class DownloadUtil {
 	 * @throws Exception
 	 */
 	public static void sendInlineFile(HttpServletResponse response, File f)
+	throws Exception {
+		sendInlineFile(response, f, null);
+	}
+
+	/**
+	 * Send file inline, specifying the content type.
+	 * 
+	 * @param response
+	 * @param f
+	 * @throws Exception
+	 */
+	public static void sendInlineFile(HttpServletResponse response, File f, String contentType)
 			throws Exception {
-		// Set MIME type
-		if (f.getName().endsWith(".png")) {
-			response.setContentType("image/png");
-		} else if (f.getName().endsWith(".pdf")) {
-			response.setContentType("application/pdf");
+		// If a content type was provided, use it;
+		// otherwise use our map to set the correct one
+		if (contentType == null) {
+			int i = f.getName().lastIndexOf(".");
+			if (i != -1) {
+				String suffix = f.getName().substring(i + 1);
+				contentType = MimeTypes.getMimeType(suffix);
+			}
+		}
+		
+		// Set C-T, if we have it
+		if (contentType != null) {
+			response.setContentType(contentType);
 		}
 
 		// Set size
@@ -92,15 +112,15 @@ public class DownloadUtil {
 				throw new SecurityException("Invalid character in filename: "
 						+ c);
 			}
-			
-			if ((c == '\\')||(c == '"')) {
+
+			if ((c == '\\') || (c == '"')) {
 				sb.append('\\');
 				sb.append(c);
 			} else {
 				sb.append(c);
 			}
 		}
-		
+
 		String escapedName = sb.toString();
 
 		// Set name
