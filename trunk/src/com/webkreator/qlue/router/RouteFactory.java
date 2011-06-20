@@ -16,9 +16,18 @@
  */
 package com.webkreator.qlue.router;
 
-
+/**
+ * Creates route instaces given route text representations. 
+ */
 public class RouteFactory {
 
+	/**
+	 * Creates route from its text representation.
+	 *  
+	 * @param manager
+	 * @param route
+	 * @return
+	 */
 	public static Route create(RouteManager manager, String route) {
 		Router router = null;
 
@@ -54,6 +63,7 @@ public class RouteFactory {
 			// Redirection
 			String uri = action.substring(9).trim();
 
+			// Check for explicit redirection status code
 			if (tokens.length > 2) {
 				int status = 301;
 				try {
@@ -63,6 +73,7 @@ public class RouteFactory {
 							"Qlue: Invalid redirection status in route: "
 									+ tokens[2]);
 				}
+				
 				router = new RedirectionRouter(uri, status);
 			} else {
 				router = new RedirectionRouter(uri);
@@ -136,6 +147,9 @@ public class RouteFactory {
 		return new Route(path, router);
 	}
 
+	/**
+	 * Finds router instance based on class name.
+	 */
 	@SuppressWarnings("rawtypes")
 	private static Router findRouter(String className) {
 		Class candidate = null;

@@ -20,5 +20,12 @@ import com.webkreator.qlue.TransactionContext;
 
 public interface Router {
 
+	/**
+	 * Routes transaction to a page.
+	 * 
+	 * @param context
+	 * @param extraPath
+	 * @return
+	 */
 	public Object route(TransactionContext context, String extraPath);
 }

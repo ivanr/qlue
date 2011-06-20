@@ -22,11 +22,14 @@ import org.apache.commons.logging.LogFactory;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 
+/**
+ * Routes transaction to a single class.
+ */
 public class ClassRouter implements Router {
 
 	private Log log = LogFactory.getLog(ClassRouter.class);
 
-	private Class<Page> page;
+	private Class<Page> pageClass;
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public ClassRouter(String className) {
@@ -42,19 +45,20 @@ public class ClassRouter implements Router {
 					+ className);
 		}
 
-		// Check class is instance of Page
+		// Check that class is instance of Page
 		if (!Page.class.isAssignableFrom(candidate)) {
 			throw new RuntimeException("ClassRouter: Class " + className
 					+ " is not a subclass of Page.");
 		}
 
-		page = candidate;
+		// We have our page lcass
+		pageClass = candidate;
 	}
 
 	@Override
 	public Object route(TransactionContext context, String extraPath) {
 		try {
-			return page.newInstance();
+			return pageClass.newInstance();
 		} catch (Exception e) {
 			log.error("Error creating page instance: " + e.getMessage(), e);
 			return null;

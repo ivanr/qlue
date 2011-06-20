@@ -21,6 +21,9 @@ import java.security.InvalidParameterException;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.view.RedirectView;
 
+/**
+ * Routes transaction to a redirection.
+ */
 public class RedirectionRouter implements Router {
 
 	private String uri;
