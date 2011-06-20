@@ -53,8 +53,6 @@ public class ClassRouter implements Router {
 
 	@Override
 	public Object route(TransactionContext context, String extraPath) {
-		context.setPathInfo(extraPath);
-
 		try {
 			return page.newInstance();
 		} catch (Exception e) {
