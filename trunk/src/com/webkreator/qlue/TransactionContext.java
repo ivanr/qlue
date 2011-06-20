@@ -71,8 +71,6 @@ public class TransactionContext {
 
 	private Map<String, String> urlParams = new HashMap<String, String>();
 	
-	private String pathInfo;
-	
 	/**
 	 * Initialise context instance.
 	 * 
@@ -453,13 +451,5 @@ public class TransactionContext {
 
 	public void addUrlParameter(String name, String value) {
 		setUrlParameter(name, value);
-	}
-
-	public void setPathInfo(String pathInfo) {
-		this.pathInfo = pathInfo;
-	}
-	
-	public String getPathInfo() {
-		return pathInfo;
 	}
 }
