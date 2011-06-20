@@ -30,6 +30,11 @@ import org.apache.commons.logging.LogFactory;
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
 
+/**
+ * Implements the default routing functionality, which accepts
+ * a single routing file (routes.conf) that contains one route
+ * per line.
+ */
 public class QlueRouteManager implements RouteManager {
 	
 	private Log log = LogFactory.getLog(QlueRouteManager.class);
@@ -48,6 +53,12 @@ public class QlueRouteManager implements RouteManager {
 		this.app = app;
 	}
 
+	/**
+	 * Loads routes from a file.
+	 * 
+	 * @param routesFile
+	 * @throws Exception
+	 */
 	public void load(File routesFile) throws Exception {
 		// Remove any existing routers
 		routes.clear();
@@ -64,19 +75,32 @@ public class QlueRouteManager implements RouteManager {
 				continue;
 			}					
 			
+			// Expand variables specified in the line, if any
 			line = expandProperties(line);					
 			
 			// Add route
 			add(RouteFactory.create(this, line));
 		}
 
+		// Close stream
 		in.close();
 	}
 
+	/**
+	 * Adds a new route.
+	 * 
+	 * @param route
+	 */
 	public void add(Route route) {
 		routes.add(route);
 	}
 
+	/**
+	 * Routes transaction using previously configured routes.
+	 * 
+	 * @param context
+	 * @return
+	 */
 	public Object route(TransactionContext context) {
 		Object r = null;
 		
@@ -84,6 +108,7 @@ public class QlueRouteManager implements RouteManager {
 			log.debug("QlueRouter: Asked to route: " + context.getRequestUri());
 		}
 		
+		// Loop through the configured routes
 		for (Route route : routes) {
 			if (log.isDebugEnabled()) {
 				log.debug("QlueRouter: Trying " + route.getPath());
@@ -98,6 +123,13 @@ public class QlueRouteManager implements RouteManager {
 		return null;
 	}
 	
+	/**
+	 * Replace variables (in the format "${variablaName}") with
+	 * their values from the Qlue properties file.
+	 * 
+	 * @param input
+	 * @return
+	 */
 	String expandProperties(String input) {		
 		StringBuffer sb = new StringBuffer();
 		String haystack = input;

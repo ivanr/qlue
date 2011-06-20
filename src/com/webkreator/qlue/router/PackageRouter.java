@@ -25,6 +25,10 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.SecurityException;
 import com.webkreator.qlue.TransactionContext;
 
+/**
+ * Routes transaction to an entire package, with
+ * an unlimited depth.
+ */
 public class PackageRouter implements Router {
 	
 	protected RouteManager manager;
@@ -43,6 +47,13 @@ public class PackageRouter implements Router {
 		return resolveUri(extraPath, packageName);
 	}
 
+	/**
+	 * Returns page instance for a given URL.
+	 *  
+	 * @param routeSuffix
+	 * @param rootPackage
+	 * @return page instance, or null if page cannot be found
+	 */
 	public Object resolveUri(String routeSuffix, String rootPackage) {
 		@SuppressWarnings("rawtypes")
 		Class pageClass = null;
@@ -114,6 +125,12 @@ public class PackageRouter implements Router {
 		}
 	}
 
+	/**
+	 * Returns class given its name.
+	 * 
+	 * @param classname
+	 * @return
+	 */
 	@SuppressWarnings("rawtypes")
 	public static Class classForName(String classname) {
 		try {

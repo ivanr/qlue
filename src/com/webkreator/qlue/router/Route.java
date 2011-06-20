@@ -29,6 +29,9 @@ import org.apache.commons.logging.LogFactory;
 
 import com.webkreator.qlue.TransactionContext;
 
+/**
+ * Represents one route in the routing table.
+ */
 public class Route {
 
 	private Log log = LogFactory.getLog(Route.class);
@@ -44,12 +47,23 @@ public class Route {
 	private static final Pattern namePattern = Pattern
 			.compile("^[a-zA-Z][a-zA-Z0-9_]{0,32}$");
 
+	/**
+	 * Creates new route, given path and router instance.
+	 * 
+	 * @param path
+	 * @param router
+	 */
 	public Route(String path, Router router) {		
 		this.path = path;
 		this.router = router;
+		
 		processPath();
 	}
 
+	/**
+	 * Converts route path into a regular expression that is
+	 * design to extract named path parameters.
+	 */
 	public void processPath() {
 		Pattern p = Pattern.compile("([^{]*)(\\{[^}]*\\})(.+)?");
 		StringBuffer sb = new StringBuffer();
@@ -123,6 +137,13 @@ public class Route {
 		}
 	}
 
+	/**
+	 * Escapes input to neutralize all pattern
+	 * metacharacters except for the question mark.
+	 * 
+	 * @param input
+	 * @return
+	 */
 	private String escapePatternMetacharsExceptQuestionMark(String input) {
 		StringBuffer sb = new StringBuffer();
 		
@@ -149,6 +170,13 @@ public class Route {
 		return sb.toString();
 	}
 
+	/**
+	 * Attempts to match the transaction to this route and, if
+	 * successful, returns the route assocaited with the route.
+	 * 
+	 * @param tx
+	 * @return
+	 */
 	public Object route(TransactionContext tx) {
 		// Try to match			
 		Matcher m = pattern.matcher(tx.getRequestUri());
@@ -177,6 +205,11 @@ public class Route {
 		return router.route(tx, routeSuffix);
 	}
 
+	/**
+	 * Returns the patch attached to this route.
+	 * 
+	 * @return
+	 */
 	public String getPath() {
 		return path;
 	}

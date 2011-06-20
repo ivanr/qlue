@@ -19,6 +19,10 @@ package com.webkreator.qlue.router;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.view.StatusCodeView;
 
+/**
+ * Routes transaction to a view that
+ * responds with a custom error code.
+ */
 public class StatusCodeRouter implements Router {
 
 	private int status;

@@ -25,6 +25,9 @@ import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.view.DownloadView;
 import com.webkreator.qlue.view.StatusCodeView;
 
+/**
+ * Routes transaction to a static file.
+ */
 public class StaticFileRouter implements Router {
 	
 	private Log log = LogFactory.getLog(StaticFileRouter.class);
