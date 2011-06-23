@@ -17,6 +17,7 @@
 	<property name="canoeJarName" value="canoe-1.0.0-trunk-${VERSION_TIMESTAMP}.jar" />
 	<property name="canoeDemoName" value="canoeDemo-${VERSION_TIMESTAMP}.zip" />
 	<property name="jarSrcName" value="qlue-src-2.0.0-trunk.jar" />
+	<property name="javadocJarName" value="qlue-javadoc-2.0.0-trunk.jar" />
 
 	<property name="tmpDir" value="./tmp-build" />
 	<property name="classesDir" value="${tmpDir}/classes" />
@@ -91,6 +92,26 @@
 			</manifest>
 		</jar>
 		
+		<!-- Generate javadoc -->
+		<javadoc packagenames="com.webkreator.qlue.*, com.webkreator.canoe.*"
+		           sourcepath="${srcDir}"
+		           excludepackagenames="com.webkreator.canoe.demo.*, com.webkreator.qlue.example.*"
+		           defaultexcludes="yes"
+		           destdir="${outputDir}/javadoc"
+		           author="true"
+		           version="true"
+		           use="true"
+		           windowtitle="Qlue JavaDoc">
+		    <doctitle><![CDATA[<h1>Qlue JavaDoc</h1>]]></doctitle>
+		    <bottom><![CDATA[<i>Copyright &#169; 2009-2011 Ivan Ristic. All Rights Reserved.</i>]]></bottom>
+		 </javadoc>
+		
+		<jar jarfile="${outputDir}/${javadocJarName}" basedir="${outputDir}/javadoc" includes="*" compress="true">
+		    <fileset dir="${outputDir}/javadoc"/>
+		</jar>
+		
+		<delete dir="${outputDir}/javadoc" />
+		
 		<delete dir="${classesDir}/com/webkreator/qlue" />
 
 		<!-- Create the Canoe library jar -->
@@ -103,7 +124,7 @@
 					<attribute name="Vendor" value="Ivan Ristic &lt;ivanr@webkreator.com&gt;" />
 				</section>
 				<section name="Copyright">
-					<attribute name="Copy" value="(C) 2009, 2010 Ivan Ristic" />
+					<attribute name="Copy" value="&#169; 2009-2011 Ivan Ristic. All Rights Reserved." />
 				</section>
 			</manifest>
 		</jar>
