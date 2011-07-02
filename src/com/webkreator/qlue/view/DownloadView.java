@@ -32,6 +32,6 @@ public class DownloadView implements View {
 
 	@Override
 	public void render(TransactionContext context, Page page) throws Exception {
-		DownloadUtil.sendInlineFile(context.response, file);
+		DownloadUtil.sendFile(context.response, file);
 	}
 }
