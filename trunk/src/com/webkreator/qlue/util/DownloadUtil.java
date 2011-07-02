@@ -26,32 +26,32 @@ import java.text.StringCharacterIterator;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * This utility class can send a file from the filesystem, either inline or as
- * an attachment.
+ * This utility class can send a file from the filesystem, 
+ * either inline or as an attachment.
  */
 public class DownloadUtil {
-	
+
 	/**
-	 * Send file inline.
+	 * Sends file in HTTP response.
 	 * 
 	 * @param response
 	 * @param f
 	 * @throws Exception
 	 */
-	public static void sendInlineFile(HttpServletResponse response, File f)
-	throws Exception {
-		sendInlineFile(response, f, null);
+	public static void sendFile(HttpServletResponse response, File f)
+			throws Exception {
+		sendFile(response, f, null, null, false);
 	}
 
 	/**
-	 * Send file inline, specifying the content type.
+	 * Sends file in HTTP response, with C-D header control.
 	 * 
 	 * @param response
 	 * @param f
 	 * @throws Exception
 	 */
-	public static void sendInlineFile(HttpServletResponse response, File f, String contentType)
-			throws Exception {
+	public static void sendFile(HttpServletResponse response, File f,
+			String contentType, String name, boolean isAttachment) throws Exception {
 		// If a content type was provided, use it;
 		// otherwise use our map to set the correct one
 		if (contentType == null) {
@@ -61,75 +61,41 @@ public class DownloadUtil {
 				contentType = MimeTypes.getMimeType(suffix);
 			}
 		}
-		
+
 		// Set C-T, if we have it
 		if (contentType != null) {
 			response.setContentType(contentType);
 		}
 
-		// Set size
-		response.setContentLength((int) f.length());
+		if (name != null) {
+			// Do not allow control characters in the name
+			StringBuffer sb = new StringBuffer();
+			CharacterIterator it = new StringCharacterIterator(name);
+			for (char c = it.first(); c != CharacterIterator.DONE; c = it
+					.next()) {
+				if (c < 0x20) {
+					throw new SecurityException(
+							"Invalid character in filename: " + c);
+				}
 
-		// Send data
-		OutputStream os = response.getOutputStream();
-		BufferedInputStream bis = new BufferedInputStream(
-				new FileInputStream(f));
-		byte b[] = new byte[1024];
-
-		while (bis.read(b) > 0) {
-			os.write(b);
-		}
-
-		bis.close();
-		os.close();
-	}
-
-	/**
-	 * Send file as attachment.
-	 * 
-	 * @param response
-	 * @param f
-	 * @param name
-	 * @param isAttachment
-	 * @throws Exception
-	 */
-	public static void sendAttachment(HttpServletResponse response, File f,
-			String name, boolean isAttachment) throws Exception {
-		// Set MIME type
-		if (f.getName().endsWith(".txt")) {
-			response.setContentType("text/plain");
-		} else if (f.getName().endsWith(".png")) {
-			response.setContentType("image/png");
-		} else if (f.getName().endsWith(".pdf")) {
-			response.setContentType("application/pdf");
-		}
-
-		// Do not allow control characters in the name
-		StringBuffer sb = new StringBuffer();
-		CharacterIterator it = new StringCharacterIterator(name);
-		for (char c = it.first(); c != CharacterIterator.DONE; c = it.next()) {
-			if (c < 0x20) {
-				throw new SecurityException("Invalid character in filename: "
-						+ c);
+				if ((c == '\\') || (c == '"')) {
+					sb.append('\\');
+					sb.append(c);
+				} else {
+					sb.append(c);
+				}
 			}
 
-			if ((c == '\\') || (c == '"')) {
-				sb.append('\\');
-				sb.append(c);
+			String escapedName = sb.toString();
+
+			// Set name
+			if (isAttachment) {
+				response.setHeader("Content-Disposition",
+						"attachment; filename=" + escapedName);
 			} else {
-				sb.append(c);
+				response.setHeader("Content-Disposition", "inline; filename="
+						+ escapedName);
 			}
-		}
-
-		String escapedName = sb.toString();
-
-		// Set name
-		if (isAttachment) {
-			response.setHeader("Content-Disposition", "attachment; filename="
-					+ escapedName);
-		} else {
-			response.setHeader("Content-Disposition", "inline; filename="
-					+ escapedName);
 		}
 
 		// Set size
