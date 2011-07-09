@@ -26,11 +26,8 @@
   
   - Have consistent error messages
   
-  - Review code comments and documentation
-  
   - Review code
   
-  - Review access permissions
-  
-  - Write minimal documentation
+  - Review class and method access permissions
+   
   
