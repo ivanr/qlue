@@ -21,6 +21,8 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -46,7 +48,7 @@ public abstract class Page {
 	public static final String STATE_NEW_OR_POST = "NEW_OR_POST";
 
 	public static final String STATE_URL = "STATE_URL";
-	
+
 	private Integer id;
 
 	private String state = STATE_NEW;
@@ -420,11 +422,13 @@ public abstract class Page {
 	 * @param out
 	 */
 	void writeDevelopmentInformation(PrintWriter out) {
+		// Page fields
 		out.println(" Id: " + getId());
 		out.println(" Class: " + this.getClass());
 		out.println(" State: " + HtmlEncoder.encodeForHTML(getState()));
 		out.println(" Errors {");
 
+		// Errors
 		int i = 1;
 		for (Error e : errors.getAllErrors()) {
 			out.print("   " + i++ + ". ");
@@ -440,13 +444,23 @@ public abstract class Page {
 
 		out.println(" }");
 		out.println("");
+
+		// Model
 		out.println("<b>Model</b>\n");
 
 		Map<String, Object> model = getModel();
 
+		TreeMap<String, Object> treeMap = new TreeMap<String, Object>();
+
 		for (Iterator<String> it = model.keySet().iterator(); it.hasNext();) {
 			String name = it.next();
-			Object o = model.get(name);
+			treeMap.put(name, model.get(name));
+		}
+
+		Iterator<String> it = treeMap.keySet().iterator();
+		while(it.hasNext()) {
+			String name = it.next();
+			Object o = treeMap.get(name);
 			out.println(" "
 					+ HtmlEncoder.encodeForHTML(name)
 					+ ": "
@@ -478,10 +492,9 @@ public abstract class Page {
 	}
 
 	/**
-	 * Invoked after data validation and binding, but before request
-	 * processing, giving the page a chance to initialize itself. This
-	 * method is invoked only when the state is STATE_NEW (which means
-	 * only once for a page).
+	 * Invoked after data validation and binding, but before request processing,
+	 * giving the page a chance to initialize itself. This method is invoked
+	 * only when the state is STATE_NEW (which means only once for a page).
 	 * 
 	 * @throws Exception
 	 */

@@ -5,10 +5,6 @@
   
   - Refuse to download anything from WEB-INF, even if such configuration
     is used by the developer (and via an external request)?   
-    
-- In debug mode page trailer:
-
-  - Sort model fields by name
 
 - When in debug mode, override redirections in order to display in-page
   debugging information.
@@ -19,8 +15,8 @@
   
   - Have consistent error messages
   
-  - Review code
-  
   - Review class and method access permissions
+  
+  - Review code
    
   
