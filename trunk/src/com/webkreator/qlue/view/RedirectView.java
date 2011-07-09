@@ -16,8 +16,10 @@
  */
 package com.webkreator.qlue.view;
 
+import java.io.PrintWriter;
 import java.security.InvalidParameterException;
 
+import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.util.UriBuilder;
@@ -31,11 +33,11 @@ import com.webkreator.qlue.util.UriBuilder;
 public class RedirectView implements View {
 
 	public static final int REDIRECT = 302;
-	
+
 	public static final int REDIRECT_TEMPORARY = 307;
-	
+
 	public static final int REDIRECT_PERMANENT = 301;
-	
+
 	private UriBuilder redirection;
 
 	private Page page;
@@ -125,7 +127,22 @@ public class RedirectView implements View {
 	 */
 	@Override
 	public void render(TransactionContext context, Page page) throws Exception {
-		context.response.setStatus(redirectStatus);
-		context.response.setHeader("Location", redirection.getUri());
+		if (page.isDevelopmentMode()) {
+			context.response.setContentType("text/html");
+			PrintWriter out = context.response.getWriter();
+			out.print("<html><head><title>");
+			out.print("Development Mode Redirection");
+			out.println("</title></head>");
+			out.print("<body><h1>");
+			out.print("Development Mode Redirection");
+			out.println("</h1>");
+			out.print("<form action=\"");
+			out.print(HtmlEncoder.encodeForURL(redirection.getUri()));
+			out.println("\"><br><input type=submit value=\"Proceed &gt;&gt;\"></form>");
+			out.println("</body></html>");
+		} else {
+			context.response.setStatus(redirectStatus);
+			context.response.setHeader("Location", redirection.getUri());
+		}
 	}
 }

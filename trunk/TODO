@@ -6,9 +6,6 @@
   - Refuse to download anything from WEB-INF, even if such configuration
     is used by the developer (and via an external request)?   
 
-- When in debug mode, override redirections in order to display in-page
-  debugging information.
-
 - Finally (before release candidate):
 
   - Implement logging consistently throughout the framework
