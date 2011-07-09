@@ -111,15 +111,13 @@ public class TransactionContext {
 
 		// Determine the effective remote address if the
 		// request has been received from a trusted proxy
-		System.err.println("#0");
 		if (app.isTrustedProxyRequest(this)) {
-			System.err.println("#1");
 			String combinedAddresses = request.getHeader("X-Forwarded-For");
-			System.err.println("#2 " + combinedAddresses);
 			if (TextUtil.isEmpty(combinedAddresses) == false) {
 				String[] sx = combinedAddresses.split("[;,\\x20]");
+				// Use the last IP address provided as effective IP address
 				for (String s : sx) {
-					System.err.println("Effective address: " + s);
+					// TODO Validate IP address
 					effectiveRemoteAddr = s;
 				}
 			}

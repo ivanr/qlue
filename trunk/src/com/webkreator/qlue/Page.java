@@ -406,8 +406,8 @@ public abstract class Page {
 		return qlueApp.allowDirectOutput();
 	}
 
-	public boolean isDeveloperAccess() {
-		return qlueApp.isDeveloperAccess(context);
+	public boolean isDevelopmentMode() {
+		return qlueApp.isDevelopmentMode(context);
 	}
 
 	public String getNoParamUri() {

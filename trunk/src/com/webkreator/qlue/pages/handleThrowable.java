@@ -67,7 +67,7 @@ public class handleThrowable extends Page {
 		out.println("<head><title>Forbidden</title></head>");
 		out.println("<body><h1>Forbidden</h1>");
 
-		if (isDeveloperAccess()) {
+		if (isDevelopmentMode()) {
 			StringWriter sw = new StringWriter();
 			t.printStackTrace(new PrintWriter(sw));
 			out.println("<pre>");
@@ -84,7 +84,7 @@ public class handleThrowable extends Page {
 
 	private View _handleVelocityParseError(ParseErrorException t)
 			throws Exception {
-		if (isDeveloperAccess() == false) {
+		if (isDevelopmentMode() == false) {
 			return _handleThrowable(t);
 		}
 
@@ -135,7 +135,7 @@ public class handleThrowable extends Page {
 		out.println("<head><title>Internal Server Error</title></head>");
 		out.println("<body><h1>Internal Server Error</h1>");
 
-		if (isDeveloperAccess()) {
+		if (isDevelopmentMode()) {
 			StringWriter sw = new StringWriter();
 			t.printStackTrace(new PrintWriter(sw));
 			out.println("<pre>");
