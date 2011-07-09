@@ -49,13 +49,14 @@ import org.apache.log4j.NDC;
 import org.apache.tomcat.util.http.fileupload.FileItem;
 
 import com.webkreator.canoe.HtmlEncoder;
-import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.router.QlueRouteManager;
+import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.BooleanEditor;
 import com.webkreator.qlue.util.FormatTool;
 import com.webkreator.qlue.util.IntegerEditor;
 import com.webkreator.qlue.util.PropertyEditor;
 import com.webkreator.qlue.util.StringEditor;
+import com.webkreator.qlue.util.SubnetUtils;
 import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.FileVelocityViewFactory;
@@ -83,7 +84,7 @@ public class QlueApplication {
 
 	private static final String PROPERTY_DEVMODE_ENABLED = "qlue.devmode-enabled";
 
-	private static final String PROPERTY_DEVMODE_RANGES = "qlue.devmode.ranges";
+	private static final String PROPERTY_DEVMODE_RANGES = "qlue.devmode.subnets";
 
 	private static final String PROPERTY_DEVMODE_PASSWORD = "qlue.devmode.password";
 
@@ -114,7 +115,7 @@ public class QlueApplication {
 
 	private String developmentModePassword = null;
 
-	private String[] developmentModeRanges = null;
+	private SubnetUtils[] developmentSubnets = null;
 
 	private Scheduler scheduler;
 
@@ -204,8 +205,8 @@ public class QlueApplication {
 		}
 
 		if (properties.getProperty(PROPERTY_DEVMODE_RANGES) != null) {
-			setDevelopmentModeRanges(properties.getProperty(
-					PROPERTY_DEVMODE_RANGES).split("[;,\\x20]"));
+			setDevelopmentSubnets(properties
+					.getProperty(PROPERTY_DEVMODE_RANGES));
 		}
 
 		developmentModePassword = properties
@@ -1290,8 +1291,32 @@ public class QlueApplication {
 	 * 
 	 * @param developmentModeRanges
 	 */
-	protected void setDevelopmentModeRanges(String[] developmentModeRanges) {
-		this.developmentModeRanges = developmentModeRanges;
+	protected void setDevelopmentSubnets(String combinedSubnets) {
+		if (TextUtil.isEmpty(combinedSubnets)) {
+			return;
+		}
+
+		String[] subnets = combinedSubnets.split("[;,\\x20]");
+
+		developmentSubnets = new SubnetUtils[subnets.length];
+		int count = 0;
+		for (String s : subnets) {
+			if (TextUtil.isEmpty(s)) {
+				continue;
+			}
+
+			String subnet = s;
+			if (s.contains("/") == false) {
+				subnet = s + "/32";
+			}
+
+			try {
+				developmentSubnets[count++] = new SubnetUtils(subnet);
+			} catch (IllegalArgumentException iae) {
+				throw new RuntimeException("Qlue: Invalid development subnet: "
+						+ s);
+			}
+		}
 	}
 
 	/**
@@ -1302,12 +1327,12 @@ public class QlueApplication {
 	 * @return
 	 */
 	public boolean isDeveloperIP(TransactionContext context) {
-		if (developmentModeRanges == null) {
+		if (developmentSubnets == null) {
 			return false;
 		}
 
-		for (String ip : developmentModeRanges) {
-			if (context.request.getRemoteAddr().compareTo(ip) == 0) {
+		for (SubnetUtils su : developmentSubnets) {
+			if (su.getInfo().isInRange(context.request.getRemoteAddr())) {
 				return true;
 			}
 		}
