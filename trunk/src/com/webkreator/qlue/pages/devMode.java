@@ -37,7 +37,7 @@ public class devMode extends Page {
 	@Override
 	public View onGet() throws Exception {
 		// Check that the IP address is in range
-		if (getQlueApp().isDeveloperIP(context) == false) {
+		if (getQlueApp().isDeveloperRequest(context) == false) {
 			throw new AccessForbiddenException();
 		}
 
@@ -127,7 +127,7 @@ public class devMode extends Page {
 	@Override
 	public View onPost() throws Exception {
 		// Check that the IP address is in range
-		if (getQlueApp().isDeveloperIP(context) == false) {
+		if (getQlueApp().isDeveloperRequest(context) == false) {
 			throw new AccessForbiddenException();
 		}
 
