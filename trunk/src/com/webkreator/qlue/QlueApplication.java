@@ -1427,29 +1427,21 @@ public class QlueApplication {
 			return false;
 		}
 		
-		System.err.println("# 1");
-
 		// Check session development mode (explicitly enabled)
 		if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
 			return true;
 		}
 		
-		System.err.println("# 2");
-
 		// Check session development mode (explicitly disabled)
 		if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_DISABLED) {
 			return false;
 		}
 		
-		System.err.println("# 3 " + getApplicationDevelopmentMode());
-
 		// Check application development mode
 		if (getApplicationDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
 			return true;
 		}
 		
-		System.err.println("# 4");
-
 		return false;
 	}
 
