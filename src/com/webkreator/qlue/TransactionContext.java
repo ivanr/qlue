@@ -36,6 +36,7 @@ import org.apache.tomcat.util.http.fileupload.disk.DiskFileItemFactory;
 import org.apache.tomcat.util.http.fileupload.servlet.ServletFileUpload;
 
 import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.FinalRedirectView;
 
@@ -70,7 +71,9 @@ public class TransactionContext {
 	private List<FileItem> multipartItems;
 
 	private Map<String, String> urlParams = new HashMap<String, String>();
-	
+
+	private String effectiveRemoteAddr;
+
 	/**
 	 * Initialise context instance.
 	 * 
@@ -105,6 +108,30 @@ public class TransactionContext {
 		initRequestUri();
 
 		txId = app.allocatePageId();
+
+		// Determine the effective remote address if the
+		// request has been received from a trusted proxy
+		System.err.println("#0");
+		if (app.isTrustedProxyRequest(this)) {
+			System.err.println("#1");
+			String combinedAddresses = request.getHeader("X-Forwarded-For");
+			System.err.println("#2 " + combinedAddresses);
+			if (TextUtil.isEmpty(combinedAddresses) == false) {
+				String[] sx = combinedAddresses.split("[;,\\x20]");
+				for (String s : sx) {
+					System.err.println("Effective address: " + s);
+					effectiveRemoteAddr = s;
+				}
+			}
+		}
+	}
+
+	public String getEffectiveRemoteAddr() {
+		if (effectiveRemoteAddr != null) {
+			return effectiveRemoteAddr;
+		}
+
+		return request.getRemoteAddr();
 	}
 
 	/**
@@ -226,7 +253,7 @@ public class TransactionContext {
 	public String getRequestUriWithQueryString() {
 		return requestUriWithQueryString;
 	}
-	
+
 	public String getRequestUri() {
 		return requestUri;
 	}
@@ -440,11 +467,11 @@ public class TransactionContext {
 
 		return null;
 	}
-	
+
 	public String getUrlParameter(String name) {
 		return urlParams.get(name);
 	}
-	
+
 	public void setUrlParameter(String name, String value) {
 		urlParams.put(name, value);
 	}

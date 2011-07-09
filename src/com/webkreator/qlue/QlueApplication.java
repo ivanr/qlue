@@ -26,6 +26,7 @@ import java.io.PrintWriter;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.InetAddress;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Locale;
@@ -56,7 +57,7 @@ import com.webkreator.qlue.util.FormatTool;
 import com.webkreator.qlue.util.IntegerEditor;
 import com.webkreator.qlue.util.PropertyEditor;
 import com.webkreator.qlue.util.StringEditor;
-import com.webkreator.qlue.util.SubnetUtils;
+import com.webkreator.qlue.util.IpRangeFilter;
 import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.FileVelocityViewFactory;
@@ -88,6 +89,8 @@ public class QlueApplication {
 
 	private static final String PROPERTY_DEVMODE_PASSWORD = "qlue.devmode.password";
 
+	private static final String PROPERTY_TRUSTED_PROXIES = "qlue.trustedProxies";
+
 	private String messagesFilename = "com/webkreator/qlue/messages";
 
 	private Properties properties = new Properties();
@@ -115,9 +118,11 @@ public class QlueApplication {
 
 	private String developmentModePassword = null;
 
-	private SubnetUtils[] developmentSubnets = null;
+	private IpRangeFilter[] developmentSubnets = null;
 
 	private Scheduler scheduler;
+
+	private IpRangeFilter[] trustedProxies = null;
 
 	/**
 	 * This is the default constructor. The idea is that a subclass will
@@ -207,6 +212,10 @@ public class QlueApplication {
 		if (properties.getProperty(PROPERTY_DEVMODE_RANGES) != null) {
 			setDevelopmentSubnets(properties
 					.getProperty(PROPERTY_DEVMODE_RANGES));
+		}
+
+		if (properties.getProperty(PROPERTY_TRUSTED_PROXIES) != null) {
+			setTrustedProxies(properties.getProperty(PROPERTY_TRUSTED_PROXIES));
 		}
 
 		developmentModePassword = properties
@@ -1285,20 +1294,14 @@ public class QlueApplication {
 		this.developmentModePassword = developmentModePassword;
 	}
 
-	/**
-	 * Configure the set of IP addresses that are allowed to use development
-	 * mode.
-	 * 
-	 * @param developmentModeRanges
-	 */
-	protected void setDevelopmentSubnets(String combinedSubnets) {
+	private void setTrustedProxies(String combinedSubnets) throws Exception {
 		if (TextUtil.isEmpty(combinedSubnets)) {
 			return;
 		}
 
 		String[] subnets = combinedSubnets.split("[;,\\x20]");
 
-		developmentSubnets = new SubnetUtils[subnets.length];
+		trustedProxies = new IpRangeFilter[subnets.length];
 		int count = 0;
 		for (String s : subnets) {
 			if (TextUtil.isEmpty(s)) {
@@ -1311,7 +1314,77 @@ public class QlueApplication {
 			}
 
 			try {
-				developmentSubnets[count++] = new SubnetUtils(subnet);
+				trustedProxies[count++] = new IpRangeFilter(subnet);
+			} catch (IllegalArgumentException iae) {
+				throw new RuntimeException("Qlue: Invalid proxy subnet: " + s);
+			}
+		}
+	}
+
+	public boolean isTrustedProxyRequest(TransactionContext context) {
+		System.err.println("# trustedProxies " + trustedProxies);
+
+		if (trustedProxies == null) {
+			return false;
+		}
+
+		InetAddress remoteAddr = null;
+		try {
+			remoteAddr = InetAddress.getByName(context.request.getRemoteAddr());
+		} catch (Exception e) {
+			return false;
+		}
+
+		for (IpRangeFilter su : trustedProxies) {
+			if (su == null) {
+				continue;
+			}
+
+			System.err.println("# tx address "
+					+ context.request.getRemoteAddr());
+			System.err.println("# subnet " + su);
+
+			if (su.isInRange(remoteAddr)) {
+				System.err.println("#x0");
+				return true;
+			}
+
+			System.err.println("#x1");
+		}
+
+		System.err.println("#x2");
+
+		return false;
+	}
+
+	/**
+	 * Configure the set of IP addresses that are allowed to use development
+	 * mode.
+	 * 
+	 * @param developmentModeRanges
+	 */
+	protected void setDevelopmentSubnets(String combinedSubnets)
+			throws Exception {
+		if (TextUtil.isEmpty(combinedSubnets)) {
+			return;
+		}
+
+		String[] subnets = combinedSubnets.split("[;,\\x20]");
+
+		developmentSubnets = new IpRangeFilter[subnets.length];
+		int count = 0;
+		for (String s : subnets) {
+			if (TextUtil.isEmpty(s)) {
+				continue;
+			}
+
+			String subnet = s;
+			if (s.contains("/") == false) {
+				subnet = s + "/32";
+			}
+
+			try {
+				developmentSubnets[count++] = new IpRangeFilter(subnet);
 			} catch (IllegalArgumentException iae) {
 				throw new RuntimeException("Qlue: Invalid development subnet: "
 						+ s);
@@ -1326,13 +1399,25 @@ public class QlueApplication {
 	 * @param context
 	 * @return
 	 */
-	public boolean isDeveloperIP(TransactionContext context) {
+	public boolean isDeveloperRequest(TransactionContext context) {
 		if (developmentSubnets == null) {
 			return false;
 		}
 
-		for (SubnetUtils su : developmentSubnets) {
-			if (su.getInfo().isInRange(context.request.getRemoteAddr())) {
+		InetAddress remoteAddr = null;
+		try {
+			remoteAddr = InetAddress
+					.getByName(context.getEffectiveRemoteAddr());
+		} catch (Exception e) {
+			return false;
+		}
+
+		for (IpRangeFilter su : developmentSubnets) {
+			if (su == null) {
+				continue;
+			}
+
+			if (su.isInRange(remoteAddr)) {
 				return true;
 			}
 		}
@@ -1348,7 +1433,7 @@ public class QlueApplication {
 	 */
 	public boolean isDeveloperAccess(TransactionContext context) {
 		// Check IP address first
-		if (isDeveloperIP(context) == false) {
+		if (isDeveloperRequest(context) == false) {
 			return false;
 		}
 
