@@ -81,9 +81,9 @@ public class QlueApplication {
 
 	public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
 
-	private static final String PROPERTY_CHARACTER_ENCODING = "qlue.character-encoding";
+	private static final String PROPERTY_CHARACTER_ENCODING = "qlue.characterEncoding";
 
-	private static final String PROPERTY_DEVMODE_ENABLED = "qlue.devmode-enabled";
+	private static final String PROPERTY_DEVMODE_ENABLED = "qlue.devmode.active";
 
 	private static final String PROPERTY_DEVMODE_RANGES = "qlue.devmode.subnets";
 
@@ -644,7 +644,7 @@ public class QlueApplication {
 		}
 
 		// Check development mode
-		if (page.isDeveloperAccess() == false) {
+		if (page.isDevelopmentMode() == false) {
 			return;
 		}
 
@@ -1322,8 +1322,6 @@ public class QlueApplication {
 	}
 
 	public boolean isTrustedProxyRequest(TransactionContext context) {
-		System.err.println("# trustedProxies " + trustedProxies);
-
 		if (trustedProxies == null) {
 			return false;
 		}
@@ -1340,19 +1338,10 @@ public class QlueApplication {
 				continue;
 			}
 
-			System.err.println("# tx address "
-					+ context.request.getRemoteAddr());
-			System.err.println("# subnet " + su);
-
 			if (su.isInRange(remoteAddr)) {
-				System.err.println("#x0");
 				return true;
 			}
-
-			System.err.println("#x1");
 		}
-
-		System.err.println("#x2");
 
 		return false;
 	}
@@ -1416,10 +1405,11 @@ public class QlueApplication {
 			if (su == null) {
 				continue;
 			}
-
+			
 			if (su.isInRange(remoteAddr)) {
 				return true;
 			}
+			
 		}
 
 		return false;
@@ -1431,26 +1421,34 @@ public class QlueApplication {
 	 * @param context
 	 * @return
 	 */
-	public boolean isDeveloperAccess(TransactionContext context) {
+	public boolean isDevelopmentMode(TransactionContext context) {
 		// Check IP address first
 		if (isDeveloperRequest(context) == false) {
 			return false;
 		}
+		
+		System.err.println("# 1");
 
 		// Check session development mode (explicitly enabled)
 		if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
 			return true;
 		}
+		
+		System.err.println("# 2");
 
 		// Check session development mode (explicitly disabled)
 		if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_DISABLED) {
 			return false;
 		}
+		
+		System.err.println("# 3 " + getApplicationDevelopmentMode());
 
 		// Check application development mode
 		if (getApplicationDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
 			return true;
 		}
+		
+		System.err.println("# 4");
 
 		return false;
 	}

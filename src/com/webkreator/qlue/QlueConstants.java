@@ -20,15 +20,7 @@ package com.webkreator.qlue;
  * A simple class that holds the constants used throughout the framework.
  */
 public class QlueConstants {
-	
-	public static final String QLUE_CHARACTER_ENCODING = "QLUE_CHARACTER_ENCODING";
-
-	public static final String QLUE_DEVMODE_ENABLED = "QLUE_DEVMODE_ENABLED";
-	
-	public static final String QLUE_DEVMODE_PASSWORD = "QLUE_DEVMODE_PASSWORD";
-	
-	public static final String QLUE_DEVMODE_RANGES = "QLUE_DEVMODE_RANGES";
-	
+		
 	public static final String QLUE_LOG4J_CONFIG = "QLUE_LOG4J_CONFIG";
 	
 	public static final String QLUE_SESSION_PAGE_MANAGER = "QLUE_SESSION_PAGE_MANAGER";
