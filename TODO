@@ -1,8 +1,6 @@
   
 - Static file handling
   
-  - Implement downloads with support for caching and resumption
-  
   - Refuse to download anything from WEB-INF, even if such configuration
     is used by the developer (and via an external request)?   
 
