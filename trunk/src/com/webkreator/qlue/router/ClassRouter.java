@@ -51,7 +51,7 @@ public class ClassRouter implements Router {
 					+ " is not a subclass of Page.");
 		}
 
-		// We have our page lcass
+		// We have our page class
 		pageClass = candidate;
 	}
 
