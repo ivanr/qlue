@@ -1,3 +1,6 @@
+
+- Binding: Add support for validation of fixed-value fields (e.g.,
+  drop-down boxes). Provide list to Qlue.
  
 - Finally (before release candidate):
 
