@@ -48,6 +48,11 @@
 		<copy todir="${classesDir}">
 			<fileset file="./NOTICE" />
 		</copy>
+		
+		<mkdir dir="${classesDir}/com/webkreator/qlue/util" />
+		<copy todir="${classesDir}/com/webkreator/qlue/util">
+			<fileset file="${srcDir}/com/webkreator/qlue/util/mime.types" />
+		</copy>
 
 		<!-- Compile -->
 		<javac compiler="javac1.6" source="1.6" target="1.6" debug="on" srcdir="${srcDir}" destDir="${classesDir}">
@@ -78,7 +83,7 @@
 		</jar>
 
 		<!-- Create the Qlue library jar -->
-		<jar jarfile="${outputDir}/${jarName}" basedir="${classesDir}" includes="*.class" compress="true">
+		<jar jarfile="${outputDir}/${jarName}" basedir="${classesDir}" includes="*" compress="true">
 			<fileset dir="${classesDir}" />
 			<manifest>
 				<attribute name="Author" value="Ivan Ristic" />
