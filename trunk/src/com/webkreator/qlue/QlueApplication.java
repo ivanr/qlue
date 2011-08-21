@@ -306,12 +306,12 @@ public class QlueApplication {
 		request.setCharacterEncoding(characterEncoding);
 
 		// Create a new application session
-		// object if the session is new
+		// object if one does not exist
 		HttpSession session = request.getSession();
-		if (session.isNew()) {
-			Object o = createNewSessionObject();
-			if (o != null) {
-				session.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, o);
+		synchronized (session) {
+			if (session.getAttribute(QlueConstants.QLUE_SESSION_OBJECT) == null) {
+				session.setAttribute(QlueConstants.QLUE_SESSION_OBJECT,
+						createNewSessionObject());
 			}
 		}
 
@@ -1405,11 +1405,11 @@ public class QlueApplication {
 			if (su == null) {
 				continue;
 			}
-			
+
 			if (su.isInRange(remoteAddr)) {
 				return true;
 			}
-			
+
 		}
 
 		return false;
@@ -1426,22 +1426,22 @@ public class QlueApplication {
 		if (isDeveloperRequest(context) == false) {
 			return false;
 		}
-		
+
 		// Check session development mode (explicitly enabled)
 		if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
 			return true;
 		}
-		
+
 		// Check session development mode (explicitly disabled)
 		if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_DISABLED) {
 			return false;
 		}
-		
+
 		// Check application development mode
 		if (getApplicationDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
 			return true;
 		}
-		
+
 		return false;
 	}
 
