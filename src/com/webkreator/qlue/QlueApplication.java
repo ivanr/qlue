@@ -502,17 +502,17 @@ public class QlueApplication {
 			// Execute rollback to undo any changes
 			if (page != null) {
 				page.rollback();
+				
+				// Because we are about to throw an exception, which may cause
+				// another page to handle this request, we need to remember
+				// the current page (which is useful for debugging information, etc)
+				setActualPage(page);
 			}
 
 			// Log exception, then convert it into a ServletException. We
 			// don't want to set response code here because the server might
 			// not invoke the Throwable handler (and we want it to)
 			log.error("Page exception", t);
-
-			// Because we are about to throw an exception, which may cause
-			// another page to handle this request, we need to remember
-			// the current page (which is useful for debugging information, etc)
-			setActualPage(page);
 
 			throw new ServletException(t);
 		}
