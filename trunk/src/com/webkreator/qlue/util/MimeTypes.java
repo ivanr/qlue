@@ -38,7 +38,7 @@ public class MimeTypes {
 	private void loadMimeTypes() {
 		try {
 			BufferedReader reader = new BufferedReader(new InputStreamReader(
-					_instance.getClass().getResourceAsStream("mime.types")));
+					instance().getClass().getResourceAsStream("mime.types")));
 
 			String line = null;
 			while ((line = reader.readLine()) != null) {
