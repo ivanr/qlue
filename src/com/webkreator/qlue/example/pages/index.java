@@ -28,7 +28,7 @@ public class index extends Page {
 
 	@Override
 	public View onGet() {
-		return new RedirectView("https://www.feistyduck.com/");
+		return new RedirectView("https://www.feistyduck.com");
 		//return new DefaultView();
 	}
 }
