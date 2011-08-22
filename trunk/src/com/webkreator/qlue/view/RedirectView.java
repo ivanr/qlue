@@ -113,8 +113,8 @@ public class RedirectView implements View {
 	 * @param redirectStatus
 	 */
 	public void setStatus(int redirectStatus) {
-		if ((redirectStatus != 301) && (redirectStatus != 302)
-				&& (redirectStatus != 307)) {
+		if ((redirectStatus != REDIRECT_PERMANENT) && (redirectStatus != REDIRECT)
+				&& (redirectStatus != REDIRECT_TEMPORARY)) {
 			throw new InvalidParameterException("Invalid redirection status: "
 					+ redirectStatus);
 		}
@@ -136,6 +136,9 @@ public class RedirectView implements View {
 			out.print("<body><h1>");
 			out.print("Development Mode Redirection");
 			out.println("</h1>");
+			out.println("<p>Destination: <code>");
+			out.print(HtmlEncoder.encodeForHTML(redirection.getUri()));
+			out.println("</code></p>");
 			out.print("<form action=\"");
 			out.print(HtmlEncoder.encodeForURL(redirection.getUri()));
 			out.println("\"><br><input type=submit value=\"Proceed &gt;&gt;\"></form>");

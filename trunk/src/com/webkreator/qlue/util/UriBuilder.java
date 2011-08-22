@@ -32,7 +32,7 @@ public class UriBuilder {
 
 	private List<UriBuilderParam> params = new ArrayList<UriBuilderParam>();
 
-	private Pattern uriPattern = Pattern.compile("^(https?://[^/]+)(/.*)$");
+	private Pattern uriPattern = Pattern.compile("^(https?://[^/]+)(/.*)?$");
 
 	/**
 	 * Instances of this class represent individual URI parameters (key-value pairs).
