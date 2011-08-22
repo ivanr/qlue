@@ -28,14 +28,15 @@ public class UriBuilder {
 
 	private String prefix;
 
-	private String uri;
+	private String path;
 
 	private List<UriBuilderParam> params = new ArrayList<UriBuilderParam>();
 
 	private Pattern uriPattern = Pattern.compile("^(https?://[^/]+)(/.*)?$");
 
 	/**
-	 * Instances of this class represent individual URI parameters (key-value pairs).
+	 * Instances of this class represent individual URI parameters (key-value
+	 * pairs).
 	 */
 	class UriBuilderParam {
 
@@ -50,8 +51,8 @@ public class UriBuilder {
 	}
 
 	/**
-	 * Create new instance of the URI builder, starting with
-	 * the given base URI (which may contain parameters).
+	 * Create new instance of the URI builder, starting with the given base URI
+	 * (which may contain parameters).
 	 * 
 	 * @param uri
 	 */
@@ -110,33 +111,37 @@ public class UriBuilder {
 		// we only need to work with the path part,
 		// not the protocol or the domain name
 		Matcher m = uriPattern.matcher(uri);
-		if (m.matches()) {			
+		if (m.matches()) {
 			prefix = m.group(1);
 			uri = m.group(2);
-		}	
+		}
 
 		// Look for parameters
-		int i = uri.indexOf('?');
-		if (i == -1) {
-			// No parameters, just store the normalized path
-			this.uri = WebUtil.normaliseUri(uri);
-		} else {
-			// Extract parameters into individual objects
-			this.uri = WebUtil.normaliseUri(uri.substring(0, i));
-			String qs = uri.substring(i + 1);
-			String[] pairs = qs.split("&");
-			try {
-				for (String p : pairs) {
-					i = p.indexOf('=');
-					if (i == -1) {
-						addParam(URLDecoder.decode(p, "UTF-8"), "");
-					} else {
-						addParam(URLDecoder.decode(p.substring(0, i), "UTF-8"),
-								URLDecoder.decode(p.substring(i + 1), "UTF-8"));
+		if (uri != null) {
+			int i = uri.indexOf('?');
+			if (i == -1) {
+				// No parameters, just store the normalized path
+				this.path = WebUtil.normaliseUri(uri);
+			} else {
+				// Extract parameters into individual objects
+				this.path = WebUtil.normaliseUri(uri.substring(0, i));
+				String qs = uri.substring(i + 1);
+				String[] pairs = qs.split("&");
+				
+				try {
+					for (String p : pairs) {
+						i = p.indexOf('=');
+						if (i == -1) {
+							addParam(URLDecoder.decode(p, "UTF-8"), "");
+						} else {
+							addParam(URLDecoder.decode(p.substring(0, i),
+									"UTF-8"), URLDecoder.decode(
+									p.substring(i + 1), "UTF-8"));
+						}
 					}
+				} catch (UnsupportedEncodingException une) {
+					// Should never happen
 				}
-			} catch (UnsupportedEncodingException une) {
-				// Should never happen
 			}
 		}
 	}
@@ -148,14 +153,16 @@ public class UriBuilder {
 	 */
 	public String getUri() {
 		StringBuilder sb = new StringBuilder();
-		
+
 		// Start with the prefix (protocol, domain name)
 		if (prefix != null) {
 			sb.append(prefix);
 		}
-
+		
 		// Append base URI
-		sb.append(uri);
+		if (path != null) {
+			sb.append(path);
+		}
 
 		// Return straight away if there are no parameters
 		if (params.size() == 0) {
