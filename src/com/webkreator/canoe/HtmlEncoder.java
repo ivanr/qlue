@@ -16,18 +16,24 @@
  */
 package com.webkreator.canoe;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
- * Contains a number of utility methods to properly
- * encode data when preparing HTML responses.
+ * Contains a number of utility methods to properly encode data when preparing
+ * HTML responses.
  */
 public class HtmlEncoder {
 
 	protected static HtmlEncoder _instance;
 
+	private static Pattern uriPattern = Pattern
+			.compile("^(https?://)([^/]+)(/.*)?$");
+
 	/**
-	 * Creates an instance of this encoder. We'd normally not
-	 * need it, as all methods are static, but we need to pass
-	 * an object into the model used by Velocity templates.
+	 * Creates an instance of this encoder. We'd normally not need it, as all
+	 * methods are static, but we need to pass an object into the model used by
+	 * Velocity templates.
 	 */
 	public static synchronized HtmlEncoder instance() {
 		if (_instance == null) {
@@ -180,10 +186,18 @@ public class HtmlEncoder {
 		if (input == null) {
 			return null;
 		}
-
+		
 		StringBuffer sb = new StringBuffer(input.length() * 2);
-		encodeForURL(input, sb);
 
+		Matcher m = uriPattern.matcher(input);
+		if (m.matches()) {
+			sb.append(m.group(1));
+			encodeForURL(m.group(2), sb);
+			encodeForURL(m.group(3), sb);
+		} else {
+			encodeForURL(input, sb);
+		}
+	
 		return sb.toString();
 	}
 
@@ -351,7 +365,7 @@ public class HtmlEncoder {
 			}
 		}
 	}
-	
+
 	public static String asis(String input) {
 		return input;
 	}
