@@ -1,4 +1,11 @@
 
+- URL such as http://www.feistyduck.com/library/modsecurity-handbook
+  should always redirect to http://www.feistyduck.com/library/modsecurity-handbook/
+  (forward slash at the end). Relative links don't work otherwise.
+  
+- Debug mode output should display all log messages emitted during the
+  processing of the current request.
+
 - Binding: Add support for validation of fixed-value fields (e.g.,
   drop-down boxes). Provide list to Qlue.
  
