@@ -1,7 +1,10 @@
 
-- URL such as http://www.feistyduck.com/library/modsecurity-handbook
+- Routing: URL such as http://www.feistyduck.com/library/modsecurity-handbook
   should always redirect to http://www.feistyduck.com/library/modsecurity-handbook/
   (forward slash at the end). Relative links don't work otherwise.
+  
+- Routing: Add support for string interpolation on the right-hand side. Use case:
+  redirect to a different URL, using some of the regex captures.
   
 - Debug mode output should display all log messages emitted during the
   processing of the current request.
