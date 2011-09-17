@@ -22,4 +22,9 @@
   
   - Review code
    
-  
+
+Misc
+----
+
+- Users should be able to create private instances of MimeTypes, they should be able to
+  tell the framework to use another mime type, and/or to override the settings  
