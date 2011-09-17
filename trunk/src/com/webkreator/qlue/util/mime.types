@@ -1331,6 +1331,7 @@ model/vrml					wrl vrml
 # multipart/signed
 # multipart/voice-message
 # text/1d-interleaved-parityfec
+text/cache-manifest				manifest	
 text/calendar					ics ifb
 text/css					css
 text/csv					csv
