@@ -53,7 +53,7 @@ public class MimeTypes {
 							"Invalid MIME type configuration line: " + line);
 				}
 
-				for (int i = 1; i < tokens.length - 1; i++) {
+				for (int i = 1; i < tokens.length; i++) {
 					mimeTypes.put(tokens[i], tokens[0]);
 				}
 			}
