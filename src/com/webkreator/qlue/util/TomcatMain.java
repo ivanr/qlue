@@ -70,11 +70,23 @@ public class TomcatMain {
 		tomcat.setBaseDir(System.getProperty("java.io.tmpdir"));
 		if (hostname != null) {
 			tomcat.setHostname(hostname);
-		}
+		}			
 		
 		tomcat.setPort(port);
-		tomcat.addWebapp("/", home);		
+		tomcat.addWebapp("/", home);
+		
+		if ((port == 443)||(port == 8443)) {
+			String keystoreFile = home + "./WEB-INF/dev-keystore";
+			String keystorePass = "changeit";
+			
+			tomcat.getConnector().setScheme("https");
+			tomcat.getConnector().setSecure(true);
+			tomcat.getConnector().setProperty("SSLEnabled", "true");
+			tomcat.getConnector().setProperty("keystoreFile", keystoreFile);
+			tomcat.getConnector().setProperty("keystorePass", keystorePass);
+		}
+		
 		tomcat.start();
-		tomcat.getServer().await();
+		tomcat.getServer().await();		
 	}
 }
