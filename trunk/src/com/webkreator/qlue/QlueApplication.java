@@ -497,6 +497,7 @@ public class QlueApplication {
 			}
 
 			// Convert PageNotFoundException into a 404 response
+			System.err.println("# here 1");
 			context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
 		} catch (Throwable t) {
 			// Execute rollback to undo any changes
@@ -514,7 +515,11 @@ public class QlueApplication {
 			// not invoke the Throwable handler (and we want it to)
 			log.error("Page exception", t);
 
-			throw new ServletException(t);
+			// We do not wish to propagate the exception
+			// further, so simply send a 500 response here
+			context.getResponse().sendError(
+					HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			System.err.println("# here 2");
 		}
 	}
 
