@@ -18,7 +18,7 @@ package com.webkreator.qlue.example.pages;
 
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueParameter;
-import com.webkreator.qlue.view.RedirectView;
+import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.View;
 
 public class index extends Page {
@@ -28,7 +28,7 @@ public class index extends Page {
 
 	@Override
 	public View onGet() {
-		return new RedirectView("https://www.feistyduck.com");
-		//return new DefaultView();
+		//return new RedirectView("https://www.feistyduck.com");
+		return new DefaultView();
 	}
 }
