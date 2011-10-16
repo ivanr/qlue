@@ -6,6 +6,17 @@
 - Routing: Add support for string interpolation on the right-hand side. Use case:
   redirect to a different URL, using some of the regex captures.
   
+- Routing: Add support for programmatic route manipulation
+
+- Support resource expiration in the future
+
+- Support session expiration: keep underlying session timeout long, but detect
+  inactive sessions and show them a friendly user error message
+  
+- On error, perform full request dump.
+  
+- Send email on application error.
+  
 - Debug mode output should display all log messages emitted during the
   processing of the current request.
 
