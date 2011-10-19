@@ -76,7 +76,7 @@ public class TomcatMain {
 		tomcat.addWebapp("/", home);
 		
 		if ((port == 443)||(port == 8443)) {
-			String keystoreFile = home + "./WEB-INF/dev-keystore";
+			String keystoreFile = home + "/WEB-INF/dev-keystore";
 			String keystorePass = "changeit";
 			
 			tomcat.getConnector().setScheme("https");
