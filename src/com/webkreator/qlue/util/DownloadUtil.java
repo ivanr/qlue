@@ -61,6 +61,9 @@ public class DownloadUtil {
 	public static void sendFile(TransactionContext context, File f,
 			String contentType, String name, boolean isAttachment)
 			throws Exception {
+		OutputStream os = null;
+		BufferedInputStream bis = null;
+		
 		try {
 			// If C-T was not provided, try to use file
 			// extension to select the correct value
@@ -144,20 +147,25 @@ public class DownloadUtil {
 			context.response.setHeader("ETag", eTag);
 
 			// Send data
-			OutputStream os = context.response.getOutputStream();
-			BufferedInputStream bis = new BufferedInputStream(
+			os = context.response.getOutputStream();
+			bis = new BufferedInputStream(
 					new FileInputStream(f));
 			byte b[] = new byte[1024];
 
 			while (bis.read(b) > 0) {
 				os.write(b);
 			}
-
-			bis.close();
-			os.close();
 		} catch (FileNotFoundException e) {
 			// TODO Log reason
 			throw new PageNotFoundException();
+		} finally {
+			if (os != null) {
+				os.close();
+			}
+			
+			if (bis != null) {
+				bis.close();
+			}
 		}
 	}
 
