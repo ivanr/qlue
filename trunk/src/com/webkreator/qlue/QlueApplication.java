@@ -44,6 +44,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.apache.catalina.connector.ClientAbortException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.log4j.NDC;
@@ -55,9 +56,9 @@ import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.BooleanEditor;
 import com.webkreator.qlue.util.FormatTool;
 import com.webkreator.qlue.util.IntegerEditor;
+import com.webkreator.qlue.util.IpRangeFilter;
 import com.webkreator.qlue.util.PropertyEditor;
 import com.webkreator.qlue.util.StringEditor;
-import com.webkreator.qlue.util.IpRangeFilter;
 import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.FileVelocityViewFactory;
@@ -503,10 +504,11 @@ public class QlueApplication {
 			// Execute rollback to undo any changes
 			if (page != null) {
 				page.rollback();
-				
+
 				// Because we are about to throw an exception, which may cause
 				// another page to handle this request, we need to remember
-				// the current page (which is useful for debugging information, etc)
+				// the current page (which is useful for debugging information,
+				// etc)
 				setActualPage(page);
 			}
 
@@ -554,7 +556,11 @@ public class QlueApplication {
 		}
 
 		// Render page
-		view.render(tx, page);
+		try {
+			view.render(tx, page);
+		} catch (ClientAbortException e) {
+			// Ignore
+		}
 	}
 
 	/**
