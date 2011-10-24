@@ -497,8 +497,7 @@ public class QlueApplication {
 				page.rollback();
 			}
 
-			// Convert PageNotFoundException into a 404 response
-			System.err.println("# here 1");
+			// Convert PageNotFoundException into a 404 response			
 			context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
 		} catch (Throwable t) {
 			// Execute rollback to undo any changes
@@ -520,8 +519,7 @@ public class QlueApplication {
 			// We do not wish to propagate the exception
 			// further, so simply send a 500 response here
 			context.getResponse().sendError(
-					HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-			System.err.println("# here 2");
+					HttpServletResponse.SC_INTERNAL_SERVER_ERROR);			
 		}
 	}
 
