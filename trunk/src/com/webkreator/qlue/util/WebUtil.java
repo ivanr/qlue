@@ -61,7 +61,7 @@ public class WebUtil {
 				sb.append(c);
 				seenSlash = false;
 			}
-		}
+		}			
 
 		return sb.toString();
 	}

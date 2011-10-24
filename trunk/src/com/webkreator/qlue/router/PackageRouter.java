@@ -58,7 +58,7 @@ public class PackageRouter implements Router {
 		@SuppressWarnings("rawtypes")
 		Class pageClass = null;
 
-		if (routeSuffix.indexOf("..") != -1) {
+		if (routeSuffix.indexOf("/../") != -1) {
 			throw new SecurityException(
 					"Directory backreferences not allowed in path");
 		}
