@@ -45,6 +45,7 @@ public class WebUtil {
 			throw new RuntimeException("Invalid uri", e);
 		}
 
+		// Remove consecutive forward slash characters
 		StringBuffer sb = new StringBuffer();
 
 		boolean seenSlash = false;
