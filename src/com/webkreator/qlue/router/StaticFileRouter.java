@@ -43,7 +43,7 @@ public class StaticFileRouter implements Router {
 
 	@Override
 	public Object route(TransactionContext context, String routeSuffix) {
-		if (routeSuffix.contains("..")) {
+		if (routeSuffix.contains("/../")) {
 			throw new SecurityException("StaticFileRouter: Invalid path: "
 					+ routeSuffix);
 		}
