@@ -4,6 +4,8 @@
   
 - On error, notify admin and include transaction context
 
+- When behind a trusted proxy, use its unique ID (which is transported in a header)
+
 - Routing: URL such as http://www.feistyduck.com/library/modsecurity-handbook
   should always redirect to http://www.feistyduck.com/library/modsecurity-handbook/
   (forward slash at the end). Relative links don't work otherwise.
