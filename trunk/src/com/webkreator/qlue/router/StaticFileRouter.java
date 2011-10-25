@@ -29,9 +29,9 @@ import com.webkreator.qlue.view.StatusCodeView;
  * Routes transaction to a static file.
  */
 public class StaticFileRouter implements Router {
-	
+
 	private Log log = LogFactory.getLog(StaticFileRouter.class);
-	
+
 	protected RouteManager manager;
 
 	private String path;
@@ -54,16 +54,20 @@ public class StaticFileRouter implements Router {
 		}
 
 		File file = new File(path, routeSuffix);
-		
+
 		if (log.isDebugEnabled()) {
 			log.debug("StaticFileRouter: Trying file: " + file);
 		}
-		
+
 		if (file.exists()) {
 			if (file.isDirectory()) {
 				file = new File(file, manager.getIndex() + "."
 						+ manager.getSuffix());
 				if (file.exists()) {
+					// By default, allow static resources to be cached for up to 1 hour
+					context.response.setHeader("Cache-Control",
+							"max-age: 3600, must-revalidate");
+					// Download file
 					return new DownloadView(file);
 				} else {
 					return new StatusCodeView(403);
