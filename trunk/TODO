@@ -1,4 +1,6 @@
 
+- Routing: control resource caching from the routing configuration
+
 - On error, dump transaction context into a file; it would also be useful to have all
   the log entries created during/for that transaction
   
