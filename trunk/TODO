@@ -1,4 +1,6 @@
 
+- Routing: Process .vm files directly when page class not available
+
 - Routing: control resource caching from the routing configuration
 
 - On error, dump transaction context into a file; it would also be useful to have all
