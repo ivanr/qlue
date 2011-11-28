@@ -19,6 +19,7 @@ package com.webkreator.qlue.view;
 import java.io.Writer;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 
@@ -30,14 +31,28 @@ import com.webkreator.qlue.TransactionContext;
 public class JsonView implements com.webkreator.qlue.view.View {
 	
     private Object jsonObject;
+    
+    private Gson gson;
 
     /**
-     * Create new view from the provided object.
+     * Create a view from the provided object.
      * 
      * @param jsonObject Object we want to send to browser
      */
     public JsonView(Object jsonObject) {
         this.jsonObject = jsonObject;
+        this.gson = new Gson();
+    }
+    
+    /**
+     * Create a view from the provided object, using the
+     * provided Gson instance for the conversion.
+     * 
+     * @param jsonObject Object we want to send to browser
+     */
+    public JsonView(Object jsonObject, Gson gson) {
+    	this.jsonObject = jsonObject;
+    	this.gson = gson;
     }
 
     /**
@@ -45,12 +60,11 @@ public class JsonView implements com.webkreator.qlue.view.View {
      * into its JSON representation.
      */
     @Override
-    public void render(TransactionContext tx, Page page) throws Exception {
-    	// Set content type
+    public void render(TransactionContext tx, Page page) throws Exception {    	
         page.getContext().response.setContentType("application/json");
 
         Writer writer = page.getContext().response.getWriter();
-        Gson gson = new Gson();
+        
         try {
             writer.append(gson.toJson(jsonObject));
         } finally {
