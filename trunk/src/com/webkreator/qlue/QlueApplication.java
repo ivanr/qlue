@@ -23,6 +23,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -47,6 +49,8 @@ import javax.servlet.http.HttpSession;
 import org.apache.catalina.connector.ClientAbortException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.commons.mail.Email;
+import org.apache.commons.mail.SimpleEmail;
 import org.apache.log4j.NDC;
 import org.apache.tomcat.util.http.fileupload.FileItem;
 
@@ -54,10 +58,13 @@ import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.router.QlueRouteManager;
 import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.BooleanEditor;
+import com.webkreator.qlue.util.EmailSender;
 import com.webkreator.qlue.util.FormatTool;
+import com.webkreator.qlue.util.HtmlToText;
 import com.webkreator.qlue.util.IntegerEditor;
 import com.webkreator.qlue.util.IpRangeFilter;
 import com.webkreator.qlue.util.PropertyEditor;
+import com.webkreator.qlue.util.SmtpEmailSender;
 import com.webkreator.qlue.util.StringEditor;
 import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.view.DefaultView;
@@ -92,6 +99,8 @@ public class QlueApplication {
 
 	private static final String PROPERTY_TRUSTED_PROXIES = "qlue.trustedProxies";
 
+	private static final String PROPERTY_ADMIN_EMAIL = "qlue.adminEmail";
+
 	private String messagesFilename = "com/webkreator/qlue/messages";
 
 	private Properties properties = new Properties();
@@ -124,6 +133,10 @@ public class QlueApplication {
 	private Scheduler scheduler;
 
 	private IpRangeFilter[] trustedProxies = null;
+
+	private String adminEmail;
+
+	private SmtpEmailSender smtpEmailSender;
 
 	/**
 	 * This is the default constructor. The idea is that a subclass will
@@ -222,6 +235,24 @@ public class QlueApplication {
 		developmentModePassword = properties
 				.getProperty(PROPERTY_DEVMODE_PASSWORD);
 
+		adminEmail = properties.getProperty(PROPERTY_ADMIN_EMAIL);
+
+		// Configure SMTP email sender
+		smtpEmailSender = new SmtpEmailSender();
+		smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
+		if (getProperty("qlue.smtp.port") != null) {
+			smtpEmailSender.setSmtpPort(Integer
+					.valueOf(getProperty("qlue.smtp.port")));
+		}
+
+		if (getProperty("qlue.smtp.protocol") != null) {
+			smtpEmailSender.setSmtpProtocol(getProperty("qlue.smtp.protocol"));
+		}
+
+		if (getProperty("qlue.smtp.username") != null) {
+			smtpEmailSender.setSmtpUsername(getProperty("qlue.smtp.username"));
+			smtpEmailSender.setSmtpPassword(getProperty("qlue.smtp.password"));
+		}
 	}
 
 	/**
@@ -487,8 +518,11 @@ public class QlueApplication {
 			// redirect back to the site home page. Showing errors
 			// is not really helpful, and may actually compel the
 			// user to go back and try again (and that's not going to work).
-			
-			// TODO The root of the web site might not be the root of the hostname
+
+			// No need to roll-back page, as page has not been located yet
+
+			// TODO The home page of the web site might not be the same as the
+			// root of the hostname
 			context.getResponse().sendRedirect("/");
 		} catch (RequestMethodException rme) {
 			// Execute rollback to undo any changes
@@ -519,10 +553,9 @@ public class QlueApplication {
 				setActualPage(page);
 			}
 
-			// Log exception, then convert it into a ServletException. We
-			// don't want to set response code here because the server might
-			// not invoke the Throwable handler (and we want it to)
-			log.error("Page exception", t);
+			// Handle application exception, which will record full context
+			// data and, optionally, notify the administrator via email
+			handleApplicationException(context, page, t);
 
 			// We do not wish to propagate the exception
 			// further, so simply send a 500 response here (but
@@ -530,6 +563,70 @@ public class QlueApplication {
 			if (context.getResponse().isCommitted() == false) {
 				context.getResponse().sendError(
 						HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			}
+		}
+	}
+
+	/**
+	 * Handle application exception. We dump debugging information into
+	 * the application activity log and, if the admin email address is
+	 * configured, we send the same via email.
+	 * 
+	 * @param tx
+	 * @param page
+	 * @param t
+	 */
+	protected void handleApplicationException(TransactionContext tx, Page page,
+			Throwable t) {
+		// Dump debugging information into a String
+		StringWriter sw = new StringWriter();	
+		sw.append("Debugging information follows:<br><br>");			
+
+		try {
+			_masterWriteRequestDevelopmentInformation(tx, page,
+					new PrintWriter(sw));
+		} catch (IOException e) {
+			// Ignore (but log, in case we do get something)
+			e.printStackTrace();
+		}
+
+		// Qlue formats debugging information using HTML markup, and here
+		// we want to log it to text files, which means we need to strip
+		// out the markup and convert entity references.
+		HtmlToText htt = new HtmlToText();
+		try {
+			htt.parse(new StringReader(sw.getBuffer().toString()));
+		} catch (IOException e) {
+			// Ignore (but log, in case we do get something)
+			e.printStackTrace();
+		}
+
+		String debugInfo = htt.toString();
+
+		// Record message to the activity log
+		log.error("Application exception", t);
+		log.error(debugInfo);
+
+		// Send email notification
+		if (adminEmail != null) {
+			try {
+				Email email = new SimpleEmail();
+				email.setCharset("UTF-8");
+				email.addTo(adminEmail);
+				email.setFrom(adminEmail);
+				email.setSubject("[" + getAppPrefix()
+						+ "] Application Exception");								
+				
+				StringWriter sw2 = new StringWriter();
+				PrintWriter pw = new PrintWriter(sw2);
+				t.printStackTrace(pw);
+				pw.println();
+				pw.print(debugInfo);
+				email.setMsg(sw2.toString());
+
+				getEmailSender().send(email);
+			} catch (Exception e) {
+				e.printStackTrace(System.err);
 			}
 		}
 	}
@@ -677,13 +774,16 @@ public class QlueApplication {
 			context = page.getContext();
 		}
 
-		// Ignore redirections
+		// Ignore redirections; RedirectView knows to display development
+		// information before redirects, which is why we don't need
+		// to worry here.
 		int status = context.response.getStatus();
 		if ((status >= 300) && (status <= 399)) {
 			return;
 		}
 
-		// Ignore responses other than text/html
+		// Ignore responses other than text/html; we don't want to
+		// corrupt images and other resources that are not pages.
 		String contentType = context.response.getContentType();
 		if (contentType == null) {
 			return;
@@ -699,7 +799,13 @@ public class QlueApplication {
 		}
 
 		// Append output
-		PrintWriter out = context.response.getWriter();
+		_masterWriteRequestDevelopmentInformation(context, page,
+				context.response.getWriter());
+	}
+
+	protected void _masterWriteRequestDevelopmentInformation(
+			TransactionContext context, Page page, PrintWriter out)
+			throws IOException {
 		out.println("<hr><div align=left><pre>");
 		out.println("<b>Request</b>\n");
 		context.writeRequestDevelopmentInformation(out);
@@ -1610,5 +1716,9 @@ public class QlueApplication {
 	synchronized int allocatePageId() {
 		txIdsCounter++;
 		return txIdsCounter;
+	}
+
+	public EmailSender getEmailSender() {
+		return smtpEmailSender;
 	}
 }

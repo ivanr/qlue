@@ -63,7 +63,7 @@ public class DownloadUtil {
 			throws Exception {
 		OutputStream os = null;
 		BufferedInputStream bis = null;
-		
+
 		try {
 			// If C-T was not provided, try to use file
 			// extension to select the correct value
@@ -140,16 +140,14 @@ public class DownloadUtil {
 			}
 
 			// Set size
-			// TODO How do you deliver a file that's
-			// longer than MAX_INT bytes?
+			// TODO How do you deliver a file that's longer than MAX_INT bytes?
 			context.response.setContentLength((int) length);
 			context.response.setDateHeader("Last-Modified", lastModified);
 			context.response.setHeader("ETag", eTag);
 
 			// Send data
 			os = context.response.getOutputStream();
-			bis = new BufferedInputStream(
-					new FileInputStream(f));
+			bis = new BufferedInputStream(new FileInputStream(f));
 			byte b[] = new byte[1024];
 
 			while (bis.read(b) > 0) {
@@ -162,7 +160,7 @@ public class DownloadUtil {
 			if (os != null) {
 				os.close();
 			}
-			
+
 			if (bis != null) {
 				bis.close();
 			}
@@ -175,7 +173,7 @@ public class DownloadUtil {
 		try {
 			md = MessageDigest.getInstance("SHA-1");
 		} catch (NoSuchAlgorithmException e) {
-			// TODO Log
+			// Ignore (but log, in case we do get something)
 			e.printStackTrace();
 		}
 
