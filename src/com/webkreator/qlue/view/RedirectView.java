@@ -126,8 +126,8 @@ public class RedirectView implements View {
 	 * Issue a redirection to a page or a URI.
 	 */
 	@Override
-	public void render(TransactionContext context, Page page) throws Exception {
-		if (page.isDevelopmentMode()) {
+	public void render(TransactionContext context, Page page) throws Exception {		
+		if ((page != null) && (page.isDevelopmentMode())) {
 			context.response.setContentType("text/html");
 			PrintWriter out = context.response.getWriter();
 			out.print("<html><head><title>");
