@@ -1,22 +1,6 @@
 
 To Do
 -----
-
-- Session handling
-
-  - Use very long sessions, practically disabling the underlying expiration mechanism.
-  
-  - Periodically rotate session IDs
-  
-  - Asks users to re-authenticate in regular intervals (that will also rotate their session IDs)
-  
-  - Leave it to the underlying session storage mechanism to remove sessions when it
-    runs out of storage space
-    
-  - Perhaps feel free to collect sessions that do not have any active processes       
-  
-- Display a friendly error page when a process is not found (but not when a deleted
-  session is the root cause)
   
 - Debug mode
 
@@ -43,6 +27,19 @@ To Do
 
 Improvements
 ------------
+
+- Session handling
+
+  - Use very long sessions, practically disabling the underlying expiration mechanism.
+  
+  - Periodically rotate session IDs
+  
+  - Asks users to re-authenticate in regular intervals (that will also rotate their session IDs)
+  
+  - Leave it to the underlying session storage mechanism to remove sessions when it
+    runs out of storage space
+    
+  - Perhaps feel free to collect sessions that do not have any active processes
 
 - Routing: Add support for string interpolation on the right-hand side. Use case:
   redirect to a different URL, using some of the regex captures.
