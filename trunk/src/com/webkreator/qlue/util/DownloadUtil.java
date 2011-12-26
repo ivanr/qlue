@@ -158,8 +158,7 @@ public class DownloadUtil {
 			while (bis.read(b) > 0) {
 				os.write(b);
 			}
-		} catch (FileNotFoundException e) {
-			// TODO Log reason
+		} catch (FileNotFoundException e) {			
 			throw new PageNotFoundException();
 		} finally {
 			if (os != null) {
