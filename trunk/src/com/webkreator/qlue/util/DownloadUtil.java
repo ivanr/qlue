@@ -139,9 +139,14 @@ public class DownloadUtil {
 				return;
 			}
 
-			// Set size
-			// TODO How do you deliver a file that's longer than MAX_INT bytes?
+			// Set size			
+			if (length > Integer.MAX_VALUE) {
+				throw new RuntimeException("File longer than Integer.MAX_VALUE");
+				
+			}
+			
 			context.response.setContentLength((int) length);
+			
 			context.response.setDateHeader("Last-Modified", lastModified);
 			context.response.setHeader("ETag", eTag);
 
