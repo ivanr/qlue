@@ -120,7 +120,7 @@ public class PackageRouter implements Router {
 				// We have found the index page
 				
 				// Check if we need to issue a redirection
-				if (routeSuffix.endsWith("/") == false) {
+				if (tx.getRequestUri().endsWith("/") == false) {
 					return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(
 							tx, routeSuffix);
 				}
