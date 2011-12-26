@@ -1,11 +1,7 @@
 
 To Do
 -----
-
-- Routing: URL such as http://www.feistyduck.com/library/modsecurity-handbook
-  should always redirect to http://www.feistyduck.com/library/modsecurity-handbook/
-  (forward slash at the end). Relative links don't work otherwise.
-  
+ 
 - Support session expiration: keep underlying session timeout long, but detect
   inactive sessions and show them a friendly user error message
   
