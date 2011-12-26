@@ -2,9 +2,6 @@
 To Do
 -----
 
-- Convert - in package and class names to _, but convert _ in requests to -
-  (because we don't want both to work).
- 
 - Support session expiration: keep underlying session timeout long, but detect
   inactive sessions and show them a friendly user error message
   
