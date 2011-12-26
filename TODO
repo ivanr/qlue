@@ -1,34 +1,25 @@
 
-- Routing: Process .vm files directly when page class not available
-
-- Routing: control resource caching from the routing configuration
-
-- On error, dump transaction context into a file; it would also be useful to have all
-  the log entries created during/for that transaction
-  
-- On error, notify admin and include transaction context
-
-- When behind a trusted proxy, use its unique ID (which is transported in a header)
+To Do
+-----
 
 - Routing: URL such as http://www.feistyduck.com/library/modsecurity-handbook
   should always redirect to http://www.feistyduck.com/library/modsecurity-handbook/
   (forward slash at the end). Relative links don't work otherwise.
   
-- Routing: Add support for string interpolation on the right-hand side. Use case:
-  redirect to a different URL, using some of the regex captures.
-  
-- Routing: Add support for programmatic route manipulation
-
-- Support resource expiration in the future
-
 - Support session expiration: keep underlying session timeout long, but detect
   inactive sessions and show them a friendly user error message
   
-- Debug mode output should display all log messages emitted during the
-  processing of the current request.
+- Debug mode
 
-- Binding: Add support for validation of fixed-value fields (e.g.,
-  drop-down boxes). Provide list to Qlue.
+	- Debug mode output should display all log messages emitted during the
+  	  processing of the current request.
+
+	- On fatal error, dump transaction context into a file; it would also be useful to have all
+      the log entries created during/for that transaction
+  
+	- On error, notify admin via email and include transaction context in the attachment
+
+- When behind a trusted proxy, record the supplied unique ID (which is transported in a header) 
  
 - Finally (before release candidate):
 
@@ -41,8 +32,26 @@
   - Review code
    
 
-Misc
-----
+Improvements
+------------
+
+- Routing: Add support for string interpolation on the right-hand side. Use case:
+  redirect to a different URL, using some of the regex captures.
+
+- Routing: Add support for programmatic route manipulation
 
 - Users should be able to create private instances of MimeTypes, they should be able to
-  tell the framework to use another mime type, and/or to override the settings  
+  tell the framework to use another mime type, and/or to override the settings
+  
+- Routing: Process .vm files directly when page class not available
+
+  - Would that be surprising the users? What if we expose some internal templates that way?
+  
+- Routing: control resource caching from the routing configuration
+
+- Binding: Implement binding for JSON payloads
+
+- Binding: Add support for validation of fixed-value fields (e.g.,
+  drop-down boxes). Provide list to Qlue.
+
+  
