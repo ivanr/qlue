@@ -2,13 +2,7 @@
 To Do
 ----- 
  
-- Finally (before release candidate):
-
-  - Implement logging consistently throughout the framework
-  
-  - Have consistent error messages
-  
-  - Review class and method access permissions
+- Finally (before release candidate): 
   
   - Review code
    
