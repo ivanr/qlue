@@ -43,8 +43,8 @@ public class PackageRouter implements Router {
 	}
 
 	@Override
-	public Object route(TransactionContext context, String extraPath) {
-		return resolveUri(extraPath, packageName);
+	public Object route(TransactionContext tx, String routeSuffix) {
+		return resolveUri(tx, routeSuffix, packageName);
 	}
 
 	/**
@@ -54,7 +54,7 @@ public class PackageRouter implements Router {
 	 * @param rootPackage
 	 * @return page instance, or null if page cannot be found
 	 */
-	public Object resolveUri(String routeSuffix, String rootPackage) {
+	public Object resolveUri(TransactionContext tx, String routeSuffix, String rootPackage) {
 		@SuppressWarnings("rawtypes")
 		Class pageClass = null;
 
@@ -88,8 +88,8 @@ public class PackageRouter implements Router {
 			lastToken = st.nextToken();
 			
 			// We don'tserve a path segments whose
-			// names begin with $. Such packages are considered
-			// private.
+			// names begin with $. Such packages are 
+			// considered to be private.
 			if ((lastToken.length() > 0)&&(lastToken.charAt(0) == '$')) {
 				return null;
 			}
@@ -104,10 +104,26 @@ public class PackageRouter implements Router {
 		
 		// Look for a class with this name
 		pageClass = classForName(className);
-		if (pageClass == null) {			
+		if (pageClass == null) {
+			// We're here because we couldn't directly translate a request path
+			// into a class. So this might be directory access. But if we do
+			// find an index file, before we route to it we need to check if
+			// there is a terminating forward slash in the request URI. If not,
+			// we need to issue a redirect.
+			
+			// Look for the index page
 			pageClass = classForName(className + "." + manager.getIndex());
 			if (pageClass == null) {
+				// Not found, probably a 404
 				return null;
+			} else {
+				// We have found the index page
+				
+				// Check if we need to issue a redirection
+				if (routeSuffix.endsWith("/") == false) {
+					return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(
+							tx, routeSuffix);
+				}
 			}
 		}
 
