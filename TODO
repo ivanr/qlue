@@ -1,18 +1,6 @@
 
 To Do
------
-  
-- Debug mode
-
-	- Debug mode output should display all log messages emitted during the
-  	  processing of the current request.
-
-	- On fatal error, dump transaction context into a file; it would also be useful to have all
-      the log entries created during/for that transaction
-  
-	- On error, notify admin via email and include transaction context in the attachment
-
-- When behind a trusted proxy, record the supplied unique ID (which is transported in a header) 
+----- 
  
 - Finally (before release candidate):
 
@@ -27,6 +15,8 @@ To Do
 
 Improvements
 ------------
+
+- When behind a trusted proxy, record the supplied unique ID (which is transported in a header)
 
 - Session handling
 
