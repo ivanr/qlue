@@ -121,32 +121,26 @@ public class Route {
 			// Remember path parameter name
 			names.add(name);
 
-			if (terminated) {
-				// Special case when path ends with /{}, because
-				// we want to issue a redirection from directory
-				// paths that are not slash-terminated (e.g., if
-				// we get /test we redirect to /test/
-				if (prefix.endsWith("/")) {
-					// Remove / from the end of the prefix
-					prefix = prefix.substring(0, prefix.length() - 1);
-					sb.append(escapePatternMetachars(prefix));
+			// Special case when path ends with "/{}", because
+			// we want to issue a redirection from directory
+			// paths that are not slash-terminated (e.g., if
+			// we get /test we redirect to /test/
+			if ((terminated) && (prefix.endsWith("/"))) {
+				// Remove / from the end of the prefix
+				prefix = prefix.substring(0, prefix.length() - 1);
+				sb.append(escapePatternMetachars(prefix));
 
-					if (terminated) {
-						// Add / to the beginning of the last capture,
-						// but make the capture optional
-						sb.append("(?:/(");
-						sb.append(pattern);
-						sb.append("))?");
-					} else {
+				// Add / to the beginning of the last capture,
+				// but make the capture optional
+				sb.append("(?:/(");
+				sb.append(pattern);
+				sb.append("))?");
 
-					}
-
-					// Indicate that, at runtime, we will need to
-					// detect an empty final capture and issue
-					// a redirection if there's not a terminating
-					// forward slash character at the end of request URI
-					redirects = true;
-				}
+				// Indicate that, at runtime, we will need to
+				// detect an empty final capture and issue
+				// a redirection if there's not a terminating
+				// forward slash character at the end of request URI
+				redirects = true;
 			} else {
 				sb.append(escapePatternMetachars(prefix));
 				sb.append('(');
@@ -175,7 +169,7 @@ public class Route {
 		// it to the pattern to finish the process
 		if (haystack != null) {
 			if (haystack.endsWith("/")) {
-				// Special handling for routes that end with /: we
+				// Special handling for routes that end with "/" we
 				// want to respond with a redirection when the final /
 				// is not supplied (e.g., /test -> /test/). To achieve
 				// that, the last / in the path becomes optional and
