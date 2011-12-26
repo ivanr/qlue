@@ -482,6 +482,14 @@ public class QlueApplication {
 			if (page != null) {
 				page.commit();
 			}
+		} catch (PersistentPageNotFoundException ppnfe) {
+			// When we encounter an unknown process reference, we
+			// redirect back to the site home page. Showing errors
+			// is not really helpful, and may actually compel the
+			// user to go back and try again (and that's not going to work).
+			
+			// TODO The root of the web site might not be the root of the hostname
+			context.getResponse().sendRedirect("/");
 		} catch (RequestMethodException rme) {
 			// Execute rollback to undo any changes
 			if (page != null) {

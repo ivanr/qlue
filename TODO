@@ -1,7 +1,7 @@
 
 To Do
 -----
- 
+
 - Session handling
 
   - Use very long sessions, practically disabling the underlying expiration mechanism.
