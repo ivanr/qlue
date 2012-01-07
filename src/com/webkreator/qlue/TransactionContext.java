@@ -275,7 +275,7 @@ public class TransactionContext {
 
 		// We are not expecting back-references in the URI, so
 		// respond with an error if we do see one
-		if (requestUriWithQueryString.indexOf("..") != -1) {
+		if (requestUriWithQueryString.indexOf("/../") != -1) {
 			throw new ServletException(
 					"Security violation: directory backreference "
 							+ "detected in request URI: "
