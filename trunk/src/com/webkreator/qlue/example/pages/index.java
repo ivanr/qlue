@@ -27,9 +27,7 @@ public class index extends Page {
 	public String p;
 
 	@Override
-	public View onGet() {
-		throw new RuntimeException("123");
-		//return new RedirectView("https://www.feistyduck.com");
-		//return new DefaultView();
+	public View onGet() {			
+		return new DefaultView();
 	}
 }
