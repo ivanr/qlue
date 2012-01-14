@@ -19,7 +19,6 @@ package com.webkreator.qlue.view;
 import java.io.Writer;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 
