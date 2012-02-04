@@ -20,14 +20,18 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 
 /**
- * This class is used as a placeholder to indicate that
- * a page wishes to respond with the default view.
+ * This class is used as a placeholder to indicate that a page wishes to respond
+ * with the default view.
  */
 public class DefaultView implements View {
 
+	/**
+	 * Because this class is a placeholder, this method is never invoked.
+	 */
 	@Override
 	public void render(TransactionContext tx, Page page) {
 		// Do nothing. This method is never invoked.
-		throw new RuntimeException("Qlue: This method shouldn't have been invoked.");
+		throw new RuntimeException(
+				"Qlue: This method shouldn't have been invoked.");
 	}
 }

@@ -60,26 +60,31 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 	}
 
 	/**
-	 * Create a view instance, given page and view name.
+	 * Create a view instance, given page and view name. We use page class name
+	 * to create a folder hierarchy, finishing with the view name and the
+	 * suffix.
 	 */
 	@Override
 	public View constructView(Page page, String viewName) throws Exception {
-		String lastToken = null;
-		StringTokenizer st = new StringTokenizer(page.getClass().getName(), ".");
 		StringBuffer sb = new StringBuffer();
+
+		StringTokenizer st = new StringTokenizer(page.getClass().getName(), ".");
+		String lastToken = null;
+
 		while (st.hasMoreTokens()) {
 			if (lastToken != null) {
-				sb.append("/");
+				sb.append('/');
 				sb.append(lastToken);
 			}
 
 			lastToken = st.nextToken();
 		}
 
-		String name = sb.toString() + "/" + new File(viewName).getName()
-				+ suffix;
+		sb.append('/');
+		sb.append(new File(viewName).getName());
+		sb.append(suffix);
 
-		return new VelocityView(this, velocityEngine.getTemplate(name));
+		return new VelocityView(this, velocityEngine.getTemplate(sb.toString()));
 	}
 
 	/**

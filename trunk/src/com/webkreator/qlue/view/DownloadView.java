@@ -22,14 +22,25 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.util.DownloadUtil;
 
+/**
+ * This view implementation will download a file.
+ */
 public class DownloadView implements View {
-	
+
 	private File file;
-	
+
+	/**
+	 * Creates a view that will send the provided file when rendered.
+	 * 
+	 * @param file
+	 */
 	public DownloadView(File file) {
 		this.file = file;
 	}
 
+	/**
+	 * Sends file content in response body.
+	 */
 	@Override
 	public void render(TransactionContext context, Page page) throws Exception {
 		DownloadUtil.sendFile(context, file);

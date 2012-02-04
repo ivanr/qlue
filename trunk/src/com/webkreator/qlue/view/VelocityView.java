@@ -40,7 +40,7 @@ public class VelocityView implements View {
 		this.viewFactory = viewFactory;
 		this.template = template;
 	}
-	
+
 	/**
 	 * Returns the template used by this view.
 	 * 

@@ -20,20 +20,36 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.util.WebUtil;
 
+/**
+ * This view will return with a custom response status code and error message,
+ * not unlike the default error response of the Apache web server.
+ */
 public class StatusCodeView implements View {
 
 	private int status;
 
 	private String message;
 
+	/**
+	 * Create a view using the provided status code, using a stock message.
+	 * 
+	 * @param status
+	 */
 	public StatusCodeView(int status) {
 		this.status = status;
 		this.message = WebUtil.getStatusMessage(status);
+
 		if (this.message == null) {
 			this.message = "Unknown Status Code";
 		}
 	}
 
+	/**
+	 * Create a view using the provided status code and message.
+	 * 
+	 * @param status
+	 * @param message
+	 */
 	public StatusCodeView(int status, String message) {
 		this.status = status;
 		this.message = message;

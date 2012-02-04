@@ -22,22 +22,21 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 
 /**
- * This class is used as a placeholder. A page that wishes to
- * use some view other than the default one will return an
- * instance of this class. The name will be passed to the
- * view resolution class, which will find a real view to respond
- * with.
+ * This class is used as a placeholder. A page that wishes to use some view
+ * other than the default one will return an instance of this class. The name
+ * will be passed to the view resolution class, which will find a real view to
+ * respond with.
  */
 public class NamedView implements View {
 
 	private String viewName;
-	
+
 	private File viewFile;
 
 	public NamedView(String viewName) {
 		this.viewName = viewName;
 	}
-	
+
 	public NamedView(File viewFile) {
 		this.viewFile = viewFile;
 	}
@@ -45,11 +44,14 @@ public class NamedView implements View {
 	public String getViewName() {
 		return viewName;
 	}
-	
+
 	public File getViewFile() {
 		return viewFile;
 	}
 
+	/**
+	 * Because this class is a placeholder, this method is never invoked.
+	 */
 	@Override
 	public void render(TransactionContext tx, Page page) {
 		// Do nothing. This method is never invoked.

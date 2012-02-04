@@ -48,7 +48,7 @@ public class DownloadUtil {
 	 */
 	public static void sendFile(TransactionContext context, File f)
 			throws Exception {
-		sendFile(context, f, null, null, false);
+		sendFile(context, f, null /*contentType*/, null /*name*/, false /*isAttachment*/);
 	}
 
 	/**
