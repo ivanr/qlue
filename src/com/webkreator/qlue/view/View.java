@@ -20,19 +20,18 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 
 /**
- * In the Qlue framework, a View instance is responsible
- * for rendering output. We do not want to tie ourselves
- * to a particular technology, working with this interface
- * instead. 
+ * In the Qlue framework, a View instance is responsible for rendering output.
+ * We do not want to tie ourselves to a particular technology, working with this
+ * interface instead.
  */
 public interface View {
-	
+
 	/**
-	 * This method is invoked by the framework
-	 * to render page output.
+	 * This method is invoked by the framework to render page output.
 	 * 
 	 * @param page
 	 * @throws Exception
 	 */
-	public abstract void render(TransactionContext tx, Page page) throws Exception;
+	public abstract void render(TransactionContext tx, Page page)
+			throws Exception;
 }

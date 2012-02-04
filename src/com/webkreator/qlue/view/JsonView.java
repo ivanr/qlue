@@ -28,46 +28,48 @@ import com.webkreator.qlue.TransactionContext;
  * response content type to application/json.
  */
 public class JsonView implements com.webkreator.qlue.view.View {
-	
-    private Object jsonObject;
-    
-    private Gson gson;
 
-    /**
-     * Create a view from the provided object.
-     * 
-     * @param jsonObject Object we want to send to browser
-     */
-    public JsonView(Object jsonObject) {
-        this.jsonObject = jsonObject;
-        this.gson = new Gson();
-    }
-    
-    /**
-     * Create a view from the provided object, using the
-     * provided Gson instance for the conversion.
-     * 
-     * @param jsonObject Object we want to send to browser
-     */
-    public JsonView(Object jsonObject, Gson gson) {
-    	this.jsonObject = jsonObject;
-    	this.gson = gson;
-    }
+	private Object jsonObject;
 
-    /**
-     * Render page by asking Gson to convert our object
-     * into its JSON representation.
-     */
-    @Override
-    public void render(TransactionContext tx, Page page) throws Exception {    	
-        page.getContext().response.setContentType("application/json");
+	private Gson gson;
 
-        Writer writer = page.getContext().response.getWriter();
-        
-        try {
-            writer.append(gson.toJson(jsonObject));
-        } finally {
-            writer.flush();
-        }
-    }
+	/**
+	 * Create a view from the provided object.
+	 * 
+	 * @param jsonObject
+	 *            Object we want to send to browser
+	 */
+	public JsonView(Object jsonObject) {
+		this.jsonObject = jsonObject;
+		this.gson = new Gson();
+	}
+
+	/**
+	 * Create a view from the provided object, using the provided Gson instance
+	 * for the conversion.
+	 * 
+	 * @param jsonObject
+	 *            Object we want to send to browser
+	 */
+	public JsonView(Object jsonObject, Gson gson) {
+		this.jsonObject = jsonObject;
+		this.gson = gson;
+	}
+
+	/**
+	 * Render page by asking Gson to convert our object into its JSON
+	 * representation.
+	 */
+	@Override
+	public void render(TransactionContext tx, Page page) throws Exception {
+		page.getContext().response.setContentType("application/json");
+
+		Writer writer = page.getContext().response.getWriter();
+
+		try {
+			writer.append(gson.toJson(jsonObject));
+		} finally {
+			writer.flush();
+		}
+	}
 }

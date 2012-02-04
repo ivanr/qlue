@@ -113,7 +113,8 @@ public class RedirectView implements View {
 	 * @param redirectStatus
 	 */
 	public void setStatus(int redirectStatus) {
-		if ((redirectStatus != REDIRECT_PERMANENT) && (redirectStatus != REDIRECT)
+		if ((redirectStatus != REDIRECT_PERMANENT)
+				&& (redirectStatus != REDIRECT)
 				&& (redirectStatus != REDIRECT_TEMPORARY)) {
 			throw new InvalidParameterException("Invalid redirection status: "
 					+ redirectStatus);
@@ -126,7 +127,7 @@ public class RedirectView implements View {
 	 * Issue a redirection to a page or a URI.
 	 */
 	@Override
-	public void render(TransactionContext context, Page page) throws Exception {		
+	public void render(TransactionContext context, Page page) throws Exception {
 		if ((page != null) && (page.isDevelopmentMode())) {
 			context.response.setContentType("text/html");
 			PrintWriter out = context.response.getWriter();
