@@ -1069,7 +1069,9 @@ public class Canoe extends Writer {
 		case CTX_URI:
 			return HtmlEncoder.encodeForURL(input);
 		case CTX_CSS:
-			return HtmlEncoder.encodeForCSS(input);
+			// Do not output anything into CSS contexts
+			// return HtmlEncoder.encodeForCSS(input);
+			return EMPTY_STRING;
 		case CTX_SUPPRESS:
 		default:
 			// Do nothing -- suppressed output
