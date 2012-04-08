@@ -806,6 +806,10 @@ public class QlueApplication {
 	protected void _masterWriteRequestDevelopmentInformation(
 			TransactionContext context, Page page, PrintWriter out)
 			throws IOException {
+		if (page == null) {
+			return;
+		}
+		
 		out.println("<hr><div align=left><pre>");
 		out.println("<b>Request</b>\n");
 		context.writeRequestDevelopmentInformation(out);
