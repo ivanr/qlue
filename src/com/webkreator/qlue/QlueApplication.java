@@ -157,8 +157,8 @@ public class QlueApplication {
 
 		// Default routes
 		routeManager.add(RouteFactory.create(routeManager,
-				"/_qlue package:com.webkreator.qlue.pages"));
-		routeManager.add(RouteFactory.create(routeManager, "/ package:"
+				"/_qlue/{} package:com.webkreator.qlue.pages"));
+		routeManager.add(RouteFactory.create(routeManager, "/{} package:"
 				+ pagesHome));
 	}
 
