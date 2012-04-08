@@ -3,22 +3,6 @@
 	xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee/web-app_3_0.xsd"
 	version="3.0">
 
-	<filter>
-		<filter-name>WelcomeFilter</filter-name>
-		<filter-class>
-			com.webkreator.qlue.util.WelcomeFilter
-		</filter-class>
-		<init-param>
-			<param-name>DEFAULT_PAGE</param-name>
-			<param-value>index.html</param-value>
-		</init-param>
-	</filter>
-
-	<filter-mapping>
-		<filter-name>WelcomeFilter</filter-name>
-		<url-pattern>/*</url-pattern>
-	</filter-mapping>
-
 	<listener>
 		<listener-class>
 			com.webkreator.qlue.util.Log4jConfigListener
