@@ -50,6 +50,7 @@ import org.apache.catalina.connector.ClientAbortException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
+import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.SimpleEmail;
 import org.apache.log4j.NDC;
 import org.apache.tomcat.util.http.fileupload.FileItem;
@@ -568,9 +569,9 @@ public class QlueApplication {
 	}
 
 	/**
-	 * Handle application exception. We dump debugging information into
-	 * the application activity log and, if the admin email address is
-	 * configured, we send the same via email.
+	 * Handle application exception. We dump debugging information into the
+	 * application activity log and, if the admin email address is configured,
+	 * we send the same via email.
 	 * 
 	 * @param tx
 	 * @param page
@@ -579,8 +580,8 @@ public class QlueApplication {
 	protected void handleApplicationException(TransactionContext tx, Page page,
 			Throwable t) {
 		// Dump debugging information into a String
-		StringWriter sw = new StringWriter();	
-		sw.append("Debugging information follows:<br><br>");			
+		StringWriter sw = new StringWriter();
+		sw.append("Debugging information follows:<br><br>");
 
 		try {
 			_masterWriteRequestDevelopmentInformation(tx, page,
@@ -608,26 +609,46 @@ public class QlueApplication {
 		log.error(debugInfo);
 
 		// Send email notification
-		if (adminEmail != null) {
-			try {
-				Email email = new SimpleEmail();
-				email.setCharset("UTF-8");
-				email.addTo(adminEmail);
-				email.setFrom(adminEmail);
-				email.setSubject("[" + getAppPrefix()
-						+ "] Application Exception");								
-				
-				StringWriter sw2 = new StringWriter();
-				PrintWriter pw = new PrintWriter(sw2);
-				t.printStackTrace(pw);
-				pw.println();
-				pw.print(debugInfo);
-				email.setMsg(sw2.toString());
+		try {
+			Email email = new SimpleEmail();
+			email.setCharset("UTF-8");
+			email.setSubject("Application Exception");
 
-				getEmailSender().send(email);
-			} catch (Exception e) {
-				e.printStackTrace(System.err);
-			}
+			StringWriter sw2 = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw2);
+			t.printStackTrace(pw);
+			pw.println();
+			pw.print(debugInfo);
+			email.setMsg(sw2.toString());
+
+			sendAdminEmail(email);
+		} catch (Exception e) {
+			e.printStackTrace(System.err);
+		}
+	}
+
+	public void sendAdminEmail(Email email) {
+		if (adminEmail == null) {
+			return;
+		}
+
+		// Add admin email address
+		try {
+			email.addTo(adminEmail);
+			email.setFrom(adminEmail);
+		} catch (EmailException e) {
+			log.error("Invalid admin email address", e);
+		}
+
+		// Update the email subject to
+		// include the application prefix
+		email.setSubject("[" + getAppPrefix() + "] " + email.getSubject());
+
+		// Send email
+		try {
+			getEmailSender().send(email);
+		} catch (Exception e) {
+			log.error("Failed to send email", e);
 		}
 	}
 
@@ -809,7 +830,7 @@ public class QlueApplication {
 		if (page == null) {
 			return;
 		}
-		
+
 		out.println("<hr><div align=left><pre>");
 		out.println("<b>Request</b>\n");
 		context.writeRequestDevelopmentInformation(out);
