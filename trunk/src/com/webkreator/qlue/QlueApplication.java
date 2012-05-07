@@ -280,7 +280,7 @@ public class QlueApplication {
 				QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
 				try {
 					scheduler.schedule(qs.value(),
-							new QlueScheduleMethodTaskWrapper(this, m));
+							new QlueScheduleMethodTaskWrapper(this, this, m));
 				} catch (InvalidPatternException ipe) {
 					log.error("QlueSchedule: Invalid schedule pattern: "
 							+ qs.value());
@@ -583,12 +583,14 @@ public class QlueApplication {
 		StringWriter sw = new StringWriter();
 		sw.append("Debugging information follows:<br><br>");
 
-		try {
-			_masterWriteRequestDevelopmentInformation(tx, page,
-					new PrintWriter(sw));
-		} catch (IOException e) {
-			// Ignore (but log, in case we do get something)
-			e.printStackTrace();
+		if (tx != null) {
+			try {
+				_masterWriteRequestDevelopmentInformation(tx, page,
+						new PrintWriter(sw));
+			} catch (IOException e) {
+				// Ignore (but log, in case we do get something)
+				e.printStackTrace();
+			}
 		}
 
 		// Qlue formats debugging information using HTML markup, and here
