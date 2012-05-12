@@ -1,15 +1,11 @@
 package com.webkreator.qlue;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 public class QlueScheduleMethodTaskWrapper implements Runnable {
-	
-	private QlueApplication app;
 
-	private Log log = LogFactory.getLog(QlueScheduleMethodTaskWrapper.class);
+	private QlueApplication app;
 
 	private Object target;
 
@@ -23,15 +19,15 @@ public class QlueScheduleMethodTaskWrapper implements Runnable {
 		this.method = m;
 	}
 
-	public QlueScheduleMethodTaskWrapper(QlueApplication app, Object o, String methodName)
-			throws NoSuchMethodException {
+	public QlueScheduleMethodTaskWrapper(QlueApplication app, Object o,
+			String methodName) throws NoSuchMethodException {
 		this.app = app;
 		this.target = o;
 		this.method = o.getClass().getMethod(methodName, (Class<?>[]) null);
 	}
 
-	public QlueScheduleMethodTaskWrapper(QlueApplication app, Object o, String methodName,
-			Object[] args) throws NoSuchMethodException {
+	public QlueScheduleMethodTaskWrapper(QlueApplication app, Object o,
+			String methodName, Object[] args) throws NoSuchMethodException {
 		this.app = app;
 		this.target = o;
 		this.method = o.getClass().getMethod(methodName);
@@ -43,8 +39,11 @@ public class QlueScheduleMethodTaskWrapper implements Runnable {
 		try {
 			method.invoke(target, args);
 		} catch (Throwable t) {
-			//log.error("QlueSchedule: Failed to invoke method", e);
-			app.handleApplicationException(null,  null, t);
+			if (t instanceof InvocationTargetException) {
+				app.handleApplicationException(null, null, t.getCause());
+			} else {
+				app.handleApplicationException(null, null, t);
+			}
 		}
 	}
 

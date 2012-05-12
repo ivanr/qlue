@@ -579,36 +579,40 @@ public class QlueApplication {
 	 */
 	protected void handleApplicationException(TransactionContext tx, Page page,
 			Throwable t) {
-		// Dump debugging information into a String
-		StringWriter sw = new StringWriter();
-		sw.append("Debugging information follows:<br><br>");
+		String debugInfo = null;
 
 		if (tx != null) {
+			// Dump debugging information into a String
+			StringWriter sw = new StringWriter();
+			sw.append("Debugging information follows:");
+
 			try {
 				_masterWriteRequestDevelopmentInformation(tx, page,
 						new PrintWriter(sw));
 			} catch (IOException e) {
 				// Ignore (but log, in case we do get something)
+				log.error("Exception while preparing debugging information", e);
+			}
+
+			// Qlue formats debugging information using HTML markup, and here
+			// we want to log it to text files, which means we need to strip
+			// out the markup and convert entity references.
+			HtmlToText htt = new HtmlToText();
+			try {
+				htt.parse(new StringReader(sw.getBuffer().toString()));
+			} catch (IOException e) {
+				// Ignore (but log, in case we do get something)
 				e.printStackTrace();
 			}
-		}
 
-		// Qlue formats debugging information using HTML markup, and here
-		// we want to log it to text files, which means we need to strip
-		// out the markup and convert entity references.
-		HtmlToText htt = new HtmlToText();
-		try {
-			htt.parse(new StringReader(sw.getBuffer().toString()));
-		} catch (IOException e) {
-			// Ignore (but log, in case we do get something)
-			e.printStackTrace();
+			debugInfo = htt.toString();
 		}
-
-		String debugInfo = htt.toString();
 
 		// Record message to the activity log
 		log.error("Application exception", t);
-		log.error(debugInfo);
+		if (debugInfo != null) {
+			log.error(debugInfo);
+		}
 
 		// Send email notification
 		try {
@@ -616,16 +620,18 @@ public class QlueApplication {
 			email.setCharset("UTF-8");
 			email.setSubject("Application Exception");
 
-			StringWriter sw2 = new StringWriter();
-			PrintWriter pw = new PrintWriter(sw2);
+			StringWriter msgBody = new StringWriter();
+			PrintWriter pw = new PrintWriter(msgBody);
 			t.printStackTrace(pw);
 			pw.println();
-			pw.print(debugInfo);
-			email.setMsg(sw2.toString());
+			if (debugInfo != null) {
+				pw.print(debugInfo);
+			}
+			email.setMsg(msgBody.toString());
 
 			sendAdminEmail(email);
 		} catch (Exception e) {
-			e.printStackTrace(System.err);
+			log.error("Failed to send admin email: ", e);
 		}
 	}
 
