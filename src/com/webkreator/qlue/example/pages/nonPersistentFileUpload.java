@@ -26,6 +26,9 @@ import com.webkreator.qlue.view.View;
 public class nonPersistentFileUpload extends Page {
 	
 	@QlueParameter(mandatory = true, state = Page.STATE_POST)
+	public String name;
+	
+	@QlueParameter(mandatory = true, state = Page.STATE_POST)
 	public QlueFile file;
 	
 	@Override
@@ -34,7 +37,7 @@ public class nonPersistentFileUpload extends Page {
 		context.response.setContentType("text/html");
 
 		out.println("<form enctype=multipart/form-data method=POST>");
-		out.println("<input type=text value=xxx>");
+		out.println("<input type=text name=name value=xxx>");
 		out.println("<input type=file name=file>");
 		out.println("<input type=submit>");
 		out.println("</form>");

@@ -722,6 +722,10 @@ public class QlueApplication {
 		Field[] fields = commandObject.getClass().getFields();
 		for (Field f : fields) {
 			if (f.isAnnotationPresent(QlueParameter.class)) {
+				if (QlueFile.class.isAssignableFrom(f.getType())) {
+					continue;
+				}
+				
 				// Update missing shadow input fields
 				if (page.getShadowInput().get(f.getName()) == null) {
 					if (f.getType().isArray()) {
@@ -759,8 +763,9 @@ public class QlueApplication {
 
 	private void updateShadowInputNonArrayParam(Page page,
 			TransactionContext context, Field f) throws Exception {
+		
 		// Find the property editor
-		PropertyEditor pe = editors.get(f.getType());
+		PropertyEditor pe = editors.get(f.getType());		
 		if (pe == null) {
 			throw new RuntimeException(
 					"Qlue: Binding does not know how to handle type: "
