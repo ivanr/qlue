@@ -457,7 +457,7 @@ public abstract class Page {
 		}
 
 		Iterator<String> it = treeMap.keySet().iterator();
-		while(it.hasNext()) {
+		while (it.hasNext()) {
 			String name = it.next();
 			Object o = treeMap.get(name);
 			out.println(" "
@@ -520,7 +520,9 @@ public abstract class Page {
 					QlueFile qf = null;
 					try {
 						qf = (QlueFile) f.get(commandObject);
-						qf.delete();
+						if (qf != null) {
+							qf.delete();
+						}
 					} catch (Exception e) {
 						log.error("Qlue: Failed deleting file " + qf, e);
 					}
