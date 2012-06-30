@@ -128,7 +128,7 @@ public class Route {
 			if ((terminated) && (prefix.endsWith("/"))) {
 				// Remove / from the end of the prefix
 				prefix = prefix.substring(0, prefix.length() - 1);
-				sb.append(escapePatternMetachars(prefix));
+				sb.append(Pattern.quote(prefix));
 
 				// Add / to the beginning of the last capture,
 				// but make the capture optional
@@ -142,7 +142,7 @@ public class Route {
 				// forward slash character at the end of request URI
 				redirects = true;
 			} else {
-				sb.append(escapePatternMetachars(prefix));
+				sb.append(Pattern.quote(prefix));
 				sb.append('(');
 				sb.append(pattern);
 				sb.append(')');
@@ -190,40 +190,6 @@ public class Route {
 		} catch (PatternSyntaxException pse) {
 			throw new RuntimeException("Failed to compile route: " + path, pse);
 		}
-	}
-
-	/**
-	 * Escapes input to neutralize all pattern metacharacters except for the
-	 * question mark.
-	 * 
-	 * @param input
-	 * @return
-	 */
-	private String escapePatternMetachars(String input) {
-		StringBuffer sb = new StringBuffer();
-
-		CharacterIterator it = new StringCharacterIterator(input);
-		for (char c = it.first(); c != CharacterIterator.DONE; c = it.next()) {
-			switch (c) {
-			case '{':
-			case '}':
-			case '+':
-			case '.':
-			case '[':
-			case ']':
-			case '*':
-			case '^':
-			case '$':
-			case '\\':
-			case '|':
-			case '?':
-				sb.append('\\');
-			default:
-				sb.append(c);
-			}
-		}
-
-		return sb.toString();
 	}
 
 	/**
