@@ -548,7 +548,7 @@ public abstract class Page {
 	 * @return
 	 * @throws Exception
 	 */
-	View onValidationError() throws Exception {
+	public View onValidationError() throws Exception {
 		if (isPersistent() == true) {
 			// Let the page handle validation errors
 			return null;
