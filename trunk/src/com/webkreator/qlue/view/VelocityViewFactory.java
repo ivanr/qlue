@@ -52,6 +52,8 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 	protected String VELOCITY_STRING_RESOURCE_LOADER_KEY = "_QLUE_LOADER";
 
+	protected boolean useAutoEscaping = true;
+
 	/**
 	 * Generate output, given page and view.
 	 * 
@@ -113,10 +115,12 @@ public abstract class VelocityViewFactory implements ViewFactory {
 			Template template = view.getTemplate();
 			VelocityContext velocityContext = new VelocityContext(model);
 
-			EventCartridge ec = new EventCartridge();
-			ec.addReferenceInsertionEventHandler(new CanoeReferenceInsertionHandler(
-					qlueWriter));
-			ec.attachToContext(velocityContext);
+			if (useAutoEscaping) {
+				EventCartridge ec = new EventCartridge();
+				ec.addReferenceInsertionEventHandler(new CanoeReferenceInsertionHandler(
+						qlueWriter));
+				ec.attachToContext(velocityContext);
+			}
 
 			template.merge(velocityContext, qlueWriter);
 		} catch (IOException ioe) {
@@ -196,5 +200,9 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		// Construct view
 		return new VelocityView(this, velocityEngine.getTemplate(viewFile
 				.getAbsolutePath()));
+	}
+	
+	public void setAutoEscaping(boolean b) {
+		useAutoEscaping = b;
 	}
 }

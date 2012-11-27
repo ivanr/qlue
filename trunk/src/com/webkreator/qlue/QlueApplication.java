@@ -694,6 +694,7 @@ public class QlueApplication {
 			view.render(tx, page);
 		} catch (Exception e) {
 			// Ignore
+			e.printStackTrace(System.err);
 		}
 	}
 
