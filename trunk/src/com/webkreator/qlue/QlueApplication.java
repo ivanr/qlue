@@ -46,7 +46,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
-import org.apache.catalina.connector.ClientAbortException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
@@ -693,7 +692,7 @@ public class QlueApplication {
 		// Render page
 		try {
 			view.render(tx, page);
-		} catch (ClientAbortException e) {
+		} catch (Exception e) {
 			// Ignore
 		}
 	}
