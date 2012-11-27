@@ -46,13 +46,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
 import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.SimpleEmail;
 import org.apache.log4j.NDC;
-import org.apache.tomcat.util.http.fileupload.FileItem;
 
 import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.router.QlueRouteManager;
