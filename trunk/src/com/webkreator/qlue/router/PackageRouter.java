@@ -68,6 +68,7 @@ public class PackageRouter implements Router {
 		if ((suffix != null) && (routeSuffix.endsWith(suffix))) {
 			// Remove suffix from URI
 			routeSuffix = routeSuffix.substring(0, routeSuffix.length() - 5);
+			log.debug("Updated routeSuffix: " + routeSuffix);
 		}
 
 		// Start building class name.
@@ -102,6 +103,8 @@ public class PackageRouter implements Router {
 
 		String className = sb.toString();
 		
+		log.debug("Trying class: " + className);
+		
 		// Look for a class with this name
 		pageClass = classForName(className);
 		if (pageClass == null) {
@@ -113,14 +116,17 @@ public class PackageRouter implements Router {
 			
 			// Look for the index page
 			pageClass = classForName(className + "." + manager.getIndex());
+			log.debug("Trying class: " + className + "." + manager.getIndex());
 			if (pageClass == null) {
 				// Not found, probably a 404
 				return null;
 			} else {
 				// We have found the index page
+				log.debug("Found index page");
 				
 				// Check if we need to issue a redirection
 				if (tx.getRequestUri().endsWith("/") == false) {
+					log.debug("Redirecting to " + tx.getRequestUri() + "/");
 					return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(
 							tx, routeSuffix);
 				}
@@ -134,6 +140,7 @@ public class PackageRouter implements Router {
 		}
 
 		try {
+			log.debug("Creating new instance of " + pageClass);
 			return pageClass.newInstance();
 		} catch (Exception e) {
 			log.error("Error creating page instance: " + e.getMessage(), e);
