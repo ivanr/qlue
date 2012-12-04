@@ -273,17 +273,24 @@ public class QlueApplication {
 
 		// Enumerate all application methods and look
 		// for the QlueSchedule annotation
-		Method[] methods = this.getClass().getMethods();
+		Method[] methods = this.getClass().getDeclaredMethods();
 		for (Method m : methods) {
-			if (m.isAnnotationPresent(QlueSchedule.class)) {
-				QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
-				try {
-					scheduler.schedule(qs.value(),
-							new QlueScheduleMethodTaskWrapper(this, this, m));
-				} catch (InvalidPatternException ipe) {
-					log.error("QlueSchedule: Invalid schedule pattern: "
-							+ qs.value());
+			if (m.isAccessible()) {
+				if (m.isAnnotationPresent(QlueSchedule.class)) {
+					QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
+					try {
+						scheduler
+								.schedule(qs.value(),
+										new QlueScheduleMethodTaskWrapper(this,
+												this, m));
+					} catch (InvalidPatternException ipe) {
+						log.error("QlueSchedule: Invalid schedule pattern: "
+								+ qs.value());
+					}
 				}
+			} else {
+				log.error("QlueSchedule: Annotated method not accessible: "
+						+ m.getName());
 			}
 		}
 	}
@@ -725,7 +732,7 @@ public class QlueApplication {
 				if (QlueFile.class.isAssignableFrom(f.getType())) {
 					continue;
 				}
-				
+
 				// Update missing shadow input fields
 				if (page.getShadowInput().get(f.getName()) == null) {
 					if (f.getType().isArray()) {
@@ -763,9 +770,9 @@ public class QlueApplication {
 
 	private void updateShadowInputNonArrayParam(Page page,
 			TransactionContext context, Field f) throws Exception {
-		
+
 		// Find the property editor
-		PropertyEditor pe = editors.get(f.getType());		
+		PropertyEditor pe = editors.get(f.getType());
 		if (pe == null) {
 			throw new RuntimeException(
 					"Qlue: Binding does not know how to handle type: "
