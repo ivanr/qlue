@@ -87,7 +87,7 @@ public class devMode extends Page {
 		if (errors.hasErrors()) {
 			List<Error> errorL = errors.getAllErrors();
 			for (Error e : errorL) {
-				out.println("Error: " + HtmlEncoder.encodeForHTML(e.message));
+				out.println("Error: " + HtmlEncoder.encodeForHTML(e.getMessage()));
 			}
 		}
 

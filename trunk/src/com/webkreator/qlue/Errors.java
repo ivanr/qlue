@@ -65,8 +65,8 @@ public class Errors {
 		ArrayList<String> list = new ArrayList<String>();
 
 		for (Error error : errors) {
-			if ((error.field != null) && (field.compareTo(error.field) == 0)) {
-				list.add(error.message);
+			if ((error.getField() != null) && (field.compareTo(error.getField()) == 0)) {
+				list.add(error.getField());
 			}
 		}
 
@@ -83,8 +83,8 @@ public class Errors {
 		ArrayList<String> list = new ArrayList<String>();
 
 		for (Error error : errors) {
-			if (error.field == null) {
-				list.add(error.message);
+			if (error.getField() == null) {
+				list.add(error.getMessage());
 			}
 		}
 
@@ -109,5 +109,30 @@ public class Errors {
 		}
 
 		return false;
+	}
+	
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		
+		boolean first = true;
+		List<Error> errors = getAllErrors();
+		for (Error e : errors) {
+			if (first == false) {
+				sb.append("; ");
+			}
+			
+			sb.append(e.getMessage());
+			
+			if (e.getField() != null) {
+				sb.append(" (");
+				sb.append(e.getField());
+				sb.append(")");
+			}
+			
+			first = false;
+		}
+		
+		return sb.toString();
 	}
 }

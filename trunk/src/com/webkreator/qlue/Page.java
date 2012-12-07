@@ -555,6 +555,7 @@ public abstract class Page {
 		}
 
 		// Report fatal error
-		throw new ValidationException("Parameter validation failed");
+		throw new ValidationException("Parameter validation failed: "
+				+ getErrors().toString());
 	}
 }
