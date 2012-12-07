@@ -22,9 +22,9 @@ package com.webkreator.qlue;
  */
 public class Error {
 
-	public String field;
+	private String field;
 
-	public String message;
+	private String message;
 
 	/**
 	 * Create new error, given field name and message.
