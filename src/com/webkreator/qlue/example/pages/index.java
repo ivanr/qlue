@@ -16,15 +16,49 @@
  */
 package com.webkreator.qlue.example.pages;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+
+import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.Errors;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueParameter;
 import com.webkreator.qlue.view.DefaultView;
+import com.webkreator.qlue.view.NullView;
 import com.webkreator.qlue.view.View;
 
 public class index extends Page {
 	
 	@QlueParameter(mandatory = false)
 	public String p;
+	
+	@QlueParameter(mandatory = false)
+	public Boolean b;
+	
+	@Override
+	public View onValidationError() throws IOException {
+		PrintWriter out = context.response.getWriter();
+		context.response.setContentType("text/html");
+
+		out.println("<h1>Validation Error</h1>");
+		
+		out.println("<ol>");
+		
+		Errors errors = getErrors();
+		for (com.webkreator.qlue.Error e : errors.getAllErrors()) {
+			out.println("<li>");
+			
+			out.print(HtmlEncoder.encodeForHTML(e.getMessage()));
+			
+			if (e.getField() != null) {
+				out.println(" [field " + HtmlEncoder.encodeForHTML(e.getField()) + "]");
+			}
+			
+			out.println("</li>");
+		}
+
+		return new NullView();
+	}
 
 	@Override
 	public View onGet() {			
