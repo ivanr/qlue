@@ -28,6 +28,7 @@ import java.io.StringWriter;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
@@ -275,9 +276,9 @@ public class QlueApplication {
 		// Enumerate all application methods and look
 		// for the QlueSchedule annotation
 		Method[] methods = this.getClass().getDeclaredMethods();
-		for (Method m : methods) {
-			if (m.isAccessible()) {
-				if (m.isAnnotationPresent(QlueSchedule.class)) {
+		for (Method m : methods) {			
+			if (m.isAnnotationPresent(QlueSchedule.class)) {				
+				if (Modifier.isPublic(m.getModifiers())) {
 					QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
 					try {
 						scheduler
@@ -288,10 +289,10 @@ public class QlueApplication {
 						log.error("QlueSchedule: Invalid schedule pattern: "
 								+ qs.value());
 					}
+				} else {
+					log.error("QlueSchedule: Scheduled methods must be public: "
+							+ m.getName());
 				}
-			} else {
-				log.error("QlueSchedule: Annotated method not accessible: "
-						+ m.getName());
 			}
 		}
 	}
