@@ -71,6 +71,7 @@ import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.FileVelocityViewFactory;
 import com.webkreator.qlue.view.FinalRedirectView;
 import com.webkreator.qlue.view.NamedView;
+import com.webkreator.qlue.view.NullView;
 import com.webkreator.qlue.view.RedirectView;
 import com.webkreator.qlue.view.View;
 import com.webkreator.qlue.view.ViewFactory;
@@ -668,6 +669,11 @@ public class QlueApplication {
 
 	public void renderView(View view, TransactionContext tx, Page page)
 			throws Exception {
+		// NullView only indicates that no further output should be made.
+		if (view instanceof NullView) {
+			return;
+		}
+
 		// If we get a DefaultView or NamedView instance
 		// we have to replace them with a real view, using
 		// the name of the page in the view resolution process.
@@ -696,12 +702,12 @@ public class QlueApplication {
 			throw new RuntimeException("Qlue: Unable to resolve view");
 		}
 
-		// Render page
+		// Render the view now.
 		try {
 			view.render(tx, page);
-		} catch (Exception e) {
-			// Ignore
-			e.printStackTrace(System.err);
+		} catch (Throwable t) {
+			// Ignore exceptions during view rendering.
+			t.printStackTrace(System.err);
 		}
 	}
 
@@ -899,7 +905,11 @@ public class QlueApplication {
 		// then bind them.
 		Field[] fields = commandObject.getClass().getFields();
 		for (Field f : fields) {
-			if (f.isAnnotationPresent(QlueParameter.class)) {
+			if (f.isAnnotationPresent(QlueParameter.class) == false) {
+				continue;
+			}
+
+			try {
 				QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
 				if (qp.state().compareTo(Page.STATE_URL) == 0) {
@@ -926,6 +936,9 @@ public class QlueApplication {
 						}
 					}
 				}
+			} catch (InvalidParameterException e) {
+				// Transform editor exception into a validation error
+				page.addError(f.getName(), e.getMessage());
 			}
 		}
 	}
@@ -1133,7 +1146,8 @@ public class QlueApplication {
 			}
 		} else {
 			f.set(commandObject, pe.fromText(f, value, f.get(commandObject)));
-			// We are here if the parameter is not in request, in which
+
+			// We are here if the parameter is not in the request, in which
 			// case we need to check of the parameter is mandatory
 			if (qp.mandatory()) {
 				page.addError(f.getName(), getFieldMissingMessage(qp));

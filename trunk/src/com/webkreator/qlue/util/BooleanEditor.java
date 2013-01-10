@@ -46,7 +46,7 @@ public class BooleanEditor implements PropertyEditor {
 			return Boolean.TRUE;
 		}
 
-		throw new InvalidParameterException("BooleanEditor: Invalid boolean value: " + text);
+		throw new InvalidParameterException("qp.validation.boolean.invalid");
 	}
 
 	@SuppressWarnings("rawtypes")
