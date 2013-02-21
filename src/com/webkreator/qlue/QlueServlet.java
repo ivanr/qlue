@@ -17,6 +17,7 @@
 package com.webkreator.qlue;
 
 import java.io.IOException;
+import java.net.SocketException;
 
 import javax.servlet.ServletException;
 import javax.servlet.UnavailableException;
@@ -26,8 +27,8 @@ import javax.servlet.http.HttpServletResponse;
 
 /**
  * This class serves as a glue between Qlue applications and the Servlet
- * specification. It's an abstract class; a subclass should be used to
- * create the desired instance of the Qlue application. 
+ * specification. It's an abstract class; a subclass should be used to create
+ * the desired instance of the Qlue application.
  */
 public abstract class QlueServlet extends HttpServlet {
 
@@ -57,9 +58,9 @@ public abstract class QlueServlet extends HttpServlet {
 	}
 
 	/**
-	 * This empty method exists to allow subclasses to perform
-	 * their own initialization, following the main initialization
-	 * carried out in this class.
+	 * This empty method exists to allow subclasses to perform their own
+	 * initialization, following the main initialization carried out in this
+	 * class.
 	 * 
 	 * @throws ServletException
 	 */
@@ -86,15 +87,22 @@ public abstract class QlueServlet extends HttpServlet {
 	}
 
 	/**
-	 * This method is invoked by the servlet container, and all we do
-	 * is pass on the parameters to the associated Qlue application.
+	 * This method is invoked by the servlet container, and all we do is pass on
+	 * the parameters to the associated Qlue application.
 	 */
 	protected void service(HttpServletRequest request,
 			HttpServletResponse response) throws ServletException, IOException {
-		// Forward request to the application.
-		qlueApplication.service(this, request, response);
+		try {
+			// Forward request to the application.
+			qlueApplication.service(this, request, response);
+		} catch (SocketException e) {
+			// Ignore "Broken pipe" exceptions, which occur when clients go away.
+			if ((e.getMessage() == null)||(!e.getMessage().contains("Broken pipe"))) {
+				throw e;
+			}
+		}
 	}
-	
+
 	/**
 	 * Invokes the destroy() method on the application object.
 	 */
@@ -103,7 +111,7 @@ public abstract class QlueServlet extends HttpServlet {
 		if (qlueApplication == null) {
 			return;
 		}
-		
+
 		qlueApplication.destroy();
 	}
 }
