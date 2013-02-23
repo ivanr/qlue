@@ -10,9 +10,13 @@ To Do
 Improvements
 ------------
 
+- Keep a copy of all admin emails
+
+- Add AsyncEmailSender backed by filesystem
+
 - When behind a trusted proxy, record the supplied unique ID (which is transported in a header)
 
-- Session handling
+- Session handling:
 
   - Use very long sessions, practically disabling the underlying expiration mechanism.
   
