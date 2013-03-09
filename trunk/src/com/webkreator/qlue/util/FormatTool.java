@@ -100,4 +100,14 @@ public class FormatTool {
 		sb.append(t - ((int) t / 1000) * 1000);
 		return sb.toString();
 	}
+	
+	public boolean isNull(Object o) {
+		if (o == null) return true;
+		return false;
+	}
+	
+	public boolean isNotNull(Object o) {
+		if (o != null) return true;
+		return false;
+	}
 }
