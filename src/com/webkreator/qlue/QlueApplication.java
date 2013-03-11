@@ -533,7 +533,7 @@ public class QlueApplication {
 			// TODO The home page of the web site might not be the same as the
 			// root of the hostname
 			context.getResponse().sendRedirect("/");
-		} catch (RequestMethodException rme) {			
+		} catch (RequestMethodException rme) {
 			if (page != null) {
 				page.rollback();
 			}
@@ -548,16 +548,6 @@ public class QlueApplication {
 
 			// Convert PageNotFoundException into a 404 response
 			context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
-		} catch (ServiceUnavailableException sue) {
-			if (page != null) {
-				page.rollback();
-			}
-
-			// Convert ServiceUnavailableException into a 503 response, if possible
-			if (context.getResponse().isCommitted() == false) {
-				context.getResponse().sendError(
-						HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-			}
 		} catch (Throwable t) {
 			if (page != null) {
 				page.rollback();
@@ -577,8 +567,13 @@ public class QlueApplication {
 			// further, so simply send a 500 response here (but
 			// only if response headers have not been sent).
 			if (context.getResponse().isCommitted() == false) {
-				context.getResponse().sendError(
-						HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+				if (t instanceof ServiceUnavailableException) {
+					context.getResponse().sendError(
+							HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+				} else {
+					context.getResponse().sendError(
+							HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+				}
 			}
 		}
 	}
