@@ -276,8 +276,8 @@ public class QlueApplication {
 		// Enumerate all application methods and look
 		// for the QlueSchedule annotation
 		Method[] methods = this.getClass().getDeclaredMethods();
-		for (Method m : methods) {			
-			if (m.isAnnotationPresent(QlueSchedule.class)) {				
+		for (Method m : methods) {
+			if (m.isAnnotationPresent(QlueSchedule.class)) {
 				if (Modifier.isPublic(m.getModifiers())) {
 					QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
 					try {
@@ -533,8 +533,7 @@ public class QlueApplication {
 			// TODO The home page of the web site might not be the same as the
 			// root of the hostname
 			context.getResponse().sendRedirect("/");
-		} catch (RequestMethodException rme) {
-			// Execute rollback to undo any changes
+		} catch (RequestMethodException rme) {			
 			if (page != null) {
 				page.rollback();
 			}
@@ -543,15 +542,23 @@ public class QlueApplication {
 			context.getResponse().sendError(
 					HttpServletResponse.SC_METHOD_NOT_ALLOWED);
 		} catch (PageNotFoundException pnfe) {
-			// Execute rollback to undo any changes
 			if (page != null) {
 				page.rollback();
 			}
 
 			// Convert PageNotFoundException into a 404 response
 			context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
+		} catch (ServiceUnavailableException sue) {
+			if (page != null) {
+				page.rollback();
+			}
+
+			// Convert ServiceUnavailableException into a 503 response, if possible
+			if (context.getResponse().isCommitted() == false) {
+				context.getResponse().sendError(
+						HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+			}
 		} catch (Throwable t) {
-			// Execute rollback to undo any changes
 			if (page != null) {
 				page.rollback();
 
