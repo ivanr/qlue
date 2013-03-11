@@ -66,7 +66,7 @@ public class Errors {
 
 		for (Error error : errors) {
 			if ((error.getField() != null) && (field.compareTo(error.getField()) == 0)) {
-				list.add(error.getField());
+				list.add(error.getMessage());
 			}
 		}
 
