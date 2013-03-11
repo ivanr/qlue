@@ -1074,8 +1074,9 @@ public class QlueApplication {
 			try {
 				p = Pattern.compile(qp.pattern(), Pattern.DOTALL);
 			} catch (PatternSyntaxException e) {
-				throw new RuntimeException("Qlue: Invalid pattern: "
-						+ qp.pattern());
+				throw new RuntimeException(
+						"Qlue: Invalid parameter validation pattern: "
+								+ qp.pattern());
 			}
 
 			// Try to match
