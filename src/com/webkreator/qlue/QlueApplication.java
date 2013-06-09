@@ -140,6 +140,8 @@ public class QlueApplication {
 
 	private SmtpEmailSender smtpEmailSender;
 
+	private HashMap<Locale, MessageSource> messageSources = new HashMap<Locale, MessageSource>();
+
 	/**
 	 * This is the default constructor. The idea is that a subclass will
 	 * override it and supplement with its own configuration.
@@ -530,7 +532,8 @@ public class QlueApplication {
 
 			// No need to roll-back page, as page has not been located yet
 
-			// TODO The home page of the web site might not be the same as the root of the hostname
+			// TODO The home page of the web site might not be the same as the
+			// root of the hostname
 			context.getResponse().sendRedirect("/");
 		} catch (RequestMethodException rme) {
 			if (page != null) {
@@ -973,7 +976,7 @@ public class QlueApplication {
 		String[] values = context.getParameterValues(f.getName());
 		if ((values == null) || (values.length == 0)) {
 			// Parameter not in input; create an empty array
-			// and set it on the command object.			
+			// and set it on the command object.
 			f.set(commandObject,
 					Array.newInstance(f.getType().getComponentType(), 0));
 			return;
@@ -1361,7 +1364,7 @@ public class QlueApplication {
 	 * @return new session object
 	 */
 	protected QlueSession createNewSessionObject() {
-		return new QlueSession(this);
+		return new QlueSession();
 	}
 
 	/**
@@ -1734,9 +1737,15 @@ public class QlueApplication {
 	 * @return
 	 */
 	public MessageSource getMessageSource(Locale locale) {
-		return new MessageSource(
-				(PropertyResourceBundle) ResourceBundle.getBundle(
-						messagesFilename, locale), locale);
+		MessageSource source = messageSources.get(locale);
+		if (source == null) {
+			source = new MessageSource(
+					(PropertyResourceBundle) ResourceBundle.getBundle(
+							messagesFilename, locale), locale);
+			messageSources.put(locale, source);
+		}
+
+		return source;
 	}
 
 	/**

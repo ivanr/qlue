@@ -30,26 +30,19 @@ import org.apache.commons.codec.binary.Hex;
  * it to add additional functionality.
  */
 public class QlueSession implements Serializable {
-	
-	private static final long serialVersionUID = 1L;
-
-	private QlueApplication qlueApp;
+		
+	private static final long serialVersionUID = -6165030155311291224L;
 
 	private Locale locale = Locale.ENGLISH;
-
-	private MessageSource messageSource;
 
 	private String nonce;
 
 	private Integer developmentMode = null;
 
 	/**
-	 * Initialize a new user session.
+	 * Initialise a new user session.
 	 */
-	public QlueSession(QlueApplication qlueApp) {
-		this.qlueApp = qlueApp;
-
-		// Generate session nonce
+	public QlueSession() {			
 		generateNonce();
 	}
 
@@ -61,8 +54,7 @@ public class QlueSession implements Serializable {
 	}
 
 	/**
-	 * Generate a new nonce for this session. Nonces
-	 * are used as part of the CSRF defense.
+	 * Generate a new nonce for this session. Nonces are used as part of the CSRF defense.
 	 */
 	private void generateNonce() {
 		Random random = new SecureRandom();
@@ -75,8 +67,6 @@ public class QlueSession implements Serializable {
 
 	/**
 	 * Retrieve session development mode.
-	 * 
-	 * @return
 	 */
 	public Integer getDevelopmentMode() {
 		return developmentMode;
@@ -103,18 +93,8 @@ public class QlueSession implements Serializable {
 		out.println(" Nonce: " + nonce);
 		out.println(" Development mode: " + developmentMode);
 	}
-
-	/**
-	 * Retrieve this session's message source. Using per-session message sources
-	 * allows us to offer different languages and locales to each user.
-	 * 
-	 * @return
-	 */
-	public MessageSource getMessageSource() {
-		if (messageSource == null) {
-			messageSource = qlueApp.getMessageSource(locale);
-		}
-
-		return messageSource;
+	
+	public Locale getLocale() {
+		return locale;
 	}
 }

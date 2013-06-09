@@ -85,8 +85,11 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 		model.put("_ctx", context);
 		model.put("_sess", page.getQlueApp().getQlueSession(context.request));
-		model.put("_m", page.getQlueApp().getQlueSession(context.request)
-				.getMessageSource());
+		model.put(
+				"_m",
+				page.getQlueApp().getMessageSource(
+						page.getQlueApp().getQlueSession(context.request)
+								.getLocale()));
 		model.put("_req", context.request);
 		model.put("_res", context.response);
 		model.put("_cmd", page.getCommandObject());
@@ -201,7 +204,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		return new VelocityView(this, velocityEngine.getTemplate(viewFile
 				.getAbsolutePath()));
 	}
-	
+
 	public void setAutoEscaping(boolean b) {
 		useAutoEscaping = b;
 	}
