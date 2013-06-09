@@ -97,7 +97,7 @@ public class TransactionContext {
 		synchronized (session) {
 			qluePageManager = (QluePageManager) session
 					.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
-			// Not page manager? Then create a new one...
+			// No page manager? Then create a new one...
 			if (qluePageManager == null) {
 				qluePageManager = new QluePageManager();
 				session.setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER,
