@@ -19,8 +19,11 @@ package com.webkreator.qlue;
 import java.io.IOException;
 import java.net.SocketException;
 
+import javax.servlet.ServletContextEvent;
+import javax.servlet.ServletContextListener;
 import javax.servlet.ServletException;
 import javax.servlet.UnavailableException;
+import javax.servlet.annotation.WebListener;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -30,7 +33,8 @@ import javax.servlet.http.HttpServletResponse;
  * specification. It's an abstract class; a subclass should be used to create
  * the desired instance of the Qlue application.
  */
-public abstract class QlueServlet extends HttpServlet {
+@WebListener
+public abstract class QlueServlet extends HttpServlet implements ServletContextListener {
 
 	private static final long serialVersionUID = 1L;
 
@@ -114,4 +118,14 @@ public abstract class QlueServlet extends HttpServlet {
 
 		qlueApplication.destroy();
 	}
+	
+    @Override
+    public void contextInitialized(ServletContextEvent arg0) {
+        // Do nothing.        
+    }
+
+    @Override
+    public void contextDestroyed(ServletContextEvent sce) {
+    	// Do nothing.
+    }
 }
