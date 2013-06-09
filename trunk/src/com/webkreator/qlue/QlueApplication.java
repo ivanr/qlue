@@ -530,8 +530,7 @@ public class QlueApplication {
 
 			// No need to roll-back page, as page has not been located yet
 
-			// TODO The home page of the web site might not be the same as the
-			// root of the hostname
+			// TODO The home page of the web site might not be the same as the root of the hostname
 			context.getResponse().sendRedirect("/");
 		} catch (RequestMethodException rme) {
 			if (page != null) {
@@ -973,20 +972,10 @@ public class QlueApplication {
 
 		String[] values = context.getParameterValues(f.getName());
 		if ((values == null) || (values.length == 0)) {
-			// Parameter not in input
-
-			// If there is any data in the command object
-			// use it to populate shadow input
-			if (f.get(commandObject) != null) {
-				Object[] originalValues = (Object[]) f.get(commandObject);
-				String[] textValues = new String[originalValues.length];
-				for (int i = 0; i < originalValues.length; i++) {
-					textValues[i] = pe.toText(originalValues[i]);
-				}
-
-				shadowInput.set(f.getName(), textValues);
-			}
-
+			// Parameter not in input; create an empty array
+			// and set it on the command object.			
+			f.set(commandObject,
+					Array.newInstance(f.getType().getComponentType(), 0));
 			return;
 		}
 
