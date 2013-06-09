@@ -17,6 +17,7 @@
 package com.webkreator.qlue;
 
 import java.io.PrintWriter;
+import java.io.Serializable;
 import java.security.SecureRandom;
 import java.util.Locale;
 import java.util.Random;
@@ -28,7 +29,9 @@ import org.apache.commons.codec.binary.Hex;
  * needed by the framework, but applications will typically inherit
  * it to add additional functionality.
  */
-public class QlueSession {
+public class QlueSession implements Serializable {
+	
+	private static final long serialVersionUID = 1L;
 
 	private QlueApplication qlueApp;
 
