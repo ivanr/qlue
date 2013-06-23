@@ -48,7 +48,7 @@ public class DownloadUtil {
 	 */
 	public static void sendFile(TransactionContext context, File f)
 			throws Exception {
-		sendFile(context, f, null /*contentType*/, null /*name*/, false /*isAttachment*/);
+		sendFile(context, f, null /* contentType */, null /* name */, false /* isAttachment */);
 	}
 
 	/**
@@ -139,14 +139,14 @@ public class DownloadUtil {
 				return;
 			}
 
-			// Set size			
+			// Set size
 			if (length > Integer.MAX_VALUE) {
 				throw new RuntimeException("File longer than Integer.MAX_VALUE");
-				
+
 			}
-			
+
 			context.response.setContentLength((int) length);
-			
+
 			context.response.setDateHeader("Last-Modified", lastModified);
 			context.response.setHeader("ETag", eTag);
 
@@ -158,7 +158,7 @@ public class DownloadUtil {
 			while (bis.read(b) > 0) {
 				os.write(b);
 			}
-		} catch (FileNotFoundException e) {			
+		} catch (FileNotFoundException e) {
 			throw new PageNotFoundException();
 		} finally {
 			if (os != null) {
@@ -177,8 +177,7 @@ public class DownloadUtil {
 		try {
 			md = MessageDigest.getInstance("SHA-1");
 		} catch (NoSuchAlgorithmException e) {
-			// Ignore (but log, in case we do get something)
-			e.printStackTrace();
+			throw new RuntimeException(e);
 		}
 
 		return Base64.encodeBase64URLSafeString(md.digest(input.getBytes()));
