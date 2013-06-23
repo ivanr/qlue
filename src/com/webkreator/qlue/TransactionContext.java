@@ -164,7 +164,7 @@ public class TransactionContext {
 					effectiveForwardedFor = "";
 				}
 
-				// TODO Remove or modigy the original X-Forwarded-For request
+				// TODO Remove or modify the original X-Forwarded-For request
 				// header. Add X-Qlue-Forwarded-For to keep the original value.
 			}
 		}
