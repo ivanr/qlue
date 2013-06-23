@@ -137,6 +137,7 @@ public class TransactionContext {
 				} catch (UnknownHostException e) {
 					// TODO Log
 					// e.printStackTrace();
+					return;
 				}
 
 				// If there's more than one IP address provided, combine them
@@ -145,11 +146,13 @@ public class TransactionContext {
 				if (sx.length > 1) {
 					StringBuffer sb = new StringBuffer();
 					for (int i = 0; i < sx.length - 1; i++) {
-						if (i != 0) {
-							sb.append(", ");
-						}
+						if (TextUtil.isEmpty(sx[i]) == false) {
+							if (i != 0) {
+								sb.append(", ");
+							}
 
-						sb.append(sx[i]);
+							sb.append(sx[i]);
+						}
 					}
 
 					effectiveForwardedFor = sb.toString();
@@ -160,6 +163,9 @@ public class TransactionContext {
 					// the correct value (and not the actual header).
 					effectiveForwardedFor = "";
 				}
+
+				// TODO Remove or modigy the original X-Forwarded-For request
+				// header. Add X-Qlue-Forwarded-For to keep the original value.
 			}
 		}
 	}
