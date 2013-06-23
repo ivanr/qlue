@@ -137,6 +137,7 @@ public class TransactionContext {
 	 * 
 	 * @throws Exception
 	 */
+	@SuppressWarnings("unchecked")
 	void processMultipart() throws Exception {
 		isMultipart = ServletFileUpload.isMultipartContent(request);
 				
@@ -147,7 +148,7 @@ public class TransactionContext {
 			ServletFileUpload upload = new ServletFileUpload(factory);
 
 			// Parse the request
-			multipartItems = upload.parseRequest(request);
+			multipartItems = (List<FileItem>) upload.parseRequest(request);
 		}
 	}
 
