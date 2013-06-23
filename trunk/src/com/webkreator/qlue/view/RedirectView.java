@@ -66,6 +66,8 @@ public class RedirectView implements View {
 			throw new InvalidParameterException(
 					"RedirectView: Cannot redirect to null page");
 		}
+		
+		this.page = page;
 
 		redirection = new UriBuilder(page.getContext().getRequestUri());
 
