@@ -17,6 +17,8 @@
 package com.webkreator.qlue;
 
 import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -74,6 +76,8 @@ public class TransactionContext {
 
 	private String effectiveRemoteAddr;
 
+	private String effectiveForwardedFor;
+
 	/**
 	 * Initialise context instance.
 	 * 
@@ -109,19 +113,93 @@ public class TransactionContext {
 
 		txId = app.allocatePageId();
 
+		handleForwardedFor();
+	}
+
+	private void handleForwardedFor() {
 		// Determine the effective remote address if the
-		// request has been received from a trusted proxy
+		// request has been received from a trusted proxy.
 		if (app.isTrustedProxyRequest(this)) {
 			String combinedAddresses = request.getHeader("X-Forwarded-For");
 			if (TextUtil.isEmpty(combinedAddresses) == false) {
-				String[] sx = combinedAddresses.split("[;,\\x20]");
-				// Use the last IP address provided as effective IP address
-				for (String s : sx) {
-					// TODO Validate IP address
-					effectiveRemoteAddr = s;
+				String[] sx = combinedAddresses.split("[,\\x20]");
+				if (sx.length == 0) {
+					// This will probably never happen, but still.
+					return;
+				}
+
+				// Extract the last IP address.
+				try {
+					// Use round-trip conversion to validate the provided
+					// string.
+					effectiveRemoteAddr = InetAddress.getByName(
+							sx[sx.length - 1]).getHostAddress();
+				} catch (UnknownHostException e) {
+					// TODO Log
+					// e.printStackTrace();
+				}
+
+				// If there's more than one IP address provided, combine them
+				// in order to produce the effective X-Forwarded-For header
+				// value.
+				if (sx.length > 1) {
+					StringBuffer sb = new StringBuffer();
+					for (int i = 0; i < sx.length - 1; i++) {
+						if (i != 0) {
+							sb.append(", ");
+						}
+
+						sb.append(sx[i]);
+					}
+
+					effectiveForwardedFor = sb.toString();
+				} else {
+					// When there's only one IP address that means that the
+					// effective X-Forwarded-For is now null. We're using an
+					// empty string to indicate this, so that we know to return
+					// the correct value (and not the actual header).
+					effectiveForwardedFor = "";
 				}
 			}
 		}
+	}
+
+	public String getLastForwardedFor() {
+		return getLastForwardedFor(getEffectiveForwardedFor());
+	}
+
+	public String getLastForwardedFor(String input) {
+		if (input == null) {
+			return null;
+		}
+
+		String[] sx = input.split("[,\\x20]");
+		if (sx.length < 1) {
+			return null;
+		}
+
+		// Extract the last IP address.
+		try {
+			// Use round-trip conversion to validate the provided
+			// string.
+			return InetAddress.getByName(sx[sx.length - 1]).getHostAddress();
+		} catch (UnknownHostException e) {
+			// TODO Log
+			// e.printStackTrace();
+			return null;
+		}
+	}
+
+	public String getEffectiveForwardedFor() {
+		if (effectiveForwardedFor != null) {
+			if (TextUtil.isEmpty(effectiveForwardedFor)) {
+				return null;
+			}
+
+			return effectiveForwardedFor;
+		}
+
+		return request.getHeader("X-Forwarded-For");
 	}
 
 	public String getEffectiveRemoteAddr() {
@@ -140,7 +218,7 @@ public class TransactionContext {
 	@SuppressWarnings("unchecked")
 	void processMultipart() throws Exception {
 		isMultipart = ServletFileUpload.isMultipartContent(request);
-				
+
 		if (isMultipart) {
 			FileItemFactory factory = new DiskFileItemFactory();
 
