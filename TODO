@@ -2,19 +2,17 @@
 To Do
 ----- 
  
-- Finally (before release candidate): 
-  
-  - Review code
+- Detect multiple conflicting _pid parameters.
    
 
 Improvements
 ------------
 
-- Keep a copy of all admin emails
+- Keep a copy of all admin emails somewhere.
 
-- Add AsyncEmailSender backed by filesystem
+- Add AsyncEmailSender backed by filesystem or database.
 
-- When behind a trusted proxy, record the supplied unique ID (which is transported in a header)
+- When behind a trusted proxy, record the supplied unique ID (which is transported in a header).
 
 - Session handling:
 
