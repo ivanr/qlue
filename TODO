@@ -3,12 +3,20 @@ To Do
 ----- 
  
 - Detect multiple conflicting _pid parameters.
+
+- Register custom Velocity directives:
+
+  - http://wiki.apache.org/velocity/CheckingForNull
+  	- #ifnull
+  	- #ifnotnull
    
 
 Improvements
 ------------
 
-- Keep a copy of all admin emails somewhere.
+- Debugging output: use reflection to print out object contents where it makes sense.
+
+- Keep a copy of all admin emails somewhere (on the filesystem).
 
 - Add AsyncEmailSender backed by filesystem or database.
 
@@ -28,7 +36,8 @@ Improvements
   - Perhaps feel free to collect sessions that do not have any active processes
 
 - Routing: Add support for string interpolation on the right-hand side. Use case:
-  redirect to a different URL, using some of the regex captures.
+  redirect to a different URL, using some of the regex captures. Be careful about
+  URL re-encoding issues.
 
 - Routing: Add support for programmatic route manipulation
 
@@ -38,12 +47,14 @@ Improvements
 - Routing: Process .vm files directly when page class not available
 
   - Would that be surprising the users? What if we expose some internal templates that way?
+    Perhaps require a special naming approach?
   
-- Routing: control resource caching from the routing configuration
+- Routing: control resource caching from the routing configuration.
 
-- Binding: Implement binding for JSON payloads
+- Binding: Implement binding for JSON payloads.
 
-- Binding: Before JSON binding, validate payloads using JSON Schema. Candidate validator: https://github.com/fge/json-schema-validator
+- Binding: Before JSON binding, validate payloads using JSON Schema.
+  Candidate validator: https://github.com/fge/json-schema-validator
 
 - Binding: Add support for validation of fixed-value fields (e.g.,
   drop-down boxes). Provide list to Qlue.
