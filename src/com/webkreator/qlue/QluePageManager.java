@@ -128,8 +128,13 @@ public class QluePageManager {
 	 */
 	public void replacePage(Page page, FinalRedirectView view) {
 		PersistentPageRecord record = pages.get(page.getId());
-		record.page = null;
-		record.replacementUri = view.getUri();
+
+		record.page = view.getPage();
+
+		// Configure the replacement URI only when not redirecting to a page.
+		if (view.getPage() == null) {
+			record.replacementUri = view.getUri();
+		}
 	}
 
 	/**
