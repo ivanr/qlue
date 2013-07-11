@@ -417,18 +417,14 @@ public class QlueApplication {
 
 					// OK, got the page
 					page = pageRecord.page;
-
+										
 					// If the requested persistent page no longer exists,
 					// redirect the user to where he is supposed to go
-					if ((page == null) && (pageRecord.replacementUri != null)) {
-						// But not if we're already there
-						if (context.getRequestUriWithQueryString().compareTo(
-								pageRecord.replacementUri) != 0) {
-							context.getResponse().sendRedirect(
-									pageRecord.replacementUri);
-							return;
-						}
-					}
+					if (page == null) {						
+						context.getResponse().sendRedirect(
+								pageRecord.replacementUri);
+						return;
+					}									
 				}
 			}
 
@@ -698,7 +694,7 @@ public class QlueApplication {
 		} else if (view instanceof FinalRedirectView) {
 			page.setState(Page.STATE_FINISHED);
 
-			if (((RedirectView) view).getPage() != null) {
+			if (((RedirectView) view).getPage() == null) {
 				page.context.replacePage(page, (FinalRedirectView) view);
 			}
 		}
