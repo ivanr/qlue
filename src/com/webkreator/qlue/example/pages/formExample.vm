@@ -21,7 +21,7 @@ Done.
 #end
 
 <form action="/formExample.html" method="POST">
-<input type="hidden" name="_nonce" value="$_nonce">
+<input type="hidden" name="_secret" value="$_secret">
 #if ($_page.id)
 <input type="hidden" name="_pid" value="$_page.id">
 #end

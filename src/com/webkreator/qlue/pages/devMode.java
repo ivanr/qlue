@@ -87,7 +87,8 @@ public class devMode extends Page {
 		if (errors.hasErrors()) {
 			List<Error> errorL = errors.getAllErrors();
 			for (Error e : errorL) {
-				out.println("Error: " + HtmlEncoder.encodeForHTML(e.getMessage()));
+				out.println("Error: "
+						+ HtmlEncoder.encodeForHTML(e.getMessage()));
 			}
 		}
 
@@ -101,9 +102,9 @@ public class devMode extends Page {
 						+ ">");
 			}
 
-			out.println("<input type=hidden name=_nonce value="
-					+ HtmlEncoder.encodeForHTML(getQlueSession().getNonce())
-					+ ">");
+			out.println("<input type=hidden name=_secret value="
+					+ HtmlEncoder.encodeForHTML(getQlueSession()
+							.getSessionSecret().getMaskedToken()) + ">");
 
 			if (((sessionStatus == null) && (appStatus == QlueConstants.DEVMODE_ENABLED))
 					|| (getQlueSession().getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED)) {
@@ -145,7 +146,7 @@ public class devMode extends Page {
 				|| (getQlueSession().getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED)) {
 			// Disable session development mode
 			getQlueSession().setDevelopmentMode(QlueConstants.DEVMODE_DISABLED);
-			
+
 			return new FinalRedirectView("/_qlue/devMode.html");
 		} else {
 			if (this.getErrors().hasErrors() == false) {

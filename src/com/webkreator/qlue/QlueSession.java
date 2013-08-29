@@ -18,52 +18,24 @@ package com.webkreator.qlue;
 
 import java.io.PrintWriter;
 import java.io.Serializable;
-import java.security.SecureRandom;
 import java.util.Locale;
-import java.util.Random;
 
-import org.apache.commons.codec.binary.Hex;
+import com.webkreator.qlue.util.BearerToken;
 
 /**
- * Represents a user session. This class implements the basics
- * needed by the framework, but applications will typically inherit
- * it to add additional functionality.
+ * Represents a user session. This class implements the basics needed by the
+ * framework, but applications will typically inherit it to add additional
+ * functionality.
  */
 public class QlueSession implements Serializable {
-		
+
 	private static final long serialVersionUID = -6165030155311291224L;
 
 	private Locale locale = Locale.ENGLISH;
 
-	private String nonce;
+	private BearerToken sessionSecret = new BearerToken();
 
 	private Integer developmentMode = null;
-
-	/**
-	 * Initialise a new user session.
-	 */
-	public QlueSession() {			
-		generateNonce();
-	}
-
-	/**
-	 * Get the nonce for this session.
-	 */
-	public String getNonce() {
-		return nonce;
-	}
-
-	/**
-	 * Generate a new nonce for this session. Nonces are used as part of the CSRF defense.
-	 */
-	private void generateNonce() {
-		Random random = new SecureRandom();
-
-		byte[] randomBytes = new byte[16];
-		random.nextBytes(randomBytes);
-
-		nonce = new String(Hex.encodeHex(randomBytes));
-	}
 
 	/**
 	 * Retrieve session development mode.
@@ -90,11 +62,16 @@ public class QlueSession implements Serializable {
 	}
 
 	public void writeDevelopmentInformation(PrintWriter out) {
-		out.println(" Nonce: " + nonce);
+		out.println(" Session secret (not masked): "
+				+ sessionSecret.getUnmaskedToken());
 		out.println(" Development mode: " + developmentMode);
 	}
-	
+
 	public Locale getLocale() {
 		return locale;
+	}
+	
+	public BearerToken getSessionSecret() {
+		return sessionSecret;
 	}
 }

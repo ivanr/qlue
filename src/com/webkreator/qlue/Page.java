@@ -27,6 +27,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.util.BearerToken;
 import com.webkreator.qlue.view.View;
 import com.webkreator.qlue.view.ViewResolver;
 
@@ -334,25 +335,27 @@ public abstract class Page {
 	 */
 	public View preService() throws Exception {
 		// Retrieve session nonce
-		String nonce = getQlueSession().getNonce();
+		BearerToken sessionSecret = getQlueSession().getSessionSecret();
 
 		// Verify nonce on every POST
 		if (context.isPost()
 				&& getClass().isAnnotationPresent(QluePersistentPage.class)) {
-			String suppliedNonce = context.getParameter("_nonce");
-			if (suppliedNonce == null) {
-				throw new RuntimeException("Nonce missing.");
+			String suppliedSecret = context.getParameter("_secret");
+			if (suppliedSecret == null) {
+				throw new RuntimeException("Secret missing.");
 			}
 
-			if (suppliedNonce.compareTo(nonce) != 0) {
-				throw new RuntimeException("Nonce mismatch. Expected " + nonce
-						+ " but got " + suppliedNonce);
+			if (sessionSecret.checkMaskedToken(suppliedSecret) == false) {
+				throw new RuntimeException("Nonce mismatch. Expected "
+						+ sessionSecret.getUnmaskedToken() + " but got "
+						+ BearerToken.unmaskTokenAsString(suppliedSecret)
+						+ " (masked " + suppliedSecret + ")");
 			}
 		}
 
 		// Add nonce to the model so that it
 		// can be used from the templates
-		model.put("_nonce", nonce);
+		model.put("_secret", sessionSecret.getMaskedToken());
 
 		return null;
 	}
