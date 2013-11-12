@@ -1,5 +1,6 @@
 package com.webkreator.qlue.util;
 
+import java.io.Serializable;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Random;
@@ -7,7 +8,9 @@ import java.util.Random;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
-public class BearerToken {
+public class BearerToken implements Serializable {
+
+	private static final long serialVersionUID = 1L;
 
 	private static final int TOKEN_LENGTH = 16;
 
