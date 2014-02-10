@@ -512,14 +512,14 @@ public class QlueApplication {
 				// In development mode, append debugging
 				// information to the end of the page
 				masterWriteRequestDevelopmentInformation(context, page);
-			}
-
-			// Execute page commit. This is what it sounds like,
-			// an opportunity to use a simple approach to transaction
-			// management for simple applications.
-			if (page != null) {
-				page.commit();
-			}
+				
+				// Execute page commit. This is what it sounds like,
+				// an opportunity to use a simple approach to transaction
+				// management for simple applications.
+				if (page != null) {
+					page.commit();
+				}
+			}		
 		} catch (PersistentPageNotFoundException ppnfe) {
 			// When we encounter an unknown process reference, we
 			// redirect back to the site home page. Showing errors
