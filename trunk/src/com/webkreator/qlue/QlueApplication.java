@@ -543,7 +543,10 @@ public class QlueApplication {
 
 			// Convert PageNotFoundException into a 404 response
 			context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
-		} catch (Throwable t) {
+		} catch (ValidationException ve) {
+			// Respond to validation errors with a 400 response
+			context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
+		} catch (Throwable t) {		
 			if (page != null) {
 				page.rollback();
 
