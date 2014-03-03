@@ -68,6 +68,7 @@ import com.webkreator.qlue.util.PropertyEditor;
 import com.webkreator.qlue.util.SmtpEmailSender;
 import com.webkreator.qlue.util.StringEditor;
 import com.webkreator.qlue.util.TextUtil;
+import com.webkreator.qlue.util.VariableExpander;
 import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.FileVelocityViewFactory;
 import com.webkreator.qlue.view.FinalRedirectView;
@@ -217,29 +218,25 @@ public class QlueApplication {
 		properties.setProperty("webRoot", servlet.getServletContext()
 				.getRealPath("/"));
 
-		if (properties.getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
-			setCharacterEncoding(properties
-					.getProperty(PROPERTY_CHARACTER_ENCODING));
+		if (getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
+			setCharacterEncoding(getProperty(PROPERTY_CHARACTER_ENCODING));
 		}
 
-		if (properties.getProperty(PROPERTY_DEVMODE_ENABLED) != null) {
-			setApplicationDevelopmentMode(properties
-					.getProperty(PROPERTY_DEVMODE_ENABLED));
+		if (getProperty(PROPERTY_DEVMODE_ENABLED) != null) {
+			setApplicationDevelopmentMode(getProperty(PROPERTY_DEVMODE_ENABLED));
 		}
 
-		if (properties.getProperty(PROPERTY_DEVMODE_RANGES) != null) {
-			setDevelopmentSubnets(properties
-					.getProperty(PROPERTY_DEVMODE_RANGES));
+		if (getProperty(PROPERTY_DEVMODE_RANGES) != null) {
+			setDevelopmentSubnets(getProperty(PROPERTY_DEVMODE_RANGES));
 		}
 
-		if (properties.getProperty(PROPERTY_TRUSTED_PROXIES) != null) {
-			setTrustedProxies(properties.getProperty(PROPERTY_TRUSTED_PROXIES));
+		if (getProperty(PROPERTY_TRUSTED_PROXIES) != null) {
+			setTrustedProxies(getProperty(PROPERTY_TRUSTED_PROXIES));
 		}
 
-		developmentModePassword = properties
-				.getProperty(PROPERTY_DEVMODE_PASSWORD);
+		developmentModePassword = getProperty(PROPERTY_DEVMODE_PASSWORD);
 
-		adminEmail = properties.getProperty(PROPERTY_ADMIN_EMAIL);
+		adminEmail = getProperty(PROPERTY_ADMIN_EMAIL);
 
 		// Configure SMTP email sender
 		smtpEmailSender = new SmtpEmailSender();
@@ -1665,7 +1662,7 @@ public class QlueApplication {
 	 * @return
 	 */
 	public String getProperty(String key) {
-		return properties.getProperty(key);
+		return VariableExpander.expand(properties.getProperty(key), properties);
 	}
 
 	/**
@@ -1677,7 +1674,7 @@ public class QlueApplication {
 	 * @return
 	 */
 	public String getProperty(String key, String defaultValue) {
-		String value = properties.getProperty(key);
+		String value = getProperty(key);
 		if (value != null) {
 			return value;
 		} else {
@@ -1692,7 +1689,7 @@ public class QlueApplication {
 	 * @return
 	 */
 	public Integer getIntProperty(String key) {
-		String value = properties.getProperty(key);
+		String value = getProperty(key);
 		if (value == null) {
 			return null;
 		}
@@ -1709,7 +1706,7 @@ public class QlueApplication {
 	 * @return
 	 */
 	public Integer getIntProperty(String key, int defaultValue) {
-		String value = properties.getProperty(key);
+		String value = getProperty(key);
 		if (value == null) {
 			return defaultValue;
 		}
