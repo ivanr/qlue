@@ -21,14 +21,13 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.util.VariableExpander;
 
 /**
  * Implements the default routing functionality, which accepts
@@ -41,9 +40,7 @@ public class QlueRouteManager implements RouteManager {
 	
 	private QlueApplication app;
 
-	private List<Route> routes = new ArrayList<Route>();
-	
-	private Pattern propertyPattern = Pattern.compile("([^$]*)\\$\\{([^}]*)\\}(.+)?");
+	private List<Route> routes = new ArrayList<Route>();	
 	
 	private String suffix = ".html";
 	
@@ -130,33 +127,8 @@ public class QlueRouteManager implements RouteManager {
 	 * @param input
 	 * @return
 	 */
-	String expandProperties(String input) {		
-		StringBuffer sb = new StringBuffer();
-		String haystack = input;
-		Matcher m = propertyPattern.matcher(haystack);
-		while ((m != null) && (m.find())) {					
-			sb.append(m.group(1));					
-			
-			String propertyName = m.group(2);					
-			
-			if (app.getProperty(propertyName) != null) {
-				sb.append(app.getProperty(propertyName));
-			}
-			
-			haystack = m.group(3);					
-			
-			if (haystack != null) {
-				m = propertyPattern.matcher(haystack);
-			} else {
-				m = null;
-			}
-		}
-		
-		if (haystack != null) {
-			sb.append(haystack);
-		}
-		
-		return sb.toString();
+	String expandProperties(String input) {
+		return VariableExpander.expand(input, app.getProperties());		
 	}	
 	
 	@Override
