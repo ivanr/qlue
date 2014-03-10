@@ -39,20 +39,24 @@ public class handleThrowable extends Page {
 
 	@Override
 	public View service() throws Exception {
-		Throwable t = (Throwable) context.request
-				.getAttribute("javax.servlet.error.exception");
-		if (t == null) {
+		Integer statusCode = (Integer) context.request
+				.getAttribute("javax.servlet.error.status_code");
+		if (statusCode == null) {
 			throw new Exception("handleThrowable: direct access not allowed");
 		}
 
-		if (t instanceof ValidationException) {
-			return _handleValidationException((ValidationException) t);
-		} else if (t instanceof PersistentPageNotFoundException) {
-			return _handlePersistentPageNotFoundException((PersistentPageNotFoundException) t);
-		} else if (t instanceof ParseErrorException) {
-			return _handleVelocityParseError((ParseErrorException) t);
-		} else if (t instanceof AccessForbiddenException) {
-			return _handleAccessForbiddenException((AccessForbiddenException) t);
+		Throwable t = (Throwable) context.request
+				.getAttribute("javax.servlet.error.exception");
+		if (t != null) {
+			if (t instanceof ValidationException) {
+				return _handleValidationException((ValidationException) t);
+			} else if (t instanceof PersistentPageNotFoundException) {
+				return _handlePersistentPageNotFoundException((PersistentPageNotFoundException) t);
+			} else if (t instanceof ParseErrorException) {
+				return _handleVelocityParseError((ParseErrorException) t);
+			} else if (t instanceof AccessForbiddenException) {
+				return _handleAccessForbiddenException((AccessForbiddenException) t);
+			}
 		}
 
 		return _handleThrowable(t);
@@ -135,7 +139,7 @@ public class handleThrowable extends Page {
 		out.println("<head><title>Internal Server Error</title></head>");
 		out.println("<body><h1>Internal Server Error</h1>");
 
-		if (isDevelopmentMode()) {
+		if ((t != null)&&(isDevelopmentMode())) {
 			StringWriter sw = new StringWriter();
 			t.printStackTrace(new PrintWriter(sw));
 			out.println("<pre>");
