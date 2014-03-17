@@ -17,7 +17,6 @@
 package com.webkreator.qlue.view;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.Writer;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -126,12 +125,12 @@ public abstract class VelocityViewFactory implements ViewFactory {
 			}
 
 			template.merge(velocityContext, qlueWriter);
-		} catch (IOException ioe) {
-			String message = ioe.getMessage();
+		} catch (Exception e) {
+			String message = e.getMessage();
 			if ((message != null) && (message.startsWith(Canoe.ERROR_PREFIX))) {
 				writer.append("[Encoding Error]");
 			} else {
-				throw ioe;
+				throw e;
 			}
 		} finally {
 			writer.flush();
