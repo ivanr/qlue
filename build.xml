@@ -51,7 +51,11 @@
 		
 		<mkdir dir="${classesDir}/com/webkreator/qlue/util" />
 		<copy todir="${classesDir}/com/webkreator/qlue/util">
-			<fileset file="${srcDir}/com/webkreator/qlue/util/mime.types" />
+			<fileset file="${srcDir}/com/webkreator/qlue/util/mime.types" />		
+		</copy>
+		
+		<copy todir="${classesDir}/com/webkreator/qlue">		
+				<fileset file="${srcDir}/com/webkreator/qlue/messages.properties" />
 		</copy>
 
 		<!-- Compile -->
@@ -65,7 +69,7 @@
 					<include name="*.jar" />
 				</fileset>				
 			</classpath>
-		</javac>
+		</javac>			
 
 		<jar jarfile="${outputDir}/${jarSrcName}" basedir="${srcDir}" includes="*.java" compress="true">
 			<fileset dir="${srcDir}" />
