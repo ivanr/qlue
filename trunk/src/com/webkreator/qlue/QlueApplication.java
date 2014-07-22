@@ -270,6 +270,7 @@ public class QlueApplication {
 	private void scheduleApplicationJobs() {
 		// Create scheduler
 		scheduler = new Scheduler();
+		scheduler.setDaemon(true);
 		scheduler.start();
 
 		// Enumerate all application methods and look
