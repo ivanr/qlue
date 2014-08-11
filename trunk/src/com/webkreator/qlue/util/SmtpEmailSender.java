@@ -63,7 +63,7 @@ public class SmtpEmailSender implements EmailSender {
 	}
 
 	@Override
-	public void send(Email email) throws Exception {
+	public String send(Email email) throws Exception {
 		email.setHostName(smtpServer);
 		email.setSmtpPort(smtpPort);
 		if ((smtpProtocol != null) && (smtpProtocol.compareTo("TLS") == 0)) {
@@ -74,6 +74,6 @@ public class SmtpEmailSender implements EmailSender {
 			email.setAuthentication(smtpUsername, smtpPassword);
 		}
 
-		email.send();
+		return email.send();
 	}
 }
