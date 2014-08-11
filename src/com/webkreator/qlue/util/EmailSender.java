@@ -4,5 +4,5 @@ import org.apache.commons.mail.Email;
 
 public interface EmailSender {
 
-    public void send(Email email) throws Exception;
+    public String send(Email email) throws Exception;
 }
