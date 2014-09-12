@@ -88,10 +88,16 @@ public class PackageRouter implements Router {
 
 			lastToken = st.nextToken();
 			
-			// We don'tserve a path segments whose
+			// We don't serve path segments whose
 			// names begin with $. Such packages are 
 			// considered to be private.
 			if ((lastToken.length() > 0)&&(lastToken.charAt(0) == '$')) {
+				return null;
+			}
+			
+			// We also don't allow path segments with periods, because
+			// they might interfere with class construction.
+			if (lastToken.indexOf('.') != -1) {
 				return null;
 			}
 		}
