@@ -37,7 +37,7 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 	 */
 	@Override
 	public void init(QlueApplication qlueApp) throws Exception {
-		// Initialize properties
+		// Prepare the Velocity properties.
 		Properties properties = new Properties();
 		properties.setProperty("resource.loader", "file,string");
 		properties
@@ -50,8 +50,16 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 		properties.setProperty("input.encoding", inputEncoding);
 		properties.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS,
 				logChute);
+				
+		if (qlueApp.getProperty("qlue.velocity.cache") != null) {
+			properties.setProperty("file.resource.loader.cache", qlueApp.getProperty("qlue.velocity.cache"));
+		}
+		
+		if (qlueApp.getProperty("qlue.velocity.modificationCheckInterval") != null) {
+			properties.setProperty("file.resource.loader.modificationCheckInterval", qlueApp.getProperty("qlue.velocity.modificationCheckInterval"));
+		}
 
-		// Initialize engine
+		// Initialise the Velocity template engine.
 		velocityEngine = new VelocityEngine(properties);
 	}
 
