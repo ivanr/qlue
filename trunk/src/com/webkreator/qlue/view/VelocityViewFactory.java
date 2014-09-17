@@ -20,12 +20,14 @@ import java.io.File;
 import java.io.Writer;
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.app.event.EventCartridge;
+import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.StringResourceLoader;
 import org.apache.velocity.runtime.resource.util.StringResourceRepository;
 
@@ -33,6 +35,7 @@ import com.webkreator.canoe.Canoe;
 import com.webkreator.canoe.CanoeReferenceInsertionHandler;
 import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
 
 /**
@@ -52,6 +55,37 @@ public abstract class VelocityViewFactory implements ViewFactory {
 	protected String VELOCITY_STRING_RESOURCE_LOADER_KEY = "_QLUE_LOADER";
 
 	protected boolean useAutoEscaping = true;
+
+	protected String macroPath = "";
+
+	protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
+		Properties properties = new Properties();
+
+		properties.setProperty("input.encoding", inputEncoding);
+
+		properties.setProperty("resource.loader", "file,string");
+		properties.setProperty("string.resource.loader.repository.name",
+				VELOCITY_STRING_RESOURCE_LOADER_KEY);
+
+		properties.setProperty("velocimacro.library", macroPath);
+
+		properties.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS,
+				logChute);
+
+		if (qlueApp.getProperty("qlue.velocity.cache") != null) {
+			properties.setProperty("file.resource.loader.cache",
+					qlueApp.getProperty("qlue.velocity.cache"));
+		}
+
+		if (qlueApp.getProperty("qlue.velocity.modificationCheckInterval") != null) {		
+			properties
+					.setProperty(
+							"file.resource.loader.modificationCheckInterval",
+							qlueApp.getProperty("qlue.velocity.modificationCheckInterval"));
+		}
+
+		return properties;
+	}
 
 	/**
 	 * Generate output, given page and view.
@@ -206,5 +240,14 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 	public void setAutoEscaping(boolean b) {
 		useAutoEscaping = b;
+	}
+
+	/**
+	 * Configure folder path where Velocity macros are stored.
+	 * 
+	 * @param macroPath
+	 */
+	public void setMacroPath(String macroPath) {
+		this.macroPath = macroPath;
 	}
 }
