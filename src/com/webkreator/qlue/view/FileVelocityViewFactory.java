@@ -19,7 +19,6 @@ package com.webkreator.qlue.view;
 import java.util.Properties;
 
 import org.apache.velocity.app.VelocityEngine;
-import org.apache.velocity.runtime.RuntimeConstants;
 
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
@@ -37,29 +36,9 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 	 */
 	@Override
 	public void init(QlueApplication qlueApp) throws Exception {
-		// Prepare the Velocity properties.
-		Properties properties = new Properties();
-		properties.setProperty("resource.loader", "file,string");
-		properties
-				.setProperty("string.resource.loader.class",
-						"org.apache.velocity.runtime.resource.loader.StringResourceLoader");
-		properties.setProperty("string.resource.loader.repository.name",
-				VELOCITY_STRING_RESOURCE_LOADER_KEY);
+		Properties properties = buildDefaultVelocityProperties(qlueApp);				
 		properties.setProperty("file.resource.loader.path",
 				qlueApp.getApplicationRoot() + "/" + prefix);
-		properties.setProperty("input.encoding", inputEncoding);
-		properties.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS,
-				logChute);
-				
-		if (qlueApp.getProperty("qlue.velocity.cache") != null) {
-			properties.setProperty("file.resource.loader.cache", qlueApp.getProperty("qlue.velocity.cache"));
-		}
-		
-		if (qlueApp.getProperty("qlue.velocity.modificationCheckInterval") != null) {
-			properties.setProperty("file.resource.loader.modificationCheckInterval", qlueApp.getProperty("qlue.velocity.modificationCheckInterval"));
-		}
-
-		// Initialise the Velocity template engine.
 		velocityEngine = new VelocityEngine(properties);
 	}
 

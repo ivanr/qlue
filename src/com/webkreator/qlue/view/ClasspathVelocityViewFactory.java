@@ -21,7 +21,6 @@ import java.util.Properties;
 import java.util.StringTokenizer;
 
 import org.apache.velocity.app.VelocityEngine;
-import org.apache.velocity.runtime.RuntimeConstants;
 
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
@@ -32,30 +31,15 @@ import com.webkreator.qlue.QlueApplication;
  */
 public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 
-	protected String macroPath = "";
-
 	/**
 	 * Initialize factory.
 	 */
 	@Override
 	public void init(QlueApplication qlueApp) throws Exception {
-		// Initialize properties
-		Properties properties = new Properties();
-		properties.setProperty("input.encoding", inputEncoding);
-		properties.setProperty("resource.loader", "class,string");
+		Properties properties = buildDefaultVelocityProperties(qlueApp);		
 		properties
-				.setProperty("string.resource.loader.class",
-						"org.apache.velocity.runtime.resource.loader.StringResourceLoader");
-		properties.setProperty("string.resource.loader.repository.name",
-				VELOCITY_STRING_RESOURCE_LOADER_KEY);
-		properties
-				.setProperty("class.resource.loader.class",
+				.setProperty("file.resource.loader.class",
 						"org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
-		properties.setProperty("velocimacro.library", macroPath);
-		properties.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS,
-				logChute);
-
-		// Initialize engine
 		velocityEngine = new VelocityEngine(properties);
 	}
 
@@ -85,14 +69,5 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 		sb.append(suffix);
 
 		return new VelocityView(this, velocityEngine.getTemplate(sb.toString()));
-	}
-
-	/**
-	 * Configure folder path where Velocity macros are stored.
-	 * 
-	 * @param macroPath
-	 */
-	public void setMacroPath(String macroPath) {
-		this.macroPath = macroPath;
 	}
 }
