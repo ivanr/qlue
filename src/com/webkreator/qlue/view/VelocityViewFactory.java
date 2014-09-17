@@ -64,6 +64,9 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		properties.setProperty("input.encoding", inputEncoding);
 
 		properties.setProperty("resource.loader", "file,string");
+		properties
+				.setProperty("string.resource.loader.class",
+						"org.apache.velocity.runtime.resource.loader.StringResourceLoader");
 		properties.setProperty("string.resource.loader.repository.name",
 				VELOCITY_STRING_RESOURCE_LOADER_KEY);
 
@@ -77,7 +80,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 					qlueApp.getProperty("qlue.velocity.cache"));
 		}
 
-		if (qlueApp.getProperty("qlue.velocity.modificationCheckInterval") != null) {		
+		if (qlueApp.getProperty("qlue.velocity.modificationCheckInterval") != null) {
 			properties
 					.setProperty(
 							"file.resource.loader.modificationCheckInterval",
