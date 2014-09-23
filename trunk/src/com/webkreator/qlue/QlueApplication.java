@@ -228,6 +228,9 @@ public class QlueApplication {
 		}
 		
 		properties.load(new FileReader(propsFile));
+		
+		// Expose confPath in properties
+		properties.setProperty("confPath", confPath);
 
 		// Expose WEB-INF path in properties
 		properties.setProperty("webRoot", servlet.getServletContext()
