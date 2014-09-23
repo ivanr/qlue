@@ -91,6 +91,8 @@ public class QlueApplication {
 	public static final String ROUTES_FILENAME = "routes.conf";
 
 	public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
+	
+	public static final String PROPERTY_CONF_PATH = "qlue.confPath";
 
 	private static final String PROPERTY_CHARACTER_ENCODING = "qlue.characterEncoding";
 
@@ -170,8 +172,8 @@ public class QlueApplication {
 	}
 	
 	protected void determineConfigPath() {
-		// First, try a environment variable.
-		confPath = System.getenv("QLUE_CONF_PATH");
+		// First, try a system property.
+		confPath = System.getProperty(PROPERTY_CONF_PATH);
 		if (confPath != null) {
 			return;
 		}
