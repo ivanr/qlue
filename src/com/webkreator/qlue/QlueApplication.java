@@ -84,11 +84,11 @@ import com.webkreator.qlue.view.ViewResolver;
  * use it directly, but most will need to subclass in order to support complex
  * configuration (page resolver, view resolver, etc).
  */
-public class QlueApplication {
+public class QlueApplication {	
 
-	public static final String PROPERTIES_FILENAME = "/WEB-INF/qlue.properties";
+	public static final String PROPERTIES_FILENAME = "qlue.properties";
 
-	public static final String ROUTES_FILENAME = "/WEB-INF/routes.conf";
+	public static final String ROUTES_FILENAME = "routes.conf";
 
 	public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
 
@@ -142,6 +142,8 @@ public class QlueApplication {
 	private SmtpEmailSender smtpEmailSender;
 
 	private HashMap<Locale, MessageSource> messageSources = new HashMap<Locale, MessageSource>();
+	
+	private String confPath;
 
 	/**
 	 * This is the default constructor. The idea is that a subclass will
@@ -166,6 +168,17 @@ public class QlueApplication {
 		routeManager.add(RouteFactory.create(routeManager, "/{} package:"
 				+ pagesHome));
 	}
+	
+	protected void determineConfigPath() {
+		// First, try a environment variable.
+		confPath = System.getenv("QLUE_CONF_PATH");
+		if (confPath != null) {
+			return;
+		}
+			
+		// Assume the configuration is in the WEB-INF folder.
+		confPath = servlet.getServletContext().getRealPath("/WEB-INF/");
+	}
 
 	// -- Main entry points --
 
@@ -178,13 +191,13 @@ public class QlueApplication {
 	 */
 	public void init(HttpServlet servlet) throws Exception {
 		this.servlet = servlet;
-
-		// Load properties
+				
+		determineConfigPath();
+		
 		loadProperties();
 
 		// Load routes
-		File routesFile = new File(servlet.getServletContext().getRealPath(
-				ROUTES_FILENAME));
+		File routesFile = new File(confPath, ROUTES_FILENAME);
 		if (routesFile.exists()) {
 			routeManager.load(routesFile);
 		}
@@ -206,13 +219,13 @@ public class QlueApplication {
 		scheduleApplicationJobs();
 	}
 
-	void loadProperties() throws Exception {
-		// Load Qlue properties if the file exists
-		File propsFile = new File(servlet.getServletContext().getRealPath(
-				PROPERTIES_FILENAME));
-		if (propsFile.exists()) {
-			properties.load(new FileReader(propsFile));
+	void loadProperties() throws Exception {		
+		File propsFile = new File(confPath, PROPERTIES_FILENAME);		
+		if (propsFile.exists() == false) {
+			throw new QlueException("Unable to find qlue.properties");
 		}
+		
+		properties.load(new FileReader(propsFile));
 
 		// Expose WEB-INF path in properties
 		properties.setProperty("webRoot", servlet.getServletContext()
@@ -1782,5 +1795,9 @@ public class QlueApplication {
 
 	public EmailSender getEmailSender() {
 		return smtpEmailSender;
+	}
+	
+	public String getConfPath() {
+		return confPath;
 	}
 }
