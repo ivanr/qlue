@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
@@ -43,6 +45,8 @@ import com.webkreator.qlue.TransactionContext;
  * to provide initialization and decide where to look for template files.
  */
 public abstract class VelocityViewFactory implements ViewFactory {
+	
+	protected Log log = LogFactory.getLog(QlueApplication.class);
 
 	protected String suffix = ".vm";
 
