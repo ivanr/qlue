@@ -71,6 +71,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 				VELOCITY_STRING_RESOURCE_LOADER_KEY);
 
 		properties.setProperty("velocimacro.library", macroPath);
+		properties.setProperty("velocimacro.library.autoreload", "true");
 
 		properties.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS,
 				logChute);
