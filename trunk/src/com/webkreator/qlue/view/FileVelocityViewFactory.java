@@ -36,9 +36,14 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 	 */
 	@Override
 	public void init(QlueApplication qlueApp) throws Exception {
-		Properties properties = buildDefaultVelocityProperties(qlueApp);				
-		properties.setProperty("file.resource.loader.path",
-				qlueApp.getApplicationRoot() + "/" + prefix);
+		Properties properties = buildDefaultVelocityProperties(qlueApp);
+		if (qlueApp.getProperty("qlue.velocity.path") != null) {
+			properties.setProperty("file.resource.loader.path",
+					qlueApp.getProperty("qlue.velocity.path"));
+		} else {
+			properties.setProperty("file.resource.loader.path",
+					qlueApp.getApplicationRoot() + "/" + prefix);
+		}
 		velocityEngine = new VelocityEngine(properties);
 	}
 
