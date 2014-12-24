@@ -40,6 +40,9 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 		properties
 				.setProperty("file.resource.loader.class",
 						"org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+		
+		log.info("Creating VelocityEngine with properties: " + properties);
+		
 		velocityEngine = new VelocityEngine(properties);
 	}
 

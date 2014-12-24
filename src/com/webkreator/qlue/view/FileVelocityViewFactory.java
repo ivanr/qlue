@@ -16,8 +16,12 @@
  */
 package com.webkreator.qlue.view;
 
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.util.Properties;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.velocity.app.VelocityEngine;
 
 import com.webkreator.qlue.Page;
@@ -27,9 +31,9 @@ import com.webkreator.qlue.QlueApplication;
  * Implementation of VelocityViewFactory that keeps templates in a single
  * location.
  */
-public class FileVelocityViewFactory extends VelocityViewFactory {
+public class FileVelocityViewFactory extends VelocityViewFactory {	
 
-	protected String prefix = "/WEB-INF/vm/";
+	protected String path = "./WEB-INF/vm/";
 
 	/**
 	 * Initialize factory.
@@ -38,12 +42,20 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 	public void init(QlueApplication qlueApp) throws Exception {
 		Properties properties = buildDefaultVelocityProperties(qlueApp);
 		if (qlueApp.getProperty("qlue.velocity.path") != null) {
-			properties.setProperty("file.resource.loader.path",
-					qlueApp.getProperty("qlue.velocity.path"));
+			path = qlueApp.getProperty("qlue.velocity.path");
+
+		}
+		
+		Path p = FileSystems.getDefault().getPath(path);
+		if (p.isAbsolute()) {
+			properties.setProperty("file.resource.loader.path", path);
 		} else {
 			properties.setProperty("file.resource.loader.path",
-					qlueApp.getApplicationRoot() + "/" + prefix);
+					qlueApp.getApplicationRoot() + "/" + path);
 		}
+		
+		log.info("Creating VelocityEngine with properties: " + properties);
+
 		velocityEngine = new VelocityEngine(properties);
 	}
 
@@ -63,9 +75,9 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 			// Absolute view names are used as is
 			templateName = viewName + suffix;
 		} else {
-			// Relative view names are added to their page's path
+			// Relative view names are added to their page's path			
 			String defaultView = page.getQlueApp().getViewResolver()
-					.resolveView(page.getNoParamUri());
+					.resolveView(page.getNoParamUri().replace('-', '_'));
 
 			int i = defaultView.lastIndexOf("/");
 			if (i != -1) {
@@ -85,8 +97,8 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 	 * 
 	 * @return
 	 */
-	public String getPrefix() {
-		return prefix;
+	public String getPath() {
+		return path;
 	}
 
 	/**
@@ -96,7 +108,7 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 	 * 
 	 * @param prefix
 	 */
-	public void setPrefix(String prefix) {
-		this.prefix = prefix;
+	public void setPath(String prefix) {
+		this.path = prefix;
 	}
 }
