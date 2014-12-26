@@ -29,6 +29,6 @@ public class QlueExampleApplication extends QlueApplication {
 	
 	@QlueSchedule("* * * * * ")
 	public void scheduleTest() {
-		System.err.println("Hello World!");
+		//System.err.println("Hello World!");
 	}
 }
