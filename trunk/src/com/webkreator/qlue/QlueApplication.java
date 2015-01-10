@@ -649,7 +649,12 @@ public class QlueApplication {
 		try {
 			Email email = new SimpleEmail();
 			email.setCharset("UTF-8");
-			email.setSubject("Application Exception");
+			
+			if (t.getMessage() != null) {
+				email.setSubject("Application Exception: " + t.getMessage());
+			} else {
+				email.setSubject("Application Exception");
+			}
 
 			StringWriter msgBody = new StringWriter();
 			PrintWriter pw = new PrintWriter(msgBody);
