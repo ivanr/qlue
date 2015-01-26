@@ -278,7 +278,9 @@ public class QlueApplication {
 	 */
 	public void destroy() {
 		// Stop scheduler
-		scheduler.stop();
+		if (scheduler != null) {
+			scheduler.stop();
+		}
 	}
 
 	/**
