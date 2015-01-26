@@ -200,25 +200,20 @@ public class QlueApplication {
 		
 		initRouteManagers();
 
-		// Must have a view resolver
 		if (viewResolver == null) {
 			throw new Exception("View resolver not configured");
 		}
 
-		// Must have a view factory
 		if (viewFactory == null) {
 			throw new Exception("View factory not configured");
 		}
 
-		// Initialize Velocity
 		viewFactory.init(this);
 
-		// Schedule application jobs
 		scheduleApplicationJobs();
 	}
 
 	protected void initRouteManagers() throws Exception {
-		// Load routes
 		File routesFile = new File(confPath, ROUTES_FILENAME);
 		if (routesFile.exists()) {
 			routeManager.load(routesFile);
