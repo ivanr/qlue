@@ -48,6 +48,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
@@ -197,7 +198,7 @@ public class QlueApplication {
 		determineConfigPath();
 
 		loadProperties();
-		
+
 		initRouteManagers();
 
 		if (viewResolver == null) {
@@ -221,9 +222,21 @@ public class QlueApplication {
 	}
 
 	void loadProperties() throws Exception {
-		File propsFile = new File(confPath, PROPERTIES_FILENAME);
+		File propsFile = null;
+
+		String filename = System.getProperty("qlue.properties");
+		if (filename == null) {
+			filename = PROPERTIES_FILENAME;
+		}
+
+		if (filename.charAt(0) == '/') {
+			propsFile = new File(filename);
+		} else {
+			propsFile = new File(confPath, filename);
+		}
+
 		if (propsFile.exists() == false) {
-			throw new QlueException("Unable to find qlue.properties");
+			throw new QlueException("Unable to find file: " + propsFile.getAbsolutePath());
 		}
 
 		properties.load(new FileReader(propsFile));
