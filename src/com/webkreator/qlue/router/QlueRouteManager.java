@@ -121,7 +121,7 @@ public class QlueRouteManager implements RouteManager {
 	}
 	
 	/**
-	 * Replace variables (in the format "${variablaName}") with
+	 * Replace variables (in the format "${variableName}") with
 	 * their values from the Qlue properties file.
 	 * 
 	 * @param input
