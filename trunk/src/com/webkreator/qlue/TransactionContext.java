@@ -562,4 +562,20 @@ public class TransactionContext {
 	public void addUrlParameter(String name, String value) {
 		setUrlParameter(name, value);
 	}
+	
+	public String getHost() {
+		String host = request.getHeader("host");
+		if (host == null) {
+			return null;
+		}
+		
+		host = host.toLowerCase();
+		
+		int i = host.indexOf(":");
+		if (i != -1) {
+			host = host.substring(0, i);
+		}
+		
+		return host;
+	}
 }
