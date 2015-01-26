@@ -401,7 +401,7 @@ public class QlueApplication {
 		}
 	}
 
-	protected Object findRouteManager(TransactionContext context) {
+	protected Object route(TransactionContext context) {
 		return routeManager.route(context);
 	}
 
@@ -451,7 +451,7 @@ public class QlueApplication {
 
 			// If we still don't have a page see if we can create a new one
 			if (page == null) {
-				Object routeObject = findRouteManager(context);
+				Object routeObject = route(context);
 				if (routeObject == null) {
 					throw new PageNotFoundException();
 				} else if (routeObject instanceof View) {
