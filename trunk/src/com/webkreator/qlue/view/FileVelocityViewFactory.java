@@ -20,8 +20,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Properties;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.velocity.app.VelocityEngine;
 
 import com.webkreator.qlue.Page;
