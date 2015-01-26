@@ -84,14 +84,14 @@ import com.webkreator.qlue.view.ViewResolver;
  * use it directly, but most will need to subclass in order to support complex
  * configuration (page resolver, view resolver, etc).
  */
-public class QlueApplication {	
+public class QlueApplication {
 
 	public static final String PROPERTIES_FILENAME = "qlue.properties";
 
 	public static final String ROUTES_FILENAME = "routes.conf";
 
 	public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
-	
+
 	public static final String PROPERTY_CONF_PATH = "qlue.confPath";
 
 	private static final String PROPERTY_CHARACTER_ENCODING = "qlue.characterEncoding";
@@ -144,7 +144,7 @@ public class QlueApplication {
 	private SmtpEmailSender smtpEmailSender;
 
 	private HashMap<Locale, MessageSource> messageSources = new HashMap<Locale, MessageSource>();
-	
+
 	private String confPath;
 
 	/**
@@ -170,14 +170,14 @@ public class QlueApplication {
 		routeManager.add(RouteFactory.create(routeManager, "/{} package:"
 				+ pagesHome));
 	}
-	
+
 	protected void determineConfigPath() {
 		// First, try a system property.
 		confPath = System.getProperty(PROPERTY_CONF_PATH);
 		if (confPath != null) {
 			return;
 		}
-			
+
 		// Assume the configuration is in the WEB-INF folder.
 		confPath = servlet.getServletContext().getRealPath("/WEB-INF/");
 	}
@@ -193,16 +193,12 @@ public class QlueApplication {
 	 */
 	public void init(HttpServlet servlet) throws Exception {
 		this.servlet = servlet;
-				
-		determineConfigPath();
-		
-		loadProperties();
 
-		// Load routes
-		File routesFile = new File(confPath, ROUTES_FILENAME);
-		if (routesFile.exists()) {
-			routeManager.load(routesFile);
-		}
+		determineConfigPath();
+
+		loadProperties();
+		
+		initRouteManagers();
 
 		// Must have a view resolver
 		if (viewResolver == null) {
@@ -221,14 +217,22 @@ public class QlueApplication {
 		scheduleApplicationJobs();
 	}
 
-	void loadProperties() throws Exception {		
-		File propsFile = new File(confPath, PROPERTIES_FILENAME);		
+	protected void initRouteManagers() throws Exception {
+		// Load routes
+		File routesFile = new File(confPath, ROUTES_FILENAME);
+		if (routesFile.exists()) {
+			routeManager.load(routesFile);
+		}
+	}
+
+	void loadProperties() throws Exception {
+		File propsFile = new File(confPath, PROPERTIES_FILENAME);
 		if (propsFile.exists() == false) {
 			throw new QlueException("Unable to find qlue.properties");
 		}
-		
+
 		properties.load(new FileReader(propsFile));
-		
+
 		// Expose confPath in properties
 		properties.setProperty("confPath", confPath);
 
@@ -400,6 +404,10 @@ public class QlueApplication {
 		}
 	}
 
+	protected Object findRouteManager(TransactionContext context) {
+		return routeManager.route(context);
+	}
+
 	/**
 	 * Request processing entry point.
 	 * 
@@ -433,20 +441,20 @@ public class QlueApplication {
 
 					// OK, got the page
 					page = pageRecord.page;
-										
+
 					// If the requested persistent page no longer exists,
 					// redirect the user to where he is supposed to go
-					if (page == null) {						
+					if (page == null) {
 						context.getResponse().sendRedirect(
 								pageRecord.replacementUri);
 						return;
-					}									
+					}
 				}
 			}
 
 			// If we still don't have a page see if we can create a new one
 			if (page == null) {
-				Object routeObject = routeManager.route(context);
+				Object routeObject = findRouteManager(context);
 				if (routeObject == null) {
 					throw new PageNotFoundException();
 				} else if (routeObject instanceof View) {
@@ -528,14 +536,14 @@ public class QlueApplication {
 				// In development mode, append debugging
 				// information to the end of the page
 				masterWriteRequestDevelopmentInformation(context, page);
-				
+
 				// Execute page commit. This is what it sounds like,
 				// an opportunity to use a simple approach to transaction
 				// management for simple applications.
 				if (page != null) {
 					page.commit();
 				}
-			}		
+			}
 		} catch (PersistentPageNotFoundException ppnfe) {
 			// When we encounter an unknown process reference, we
 			// redirect back to the site home page. Showing errors
@@ -566,10 +574,10 @@ public class QlueApplication {
 			if (page != null) {
 				page.rollback();
 			}
-			
+
 			// Respond to validation errors with a 400 response
 			context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
-		} catch (Throwable t) {		
+		} catch (Throwable t) {
 			if (page != null) {
 				page.rollback();
 
@@ -649,7 +657,7 @@ public class QlueApplication {
 		try {
 			Email email = new SimpleEmail();
 			email.setCharset("UTF-8");
-			
+
 			if (t.getMessage() != null) {
 				email.setSubject("Application Exception: " + t.getMessage());
 			} else {
@@ -1806,7 +1814,7 @@ public class QlueApplication {
 	public EmailSender getEmailSender() {
 		return smtpEmailSender;
 	}
-	
+
 	public String getConfPath() {
 		return confPath;
 	}
