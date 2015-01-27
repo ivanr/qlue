@@ -73,6 +73,8 @@ public class TransactionContext {
 	private List<FileItem> multipartItems;
 
 	private Map<String, String> urlParams = new HashMap<String, String>();
+	
+	private Map<String, Object> ctxParams = new HashMap<String, Object>();
 
 	private String effectiveRemoteAddr;
 
@@ -114,6 +116,8 @@ public class TransactionContext {
 		txId = app.allocatePageId();
 
 		handleForwardedFor();
+		
+		ctxParams.put("test", "TEST");
 	}
 
 	private void handleForwardedFor() {
@@ -577,5 +581,17 @@ public class TransactionContext {
 		}
 		
 		return host;
+	}
+	
+	public void setParam(String name, Object value) {
+		ctxParams.put(name,  value);
+	}
+	
+	public Object getParam(String name) {
+		return ctxParams.get(name);
+	}
+	
+	public Map<String, Object> getParams() {
+		return ctxParams;
 	}
 }
