@@ -79,6 +79,8 @@ public class TransactionContext {
 	private String effectiveRemoteAddr;
 
 	private String effectiveForwardedFor;
+	
+	private Boolean frontendEncrypted;
 
 	/**
 	 * Initialise context instance.
@@ -124,6 +126,15 @@ public class TransactionContext {
 		// Determine the effective remote address if the
 		// request has been received from a trusted proxy.
 		if (app.isTrustedProxyRequest(this)) {
+			String frontendProtocol = request.getHeader("X-Forwarded-Proto");
+			if (frontendProtocol != null) {
+				if (frontendProtocol.equals("https")) {
+					setFrontendEncrypted(true);
+				} else if (frontendProtocol.equals("http")) {
+					setFrontendEncrypted(false);
+				}
+			}
+			
 			String combinedAddresses = request.getHeader("X-Forwarded-For");
 			if (TextUtil.isEmpty(combinedAddresses) == false) {
 				String[] sx = combinedAddresses.split("[,\\x20]");
@@ -593,5 +604,13 @@ public class TransactionContext {
 	
 	public Map<String, Object> getParams() {
 		return ctxParams;
+	}
+	
+	protected void setFrontendEncrypted(boolean b) {
+		frontendEncrypted = b;
+	}
+	
+	public Boolean isFrontendEncrypted() {
+		return frontendEncrypted;
 	}
 }
