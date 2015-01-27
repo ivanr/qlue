@@ -73,14 +73,14 @@ public class TransactionContext {
 	private List<FileItem> multipartItems;
 
 	private Map<String, String> urlParams = new HashMap<String, String>();
-	
+
 	private Map<String, Object> ctxParams = new HashMap<String, Object>();
 
 	private String effectiveRemoteAddr;
 
 	private String effectiveForwardedFor;
-	
-	private Boolean frontendEncrypted;
+
+	private boolean frontendEncrypted;
 
 	/**
 	 * Initialise context instance.
@@ -114,27 +114,49 @@ public class TransactionContext {
 		}
 
 		initRequestUri();
+		handleFrontendEncryption();
+		handleForwardedFor();
 
 		txId = app.allocatePageId();
+	}
 
-		handleForwardedFor();
+	private void handleFrontendEncryption() {
+		setFrontendEncrypted(false);
 		
-		ctxParams.put("test", "TEST");
+		switch (app.getFrontendEncryptionCheck()) {
+		case QlueApplication.FRONTEND_ENCRYPTION_NO:
+			// Do nothing, assume there is no encryption.
+			break;
+		case QlueApplication.FRONTEND_ENCRYPTION_CONTAINER:
+			// Trust the container.
+			if (request.isSecure()) {
+				setFrontendEncrypted(true);
+			}
+		case QlueApplication.FRONTEND_ENCRYPTION_FORCE_YES:
+			// Assume there is encryption.
+			setFrontendEncrypted(true);
+			break;
+		case QlueApplication.FRONTEND_ENCRYPTION_TRUSTED_HEADER:
+			// Look for a trusted header to tell us.
+			if (app.isTrustedProxyRequest(this)) {
+				String frontendProtocol = request
+						.getHeader("X-Forwarded-Proto");
+				if (frontendProtocol != null) {
+					if (frontendProtocol.equals("https")) {
+						setFrontendEncrypted(true);
+					}
+				}
+			}
+			break;
+		default:
+			throw new RuntimeException(
+					"Unknown value for the frontend encryption check: "
+							+ app.getFrontendEncryptionCheck());
+		}
 	}
 
 	private void handleForwardedFor() {
-		// Determine the effective remote address if the
-		// request has been received from a trusted proxy.
 		if (app.isTrustedProxyRequest(this)) {
-			String frontendProtocol = request.getHeader("X-Forwarded-Proto");
-			if (frontendProtocol != null) {
-				if (frontendProtocol.equals("https")) {
-					setFrontendEncrypted(true);
-				} else if (frontendProtocol.equals("http")) {
-					setFrontendEncrypted(false);
-				}
-			}
-			
 			String combinedAddresses = request.getHeader("X-Forwarded-For");
 			if (TextUtil.isEmpty(combinedAddresses) == false) {
 				String[] sx = combinedAddresses.split("[,\\x20]");
@@ -577,40 +599,40 @@ public class TransactionContext {
 	public void addUrlParameter(String name, String value) {
 		setUrlParameter(name, value);
 	}
-	
+
 	public String getHost() {
 		String host = request.getHeader("host");
 		if (host == null) {
 			return null;
 		}
-		
+
 		host = host.toLowerCase();
-		
+
 		int i = host.indexOf(":");
 		if (i != -1) {
 			host = host.substring(0, i);
 		}
-		
+
 		return host;
 	}
-	
+
 	public void setParam(String name, Object value) {
-		ctxParams.put(name,  value);
+		ctxParams.put(name, value);
 	}
-	
+
 	public Object getParam(String name) {
 		return ctxParams.get(name);
 	}
-	
+
 	public Map<String, Object> getParams() {
 		return ctxParams;
 	}
-	
+
 	protected void setFrontendEncrypted(boolean b) {
 		frontendEncrypted = b;
 	}
-	
-	public Boolean isFrontendEncrypted() {
+
+	public boolean isFrontendEncrypted() {
 		return frontendEncrypted;
 	}
 }

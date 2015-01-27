@@ -94,15 +94,25 @@ public class QlueApplication {
 
 	public static final String PROPERTY_CONF_PATH = "qlue.confPath";
 
+	public static final int FRONTEND_ENCRYPTION_NO = 0;
+
+	public static final int FRONTEND_ENCRYPTION_CONTAINER = 1;
+
+	public static final int FRONTEND_ENCRYPTION_FORCE_YES = 2;
+
+	public static final int FRONTEND_ENCRYPTION_TRUSTED_HEADER = 3;
+
 	private static final String PROPERTY_CHARACTER_ENCODING = "qlue.characterEncoding";
 
 	private static final String PROPERTY_DEVMODE_ENABLED = "qlue.devmode.active";
-
+	
 	private static final String PROPERTY_DEVMODE_RANGES = "qlue.devmode.subnets";
 
 	private static final String PROPERTY_DEVMODE_PASSWORD = "qlue.devmode.password";
 
 	private static final String PROPERTY_TRUSTED_PROXIES = "qlue.trustedProxies";
+
+	private static final String PROPERTY_FRONTEND_ENCRYPTION = "qlue.frontendEncryption";
 
 	private static final String PROPERTY_ADMIN_EMAIL = "qlue.adminEmail";
 
@@ -146,6 +156,8 @@ public class QlueApplication {
 	private HashMap<Locale, MessageSource> messageSources = new HashMap<Locale, MessageSource>();
 
 	private String confPath;
+
+	private int frontendEncryptionCheck = FRONTEND_ENCRYPTION_CONTAINER;
 
 	/**
 	 * This is the default constructor. The idea is that a subclass will
@@ -235,7 +247,8 @@ public class QlueApplication {
 		}
 
 		if (propsFile.exists() == false) {
-			throw new QlueException("Unable to find file: " + propsFile.getAbsolutePath());
+			throw new QlueException("Unable to find file: "
+					+ propsFile.getAbsolutePath());
 		}
 
 		properties.load(new FileReader(propsFile));
@@ -263,6 +276,10 @@ public class QlueApplication {
 			setTrustedProxies(getProperty(PROPERTY_TRUSTED_PROXIES));
 		}
 
+		if (getProperty(PROPERTY_FRONTEND_ENCRYPTION) != null) {
+			configureFrontendEncryption(getProperty(PROPERTY_FRONTEND_ENCRYPTION));
+		}
+
 		developmentModePassword = getProperty(PROPERTY_DEVMODE_PASSWORD);
 
 		adminEmail = getProperty(PROPERTY_ADMIN_EMAIL);
@@ -282,6 +299,20 @@ public class QlueApplication {
 		if (getProperty("qlue.smtp.username") != null) {
 			smtpEmailSender.setSmtpUsername(getProperty("qlue.smtp.username"));
 			smtpEmailSender.setSmtpPassword(getProperty("qlue.smtp.password"));
+		}
+	}
+
+	private void configureFrontendEncryption(String value) {
+		if ("no".equals(value)) {
+			frontendEncryptionCheck = FRONTEND_ENCRYPTION_NO;
+		} else if ("forceYes".equals(value)) {
+			frontendEncryptionCheck = FRONTEND_ENCRYPTION_FORCE_YES;
+		} else if ("container".equals(value)) {
+			frontendEncryptionCheck = FRONTEND_ENCRYPTION_CONTAINER;
+		} else if ("trustedHeader".equals(value)) {
+			frontendEncryptionCheck = FRONTEND_ENCRYPTION_TRUSTED_HEADER;
+		} else {
+			throw new RuntimeException("Invalud value for the " + PROPERTY_FRONTEND_ENCRYPTION + " parameter:" + value);
 		}
 	}
 
@@ -1826,5 +1857,9 @@ public class QlueApplication {
 
 	public String getConfPath() {
 		return confPath;
+	}
+
+	public int getFrontendEncryptionCheck() {
+		return frontendEncryptionCheck;
 	}
 }
