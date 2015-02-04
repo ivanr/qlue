@@ -14,38 +14,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.webkreator.qlue.util;
+package com.webkreator.qlue.editors;
 
 import java.lang.reflect.Field;
 import java.security.InvalidParameterException;
 
+
 /**
- * Handle conversion to and from Integer fields.
+ * Handle conversion to and from Boolean values.
  */
-public class IntegerEditor implements PropertyEditor {
+public class BooleanEditor implements PropertyEditor {
 
 	@Override
-	public Integer fromText(Field field, String text, Object currentValue) {
+	public Boolean fromText(Field field, String text, Object currentValue) {
 		if (text == null) {
-			return (Integer)currentValue;
+			return Boolean.FALSE;
 		}
 		
-		try {
-			return Integer.valueOf(text);
-		} catch (NumberFormatException nfe) {
-			throw new InvalidParameterException(
-					"IntegerEditor: Invalid integer value: " + text);
+		if ((text.compareToIgnoreCase("on") == 0)
+				|| (text.compareToIgnoreCase("true") == 0)
+				|| (text.compareToIgnoreCase("yes") == 0)
+				|| (text.compareToIgnoreCase("da") == 0)
+				|| (text.compareToIgnoreCase("1") == 0)) {
+			return Boolean.TRUE;
 		}
+
+		if ((text.compareToIgnoreCase("off") == 0)
+				|| (text.compareToIgnoreCase("false") == 0)
+				|| (text.compareToIgnoreCase("no") == 0)
+				|| (text.compareToIgnoreCase("ne") == 0)
+				|| (text.compareToIgnoreCase("0") == 0)) {
+			return Boolean.TRUE;
+		}
+
+		throw new InvalidParameterException("qp.validation.boolean.invalid");
 	}
 
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Class getEditorClass() {
-		return Integer.class;
+		return Boolean.class;
 	}
 
 	@Override
 	public String toText(Object o) {
-		return ((Integer) o).toString();
+		return ((Boolean)o).toString();
 	}
 }

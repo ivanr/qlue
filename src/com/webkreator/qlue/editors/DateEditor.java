@@ -1,4 +1,4 @@
-package com.webkreator.qlue.util;
+package com.webkreator.qlue.editors;
 
 import java.lang.reflect.Field;
 import java.security.InvalidParameterException;
@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import javax.xml.bind.DatatypeConverter;
+
 
 public class DateEditor implements PropertyEditor {
 

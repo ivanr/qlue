@@ -14,37 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.webkreator.qlue.util;
+package com.webkreator.qlue.editors;
 
 import java.lang.reflect.Field;
 
-/**
- * Property editors convert text into objects.
- */
-public interface PropertyEditor {
 
-	/**
-	 * Returns the class that this editor deals with.
-	 * 
-	 * @return
-	 */
+/**
+ * Property editors convert text into, well, text.
+ */
+public class StringEditor implements PropertyEditor {
+
+	@Override
+	public String fromText(Field field, String text, Object currentValue) {
+		if (text == null) {
+			return (String)currentValue;
+		}
+		
+		return text;
+	}
+	
 	@SuppressWarnings("rawtypes")
-	public Class getEditorClass();
-	
-	/**
-	 * Creates object out of its textual representation.
-	 * 
-	 * @param field
-	 * @param text
-	 * @return
-	 */
-	public Object fromText(Field field, String text, Object currentValue);
-	
-	/**
-	 * Converts object to text.
-	 * 
-	 * @param o
-	 * @return
-	 */
-	public String toText(Object o);
+	@Override
+	public Class getEditorClass() {		
+		return String.class;
+	}
+
+	@Override
+	public String toText(Object o) {
+		return (String)o;
+	}
 }
