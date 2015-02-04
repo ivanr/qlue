@@ -59,6 +59,7 @@ import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.router.QlueRouteManager;
 import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.BooleanEditor;
+import com.webkreator.qlue.util.DateEditor;
 import com.webkreator.qlue.util.EmailSender;
 import com.webkreator.qlue.util.FormatTool;
 import com.webkreator.qlue.util.HtmlToText;
@@ -1338,6 +1339,7 @@ public class QlueApplication {
 		registerPropertyEditor(new IntegerEditor());
 		registerPropertyEditor(new StringEditor());
 		registerPropertyEditor(new BooleanEditor());
+		registerPropertyEditor(new DateEditor());
 	}
 
 	/**
