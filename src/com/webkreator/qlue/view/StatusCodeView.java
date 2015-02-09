@@ -26,22 +26,19 @@ import com.webkreator.qlue.util.WebUtil;
  */
 public class StatusCodeView implements View {
 
-	private int status;
+	private int statusCode;
+
+	private String title;
 
 	private String message;
 
 	/**
 	 * Create a view using the provided status code, using a stock message.
 	 * 
-	 * @param status
+	 * @param statusCode
 	 */
-	public StatusCodeView(int status) {
-		this.status = status;
-		this.message = WebUtil.getStatusMessage(status);
-
-		if (this.message == null) {
-			this.message = "Unknown Status Code";
-		}
+	public StatusCodeView(int statusCode) {
+		this.statusCode = statusCode;
 	}
 
 	/**
@@ -50,14 +47,34 @@ public class StatusCodeView implements View {
 	 * @param status
 	 * @param message
 	 */
-	public StatusCodeView(int status, String message) {
-		this.status = status;
+	public StatusCodeView(int statusCode, String message) {
+		this.statusCode = statusCode;
 		this.message = message;
+	}
+
+	/**
+	 * Set custom title for this message. By default, the status message
+	 * (determined from the status code) is used for the title.
+	 * 
+	 * @param title
+	 */
+	public void setTitle(String title) {
+		this.title = title;
 	}
 
 	@Override
 	public void render(TransactionContext context, Page page) throws Exception {
-		context.response.sendError(status, message);
-		WebUtil.writeMessage(context, message);
+		context.response.setStatus(statusCode);
+
+		String myTitle = title;
+		
+		if (myTitle == null) {
+			myTitle = WebUtil.getStatusMessage(statusCode);
+			if (myTitle == null) {
+				myTitle = "Unknown Status Code";
+			}
+		}
+
+		WebUtil.writeMessage(context, myTitle, message);
 	}
 }

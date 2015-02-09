@@ -21,6 +21,7 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.TransactionContext;
 
 /**
@@ -61,7 +62,7 @@ public class WebUtil {
 				sb.append(c);
 				seenSlash = false;
 			}
-		}			
+		}
 
 		return sb.toString();
 	}
@@ -88,16 +89,26 @@ public class WebUtil {
 		out.println("-->");
 	}
 
-	public static void writeMessage(TransactionContext context, String message)
+	public static void writeMessage(TransactionContext context, String title)
 			throws IOException {
+		writeMessage(context, title, null);
+	}
+
+	public static void writeMessage(TransactionContext context, String title,
+			String message) throws IOException {
 		context.response.setContentType("text/html");
 		PrintWriter out = context.response.getWriter();
 		out.print("<html><head><title>");
-		out.print(message);
+		out.print(HtmlEncoder.encodeForHTML(title));
 		out.println("</title></head>");
 		out.print("<body><h1>");
-		out.print(message);
+		out.print(HtmlEncoder.encodeForHTML(title));
 		out.println("</h1>");
+		if (message != null) {
+			out.println("<p>");
+			out.print(message);
+			out.println("</p>");
+		}
 		WebUtil.writePagePaddingforInternetExplorer(out);
 		out.println("</body></html>");
 	}
