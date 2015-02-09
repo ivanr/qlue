@@ -106,7 +106,7 @@ public class WebUtil {
 		out.println("</h1>");
 		if (message != null) {
 			out.println("<p>");
-			out.print(message);
+			out.print(HtmlEncoder.encodeForHTML(message));
 			out.println("</p>");
 		}
 		WebUtil.writePagePaddingforInternetExplorer(out);
