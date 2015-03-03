@@ -44,7 +44,7 @@ public class BooleanEditor implements PropertyEditor {
 				|| (text.compareToIgnoreCase("no") == 0)
 				|| (text.compareToIgnoreCase("ne") == 0)
 				|| (text.compareToIgnoreCase("0") == 0)) {
-			return Boolean.TRUE;
+			return Boolean.FALSE;
 		}
 
 		throw new InvalidParameterException("qp.validation.boolean.invalid");
