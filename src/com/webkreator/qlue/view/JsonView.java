@@ -62,7 +62,7 @@ public class JsonView implements com.webkreator.qlue.view.View {
 	 */
 	@Override
 	public void render(TransactionContext tx, Page page) throws Exception {
-		page.getContext().response.setContentType("application/json");
+		page.getContext().response.setContentType("application/json;charset=UTF-8");		
 
 		Writer writer = page.getContext().response.getWriter();
 
