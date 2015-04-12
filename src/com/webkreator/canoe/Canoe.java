@@ -40,7 +40,7 @@ public class Canoe extends Writer {
 
 	public static final String ERROR_PREFIX = "Encoding Error: ";
 
-	public static final int MAX_TAGNAME_LEN = 16;
+	public static final int MAX_TAGNAME_LEN = 36;
 
 	public static final int HTML = 0;
 
