@@ -349,19 +349,20 @@ public class QlueApplication {
 		Method[] methods = this.getClass().getMethods();
 		for (Method m : methods) {
 			if (m.isAnnotationPresent(QlueSchedule.class)) {
-				if (Modifier.isPublic(m.getModifiers())) {
+				if (Modifier.isPublic(m.getModifiers())||(Modifier.isProtected(m.getModifiers()))) {
 					QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
 					try {
 						scheduler
 								.schedule(qs.value(),
 										new QlueScheduleMethodTaskWrapper(this,
 												this, m));
+						log.info("Scheduled method: " + m.getName());
 					} catch (InvalidPatternException ipe) {
 						log.error("QlueSchedule: Invalid schedule pattern: "
 								+ qs.value());
 					}
 				} else {
-					log.error("QlueSchedule: Scheduled methods must be public: "
+					log.error("QlueSchedule: Scheduled methods must be public or protected: "
 							+ m.getName());
 				}
 			}
@@ -763,7 +764,7 @@ public class QlueApplication {
 	}
 
 	@QlueSchedule("0 * * * *")
-	protected synchronized void sendUrgentReminders() throws Exception {
+	public synchronized void sendUrgentReminders() throws Exception {
 		if ((adminEmail == null)||(urgentEmail == null)||(urgentCounter < 0)) {
 			return;
 		}
