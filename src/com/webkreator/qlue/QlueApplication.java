@@ -117,6 +117,8 @@ public class QlueApplication {
 
 	private static final String PROPERTY_ADMIN_EMAIL = "qlue.adminEmail";
 
+	private static final String PROPERTY_URGENT_EMAIL = "qlue.urgentEmail";
+
 	private String messagesFilename = "com/webkreator/qlue/messages";
 
 	private Properties properties = new Properties();
@@ -151,6 +153,10 @@ public class QlueApplication {
 	private IpRangeFilter[] trustedProxies = null;
 
 	private String adminEmail;
+
+	private String urgentEmail;
+
+	private int urgentCounter = -1;
 
 	private SmtpEmailSender smtpEmailSender;
 
@@ -284,6 +290,8 @@ public class QlueApplication {
 		developmentModePassword = getProperty(PROPERTY_DEVMODE_PASSWORD);
 
 		adminEmail = getProperty(PROPERTY_ADMIN_EMAIL);
+
+		urgentEmail = getProperty(PROPERTY_URGENT_EMAIL);
 
 		// Configure SMTP email sender
 		smtpEmailSender = new SmtpEmailSender();
@@ -720,7 +728,7 @@ public class QlueApplication {
 		}
 	}
 
-	public void sendAdminEmail(Email email) {
+	public synchronized void sendAdminEmail(Email email) {
 		if (adminEmail == null) {
 			return;
 		}
@@ -729,6 +737,15 @@ public class QlueApplication {
 		try {
 			email.addTo(adminEmail);
 			email.setFrom(adminEmail);
+
+			if ((urgentEmail != null)&&(urgentCounter == -1)) {
+				email.addTo(urgentEmail);
+				urgentCounter = 0;
+			} else {
+				urgentCounter++;
+			}
+
+			System.err.println("# urgentCounter is now " + urgentCounter);
 		} catch (EmailException e) {
 			log.error("Invalid admin email address", e);
 		}
@@ -742,6 +759,35 @@ public class QlueApplication {
 			getEmailSender().send(email);
 		} catch (Exception e) {
 			log.error("Failed to send email", e);
+		}
+	}
+
+	@QlueSchedule("0 * * * *")
+	protected synchronized void sendUrgentReminders() throws Exception {
+		if ((adminEmail == null)||(urgentEmail == null)||(urgentCounter < 0)) {
+			return;
+		}
+
+		if (urgentCounter == 0) {
+			// Nothing has happened in the last period; setting
+			// the counter to -1 means that the next exception
+			// will send an urgent email.
+			urgentCounter = -1;
+		} else {
+			// There were a number of exceptions in the last period,
+			// which means that we should send a reminder email.
+			Email email = new SimpleEmail();
+			email.setCharset("UTF-8");
+			email.setFrom(adminEmail);
+			email.addTo(urgentEmail);
+			email.setSubject("[" + getAppPrefix() + "] " + "Suppressed " + urgentCounter + " exceptions in the last period");
+
+			try {
+				getEmailSender().send(email);
+				urgentCounter = 0;
+			} catch (Exception e) {
+				log.error("Failed to send email", e);
+			}
 		}
 	}
 
