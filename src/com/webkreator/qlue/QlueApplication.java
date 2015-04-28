@@ -1392,7 +1392,7 @@ public class QlueApplication {
 	 * Invoke the view factory to construct the view indicated by the name.
 	 * 
 	 * @param page
-	 * @param name
+	 * @param viewName
 	 * @return
 	 * @throws Exception
 	 */
@@ -1559,7 +1559,7 @@ public class QlueApplication {
 	/**
 	 * Configure development mode.
 	 * 
-	 * @param developmentMode
+	 * @param input
 	 */
 	protected void setApplicationDevelopmentMode(String input) {
 		if (input.compareToIgnoreCase("on") == 0) {
@@ -1651,7 +1651,7 @@ public class QlueApplication {
 	 * Configure the set of IP addresses that are allowed to use development
 	 * mode.
 	 * 
-	 * @param developmentModeRanges
+	 * @param combinedSubnets
 	 */
 	protected void setDevelopmentSubnets(String combinedSubnets)
 			throws Exception {
