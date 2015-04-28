@@ -745,8 +745,6 @@ public class QlueApplication {
 			} else {
 				urgentCounter++;
 			}
-
-			System.err.println("# urgentCounter is now " + urgentCounter);
 		} catch (EmailException e) {
 			log.error("Invalid admin email address", e);
 		}
