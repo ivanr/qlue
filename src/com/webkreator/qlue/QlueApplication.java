@@ -779,7 +779,7 @@ public class QlueApplication {
 			email.setCharset("UTF-8");
 			email.setFrom(adminEmail);
 			email.addTo(urgentEmail);
-			email.setSubject("[" + getAppPrefix() + "] " + "Suppressed " + urgentCounter + " exceptions in the last period");
+			email.setSubject("[" + getAppPrefix() + "] " + "Suppressed " + urgentCounter + " exception(s) in the last period");
 
 			try {
 				getEmailSender().send(email);
