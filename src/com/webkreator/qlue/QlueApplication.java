@@ -723,13 +723,17 @@ public class QlueApplication {
 			}
 			email.setMsg(msgBody.toString());
 
-			sendAdminEmail(email);
+			sendAdminEmail(email, true /* fatalError */);
 		} catch (Exception e) {
 			log.error("Failed to send admin email: ", e);
 		}
 	}
 
 	public synchronized void sendAdminEmail(Email email) {
+		sendAdminEmail(email, false);
+	}
+
+	public synchronized void sendAdminEmail(Email email, boolean fatalError) {
 		if (adminEmail == null) {
 			return;
 		}
@@ -739,11 +743,13 @@ public class QlueApplication {
 			email.addTo(adminEmail);
 			email.setFrom(adminEmail);
 
-			if ((urgentEmail != null)&&(urgentCounter == -1)) {
-				email.addTo(urgentEmail);
-				urgentCounter = 0;
-			} else {
-				urgentCounter++;
+			if (fatalError) {
+				if ((urgentEmail != null) && (urgentCounter == -1)) {
+					email.addTo(urgentEmail);
+					urgentCounter = 0;
+				} else {
+					urgentCounter++;
+				}
 			}
 		} catch (EmailException e) {
 			log.error("Invalid admin email address", e);
