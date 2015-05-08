@@ -47,6 +47,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.apache.catalina.connector.ClientAbortException;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -593,6 +594,10 @@ public class QlueApplication {
 				if (page != null) {
 					page.commit();
 				}
+			}
+		} catch (ClientAbortException cae) {
+			if (page != null) {
+				page.rollback();
 			}
 		} catch (PersistentPageNotFoundException ppnfe) {
 			// When we encounter an unknown process reference, we
