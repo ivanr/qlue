@@ -754,28 +754,46 @@ public class QlueApplication {
             return;
         }
 
-        // Add admin email address
+        // Configure the correct email address.
         try {
-            email.addTo(adminEmail);
             email.setFrom(adminEmail);
 
-            if (fatalError) {
-                if ((urgentEmail != null) && (urgentCounter == -1)) {
-                    email.addTo(urgentEmail);
-                    urgentCounter = 0;
-                } else {
-                    urgentCounter++;
-                }
+            // If this is a fatal error and we have an
+            // email address for emergencies, treat it
+            // as an emergency.
+            if ((fatalError)&&(urgentEmail != null)) {
+                email.addTo(urgentEmail);
+            } else {
+                email.addTo(adminEmail);
             }
         } catch (EmailException e) {
             log.error("Invalid admin email address", e);
         }
 
-        // Update the email subject to
-        // include the application prefix
+        // Update the email subject to include the application prefix.
         email.setSubject("[" + getAppPrefix() + "] " + email.getSubject());
 
-        // Send email
+        // If the email is about a fatal problem, determine
+        // if we want to urgently notify the administrators; we
+        // want to send only one urgent email per time period.
+        if ((fatalError)&&(urgentEmail != null)) {
+            // When the counter is at -1 that means we didn't
+            // send any emails in the previous time period. In
+            // other words, we can send one now.
+            if (urgentCounter == -1) {
+                urgentCounter = 0;
+            } else {
+                // Alternatively, just increment the counter
+                // and send nothing.
+                urgentCounter++;
+
+                log.info("Suppressing fatal error email (" + urgentCounter + "): " + email.getSubject());
+
+                return;
+            }
+        }
+
+        // Send the email now.
         try {
             getEmailSender().send(email);
         } catch (Exception e) {
