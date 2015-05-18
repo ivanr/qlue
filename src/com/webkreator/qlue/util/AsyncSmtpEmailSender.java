@@ -1,11 +1,15 @@
 package com.webkreator.qlue.util;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
 
 import java.util.LinkedList;
 import java.util.Queue;
 
 public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
+
+    protected Log log = LogFactory.getLog(AsyncSmtpEmailSender.class);
 
     private int counter = 1;
 
@@ -18,14 +22,16 @@ public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
     private synchronized Email getEmail() {
         Email email = null;
 
-        for(;;) {
+        while (true) {
             email = queue.poll();
-            if (email == null) {
-                try {
-                    wait();
-                } catch (InterruptedException e) {
-                    // Do nothing.
-                }
+            if (email != null) {
+                return email;
+            }
+
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                // Do nothing.
             }
         }
     }
@@ -50,15 +56,16 @@ public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
 
     @Override
     public void run() {
-        for (;;) {
+        while (true) {
             Email email = getEmail();
 
             try {
                 String id = email.send();
-                // TODO Log sent email
-            } catch(Throwable t) {
+                log.info("Email sent: " + email.getToAddresses() + "(" + id + ")");
+            } catch (Throwable t) {
                 // Failed to send email. Sleep for a while,
                 // then queue the email again.
+                log.error("Failed to send email", t);
 
                 try {
                     Thread.currentThread().sleep(BACKOFF_MILLISECONDS);
