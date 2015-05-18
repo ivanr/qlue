@@ -296,6 +296,7 @@ public class QlueApplication {
 
 		// Configure SMTP email sender
 		smtpEmailSender = new SmtpEmailSender();
+
 		smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
 		if (getProperty("qlue.smtp.port") != null) {
 			smtpEmailSender.setSmtpPort(Integer
