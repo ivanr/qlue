@@ -16,6 +16,7 @@
  */
 package com.webkreator.qlue;
 
+import com.webkreator.qlue.util.*;
 import it.sauronsoftware.cron4j.InvalidPatternException;
 import it.sauronsoftware.cron4j.Scheduler;
 
@@ -64,13 +65,6 @@ import com.webkreator.qlue.editors.PropertyEditor;
 import com.webkreator.qlue.editors.StringEditor;
 import com.webkreator.qlue.router.QlueRouteManager;
 import com.webkreator.qlue.router.RouteFactory;
-import com.webkreator.qlue.util.EmailSender;
-import com.webkreator.qlue.util.FormatTool;
-import com.webkreator.qlue.util.HtmlToText;
-import com.webkreator.qlue.util.IpRangeFilter;
-import com.webkreator.qlue.util.SmtpEmailSender;
-import com.webkreator.qlue.util.TextUtil;
-import com.webkreator.qlue.util.VariableExpander;
 import com.webkreator.qlue.view.DefaultView;
 import com.webkreator.qlue.view.FileVelocityViewFactory;
 import com.webkreator.qlue.view.FinalRedirectView;
@@ -296,7 +290,11 @@ public class QlueApplication {
 
 		// Configure SMTP email sender
 
-		smtpEmailSender = new SmtpEmailSender();
+        if (getBooleanProperty("qlue.smtp.async", "false")) {
+            smtpEmailSender = new AsyncSmtpEmailSender();
+        } else {
+            smtpEmailSender = new SmtpEmailSender();
+        }
 
 		smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
 		if (getProperty("qlue.smtp.port") != null) {
