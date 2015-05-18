@@ -705,12 +705,10 @@ public class QlueApplication {
             HtmlToText htt = new HtmlToText();
             try {
                 htt.parse(new StringReader(sw.getBuffer().toString()));
+                debugInfo = htt.toString();
             } catch (IOException e) {
-                // Ignore (but log, in case we do get something)
-                e.printStackTrace();
+                log.error("Error while converting HTML", e);
             }
-
-            debugInfo = htt.toString();
         }
 
         // Record message to the activity log
