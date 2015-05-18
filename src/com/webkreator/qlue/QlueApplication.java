@@ -730,16 +730,19 @@ public class QlueApplication {
 
             StringWriter msgBody = new StringWriter();
             PrintWriter pw = new PrintWriter(msgBody);
+
             t.printStackTrace(pw);
             pw.println();
+
             if (debugInfo != null) {
                 pw.print(debugInfo);
             }
+
             email.setMsg(msgBody.toString());
 
             sendAdminEmail(email, true /* fatalError */);
         } catch (Exception e) {
-            log.error("Failed to send admin email: ", e);
+            log.error("Failed sending admin email: ", e);
         }
     }
 
