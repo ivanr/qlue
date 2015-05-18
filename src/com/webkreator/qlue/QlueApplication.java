@@ -295,6 +295,7 @@ public class QlueApplication {
 		urgentEmail = getProperty(PROPERTY_URGENT_EMAIL);
 
 		// Configure SMTP email sender
+
 		smtpEmailSender = new SmtpEmailSender();
 
 		smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
@@ -1819,6 +1820,24 @@ public class QlueApplication {
 			return defaultValue;
 		}
 	}
+
+    public Boolean getBooleanProperty(String key) {
+        String value = getProperty(key);
+        if (value == null) {
+            return null;
+        }
+
+        return Boolean.parseBoolean(value);
+    }
+
+    public Boolean getBooleanProperty(String key, String defaultValue) {
+        String value = getProperty(key);
+        if (value == null) {
+            return Boolean.parseBoolean(defaultValue);
+        }
+
+        return Boolean.parseBoolean(value);
+    }
 
 	/**
 	 * Retrieve a single integer property.
