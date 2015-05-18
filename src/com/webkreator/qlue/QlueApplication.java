@@ -612,10 +612,7 @@ public class QlueApplication {
             // is not really helpful, and may actually compel the
             // user to go back and try again (and that's not going to work).
 
-            // No need to roll-back page, as page has not been located yet
-
-            // TODO The home page of the web site might not be the same as the
-            // root of the hostname
+            // No need to roll-back page here, as page has not been located yet.
             context.getResponse().sendRedirect("/");
         } catch (RequestMethodException rme) {
             if (page != null) {
