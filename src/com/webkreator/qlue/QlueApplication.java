@@ -1968,4 +1968,8 @@ public class QlueApplication {
     public int getFrontendEncryptionCheck() {
         return frontendEncryptionCheck;
     }
+
+    public String getAdminEmail() {
+        return adminEmail;
+    }
 }
