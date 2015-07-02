@@ -51,6 +51,7 @@ public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
     @Override
     public String send(Email email) throws Exception {
         prepareEmail(email);
+        email.buildMimeMessage();
         return queueEmail(email);
     }
 
@@ -60,7 +61,12 @@ public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
             Email email = getEmail();
 
             try {
-                String id = email.send();
+                // NOTE: We can't use send() here because we will
+                // retry failed messages, but send() invokes certain
+                // buildMimeMessage(), which can be done only once. So
+                // we invoke buildMimeMessage() when we receive an email
+                // to send, and we send with sendMimeMessage().
+                String id = email.sendMimeMessage();
                 log.info("Email sent: " + email.getToAddresses() + " " + id);
             } catch (Throwable t) {
                 // Failed to send email. Sleep for a while,
