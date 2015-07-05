@@ -808,6 +808,8 @@ public class QlueApplication {
             return;
         }
 
+        log.info("Sending urgent reminder: urgentCounter=" + urgentCounter);
+
         if (urgentCounter == 0) {
             // Nothing has happened in the last period; setting
             // the counter to -1 means that the next exception
