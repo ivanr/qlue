@@ -193,8 +193,7 @@ public abstract class Page {
 	/**
 	 * Process one HTTP request. By default, pages accept only GET (and HEAD,
 	 * treated as GET) and POST.
-	 * 
-	 * @param context
+	 *
 	 * @return
 	 * @throws Exception
 	 */
@@ -212,8 +211,7 @@ public abstract class Page {
 	/**
 	 * Process a GET request. The default implementation does not actually do
 	 * anything -- it just throws an exception.
-	 * 
-	 * @param context
+	 *
 	 * @return
 	 * @throws Exception
 	 */
@@ -224,8 +222,7 @@ public abstract class Page {
 	/**
 	 * Process a POST request. The default implementation does not actually do
 	 * anything -- it just throws an exception.
-	 * 
-	 * @param context
+	 *
 	 * @return
 	 * @throws Exception
 	 */
