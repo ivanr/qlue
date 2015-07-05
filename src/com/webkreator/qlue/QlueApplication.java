@@ -581,8 +581,12 @@ public class QlueApplication {
                     // dandy, and that we can finally let the page
                     // process the current request
                     if (view == null) {
-                        // Process request
-                        view = page.service();
+                        view = page.preServiceWithParams();
+
+                        if (view == null) {
+                            // Process request
+                            view = page.service();
+                        }
                     }
                 }
 

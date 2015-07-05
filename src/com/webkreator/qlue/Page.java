@@ -360,6 +360,10 @@ public abstract class Page {
 		return null;
 	}
 
+	public View preServiceWithParams() {
+		return null;
+	}
+
 	/**
 	 * Does this page has any parameter validation errors?
 	 * 
