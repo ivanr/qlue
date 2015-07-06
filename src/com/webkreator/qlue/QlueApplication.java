@@ -563,26 +563,26 @@ public class QlueApplication {
                         bindParameters(page, context);
                     }
 
-                    if (page.getState().compareTo(Page.STATE_NEW) == 0) {
-                        // Give page the opportunity to initialize
-                        page.init();
-
-                        // Update shadow input
-                        updateShadowInput(page, context);
-                    }
-
-                    // -- Process request --
-
-                    if (page.hasErrors()) {
-                        view = page.onValidationError();
-                    }
-
-                    // If we've made it so far that means that all is
-                    // dandy, and that we can finally let the page
-                    // process the current request
+                    // preServiceWithParams after parameter binding, but before init.
+                    view = page.preServiceWithParams();
                     if (view == null) {
-                        view = page.preServiceWithParams();
+                        if (page.getState().compareTo(Page.STATE_NEW) == 0) {
+                            // Give page the opportunity to initialize
+                            page.init();
 
+                            // Update shadow input
+                            updateShadowInput(page, context);
+                        }
+
+                        // -- Process request --
+
+                        if (page.hasErrors()) {
+                            view = page.onValidationError();
+                        }
+
+                        // If we've made it so far that means that all is
+                        // dandy, and that we can finally let the page
+                        // process the current request
                         if (view == null) {
                             // Process request
                             view = page.service();
