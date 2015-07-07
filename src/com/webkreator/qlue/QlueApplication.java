@@ -295,12 +295,14 @@ public class QlueApplication {
         smtpEmailSender = new SmtpEmailSender();
 
         if (getBooleanProperty("qlue.smtp.async", "false")) {
-            AsyncSmtpEmailSender asyncSmtpEmailSender = new AsyncSmtpEmailSender(smtpEmailSender);
+            AsyncSmtpEmailSender myAsyncSmtpEmailSender = new AsyncSmtpEmailSender(smtpEmailSender);
 
             // Start a new daemon thread to send email in the background.
-            Thread thread = new Thread(asyncSmtpEmailSender);
+            Thread thread = new Thread(myAsyncSmtpEmailSender);
             thread.setDaemon(true);
             thread.start();
+
+            asyncSmtpEmailSender = myAsyncSmtpEmailSender;
         } else {
             // All email sending is synchronous.
             asyncSmtpEmailSender = smtpEmailSender;
