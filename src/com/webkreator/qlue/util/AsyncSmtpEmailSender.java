@@ -11,6 +11,8 @@ public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
 
     protected Log log = LogFactory.getLog(AsyncSmtpEmailSender.class);
 
+    private SmtpEmailSender smtpEmailSender;
+
     private int counter = 1;
 
     private Queue<Email> queue = new LinkedList<Email>();
@@ -18,6 +20,10 @@ public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
     private static final int BACKOFF_MILLISECONDS = 5000;
 
     private static final int QUEUE_LIMIT = 1000;
+
+    public AsyncSmtpEmailSender(SmtpEmailSender smtpEmailSender) {
+        this.smtpEmailSender = smtpEmailSender;
+    }
 
     private synchronized Email getEmail() {
         Email email = null;
@@ -50,7 +56,7 @@ public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
 
     @Override
     public String send(Email email) throws Exception {
-        prepareEmail(email);
+        smtpEmailSender.prepareEmail(email);
         email.buildMimeMessage();
         return queueEmail(email);
     }

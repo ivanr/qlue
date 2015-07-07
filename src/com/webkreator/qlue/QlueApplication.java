@@ -155,6 +155,8 @@ public class QlueApplication {
 
     private SmtpEmailSender smtpEmailSender;
 
+    private SmtpEmailSender asyncSmtpEmailSender;
+
     private HashMap<Locale, MessageSource> messageSources = new HashMap<Locale, MessageSource>();
 
     private String confPath;
@@ -288,19 +290,20 @@ public class QlueApplication {
 
         urgentEmail = getProperty(PROPERTY_URGENT_EMAIL);
 
-        // Configure SMTP email sender
+        // Configure the SMTP email senders
+
+        smtpEmailSender = new SmtpEmailSender();
 
         if (getBooleanProperty("qlue.smtp.async", "false")) {
-            AsyncSmtpEmailSender asyncSmtpEmailSender = new AsyncSmtpEmailSender();
+            AsyncSmtpEmailSender asyncSmtpEmailSender = new AsyncSmtpEmailSender(smtpEmailSender);
 
             // Start a new daemon thread to send email in the background.
             Thread thread = new Thread(asyncSmtpEmailSender);
             thread.setDaemon(true);
             thread.start();
-
-            smtpEmailSender = asyncSmtpEmailSender;
         } else {
-            smtpEmailSender = new SmtpEmailSender();
+            // All email sending is synchronous.
+            asyncSmtpEmailSender = smtpEmailSender;
         }
 
         smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
@@ -1964,6 +1967,14 @@ public class QlueApplication {
     }
 
     public EmailSender getEmailSender() {
+        return asyncSmtpEmailSender;
+    }
+
+    public EmailSender getAsyncEmailSender() {
+        return asyncSmtpEmailSender;
+    }
+
+    public EmailSender getSyncEmailSender() {
         return smtpEmailSender;
     }
 
