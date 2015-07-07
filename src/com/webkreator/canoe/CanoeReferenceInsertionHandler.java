@@ -26,7 +26,10 @@ public class CanoeReferenceInsertionHandler implements
 
 	public static final String SAFE_REFERENCE_NAME = "_x";
 
-	public static final String SAFE_REFERENCE_PREFIX = "$"
+	public static final String SAFE_REFERENCE_PREFIX1 = "$"
+			+ SAFE_REFERENCE_NAME + ".";
+
+	public static final String SAFE_REFERENCE_PREFIX2 = "$!"
 			+ SAFE_REFERENCE_NAME + ".";
 
 	protected Canoe qlueWriter;
@@ -44,7 +47,7 @@ public class CanoeReferenceInsertionHandler implements
 		// we consider to be safe. This allows developers to
 		// bypass the automatic encoding mechanism and prepare
 		// output themselves.
-		if (arg0.startsWith(SAFE_REFERENCE_PREFIX)) {
+		if (arg0.startsWith(SAFE_REFERENCE_PREFIX1)||arg0.startsWith(SAFE_REFERENCE_PREFIX2)) {
 			return arg1;
 		}
 
