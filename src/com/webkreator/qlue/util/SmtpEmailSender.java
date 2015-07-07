@@ -1,8 +1,12 @@
 package com.webkreator.qlue.util;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
 
 public class SmtpEmailSender implements EmailSender {
+
+	protected Log log = LogFactory.getLog(SmtpEmailSender.class);
 
 	private String smtpServer;
 
@@ -77,6 +81,8 @@ public class SmtpEmailSender implements EmailSender {
 	@Override
 	public String send(Email email) throws Exception {
 		prepareEmail(email);
-		return email.send();
+		String id = email.send();
+        log.info("Email sent: " + email.getToAddresses() + " " + id);
+        return id;
 	}
 }
