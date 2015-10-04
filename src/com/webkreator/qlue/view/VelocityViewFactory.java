@@ -65,23 +65,25 @@ public abstract class VelocityViewFactory implements ViewFactory {
 	protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
 		Properties properties = new Properties();
 
-		properties.setProperty("input.encoding", inputEncoding);
+		properties.setProperty(RuntimeConstants.INPUT_ENCODING, inputEncoding);
 
-		properties.setProperty("resource.loader", "file,string");
+		properties.setProperty(RuntimeConstants.RESOURCE_LOADER, "file,string");
 		properties
 				.setProperty("string.resource.loader.class",
 						"org.apache.velocity.runtime.resource.loader.StringResourceLoader");
 		properties.setProperty("string.resource.loader.repository.name",
 				VELOCITY_STRING_RESOURCE_LOADER_KEY);
 
-		properties.setProperty("velocimacro.library", macroPath);
-		properties.setProperty("velocimacro.library.autoreload", "true");
+		properties.setProperty(RuntimeConstants.VM_LIBRARY, macroPath);
+		properties.setProperty(RuntimeConstants.VM_LIBRARY_AUTORELOAD, "true");
+		properties.setProperty(RuntimeConstants.VM_PERM_ALLOW_INLINE, "true");
+		properties.setProperty(RuntimeConstants.VM_PERM_ALLOW_INLINE_REPLACE_GLOBAL, "true");
 
 		properties.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS,
 				logChute);
 
 		if (qlueApp.getProperty("qlue.velocity.cache") != null) {
-			properties.setProperty("file.resource.loader.cache",
+			properties.setProperty(RuntimeConstants.FILE_RESOURCE_LOADER_CACHE,
 					qlueApp.getProperty("qlue.velocity.cache"));
 		}
 

@@ -24,6 +24,7 @@ import org.apache.velocity.app.VelocityEngine;
 
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
+import org.apache.velocity.runtime.RuntimeConstants;
 
 /**
  * This variant of VelocityViewFactory expects templates to be stored on the
@@ -72,7 +73,17 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 	@Override protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
         Properties properties = super.buildDefaultVelocityProperties(qlueApp);
         properties.setProperty("file.resource.loader.class",
-            "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+                "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+
+        String caching = properties.getProperty(RuntimeConstants.FILE_RESOURCE_LOADER_CACHE);
+        if ((caching == null)||(Boolean.valueOf(caching) == false)) {
+            properties.setProperty("file.resource.loader.class",
+                    "com.webkreator.qlue.view.NonCachingClasspathResourceLoader");
+        } else {
+            properties.setProperty("file.resource.loader.class",
+                    "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+        }
+
         return properties;
     }
 }
