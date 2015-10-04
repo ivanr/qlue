@@ -36,13 +36,8 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 	 */
 	@Override
 	public void init(QlueApplication qlueApp) throws Exception {
-		Properties properties = buildDefaultVelocityProperties(qlueApp);		
-		properties
-				.setProperty("file.resource.loader.class",
-						"org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
-		
+		Properties properties = buildDefaultVelocityProperties(qlueApp);
 		log.info("Creating VelocityEngine with properties: " + properties);
-		
 		velocityEngine = new VelocityEngine(properties);
 	}
 
@@ -73,4 +68,11 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 
 		return new VelocityView(this, velocityEngine.getTemplate(sb.toString()));
 	}
+
+	@Override protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
+        Properties properties = super.buildDefaultVelocityProperties(qlueApp);
+        properties.setProperty("file.resource.loader.class",
+            "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+        return properties;
+    }
 }
