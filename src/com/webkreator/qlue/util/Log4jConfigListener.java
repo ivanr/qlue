@@ -46,13 +46,13 @@ public class Log4jConfigListener implements ServletContextListener {
 
 		String s = null;
 
-		// Configuration path parameter
+		// Configuration path parameter.
 		s = servletContext.getInitParameter(QlueConstants.QLUE_LOG4J_CONFIG);
 		if (s != null) {
 			location = s;
 		}
 
-		// Refresh interval parameter
+		// Refresh interval parameter.
 		s = servletContext
 				.getInitParameter(QlueConstants.QLUE_LOG4J_REFRESH_INTERVAL);
 		if (s != null) {
@@ -69,23 +69,23 @@ public class Log4jConfigListener implements ServletContextListener {
 			servletContext.log("Initializing log4j with " + location);
 		}
 
-		// Set the "webapp.root" property, which is used by log4j
-		System.setProperty("webapp.root", event.getServletContext()
-				.getRealPath("/"));
+		// Set the "webapp.root" property, which is used by log4j.
+		System.setProperty("webapp.root", event.getServletContext().getRealPath("/"));
 
-		// Configure log4j
+		// Choose the correct configurator based on the extension of the configuration file.
 		if (location.endsWith(".xml")) {
+            // XML configuration.
 			if (interval != null) {
-				DOMConfigurator.configureAndWatch(location, interval);
+				DOMConfigurator.configureAndWatch(servletContext.getRealPath(location), interval);
 			} else {
 				DOMConfigurator.configure(servletContext.getRealPath(location));
 			}
 		} else {
+            // Properties configuration.
 			if (interval != null) {
-				PropertyConfigurator.configureAndWatch(location, interval);
+				PropertyConfigurator.configureAndWatch(servletContext.getRealPath(location), interval);
 			} else {
-				PropertyConfigurator.configure(servletContext
-						.getRealPath(location));
+				PropertyConfigurator.configure(servletContext.getRealPath(location));
 			}
 		}
 	}
