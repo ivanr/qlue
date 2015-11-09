@@ -28,6 +28,7 @@ import java.text.StringCharacterIterator;
 
 import javax.servlet.http.HttpServletResponse;
 
+import com.webkreator.qlue.QlueSecurityException;
 import org.apache.commons.codec.binary.Base64;
 
 import com.webkreator.qlue.PageNotFoundException;
@@ -88,8 +89,7 @@ public class DownloadUtil {
 				for (char c = it.first(); c != CharacterIterator.DONE; c = it
 						.next()) {
 					if (c < 0x20) {
-						throw new SecurityException(
-								"Invalid character in filename: " + c);
+						throw new QlueSecurityException("Invalid character in filename: " + c);
 					}
 
 					if ((c == '\\') || (c == '"')) {

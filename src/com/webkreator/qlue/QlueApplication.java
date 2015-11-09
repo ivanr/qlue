@@ -645,7 +645,7 @@ public class QlueApplication {
 
             // Respond to validation errors with a 400 response
             context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
-        } catch (SecurityException se) {
+        } catch (QlueSecurityException se) {
             if (page != null) {
                 page.rollback();
             }

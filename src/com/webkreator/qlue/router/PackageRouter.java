@@ -22,7 +22,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.webkreator.qlue.Page;
-import com.webkreator.qlue.SecurityException;
+import com.webkreator.qlue.QlueSecurityException;
 import com.webkreator.qlue.TransactionContext;
 
 /**
@@ -59,7 +59,7 @@ public class PackageRouter implements Router {
 		Class pageClass = null;
 
 		if (routeSuffix.indexOf("/../") != -1) {
-			throw new SecurityException(
+			throw new QlueSecurityException(
 					"Directory backreferences not allowed in path");
 		}
 

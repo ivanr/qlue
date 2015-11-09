@@ -20,11 +20,8 @@ import java.io.PrintWriter;
 import java.util.List;
 
 import com.webkreator.canoe.HtmlEncoder;
-import com.webkreator.qlue.AccessForbiddenException;
+import com.webkreator.qlue.*;
 import com.webkreator.qlue.Error;
-import com.webkreator.qlue.Page;
-import com.webkreator.qlue.QlueConstants;
-import com.webkreator.qlue.QlueParameter;
 import com.webkreator.qlue.view.FinalRedirectView;
 import com.webkreator.qlue.view.RedirectView;
 import com.webkreator.qlue.view.View;
@@ -139,7 +136,7 @@ public class devMode extends Page {
 		// manipulation is allowed by configuration
 		if ((appStatus != QlueConstants.DEVMODE_ENABLED)
 				&& (appStatus != QlueConstants.DEVMODE_ONDEMAND)) {
-			throw new SecurityException();
+			throw new QlueSecurityException("Configuration doesn't allow change of development mode");
 		}
 
 		if (((sessionStatus == null) && (appStatus == QlueConstants.DEVMODE_ENABLED))
