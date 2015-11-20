@@ -16,39 +16,14 @@
  */
 package com.webkreator.qlue;
 
+import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.editors.*;
+import com.webkreator.qlue.router.QlueRouteManager;
+import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.*;
+import com.webkreator.qlue.view.*;
 import it.sauronsoftware.cron4j.InvalidPatternException;
 import it.sauronsoftware.cron4j.Scheduler;
-
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.net.InetAddress;
-import java.security.InvalidParameterException;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.PropertyResourceBundle;
-import java.util.ResourceBundle;
-import java.util.StringTokenizer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-
-import org.apache.catalina.connector.ClientAbortException;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -57,23 +32,22 @@ import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.SimpleEmail;
 import org.apache.log4j.NDC;
 
-import com.webkreator.canoe.HtmlEncoder;
-import com.webkreator.qlue.editors.BooleanEditor;
-import com.webkreator.qlue.editors.DateEditor;
-import com.webkreator.qlue.editors.IntegerEditor;
-import com.webkreator.qlue.editors.PropertyEditor;
-import com.webkreator.qlue.editors.StringEditor;
-import com.webkreator.qlue.router.QlueRouteManager;
-import com.webkreator.qlue.router.RouteFactory;
-import com.webkreator.qlue.view.DefaultView;
-import com.webkreator.qlue.view.FileVelocityViewFactory;
-import com.webkreator.qlue.view.FinalRedirectView;
-import com.webkreator.qlue.view.NamedView;
-import com.webkreator.qlue.view.NullView;
-import com.webkreator.qlue.view.RedirectView;
-import com.webkreator.qlue.view.View;
-import com.webkreator.qlue.view.ViewFactory;
-import com.webkreator.qlue.view.ViewResolver;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import java.io.*;
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.net.InetAddress;
+import java.security.InvalidParameterException;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * This class represents one Qlue application. Very simple applications might
@@ -611,10 +585,6 @@ public class QlueApplication {
                     page.commit();
                 }
             }
-        } catch (ClientAbortException cae) {
-            if (page != null) {
-                page.rollback();
-            }
         } catch (PersistentPageNotFoundException ppnfe) {
             // When we encounter an unknown process reference, we
             // redirect back to the site home page. Showing errors
@@ -665,20 +635,24 @@ public class QlueApplication {
                 setActualPage(page);
             }
 
-            // Handle application exception, which will record full context
-            // data and, optionally, notify the administrator via email
-            handleApplicationException(context, page, t);
+            // Don't process the exception further if the problem is caused
+            // by the client going away (e.g., interrupted file download).
+            if (!t.getClass().getName().contains("ClientAbortException")) {
+                // Handle application exception, which will record full context
+                // data and, optionally, notify the administrator via email
+                handleApplicationException(context, page, t);
 
-            // We do not wish to propagate the exception
-            // further, so simply send a 500 response here (but
-            // only if response headers have not been sent).
-            if (context.getResponse().isCommitted() == false) {
-                if (t instanceof ServiceUnavailableException) {
-                    context.getResponse().sendError(
-                            HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-                } else {
-                    context.getResponse().sendError(
-                            HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                // We do not wish to propagate the exception
+                // further, so simply send a 500 response here (but
+                // only if response headers have not been sent).
+                if (context.getResponse().isCommitted() == false) {
+                    if (t instanceof ServiceUnavailableException) {
+                        context.getResponse().sendError(
+                                HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                    } else {
+                        context.getResponse().sendError(
+                                HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    }
                 }
             }
         }
