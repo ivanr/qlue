@@ -99,6 +99,10 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		return properties;
 	}
 
+    protected void tweakVelocityContext(VelocityContext velocityContext) {
+        // Do nothing; intended for subclasses to override.
+    }
+
 	/**
 	 * Generate output, given page and view.
 	 * 
@@ -169,6 +173,8 @@ public abstract class VelocityViewFactory implements ViewFactory {
 						qlueWriter));
 				ec.attachToContext(velocityContext);
 			}
+
+            tweakVelocityContext(velocityContext);
 
 			template.merge(velocityContext, qlueWriter);
 		} catch (Exception e) {
