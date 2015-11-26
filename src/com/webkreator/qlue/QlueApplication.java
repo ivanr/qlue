@@ -1410,6 +1410,7 @@ public class QlueApplication {
      */
     protected void initPropertyEditors() {
         registerPropertyEditor(new IntegerEditor());
+        registerPropertyEditor(new LongEditor());
         registerPropertyEditor(new StringEditor());
         registerPropertyEditor(new BooleanEditor());
         registerPropertyEditor(new DateEditor());
