@@ -76,4 +76,4 @@ Just before view generation is started, Qlue will automatically add a number of 
 | _res    | Servlet HTTP response  |
 | _cmd    | Command object, if any |
 | _errors | Processing errors      |
-
+| _secret | Session CSRF token     |
