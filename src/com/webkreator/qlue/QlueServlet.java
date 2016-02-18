@@ -34,36 +34,43 @@ public abstract class QlueServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
 
-    private QlueApplication qlueApplication;
+    private static final String QLUE_APP_CLASS = "QLUE_APP_CLASS";
+
+    private QlueApplication qlueApp;
 
     /**
      * Retrieve servlet parameters from web.xml and initialize application.
      */
     @Override
     public final void init() throws ServletException {
-        createApplicationObject();
-
-        if (qlueApplication == null) {
-            throw new UnavailableException("QlueServlet: Application not available");
-        }
-
-        // Initialize application
         try {
-            qlueApplication.init(this);
-        } catch (Exception e) {
-            throw new ServletException(e);
+            createApplicationObject();
+
+            if (qlueApp == null) {
+                throw new UnavailableException("QlueServlet: Application not available");
+            }
+
+            qlueApp.init(this);
+        } catch (Throwable t) {
+            throw new ServletException(t);
         }
     }
 
     /**
-     * This empty method exists to allow subclasses to perform their own
-     * initialization, following the main initialization carried out in this
-     * class.
-     *
-     * @throws ServletException
+     * By default, we look for a servlet init parameter to determine the name
+     * of the application class. Subclasses can override this method to
+     * obtain the application object in some other way.
      */
-    protected void createApplicationObject() throws ServletException {
-        // A subclass may want to do something useful here
+    protected void createApplicationObject() throws ClassNotFoundException {
+        String appClass = getServletConfig().getInitParameter(QLUE_APP_CLASS);
+        if (appClass != null) {
+            Object app =  Class.forName(appClass);
+            if (app instanceof QlueApplication) {
+                setApp((QlueApplication) app);
+            } else {
+                throw new RuntimeException("Application object not instance of QlueApplication");
+            }
+        }
     }
 
     /**
@@ -71,8 +78,8 @@ public abstract class QlueServlet extends HttpServlet {
      *
      * @param app
      */
-    protected void setApplication(QlueApplication app) {
-        this.qlueApplication = app;
+    protected void setApp(QlueApplication app) {
+        this.qlueApp = app;
     }
 
     /**
@@ -80,8 +87,8 @@ public abstract class QlueServlet extends HttpServlet {
      *
      * @return
      */
-    protected QlueApplication getApplication() {
-        return qlueApplication;
+    protected QlueApplication getApp() {
+        return qlueApp;
     }
 
     /**
@@ -92,7 +99,7 @@ public abstract class QlueServlet extends HttpServlet {
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
             // Forward request to the application.
-            qlueApplication.service(this, request, response);
+            qlueApp.service(this, request, response);
         } catch (SocketException e) {
             // Ignore "Broken pipe" exceptions, which occur when clients go away.
             if ((e.getMessage() == null) || (!e.getMessage().contains("Broken pipe"))) {
@@ -106,10 +113,10 @@ public abstract class QlueServlet extends HttpServlet {
      */
     @Override
     public void destroy() {
-        if (qlueApplication == null) {
+        if (qlueApp == null) {
             return;
         }
 
-        qlueApplication.destroy();
+        qlueApp.destroy();
     }
 }

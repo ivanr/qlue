@@ -11,6 +11,6 @@ public class CanoeServlet extends QlueServlet {
 
 	@Override
 	protected void createApplicationObject() throws ServletException {
-		setApplication(new QlueApplication("com.webkreator.canoe.demo.pages"));
+		setApp(new QlueApplication("com.webkreator.canoe.demo.pages"));
 	}
 }

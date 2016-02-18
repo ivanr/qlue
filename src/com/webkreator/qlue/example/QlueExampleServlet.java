@@ -26,6 +26,6 @@ public class QlueExampleServlet extends QlueServlet {
 
 	@Override
 	protected void createApplicationObject() throws ServletException {
-		setApplication(new QlueExampleApplication());
+		setApp(new QlueExampleApplication());
 	}
 }
