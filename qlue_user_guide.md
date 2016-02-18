@@ -12,7 +12,7 @@ In Qlue, you write your web application by creating pages that handle HTTP reque
 	public class helloWorld extends Page {
 
 		@Override
-		public View onGet() throws Exception {
+		public View service() throws Exception {
 			PrintWriter out = context.response.getWriter();
 
 			out.println("Hello World!");
@@ -29,6 +29,10 @@ Here's what you should know about page creation:
  * To do something in your page, override the method onGet().
  * In this simple example we output directly to a HTTPS response by working directly with an instance of HttpServletResponse.
  * To indicate to the framework that no further response handling is needed, we return an instance of NullView.
+	
+#### Responding to specific HTTP methods only
+
+When you override Page.service(), your page will respond to any HTTP method, which is generally not a good idea. Pages usually only need to respond to GET requests. If that's the case, override onGet() insteaf service(). If any other HTTP method is used, Qlue will respond with the 405 status code. The Page class also defines onPost(), but this method is rarely used; it's usually more convenient to use persistent pages, which will be explained later. If you need to respond to arbitrary request methods, override service() and determine course of action by checking the request method.
 	
 ### Views
 
