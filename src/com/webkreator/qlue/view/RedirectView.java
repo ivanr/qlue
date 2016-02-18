@@ -45,16 +45,29 @@ public class RedirectView implements View {
 	private int redirectStatus = REDIRECT;
 
 	/**
-	 * Redirect to an URI.
+	 * Redirect to the provided URI.
+     *
+     * @param uri
 	 */
 	public RedirectView(String uri) {
-		if (uri == null) {
-			throw new InvalidParameterException(
-					"RedirectView: Cannot redirect to null URI");
-		}
-
-		redirection = new UriBuilder(uri);
+        this(uri, REDIRECT);
 	}
+
+    /**
+     * Redirect to the provided URI, using the supplied redirection status.
+     *
+     * @param uri
+     * @param redirectStatus
+     */
+    public RedirectView(String uri, int redirectStatus) {
+        if (uri == null) {
+            throw new InvalidParameterException("RedirectView: Cannot redirect to null URI");
+        }
+
+        setStatus(redirectStatus);
+
+        redirection = new UriBuilder(uri);
+    }
 
 	/**
 	 * Redirect to an existing page.
@@ -63,8 +76,7 @@ public class RedirectView implements View {
 	 */
 	public RedirectView(Page page) {
 		if (page == null) {
-			throw new InvalidParameterException(
-					"RedirectView: Cannot redirect to null page");
+			throw new InvalidParameterException("RedirectView: Cannot redirect to null page");
 		}
 		
 		this.page = page;
@@ -118,7 +130,8 @@ public class RedirectView implements View {
 	public void setStatus(int redirectStatus) {
 		if ((redirectStatus != REDIRECT_PERMANENT)
 				&& (redirectStatus != REDIRECT)
-				&& (redirectStatus != REDIRECT_TEMPORARY)) {
+				&& (redirectStatus != REDIRECT_TEMPORARY))
+        {
 			throw new InvalidParameterException("Invalid redirection status: "
 					+ redirectStatus);
 		}

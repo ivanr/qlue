@@ -9,10 +9,6 @@ To Do
   - http://wiki.apache.org/velocity/CheckingForNull
   	- #ifnull
   	- #ifnotnull
-	
-- RedirectView.addParam() should return "this".
-
-- RedirectView constructors that accept status code.
    
 
 Improvements
