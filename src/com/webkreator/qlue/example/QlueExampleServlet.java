@@ -25,7 +25,7 @@ public class QlueExampleServlet extends QlueServlet {
 	private static final long serialVersionUID = 1L;
 
 	@Override
-	protected void createApplicationObject() throws ServletException {
+	protected void createApplicationObject() {
 		setApp(new QlueExampleApplication());
 	}
 }

@@ -23,12 +23,6 @@ import com.webkreator.qlue.view.ClasspathVelocityViewFactory;
 public class QlueExampleApplication extends QlueApplication {
 	
 	public QlueExampleApplication() {
-		ClasspathVelocityViewFactory viewFactory = new ClasspathVelocityViewFactory();		
-		setViewFactory(viewFactory);
-	}
-	
-	@QlueSchedule("* * * * * ")
-	public void scheduleTest() {
-		//System.err.println("Hello World!");
+		setViewFactory(new ClasspathVelocityViewFactory());
 	}
 }
