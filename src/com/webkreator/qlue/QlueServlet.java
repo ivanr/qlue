@@ -98,7 +98,6 @@ public abstract class QlueServlet extends HttpServlet {
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
-            // Forward request to the application.
             qlueApp.service(this, request, response);
         } catch (SocketException e) {
             // Ignore "Broken pipe" exceptions, which occur when clients go away.
