@@ -83,8 +83,9 @@ public class RedirectView implements View {
 	 * @param name
 	 * @param value
 	 */
-	public void addParam(String name, String value) {
-		redirection.addParam(name, value);
+	public RedirectView addParam(String name, String value) {
+        redirection.addParam(name, value);
+        return this;
 	}
 
 	/**
