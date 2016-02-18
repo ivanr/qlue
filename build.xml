@@ -7,17 +7,17 @@
 	</tstamp>
 
 	<property name="productName" value="Qlue" />
-	<property name="productVersion" value="2.0.0-trunk (${VERSION_TIMESTAMP})" />
+	<property name="productVersion" value="2.1.x-trunk (${VERSION_TIMESTAMP})" />
 
 	<property name="libDir1" value="./lib" />
 	<property name="libDir2" value="./web/qlue-example/WEB-INF/lib" />
 	<property name="srcDir" value="./src" />
 	<property name="outputDir" value="./target/" />
-	<property name="jarName" value="qlue-2.0.0-trunk.jar" />
+	<property name="jarName" value="qlue-2.1.x-trunk.jar" />
 	<property name="canoeJarName" value="canoe-1.0.0-trunk-${VERSION_TIMESTAMP}.jar" />
 	<property name="canoeDemoName" value="canoeDemo-${VERSION_TIMESTAMP}.zip" />
-	<property name="jarSrcName" value="qlue-src-2.0.0-trunk.jar" />
-	<property name="javadocJarName" value="qlue-javadoc-2.0.0-trunk.jar" />
+	<property name="jarSrcName" value="qlue-src-2.1.x-trunk.jar" />
+	<property name="javadocJarName" value="qlue-javadoc-2.1.x-trunk.jar" />
 
 	<property name="tmpDir" value="./tmp-build" />
 	<property name="classesDir" value="${tmpDir}/classes" />
