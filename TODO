@@ -9,7 +9,8 @@ To Do
   - http://wiki.apache.org/velocity/CheckingForNull
   	- #ifnull
   	- #ifnotnull
-   
+
+- Remove dependency on Apache Commons FileUpload.
 
 Improvements
 ------------
