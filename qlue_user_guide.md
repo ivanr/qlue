@@ -61,19 +61,19 @@ Pages that wish to generate output need to build a model, which is simply a map 
  
  2. Explicitly, by using Page.addToModel(String name, Object object).
 
-Just before view generation is started, Qlue will automatically add a number of useful objects to the model.
+Just before view generation is started, Qlue will automatically add a number of useful objects to the model. The names of these objects start with an underscore to avoid collision with application objects.
 
-| Name | Description |
-| ---- | ----------- |
-| _f | Formatting helper, as returned by Page.getFormatttingHelper() |
-| _app | Application object |
-| _page | Page itself |
-| _i | Shadow input object |
-| _ctx | Qlue context |
-| _sess | Application session |
-| _m | Message source |
-| _req | Servlet HTTP request |
-| _res | Servlet HTTP response |
-| _cmd | The command object |
-| _errors | Processing errors |
-| --- | --- |
+| Name    | Description            |
+| ----    | -----------            |
+| _f      | Formatting helper      |
+| _app    | Application            |
+| _page   | Page itself            |
+| _i      | Shadow input           |
+| _ctx    | Qlue context           |
+| _sess   | Application session    |
+| _m      | Message source         |
+| _req    | Servlet HTTP request   |
+| _res    | Servlet HTTP response  |
+| _cmd    | Command object, if any |
+| _errors | Processing errors      |
+
