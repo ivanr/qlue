@@ -23,12 +23,12 @@ In Qlue, you write your web application by creating pages that handle HTTP reque
 	
 Here's what you should know about page creation:
 	
-	* To create a page, create a new class inheriting Page
-	* The name of the class should correspond to the URL; in the above example, the page will be executed when the path /helloWorld is invoked.
-	* Simple pages are stateless; the framework will create a new page instance for each HTTP request.
-	* To do something in your page, override the method onGet().
-	* In this simple example we output directly to a HTTPS response by working directly with an instance of HttpServletResponse.
-	* To indicate to the framework that no further response handling is needed, we return an instance of NullView.
+ * To create a page, create a new class inheriting Page
+ * The name of the class should correspond to the URL; in the above example, the page will be executed when the path /helloWorld is invoked.
+ * Simple pages are stateless; the framework will create a new page instance for each HTTP request.
+ * To do something in your page, override the method onGet().
+ * In this simple example we output directly to a HTTPS response by working directly with an instance of HttpServletResponse.
+ * To indicate to the framework that no further response handling is needed, we return an instance of NullView.
 	
 ### Views
 
