@@ -32,86 +32,84 @@ import javax.servlet.http.HttpServletResponse;
  */
 public abstract class QlueServlet extends HttpServlet {
 
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-	private QlueApplication qlueApplication;
+    private QlueApplication qlueApplication;
 
-	/**
-	 * Retrieve servlet parameters from web.xml and initialize application.
-	 */
-	@Override
-	public final void init() throws ServletException {
-		// Let subclasses do their own initialization
-		subclassInit();
+    /**
+     * Retrieve servlet parameters from web.xml and initialize application.
+     */
+    @Override
+    public final void init() throws ServletException {
+        // Let subclasses do their own initialization
+        subclassInit();
 
-		if (qlueApplication == null) {
-			throw new UnavailableException(
-					"QlueServlet: Application object not set in subclass");
-		}
+        if (qlueApplication == null) {
+            throw new UnavailableException("QlueServlet: Application object not set in subclass");
+        }
 
-		// Initialize application
-		try {
-			qlueApplication.init(this);
-		} catch (Exception e) {
-			throw new ServletException(e);
-		}
-	}
+        // Initialize application
+        try {
+            qlueApplication.init(this);
+        } catch (Exception e) {
+            throw new ServletException(e);
+        }
+    }
 
-	/**
-	 * This empty method exists to allow subclasses to perform their own
-	 * initialization, following the main initialization carried out in this
-	 * class.
-	 * 
-	 * @throws ServletException
-	 */
-	protected void subclassInit() throws ServletException {
-		// A subclass may want to do something useful here
-	}
+    /**
+     * This empty method exists to allow subclasses to perform their own
+     * initialization, following the main initialization carried out in this
+     * class.
+     *
+     * @throws ServletException
+     */
+    protected void subclassInit() throws ServletException {
+        // A subclass may want to do something useful here
+    }
 
-	/**
-	 * Associate Qlue application with this servlet.
-	 * 
-	 * @param app
-	 */
-	protected void setApplication(QlueApplication app) {
-		this.qlueApplication = app;
-	}
+    /**
+     * Associate Qlue application with this servlet.
+     *
+     * @param app
+     */
+    protected void setApplication(QlueApplication app) {
+        this.qlueApplication = app;
+    }
 
-	/**
-	 * Retrieve the application associated with this servlet.
-	 * 
-	 * @return
-	 */
-	protected QlueApplication getApplication() {
-		return qlueApplication;
-	}
+    /**
+     * Retrieve the application associated with this servlet.
+     *
+     * @return
+     */
+    protected QlueApplication getApplication() {
+        return qlueApplication;
+    }
 
-	/**
-	 * This method is invoked by the servlet container, and all we do is pass on
-	 * the parameters to the associated Qlue application.
-	 */
-	protected void service(HttpServletRequest request,
-			HttpServletResponse response) throws ServletException, IOException {
-		try {
-			// Forward request to the application.
-			qlueApplication.service(this, request, response);
-		} catch (SocketException e) {
-			// Ignore "Broken pipe" exceptions, which occur when clients go away.
-			if ((e.getMessage() == null)||(!e.getMessage().contains("Broken pipe"))) {
-				throw e;
-			}
-		}
-	}
+    /**
+     * This method is invoked by the servlet container, and all we do is pass on
+     * the parameters to the associated Qlue application.
+     */
+    protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        try {
+            // Forward request to the application.
+            qlueApplication.service(this, request, response);
+        } catch (SocketException e) {
+            // Ignore "Broken pipe" exceptions, which occur when clients go away.
+            if ((e.getMessage() == null) || (!e.getMessage().contains("Broken pipe"))) {
+                throw e;
+            }
+        }
+    }
 
-	/**
-	 * Invokes the destroy() method on the application object.
-	 */
-	@Override
-	public void destroy() {
-		if (qlueApplication == null) {
-			return;
-		}
+    /**
+     * Invokes the destroy() method on the application object.
+     */
+    @Override
+    public void destroy() {
+        if (qlueApplication == null) {
+            return;
+        }
 
-		qlueApplication.destroy();
-	}
+        qlueApplication.destroy();
+    }
 }
