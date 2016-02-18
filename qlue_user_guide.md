@@ -52,3 +52,28 @@ To issue a redirection, return an instance of RedirectView:
 	rv.addParam("param1", "value1");
 	rv.addParam("param2", "value2");
 	return rv;
+	
+### Model
+
+Pages that wish to generate output need to build a model, which is simply a map of named objects. There are two ways to add to the model:
+
+ 1. Implicitly, because Qlue will automatically add all public fields of the page to the model.
+ 
+ 2. Explicitly, by using Page.addToModel(String name, Object object).
+
+Just before view generation is started, Qlue will automatically add a number of useful objects to the model.
+
+| Name | Description |
+| ---- | ----------- |
+| _f | Formatting helper, as returned by Page.getFormatttingHelper() |
+| _app | Application object |
+| _page | Page itself |
+| _i | Shadow input object |
+| _ctx | Qlue context |
+| _sess | Application session |
+| _m | Message source |
+| _req | Servlet HTTP request |
+| _res | Servlet HTTP response |
+| _cmd | The command object |
+| _errors | Processing errors |
+| --- | --- |
