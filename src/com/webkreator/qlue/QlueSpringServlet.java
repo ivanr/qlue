@@ -31,7 +31,7 @@ public class QlueSpringServlet extends QlueServlet {
 	private static final long serialVersionUID = 1L;
 
 	@Override
-	public void subclassInit() throws ServletException {
+	public void createApplicationObject() throws ServletException {
 		try {
 			// Create application context
 			XmlWebApplicationContext ctx = new XmlWebApplicationContext();

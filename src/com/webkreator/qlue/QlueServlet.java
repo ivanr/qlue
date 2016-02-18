@@ -41,11 +41,10 @@ public abstract class QlueServlet extends HttpServlet {
      */
     @Override
     public final void init() throws ServletException {
-        // Let subclasses do their own initialization
-        subclassInit();
+        createApplicationObject();
 
         if (qlueApplication == null) {
-            throw new UnavailableException("QlueServlet: Application object not set in subclass");
+            throw new UnavailableException("QlueServlet: Application not available");
         }
 
         // Initialize application
@@ -63,7 +62,7 @@ public abstract class QlueServlet extends HttpServlet {
      *
      * @throws ServletException
      */
-    protected void subclassInit() throws ServletException {
+    protected void createApplicationObject() throws ServletException {
         // A subclass may want to do something useful here
     }
 
@@ -89,6 +88,7 @@ public abstract class QlueServlet extends HttpServlet {
      * This method is invoked by the servlet container, and all we do is pass on
      * the parameters to the associated Qlue application.
      */
+    @Override
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
             // Forward request to the application.
