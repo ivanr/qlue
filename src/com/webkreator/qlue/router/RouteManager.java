@@ -29,4 +29,6 @@ public interface RouteManager {
     public void setSuffix(String suffix);
 
     public String getIndexWithSuffix();
+
+    public boolean isConvertDashesToUnderscores();
 }

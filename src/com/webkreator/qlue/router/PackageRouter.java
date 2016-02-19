@@ -79,6 +79,10 @@ public class PackageRouter implements Router {
                     return null;
                 }
 
+                if (manager.isConvertDashesToUnderscores()) {
+                    lastToken = lastToken.replace('-', '_');
+                }
+
                 sb.append(".");
                 sb.append(lastToken);
             }
@@ -93,7 +97,12 @@ public class PackageRouter implements Router {
         }
 
         if (lastToken != null) {
-            // We allow one dot in the last segment, which could be a file suffix.
+            if (manager.isConvertDashesToUnderscores()) {
+                lastToken = lastToken.replace('-', '_');
+            }
+
+            // If there's a dot in the last segment, we consider that it
+            // marks the beginning of a file suffix.
             int i = lastToken.indexOf('.');
             if (i != -1) {
                 urlSuffix = lastToken.substring(i);

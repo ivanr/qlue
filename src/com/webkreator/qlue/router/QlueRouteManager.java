@@ -153,4 +153,9 @@ public class QlueRouteManager implements RouteManager {
     public String getIndexWithSuffix() {
         return index + (suffix != null ? suffix : "");
     }
+
+    @Override
+    public boolean isConvertDashesToUnderscores() {
+        return false;
+    }
 }
