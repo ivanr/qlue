@@ -45,6 +45,43 @@ Features (some not implemented yet):
 
 ## Getting started
 
+To give you a taste of the simplicity that Qlue offers, in this section we will implement the simplest possible Qlue application. The entire application will consist of one class -- a page in Qlue terminology -- which will print "Hello World" in response to a HTTP request. Here it is, in all its glory:
+
+	package com.example.site.pages;
+	
+	public class helloWorld extends Page {
+
+		@Override
+		public View onGet() throws Exception {
+			PrintWriter out = context.response.getWriter();
+
+			out.println("Hello World!");
+
+			return new NullView();
+		}
+	}
+
+To deploy this page we use QlueServlet to act as brige to a Servlet container. We use the QLUE_PAGES_PACKAGE parameter to specify the location of your application pages:
+
+	<web-app xmlns="http://java.sun.com/xml/ns/javaee" version="3.1">
+    	<servlet>
+        	<servlet-name>QlueServlet</servlet-name>
+        		<servlet-class>com.webkreator.qlue.QlueServlet</servlet-class>
+				<init-param>
+					<param-name>QLUE_PAGES_PACKAGE</param-name>
+					<param-value>com.example.site.pages</param-value>
+				</init-param>
+    		</servlet>
+    		<servlet-mapping>
+        		<servlet-name>QlueServlet</servlet-name>
+        		<url-pattern>/*</url-pattern>
+    		</servlet-mapping>
+	</web-app>
+
+That's all. Now when you start the web server and invoke "/helloWorld" in your browser, you should get "Hello World" back.
+
+## Concepts
+
 ### Pages
 
 In Qlue, you write your web application by creating pages that handle HTTP requests. By default, one unique URL maps to one page, and one page is implemented via one Java class. Consider this simple page:

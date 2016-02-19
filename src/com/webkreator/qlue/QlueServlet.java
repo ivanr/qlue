@@ -36,6 +36,8 @@ public abstract class QlueServlet extends HttpServlet {
 
     private static final String QLUE_APP_CLASS = "QLUE_APP_CLASS";
 
+    private static final String QLUE_PAGES_PACKAGE = "QLUE_PAGES_PACKAGE";
+
     private QlueApplication qlueApp;
 
     /**
@@ -62,7 +64,18 @@ public abstract class QlueServlet extends HttpServlet {
      * obtain the application object in some other way.
      */
     protected void createApplicationObject() throws ClassNotFoundException {
+        String pagesPackage = getServletConfig().getInitParameter(QLUE_PAGES_PACKAGE);
         String appClass = getServletConfig().getInitParameter(QLUE_APP_CLASS);
+
+        if (pagesPackage != null) {
+            if (appClass != null) {
+                throw new RuntimeException("Only one parameter allowed");
+            }
+
+            setApp(new QlueApplication(pagesPackage));
+            return;
+        }
+
         if (appClass != null) {
             Object app =  Class.forName(appClass);
             if (app instanceof QlueApplication) {
