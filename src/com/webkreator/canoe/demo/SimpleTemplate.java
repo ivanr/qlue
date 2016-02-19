@@ -6,7 +6,7 @@ import java.text.StringCharacterIterator;
 
 import javax.servlet.http.HttpServletRequest;
 
-import com.webkreator.canoe.Canoe;
+import com.webkreator.qlue.view.Canoe;
 
 public class SimpleTemplate {
 

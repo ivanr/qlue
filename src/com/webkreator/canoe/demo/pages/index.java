@@ -18,7 +18,7 @@ package com.webkreator.canoe.demo.pages;
 
 import java.io.PrintWriter;
 
-import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.canoe.demo.SimpleTemplate;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueParameter;

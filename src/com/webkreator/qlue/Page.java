@@ -28,7 +28,7 @@ import com.webkreator.qlue.exceptions.ValidationException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.BearerToken;
 import com.webkreator.qlue.view.View;
 import com.webkreator.qlue.view.ViewResolver;

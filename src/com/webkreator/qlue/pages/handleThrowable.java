@@ -24,7 +24,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.velocity.exception.ParseErrorException;
 
-import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.exceptions.AccessForbiddenException;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.exceptions.PersistentPageNotFoundException;

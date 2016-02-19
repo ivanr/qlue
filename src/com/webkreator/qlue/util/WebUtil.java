@@ -21,7 +21,6 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.TransactionContext;
 
 /**

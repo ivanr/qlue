@@ -37,7 +37,7 @@ import org.apache.commons.fileupload.FileItemFactory;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 
-import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.FinalRedirectView;

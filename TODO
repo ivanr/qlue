@@ -12,8 +12,6 @@ To Do
 
 - Remove dependency on Apache Commons FileUpload.
 
-- Move canoe under Qlue.
-
 - Move logging to SLF4J.
 
 - Move build to Gradle.

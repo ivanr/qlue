@@ -1,4 +1,4 @@
-package com.webkreator.qlue.view;
+package com.webkreator.qlue.view.velocity;
 
 import org.apache.velocity.runtime.resource.Resource;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;

@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.webkreator.canoe;
+package com.webkreator.qlue.view;
+
+import com.webkreator.qlue.util.HtmlEncoder;
 
 import java.io.IOException;
 import java.io.Writer;

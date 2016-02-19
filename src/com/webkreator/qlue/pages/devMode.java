@@ -19,7 +19,7 @@ package com.webkreator.qlue.pages;
 import java.io.PrintWriter;
 import java.util.List;
 
-import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.*;
 import com.webkreator.qlue.Error;
 import com.webkreator.qlue.exceptions.AccessForbiddenException;

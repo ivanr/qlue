@@ -19,7 +19,7 @@ package com.webkreator.qlue.example.pages;
 import java.io.IOException;
 import java.io.PrintWriter;
 
-import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.Errors;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueParameter;

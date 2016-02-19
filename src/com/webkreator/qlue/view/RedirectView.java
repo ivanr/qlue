@@ -19,7 +19,7 @@ package com.webkreator.qlue.view;
 import java.io.PrintWriter;
 import java.security.InvalidParameterException;
 
-import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.util.UriBuilder;

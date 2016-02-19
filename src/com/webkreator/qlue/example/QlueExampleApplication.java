@@ -17,8 +17,7 @@
 package com.webkreator.qlue.example;
 
 import com.webkreator.qlue.QlueApplication;
-import com.webkreator.qlue.QlueSchedule;
-import com.webkreator.qlue.view.ClasspathVelocityViewFactory;
+import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
 
 public class QlueExampleApplication extends QlueApplication {
 	
