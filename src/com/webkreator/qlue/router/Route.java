@@ -42,8 +42,7 @@ public class Route {
 
 	private Router router;
 
-	private static final Pattern namePattern = Pattern
-			.compile("^[a-zA-Z][a-zA-Z0-9_]{0,32}$");
+	private static final Pattern namePattern = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]{0,32}$");
 
 	private boolean redirects = false;
 
@@ -104,15 +103,13 @@ public class Route {
 
 				// Empty parameters with custom patterns are not allowed
 				if (name.length() == 0) {
-					throw new RuntimeException(
-							"Qlue: Empty URL parameter name in route");
+					throw new RuntimeException("Qlue: Empty URL parameter name in route");
 				}
 
 				// Check that the parameter name is valid
 				Matcher nameMatcher = namePattern.matcher(name);
 				if (nameMatcher.matches() == false) {
-					throw new RuntimeException("Qlue: Invalid URL parameter: "
-							+ name);
+					throw new RuntimeException("Qlue: Invalid URL parameter: " + name);
 				}
 			}
 
@@ -152,8 +149,7 @@ public class Route {
 
 			if ((haystack != null) && (haystack.length() > 0)) {
 				if (terminated) {
-					throw new RuntimeException(
-							"Qlue: Terminating URI parameter must be at the end");
+					throw new RuntimeException("Qlue: Terminating URI parameter must be at the end");
 				}
 
 				m = p.matcher(haystack);
@@ -222,9 +218,9 @@ public class Route {
 		}
 
 		if (redirects && (tx.getRequestUri().endsWith("/") == false)
-				&& ((routeSuffix == null) || (routeSuffix.length() == 0))) {
-			return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(
-					tx, routeSuffix);
+				&& ((routeSuffix == null) || (routeSuffix.length() == 0)))
+        {
+			return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, routeSuffix);
 		}
 
 		// Return the route
