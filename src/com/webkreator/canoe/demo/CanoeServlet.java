@@ -10,7 +10,7 @@ public class CanoeServlet extends QlueServlet {
 	private static final long serialVersionUID = 1L;
 
 	@Override
-	protected void createApplicationObject() throws ServletException {
+	protected void createApplicationObject() {
 		setApp(new QlueApplication("com.webkreator.canoe.demo.pages"));
 	}
 }
