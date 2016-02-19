@@ -27,6 +27,8 @@ To Do
 
 - Review http://beanvalidation.org. Can it be used to replace the validation we have?
 
+- XXX Hardcoded caching instructions in StaticFileRouter? Also not consistently applied.
+
 
 Improvements
 ------------

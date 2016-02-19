@@ -27,4 +27,6 @@ public interface RouteManager {
      * @param suffix New suffix.
      */
     public void setSuffix(String suffix);
+
+    public String getIndexWithSuffix();
 }

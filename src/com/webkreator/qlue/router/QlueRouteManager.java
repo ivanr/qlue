@@ -148,4 +148,9 @@ public class QlueRouteManager implements RouteManager {
 	public void setSuffix(String suffix) {
 		this.suffix = suffix;
 	}
+
+    @Override
+    public String getIndexWithSuffix() {
+        return index + (suffix != null ? suffix : "");
+    }
 }

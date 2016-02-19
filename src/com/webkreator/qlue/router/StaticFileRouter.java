@@ -31,49 +31,51 @@ import com.webkreator.qlue.view.StatusCodeView;
  */
 public class StaticFileRouter implements Router {
 
-	private Log log = LogFactory.getLog(StaticFileRouter.class);
+    private Log log = LogFactory.getLog(StaticFileRouter.class);
 
-	protected RouteManager manager;
+    protected RouteManager manager;
 
-	private String path;
+    private String root;
 
-	public StaticFileRouter(RouteManager manager, String path) {
-		this.manager = manager;
-		this.path = path;
-	}
+    public StaticFileRouter(RouteManager manager, String root) {
+        this.manager = manager;
+        this.root = root;
+    }
 
-	@Override
-	public Object route(TransactionContext context, String routeSuffix) {
-		if (routeSuffix.contains("/../")) {
-			throw new QlueSecurityException("StaticFileRouter: Invalid path: "
-					+ routeSuffix);
-		}
+    @Override
+    public Object route(TransactionContext context, String path) {
+        if (path.contains("/../")) {
+            throw new QlueSecurityException("StaticFileRouter: Invalid path: " + path);
+        }
 
-		if (routeSuffix.toLowerCase().contains("web-inf")) {
-			throw new QlueSecurityException("StaticFileRouter: Invalid path: "
-					+ routeSuffix);
-		}
+        if (path.toLowerCase().contains("web-inf")) {
+            throw new QlueSecurityException("StaticFileRouter: Invalid path: " + path);
+        }
 
-		File file = new File(path, routeSuffix);
+        File file = new File(root, path);
 
-		if (log.isDebugEnabled()) {
-			log.debug("StaticFileRouter: Trying file: " + file);
-		}
+        if (log.isDebugEnabled()) {
+            log.debug("StaticFileRouter: Trying file: " + file);
+        }
 
-		if (file.exists()) {
-			if (file.isDirectory()) {
-				file = new File(file, manager.getIndex() + (manager.getSuffix() != null ? manager.getSuffix() : ""));
-				if (file.exists()) {
-					context.response.setHeader("Cache-Control", "max-age: 3600, must-revalidate");
-					return new DownloadView(file);
-				} else {
-					return new StatusCodeView(403);
-				}
-			} else {
-				return new DownloadView(file);
-			}
-		} else {
-			return null;
-		}
-	}
+        if (!file.exists()) {
+            return null;
+        }
+
+        if (!file.isDirectory()) {
+            return new DownloadView(file);
+        }
+
+        // The request is for a directory; ask the manager for
+        // the default file and attempt to serve that.
+
+        file = new File(file, manager.getIndexWithSuffix());
+        if (file.exists()) {
+            // XXX
+            context.response.setHeader("Cache-Control", "max-age: 3600, must-revalidate");
+            return new DownloadView(file);
+        } else {
+            return new StatusCodeView(403);
+        }
+    }
 }
