@@ -31,8 +31,13 @@
 		<servlet-name>QlueServlet</servlet-name>
 
 		<servlet-class>
-			com.webkreator.qlue.example.QlueExampleServlet
+			com.webkreator.qlue.QlueServlet
 		</servlet-class>
+
+        <init-param>
+            <param-name>QLUE_PAGES_PACKAGE</param-name>
+            <param-value>com.webkreator.qlue.example.pages</param-value>
+        </init-param>
 
 		<load-on-startup>1</load-on-startup>
 	</servlet>

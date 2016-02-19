@@ -79,7 +79,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
         String caching = properties.getProperty(RuntimeConstants.FILE_RESOURCE_LOADER_CACHE);
         if ((caching == null)||(Boolean.valueOf(caching) == false)) {
             properties.setProperty("file.resource.loader.class",
-                    "com.webkreator.qlue.view.NonCachingClasspathResourceLoader");
+                    "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");
         } else {
             properties.setProperty("file.resource.loader.class",
                     "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");

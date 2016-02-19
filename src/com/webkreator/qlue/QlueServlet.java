@@ -30,7 +30,7 @@ import javax.servlet.http.HttpServletResponse;
  * specification. It's an abstract class; a subclass should be used to create
  * the desired instance of the Qlue application.
  */
-public abstract class QlueServlet extends HttpServlet {
+public class QlueServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
 
