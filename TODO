@@ -2,7 +2,12 @@
 To Do
 ----- 
  
-- Detect multiple conflicting _pid parameters.
+- XXX Detect multiple conflicting _pid parameters.
+
+- XXX Hardcoded caching instructions in StaticFileRouter? Also not consistently applied.
+
+- XXX ClassRouter returns null when unable to create page instance. Should throw a runtime
+  exception that would ultimately cause a 500.
 
 - Register custom Velocity directives:
 
@@ -16,17 +21,11 @@ To Do
 
 - Move build to Gradle.
 
-- Routing: Process .vm files directly when page class not available
+- Routing: Process .vmx files directly when page class not available
 
-  - Would that be surprising the users? What if we expose some internal templates that way?
-    Perhaps require a special naming approach? For example, use a different extension.
+- JsonEditor to convert JSON into Java objects. Indicate via annotation?
 
-- Review http://beanvalidation.org. Can it be used to replace the validation we have?
-
-- XXX Hardcoded caching instructions in StaticFileRouter? Also not consistently applied.
-
-- ClassRouter returns null when unable to create page instance. Should throw a runtime
-  exception that would ultimately cause a 500.
+- Feature to invoke Java Bean validation afterward Qlue validation? See http://hibernate.org/validator/
 
 - API call to shut down the scheduler.
 
