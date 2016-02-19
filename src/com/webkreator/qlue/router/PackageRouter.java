@@ -73,8 +73,8 @@ public class PackageRouter implements Router {
         StringTokenizer st = new StringTokenizer(path, "/");
         while (st.hasMoreTokens()) {
             if (lastToken != null) {
-                // We also don't allow path segments with periods, because
-                // they might interfere with class construction.
+                // We don't allow path segments with periods, because
+                // they might interfere with class path construction.
                 if (lastToken.indexOf('.') != -1) {
                     return null;
                 }
@@ -125,10 +125,7 @@ public class PackageRouter implements Router {
                 return null;
             }
 
-            // We have found the index page
             log.debug("Found index page");
-
-            // XXX Check suffixes match.
 
             // Check if we need to issue a redirection
             if (tx.getRequestUri().endsWith("/") == false) {
@@ -142,37 +139,8 @@ public class PackageRouter implements Router {
             throw new RuntimeException("Class " + className + " is not a subclass of Page");
         }
 
-        // Check that suffixes match.
-
-        String pageSuffix = manager.getSuffix();
-        QlueMapping mapping = (QlueMapping) pageClass.getAnnotation(QlueMapping.class);
-        if (mapping != null) {
-            if (!mapping.suffix().equals("inheritAppSuffix")) {
-                pageSuffix = mapping.suffix();
-            }
-        }
-
-        log.debug("Suffixes: URL: " + urlSuffix + "; page: " + pageSuffix);
-
-        if (urlSuffix != null) {
-            // URL suffix present.
-
-            if (pageSuffix == null) {
-                log.debug("Suffix mismatch: URI has suffix but page doesn't");
-                return null;
-            }
-
-            if (!pageSuffix.equals(urlSuffix)) {
-                log.debug("Suffix mismatch: URI: " + urlSuffix + "; page: " + pageSuffix);
-                return null;
-            }
-        } else {
-            // URL suffix not present.
-
-            if (pageSuffix != null) {
-                log.debug("Suffix mismatch: page has suffix but URI doesn't");
-                return null;
-            }
+        if (!checkSuffixMatch(pageClass, urlSuffix)) {
+            return null;
         }
 
         try {
@@ -184,14 +152,48 @@ public class PackageRouter implements Router {
         }
     }
 
+    protected boolean checkSuffixMatch(Class pageClass, String urlSuffix) {
+        String pageSuffix = manager.getSuffix();
+        QlueMapping mapping = (QlueMapping) pageClass.getAnnotation(QlueMapping.class);
+        if (mapping != null) {
+            if (!mapping.suffix().equals("inheritAppSuffix")) {
+                pageSuffix = mapping.suffix();
+            }
+        }
+
+        log.debug("Suffix check: URL: " + urlSuffix + "; page: " + pageSuffix);
+
+        if (urlSuffix != null) {
+            // URL suffix present.
+
+            if (pageSuffix == null) {
+                log.debug("Suffix mismatch: URI has suffix but page doesn't");
+                return false;
+            }
+
+            if (!pageSuffix.equals(urlSuffix)) {
+                log.debug("Suffix mismatch: URI: " + urlSuffix + "; page: " + pageSuffix);
+                return false;
+            }
+        } else {
+            // URL suffix not present.
+
+            if (pageSuffix != null) {
+                log.debug("Suffix mismatch: page has suffix but URI doesn't");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /**
      * Returns class given its name.
      *
      * @param name
      * @return
      */
-    @SuppressWarnings("rawtypes")
-    public static Class classForName(String name) {
+    protected static Class classForName(String name) {
         try {
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             return Class.forName(name, true, classLoader);
