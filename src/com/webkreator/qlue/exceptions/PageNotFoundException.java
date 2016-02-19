@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.webkreator.qlue;
+package com.webkreator.qlue.exceptions;
 
 /**
- * Thrown when we detect an attack against the application.
+ * Thrown when the framework fails to map a request to a page.
  */
-public class QlueSecurityException extends QlueException {
+public class PageNotFoundException extends QlueException {
 	
 	private static final long serialVersionUID = 1L;
-	
-	public QlueSecurityException(String message) {
-		super(message);
+
+	public PageNotFoundException() {
+		super();
 	}
 }

@@ -18,6 +18,7 @@ package com.webkreator.qlue;
 
 import com.webkreator.canoe.HtmlEncoder;
 import com.webkreator.qlue.editors.*;
+import com.webkreator.qlue.exceptions.*;
 import com.webkreator.qlue.router.QlueRouteManager;
 import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.*;

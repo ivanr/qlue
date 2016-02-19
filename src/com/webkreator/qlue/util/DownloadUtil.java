@@ -28,10 +28,10 @@ import java.text.StringCharacterIterator;
 
 import javax.servlet.http.HttpServletResponse;
 
-import com.webkreator.qlue.QlueSecurityException;
+import com.webkreator.qlue.exceptions.QlueSecurityException;
 import org.apache.commons.codec.binary.Base64;
 
-import com.webkreator.qlue.PageNotFoundException;
+import com.webkreator.qlue.exceptions.PageNotFoundException;
 import com.webkreator.qlue.TransactionContext;
 
 /**

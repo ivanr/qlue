@@ -18,7 +18,7 @@ package com.webkreator.qlue.router;
 
 import java.io.File;
 
-import com.webkreator.qlue.QlueSecurityException;
+import com.webkreator.qlue.exceptions.QlueSecurityException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
