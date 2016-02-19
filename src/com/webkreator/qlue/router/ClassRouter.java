@@ -31,27 +31,21 @@ public class ClassRouter implements Router {
 
 	private Class<Page> pageClass;
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public ClassRouter(String className) {
-		Class candidate = null;
+		Class candidate;
 
-		// Look for class
+		// Look for the desired class.
 		try {
-			ClassLoader classLoader = Thread.currentThread()
-					.getContextClassLoader();
-			candidate = Class.forName(className, true, classLoader);
+			candidate = Class.forName(className, true, Thread.currentThread().getContextClassLoader());
 		} catch (Exception e) {
-			throw new RuntimeException("ClassRouter: Unknown class: "
-					+ className);
+			throw new RuntimeException("ClassRouter: Unknown class: " + className);
 		}
 
-		// Check that class is instance of Page
+		// Check that the class is a subclass of Page.
 		if (!Page.class.isAssignableFrom(candidate)) {
-			throw new RuntimeException("ClassRouter: Class " + className
-					+ " is not a subclass of Page.");
+			throw new RuntimeException("ClassRouter: Class " + className + " is not a subclass of Page.");
 		}
 
-		// We have our page class
 		pageClass = candidate;
 	}
 

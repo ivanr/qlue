@@ -29,6 +29,9 @@ To Do
 
 - XXX Hardcoded caching instructions in StaticFileRouter? Also not consistently applied.
 
+- ClassRouter returns null when unable to create page instance. Should throw a runtime
+  exception that would ultimately cause a 500.
+
 
 Improvements
 ------------
