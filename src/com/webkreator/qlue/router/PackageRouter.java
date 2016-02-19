@@ -18,24 +18,23 @@ package com.webkreator.qlue.router;
 
 import java.util.StringTokenizer;
 
+import com.webkreator.qlue.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.webkreator.qlue.Page;
 import com.webkreator.qlue.exceptions.QlueSecurityException;
-import com.webkreator.qlue.TransactionContext;
 
 /**
  * Routes transaction to an entire package, with
  * an unlimited depth.
  */
 public class PackageRouter implements Router {
+
+    private Log log = LogFactory.getLog(ClassRouter.class);
+
+    private String packageName;
 	
 	protected RouteManager manager;
-
-	private Log log = LogFactory.getLog(ClassRouter.class);
-
-	private String packageName;	
 
 	public PackageRouter(RouteManager manager, String packageName) {
 		this.manager = manager;
@@ -50,59 +49,58 @@ public class PackageRouter implements Router {
 	/**
 	 * Returns page instance for a given URL.
 	 *  
-	 * @param routeSuffix
+	 * @param path
 	 * @param rootPackage
 	 * @return page instance, or null if page cannot be found
 	 */
-	public Object resolveUri(TransactionContext tx, String routeSuffix, String rootPackage) {
+	public Object resolveUri(TransactionContext tx, String path, String rootPackage) {
 		@SuppressWarnings("rawtypes")
 		Class pageClass = null;
 
-		if (routeSuffix.indexOf("/../") != -1) {
-			throw new QlueSecurityException(
-					"Directory backreferences not allowed in path");
-		}
-
-		// Handle URI suffix
-		String suffix = manager.getSuffix();
-		if ((suffix != null) && (routeSuffix.endsWith(suffix))) {
-			// Remove suffix from URI
-			routeSuffix = routeSuffix.substring(0, routeSuffix.length() - 5);
-			log.debug("Updated routeSuffix: " + routeSuffix);
+		if (path.indexOf("/../") != -1) {
+			throw new QlueSecurityException("Directory backreferences not allowed in path");
 		}
 
 		// Start building class name.
 		StringBuilder sb = new StringBuilder();
+        String urlSuffix = null;
 
 		// Start with the root package.
 		sb.append(rootPackage);
 
 		// Each folder in the URI corresponds to a package name.
 		String lastToken = null;
-		StringTokenizer st = new StringTokenizer(routeSuffix, "/");
+		StringTokenizer st = new StringTokenizer(path, "/");
 		while (st.hasMoreTokens()) {
 			if (lastToken != null) {
+                // We also don't allow path segments with periods, because
+                // they might interfere with class construction.
+                if (lastToken.indexOf('.') != -1) {
+                    return null;
+                }
+
 				sb.append(".");
 				sb.append(lastToken);
 			}
 
 			lastToken = st.nextToken();
 			
-			// We don't serve path segments whose
-			// names begin with $. Such packages are 
-			// considered to be private.
+			// We don't serve path segments whose names begin with $.
+			// Such packages are considered to be private.
 			if ((lastToken.length() > 0)&&(lastToken.charAt(0) == '$')) {
-				return null;
-			}
-			
-			// We also don't allow path segments with periods, because
-			// they might interfere with class construction.
-			if (lastToken.indexOf('.') != -1) {
 				return null;
 			}
 		}
 
 		if (lastToken != null) {
+            // We allow one dot in the last segment, which could be a file suffix.
+            int i = lastToken.indexOf('.');
+            if (i != -1) {
+                urlSuffix = lastToken.substring(i);
+                lastToken = lastToken.substring(0, i);
+                log.debug("Detected suffix: " + urlSuffix);
+            }
+
 			sb.append(".");
 			sb.append(lastToken);
 		}
@@ -133,17 +131,48 @@ public class PackageRouter implements Router {
 				// Check if we need to issue a redirection
 				if (tx.getRequestUri().endsWith("/") == false) {
 					log.debug("Redirecting to " + tx.getRequestUri() + "/");
-					return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(
-							tx, routeSuffix);
+					return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, path);
 				}
 			}
 		}
 
 		// Check class is instance of Page
 		if (!Page.class.isAssignableFrom(pageClass)) {
-			throw new RuntimeException("ClassPageResolver: Class " + className
-					+ " is not a subclass of Page.");
+			throw new RuntimeException("Class " + className + " is not a subclass of Page");
 		}
+
+        // Check that suffixes match.
+
+        String pageSuffix = manager.getSuffix();
+        QlueMapping mapping = (QlueMapping)pageClass.getAnnotation(QlueMapping.class);
+        if (mapping != null) {
+            if (!mapping.suffix().equals("inheritAppSuffix")) {
+                pageSuffix = mapping.suffix();
+            }
+        }
+
+        log.debug("Suffixes: URL: " + urlSuffix + "; page: " + pageSuffix);
+
+        if (urlSuffix != null) {
+            // URL suffix present.
+
+            if (pageSuffix == null) {
+                log.debug("Suffix mismatch: URI has suffix but page doesn't");
+                return null;
+            }
+
+            if (!pageSuffix.equals(urlSuffix)) {
+                log.debug("Suffix mismatch: URI: " + urlSuffix + "; page: " + pageSuffix);
+                return null;
+            }
+        } else {
+            // URL suffix not present.
+
+            if (pageSuffix != null) {
+                log.debug("Suffix mismatch: page has suffix but URI doesn't");
+                return null;
+            }
+        }
 
 		try {
 			log.debug("Creating new instance of " + pageClass);
@@ -157,18 +186,17 @@ public class PackageRouter implements Router {
 	/**
 	 * Returns class given its name.
 	 * 
-	 * @param classname
+	 * @param name
 	 * @return
 	 */
 	@SuppressWarnings("rawtypes")
-	public static Class classForName(String classname) {
+	public static Class classForName(String name) {
 		try {
-			ClassLoader classLoader = Thread.currentThread()
-					.getContextClassLoader();
-			return Class.forName(classname, true, classLoader);
-		} catch (ClassNotFoundException cnfe) {
+			ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+			return Class.forName(name, true, classLoader);
+		} catch (ClassNotFoundException e) {
 			return null;
-		} catch (NoClassDefFoundError ncdfe) {
+		} catch (NoClassDefFoundError e) {
 			// NoClassDefFoundError is thrown when there is a class
 			// that matches the name when ignoring case differences.
 			// We do not care about that.

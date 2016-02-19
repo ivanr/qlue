@@ -16,9 +16,8 @@
  */
 package com.webkreator.qlue.example.pages;
 
-import java.io.PrintWriter;
-
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.view.NullView;
 import com.webkreator.qlue.view.View;
 
 /**
@@ -28,10 +27,7 @@ public class helloWorld extends Page {
 
 	@Override
 	public View onGet() throws Exception {
-		PrintWriter out = context.response.getWriter();
-
-		out.println("Hello World!");
-
-		return null;
+        context.response.getWriter().println("helloWorld");
+        return new NullView();
 	}
 }

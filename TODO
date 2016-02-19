@@ -16,8 +16,6 @@ To Do
 
 - Move build to Gradle.
 
-- Allow individual pages to specify suffix via an annotation.
-
 - Application-wide option to convert dashes in request paths to underscores.
 
 - Routing: Process .vm files directly when page class not available
