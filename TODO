@@ -4,8 +4,6 @@ To Do
  
 - XXX Detect multiple conflicting _pid parameters.
 
-- XXX Hardcoded caching in StaticFileRouter? Also not consistently applied.
-
 - Register custom Velocity directives:
 
   - http://wiki.apache.org/velocity/CheckingForNull
@@ -39,6 +37,8 @@ To Do
   - Meta routing directive @cache-control: applies to all routes that follow
 
   - Qlue sets the caching header before control given to page; pages can override.
+
+  - XXX Hardcoded caching in StaticFileRouter? Also not consistently applied.
 
 
 Improvements
