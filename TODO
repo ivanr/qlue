@@ -4,7 +4,7 @@ To Do
  
 - XXX Detect multiple conflicting _pid parameters.
 
-- XXX Hardcoded caching instructions in StaticFileRouter? Also not consistently applied.
+- XXX Hardcoded caching in StaticFileRouter? Also not consistently applied.
 
 - XXX ClassRouter returns null when unable to create page instance. Should throw a runtime
   exception that would ultimately cause a 500.
@@ -30,6 +30,8 @@ To Do
 - API call to shut down the scheduler.
 
 - API call to check if there are any scheduled activities running.
+
+- Caching control.
 
 
 Improvements
