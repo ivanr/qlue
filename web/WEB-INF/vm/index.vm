@@ -1,0 +1,12 @@
+Hello World (from Velocity)
+<br><br>
+
+<form action="/index.page" method="POST">
+<input type="hidden" name="_secret" value="$_secret">
+#if ($_page.id)
+<input type="hidden" name="_pid" value="$_page.id">
+#end
+<input type="text" value="$test">
+<br>
+<input type="submit">
+</form>
