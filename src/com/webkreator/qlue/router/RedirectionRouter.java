@@ -36,11 +36,9 @@ public class RedirectionRouter implements Router {
 
 	public RedirectionRouter(String uri, int status) {
 		// Check that the status code is appropriate
-		if ((status != 301) && (status != 302) && (status != 303)
-				&& (status != 307)) {
-			throw new InvalidParameterException(
-					"RedirectionRouter: Status code cannot be used for redirection: "
-							+ status);
+		if ((status != 301) && (status != 302) && (status != 303) && (status != 307))
+        {
+			throw new InvalidParameterException("RedirectionRouter: Status code cannot be used for redirection: " + status);
 		}
 
 		this.uri = uri;
