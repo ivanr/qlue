@@ -42,8 +42,8 @@ public class PackageRouter implements Router {
     }
 
     @Override
-    public Object route(TransactionContext tx, String routeSuffix) {
-        return resolveUri(tx, routeSuffix, packageName);
+    public Object route(TransactionContext tx, String pathSuffix) {
+        return resolveUri(tx, pathSuffix, packageName);
     }
 
     /**

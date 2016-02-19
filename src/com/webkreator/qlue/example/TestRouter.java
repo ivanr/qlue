@@ -7,7 +7,7 @@ import com.webkreator.qlue.view.RedirectView;
 public class TestRouter implements Router {
 
 	@Override
-	public Object route(TransactionContext tx, String extraPath) {
+	public Object route(TransactionContext tx, String pathSuffix) {
 		return new RedirectView("/");
 	}
 }

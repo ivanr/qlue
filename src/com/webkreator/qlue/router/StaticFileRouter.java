@@ -43,16 +43,16 @@ public class StaticFileRouter implements Router {
     }
 
     @Override
-    public Object route(TransactionContext context, String path) {
-        if (path.contains("/../")) {
-            throw new QlueSecurityException("StaticFileRouter: Invalid path: " + path);
+    public Object route(TransactionContext context, String pathSuffix) {
+        if (pathSuffix.contains("/../")) {
+            throw new QlueSecurityException("StaticFileRouter: Invalid path: " + pathSuffix);
         }
 
-        if (path.toLowerCase().contains("web-inf")) {
-            throw new QlueSecurityException("StaticFileRouter: Invalid path: " + path);
+        if (pathSuffix.toLowerCase().contains("web-inf")) {
+            throw new QlueSecurityException("StaticFileRouter: Invalid path: " + pathSuffix);
         }
 
-        File file = new File(root, path);
+        File file = new File(root, pathSuffix);
 
         if (log.isDebugEnabled()) {
             log.debug("StaticFileRouter: Trying file: " + file);

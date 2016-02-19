@@ -39,7 +39,7 @@ public class StatusCodeRouter implements Router {
 	}
 
 	@Override
-	public Object route(TransactionContext context, String extraPath) {
+	public Object route(TransactionContext context, String pathSuffix) {
 		return new StatusCodeView(status, message);
 	}
 }

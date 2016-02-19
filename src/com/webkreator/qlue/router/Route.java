@@ -188,7 +188,7 @@ public class Route {
 
 	/**
 	 * Attempts to match the transaction to this route and, if successful,
-	 * returns the route assocaited with the route.
+	 * returns the route associated with the route.
 	 * 
 	 * @param tx
 	 * @return
@@ -202,7 +202,7 @@ public class Route {
 
 		// Extract URL parameters
 		int count = 1;
-		String routeSuffix = null;
+		String pathSuffix = null;
 		for (String name : names) {
 			String value = m.group(count++);
 
@@ -212,19 +212,19 @@ public class Route {
 
 			tx.addUrlParameter(name, value);
 
-			if (name.compareTo("routeSuffix") == 0) {
-				routeSuffix = value;
+			if (name.compareTo("pathSuffix") == 0) {
+				pathSuffix = value;
 			}
 		}
 
 		if (redirects && (tx.getRequestUri().endsWith("/") == false)
-				&& ((routeSuffix == null) || (routeSuffix.length() == 0)))
+				&& ((pathSuffix == null) || (pathSuffix.length() == 0)))
         {
-			return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, routeSuffix);
+			return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, pathSuffix);
 		}
 
 		// Return the route
-		return router.route(tx, routeSuffix);
+		return router.route(tx, pathSuffix);
 	}
 
 	/**

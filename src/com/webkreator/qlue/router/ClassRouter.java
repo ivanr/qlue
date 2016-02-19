@@ -43,14 +43,14 @@ public class ClassRouter implements Router {
 
 		// Check that the class is a subclass of Page.
 		if (!Page.class.isAssignableFrom(candidate)) {
-			throw new RuntimeException("ClassRouter: Class " + className + " is not a subclass of Page.");
+			throw new RuntimeException("ClassRouter: Class " + className + " is not a subclass of Page");
 		}
 
 		pageClass = candidate;
 	}
 
 	@Override
-	public Object route(TransactionContext context, String extraPath) {
+	public Object route(TransactionContext context, String pathSuffix) {
 		try {
 			return pageClass.newInstance();
 		} catch (Exception e) {
