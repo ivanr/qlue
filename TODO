@@ -68,11 +68,6 @@ Improvements
 
 - Routing: control resource caching from the routing configuration.
 
-- Binding: Implement binding for JSON payloads.
-
-- Binding: Before JSON binding, validate payloads using JSON Schema.
-  Candidate validator: https://github.com/fge/json-schema-validator
-
 - Binding: Add support for validation of fixed-value fields (e.g.,
   drop-down boxes). Provide list to Qlue.
 
