@@ -9,9 +9,9 @@ Features (some not implemented yet):
 
 - Request routing (static and dynamic).
 
-- Parameter binding and validation (classic and JSON).
+- Parameter binding and validation.
 
-- Integration with Velocity; other view technologies possible.
+- Integration with Apache Velocity; other view technologies possible.
 
 - Support for stateful operations (e.g., multi-page forms).
 
