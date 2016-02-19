@@ -127,7 +127,7 @@ public class RedirectView implements View {
 	 * 
 	 * @param redirectStatus
 	 */
-	public void setStatus(int redirectStatus) {
+	public RedirectView setStatus(int redirectStatus) {
 		if ((redirectStatus != REDIRECT_PERMANENT)
 				&& (redirectStatus != REDIRECT)
 				&& (redirectStatus != REDIRECT_TEMPORARY))
@@ -137,6 +137,7 @@ public class RedirectView implements View {
 		}
 
 		this.redirectStatus = redirectStatus;
+        return this;
 	}
 
 	/**

@@ -38,7 +38,7 @@ public class RedirectionRouter implements Router {
 		// Check that the status code is appropriate
 		if ((status != 301) && (status != 302) && (status != 303) && (status != 307))
         {
-			throw new InvalidParameterException("RedirectionRouter: Status code cannot be used for redirection: " + status);
+			throw new InvalidParameterException("RedirectionRouter: Invalid redirection status code: " + status);
 		}
 
 		this.uri = uri;
@@ -47,8 +47,6 @@ public class RedirectionRouter implements Router {
 
 	@Override
 	public Object route(TransactionContext context, String extraPath) {
-		RedirectView redirectView = new RedirectView(uri);
-		redirectView.setStatus(status);
-		return redirectView;
+        return new RedirectView(uri, status);
 	}
 }
