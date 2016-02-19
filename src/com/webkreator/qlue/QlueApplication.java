@@ -156,11 +156,10 @@ public class QlueApplication {
     public QlueApplication(String pagesHome) {
         initPropertyEditors();
 
-        // Default routes
-        routeManager.add(RouteFactory.create(routeManager,
-                "/_qlue/{} package:com.webkreator.qlue.pages"));
-        routeManager.add(RouteFactory.create(routeManager, "/{} package:"
-                + pagesHome));
+        // These are the default routes for a simple application; we use them
+        // to avoid having to provide routing configuration.
+        routeManager.add(RouteFactory.create(routeManager, "/_qlue/{} package:com.webkreator.qlue.pages"));
+        routeManager.add(RouteFactory.create(routeManager, "/{} package:" + pagesHome));
     }
 
     protected void determineConfigPath() {
