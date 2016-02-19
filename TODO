@@ -19,7 +19,7 @@ To Do
 - Routing: Process .vm files directly when page class not available
 
   - Would that be surprising the users? What if we expose some internal templates that way?
-    Perhaps require a special naming approach?
+    Perhaps require a special naming approach? For example, use a different extension.
 
 - Review http://beanvalidation.org. Can it be used to replace the validation we have?
 
