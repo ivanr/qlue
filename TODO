@@ -76,4 +76,16 @@ Improvements
 - Binding: Add support for validation of fixed-value fields (e.g.,
   drop-down boxes). Provide list to Qlue.
 
+- Scheduler improvements:
 
+  - Jobs can be marked "important". That means if the job doesn't run at the required
+    time for whatever reason (e.g., the application is down), it is run at the next
+    possible opportunity.
+
+  - Jobs can be assigned tags and there is per-tag concurrency control. For example,
+    you might want to mark database jobs with a "db" tag and state that only one such
+    job can be running at one time.
+
+  - If a job is running, another instance of the same job is not started.
+
+  - Job failures are an application event, cause admin notification, etc.
