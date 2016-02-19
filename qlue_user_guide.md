@@ -3,6 +3,46 @@
 Qlue is a lightweight framework for Java web applications. Its main purpose is to provide a structure
 in which applications can be easily developed with as little complexity as possible.
 
+Features (some not implemented yet):
+
+- Structure via application, session, and page (request) objects.
+
+- Request routing (static and dynamic).
+
+- Parameter binding and validation (classic and JSON).
+
+- Integration with Velocity; other view technologies possible.
+
+- Support for stateful operations (e.g., multi-page forms).
+
+  - Built-in redirection after POST.
+
+- Support for application objects that live in user sessions.
+
+- Scheduled (cron-like) activity.
+
+  - Once a day, once a week, once a month, etc.
+
+  - Activity train.
+
+  - Graceful shutdown (complete in progress, don't start new).
+
+- Detailed logging of errors for troubleshooting.
+
+- Simple event notification framework to support development of modular applications.
+
+- Internal state exposed via HTTP and JMX.
+
+- Security:
+
+  - Built-in support for resource usage monitoring and limiting.
+
+  - Built-in CSRF defence (w/token masking for Breach mitigation).
+
+  - Built-in XSS defence (via automatic content-aware output encoding).
+
+  - Hardened session management.
+
 ## Getting started
 
 ### Pages
