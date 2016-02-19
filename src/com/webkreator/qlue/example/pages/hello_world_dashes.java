@@ -5,7 +5,6 @@ import com.webkreator.qlue.QlueMapping;
 import com.webkreator.qlue.view.NullView;
 import com.webkreator.qlue.view.View;
 
-@QlueMapping(underscoresToDashes = true)
 public class hello_world_dashes extends Page {
 
     @Override
