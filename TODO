@@ -32,6 +32,10 @@ To Do
 - ClassRouter returns null when unable to create page instance. Should throw a runtime
   exception that would ultimately cause a 500.
 
+- API call to shut down the scheduler.
+
+- API call to check if there are any scheduled activities running.
+
 
 Improvements
 ------------
