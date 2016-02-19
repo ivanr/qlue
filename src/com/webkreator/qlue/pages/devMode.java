@@ -87,19 +87,16 @@ public class devMode extends Page {
 		if (errors.hasErrors()) {
 			List<Error> errorL = errors.getAllErrors();
 			for (Error e : errorL) {
-				out.println("Error: "
-						+ HtmlEncoder.encodeForHTML(e.getMessage()));
+				out.println("Error: " + HtmlEncoder.encodeForHTML(e.getMessage()));
 			}
 		}
 
 		// Display form, when allowed by configuration
-		if ((appStatus == QlueConstants.DEVMODE_ENABLED)
-				|| (appStatus == QlueConstants.DEVMODE_ONDEMAND)) {
+		if ((appStatus == QlueConstants.DEVMODE_ENABLED) || (appStatus == QlueConstants.DEVMODE_ONDEMAND)) {
 			out.println("<form action=/_qlue/devMode.html method=POST>");
 
 			if (getId() != null) {
-				out.println("<input type=hidden name=_pid value=" + getId()
-						+ ">");
+				out.println("<input type=hidden name=_pid value=" + getId() + ">");
 			}
 
 			out.println("<input type=hidden name=_secret value="
@@ -107,7 +104,8 @@ public class devMode extends Page {
 							.getSessionSecret().getMaskedToken()) + ">");
 
 			if (((sessionStatus == null) && (appStatus == QlueConstants.DEVMODE_ENABLED))
-					|| (getQlueSession().getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED)) {
+					|| (getQlueSession().getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED))
+            {
 				out.println("<input type=hidden name=password value=disabled>");
 				out.println("<input type=submit value=\"Disable session development mode\">");
 			} else {
@@ -138,12 +136,14 @@ public class devMode extends Page {
 		// Check that session development mode state
 		// manipulation is allowed by configuration
 		if ((appStatus != QlueConstants.DEVMODE_ENABLED)
-				&& (appStatus != QlueConstants.DEVMODE_ONDEMAND)) {
+				&& (appStatus != QlueConstants.DEVMODE_ONDEMAND))
+        {
 			throw new QlueSecurityException("Configuration doesn't allow change of development mode");
 		}
 
 		if (((sessionStatus == null) && (appStatus == QlueConstants.DEVMODE_ENABLED))
-				|| (getQlueSession().getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED)) {
+				|| (getQlueSession().getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED))
+        {
 			// Disable session development mode
 			getQlueSession().setDevelopmentMode(QlueConstants.DEVMODE_DISABLED);
 
@@ -162,9 +162,7 @@ public class devMode extends Page {
 					return new RedirectView(this);
 				} else {
 					// Enable session development mode
-					getQlueSession().setDevelopmentMode(
-							QlueConstants.DEVMODE_ENABLED);
-
+					getQlueSession().setDevelopmentMode(QlueConstants.DEVMODE_ENABLED);
 					return new FinalRedirectView("/_qlue/devMode.html");
 				}
 			}

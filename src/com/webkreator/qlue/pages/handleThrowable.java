@@ -41,14 +41,12 @@ public class handleThrowable extends Page {
 
 	@Override
 	public View service() throws Exception {
-		Integer statusCode = (Integer) context.request
-				.getAttribute("javax.servlet.error.status_code");
+		Integer statusCode = (Integer) context.request.getAttribute("javax.servlet.error.status_code");
 		if (statusCode == null) {
 			throw new Exception("handleThrowable: direct access not allowed");
 		}
 
-		Throwable t = (Throwable) context.request
-				.getAttribute("javax.servlet.error.exception");
+		Throwable t = (Throwable) context.request.getAttribute("javax.servlet.error.exception");
 		if (t != null) {
 			if (t instanceof ValidationException) {
 				return _handleValidationException((ValidationException) t);
@@ -64,8 +62,7 @@ public class handleThrowable extends Page {
 		return _handleThrowable(t);
 	}
 
-	private View _handleAccessForbiddenException(AccessForbiddenException t)
-			throws IOException {
+	private View _handleAccessForbiddenException(AccessForbiddenException t) throws IOException {
 		context.response.setContentType("text/html");
 		context.response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 		PrintWriter out = context.response.getWriter();
@@ -77,8 +74,7 @@ public class handleThrowable extends Page {
 			StringWriter sw = new StringWriter();
 			t.printStackTrace(new PrintWriter(sw));
 			out.println("<pre>");
-			out.println(HtmlEncoder.encodeForHTMLPreserveWhitespace(sw
-					.toString()));
+			out.println(HtmlEncoder.encodeForHTMLPreserveWhitespace(sw.toString()));
 			out.println("</pre>");
 		}
 
@@ -88,8 +84,7 @@ public class handleThrowable extends Page {
 		return null;
 	}
 
-	private View _handleVelocityParseError(ParseErrorException t)
-			throws Exception {
+	private View _handleVelocityParseError(ParseErrorException t) throws Exception {
 		if (isDevelopmentMode() == false) {
 			return _handleThrowable(t);
 		}
@@ -108,8 +103,7 @@ public class handleThrowable extends Page {
 		return null;
 	}
 
-	private View _handlePersistentPageNotFoundException(
-			PersistentPageNotFoundException t) throws Exception {
+	private View _handlePersistentPageNotFoundException(PersistentPageNotFoundException t) throws Exception {
 		context.response.setContentType("text/html");
 		PrintWriter out = context.response.getWriter();
 		out.println("<html>");
@@ -121,8 +115,7 @@ public class handleThrowable extends Page {
 		return null;
 	}
 
-	public View _handleValidationException(ValidationException ve)
-			throws Exception {
+	public View _handleValidationException(ValidationException ve) throws Exception {
 		context.response.setContentType("text/html");
 		PrintWriter out = context.response.getWriter();
 		out.println("<html>");
@@ -145,8 +138,7 @@ public class handleThrowable extends Page {
 			StringWriter sw = new StringWriter();
 			t.printStackTrace(new PrintWriter(sw));
 			out.println("<pre>");
-			out.println(HtmlEncoder.encodeForHTMLPreserveWhitespace(sw
-					.toString()));
+			out.println(HtmlEncoder.encodeForHTMLPreserveWhitespace(sw.toString()));
 			out.println("</pre>");
 		}
 
