@@ -57,29 +57,27 @@ public class QlueRouteManager implements RouteManager {
 	 * @throws Exception
 	 */
 	public void load(File routesFile) throws Exception {
-		// Remove any existing routers
 		routes.clear();
 
-		// Loop through the lines in the file, creating
-		// one router per non-comment line
+		// Loop through the lines in the configuration file, processing
+        // each line as a single routing instruction.
+
 		BufferedReader in = new BufferedReader(new FileReader(routesFile));
 
 		String line = null;
 		while ((line = in.readLine()) != null) {
-			// Ignore comment lines
+			// Ignore comment lines; those that are empty or on
+            // which the first non-whitespace character is #.
 			line = line.trim();
 			if ((line.length() == 0) || (line.charAt(0) == '#')) {
 				continue;
 			}					
-			
-			// Expand variables specified in the line, if any
+
 			line = expandProperties(line);					
-			
-			// Add route
+
 			add(RouteFactory.create(this, line));
 		}
 
-		// Close stream
 		in.close();
 	}
 
