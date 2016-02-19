@@ -12,8 +12,6 @@ To Do
 
 - Remove dependency on Apache Commons FileUpload.
 
-- Don't make Gson part of the API.
-
 
 Improvements
 ------------
