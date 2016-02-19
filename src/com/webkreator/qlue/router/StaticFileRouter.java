@@ -62,13 +62,9 @@ public class StaticFileRouter implements Router {
 
 		if (file.exists()) {
 			if (file.isDirectory()) {
-				file = new File(file, manager.getIndex() + "."
-						+ manager.getSuffix());
+				file = new File(file, manager.getIndex() + (manager.getSuffix() != null ? manager.getSuffix() : ""));
 				if (file.exists()) {
-					// By default, allow static resources to be cached for up to 1 hour
-					context.response.setHeader("Cache-Control",
-							"max-age: 3600, must-revalidate");
-					// Download file
+					context.response.setHeader("Cache-Control", "max-age: 3600, must-revalidate");
 					return new DownloadView(file);
 				} else {
 					return new StatusCodeView(403);

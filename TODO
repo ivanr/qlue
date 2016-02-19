@@ -16,9 +16,6 @@ To Do
 
 - Move build to Gradle.
 
-- Ability to specify the default page extension (e.g., ".html") at application level.
-  Pages can override using annotations.
-
 - Application-wide option to convert dashes in request paths to underscores.
 
 - Routing: Process .vm files directly when page class not available

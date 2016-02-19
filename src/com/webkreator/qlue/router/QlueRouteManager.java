@@ -42,7 +42,7 @@ public class QlueRouteManager implements RouteManager {
 
 	private List<Route> routes = new ArrayList<Route>();	
 	
-	private String suffix = ".html";
+	private String suffix;
 	
 	private String index = "index";
 	
@@ -99,7 +99,7 @@ public class QlueRouteManager implements RouteManager {
 	 * @return
 	 */
 	public Object route(TransactionContext context) {
-		Object r = null;
+		Object r;
 		
 		if (log.isDebugEnabled()) {
 			log.debug("QlueRouter: Asked to route: " + context.getRequestUri());
@@ -135,7 +135,8 @@ public class QlueRouteManager implements RouteManager {
 	public String getIndex() {
 		return index;
 	}
-	
+
+    @Override
 	public void setIndex(String index) {
 		this.index = index;
 	}
@@ -144,7 +145,8 @@ public class QlueRouteManager implements RouteManager {
 	public String getSuffix() {
 		return suffix;
 	}
-	
+
+    @Override
 	public void setSuffix(String suffix) {
 		this.suffix = suffix;
 	}
