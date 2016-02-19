@@ -54,7 +54,6 @@ public class NamedView implements View {
 	 */
 	@Override
 	public void render(TransactionContext tx, Page page) {
-		// Do nothing. This method is never invoked.
 		throw new RuntimeException("This method shouldn't have been invoked.");
 	}
 }

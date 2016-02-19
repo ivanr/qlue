@@ -32,6 +32,5 @@ public interface View {
 	 * @param page
 	 * @throws Exception
 	 */
-	public abstract void render(TransactionContext tx, Page page)
-			throws Exception;
+	public abstract void render(TransactionContext tx, Page page) throws Exception;
 }

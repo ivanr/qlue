@@ -30,8 +30,6 @@ public class DefaultView implements View {
 	 */
 	@Override
 	public void render(TransactionContext tx, Page page) {
-		// Do nothing. This method is never invoked.
-		throw new RuntimeException(
-				"Qlue: This method shouldn't have been invoked.");
+		throw new RuntimeException("Qlue: This method shouldn't have been invoked.");
 	}
 }
