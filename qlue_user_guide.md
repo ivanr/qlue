@@ -7,7 +7,7 @@ Features (some not implemented yet):
 
 - Structure via application, session, and page (request) objects.
 
-- Request routing (static and dynamic).
+- Request routing (static and dynamic) and caching configuration.
 
 - Parameter binding and validation.
 
@@ -17,29 +17,21 @@ Features (some not implemented yet):
 
   - Built-in redirection after POST.
 
-- Support for application objects that live in user sessions.
-
 - Scheduled (cron-like) activity.
 
   - Once a day, once a week, once a month, etc.
 
-  - Activity train.
+  - Scheduled event train.
 
   - Graceful shutdown (complete in progress, don't start new).
 
 - Detailed logging of errors for troubleshooting.
 
-- Simple event notification framework to support development of modular applications.
-
-- Internal state exposed via HTTP and JMX.
-
 - Security:
 
-  - Built-in support for resource usage monitoring and limiting.
+  - Built-in XSS defence (via automatic context-aware output encoding).
 
   - Built-in CSRF defence (w/token masking for Breach mitigation).
-
-  - Built-in XSS defence (via automatic content-aware output encoding).
 
   - Hardened session management.
 
