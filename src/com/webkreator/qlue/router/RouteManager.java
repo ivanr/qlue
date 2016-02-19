@@ -31,4 +31,6 @@ public interface RouteManager {
     public String getIndexWithSuffix();
 
     public boolean isConvertDashesToUnderscores();
+
+    public void setConcertDashesToUnderscores(boolean b);
 }

@@ -45,6 +45,8 @@ public class QlueRouteManager implements RouteManager {
 	private String suffix;
 	
 	private String index = "index";
+
+    private boolean convertDashesToUnderscores = false;
 	
 	public QlueRouteManager(QlueApplication app) {
 		this.app = app;
@@ -156,6 +158,11 @@ public class QlueRouteManager implements RouteManager {
 
     @Override
     public boolean isConvertDashesToUnderscores() {
-        return false;
+        return convertDashesToUnderscores;
+    }
+
+    @Override
+    public void setConcertDashesToUnderscores(boolean b) {
+        convertDashesToUnderscores = b;
     }
 }

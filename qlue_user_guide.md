@@ -101,7 +101,13 @@ Here's what you should know about page creation:
 	
 #### Page name mapping
 
-By default, case-sensitive comparison is done between the last URL segment and the page name. Thus, only "/helloWorld" will map to the above helloWorld class. If you wish you can have your pages use a suffix externally (e.g., ".html"). In that case, in your application class, invoke setSuffix() on the correct RouteManager.
+By default, case-sensitive comparison is done between the last URL segment and the page name. Thus, only "/helloWorld" will map to the above helloWorld class. If you wish you can have your pages use a suffix externally (e.g., ".html"). In that case, in your application class, invoke setSuffix() on the correct RouteManager. It is also possible to configure the suffix on per-page basis using the QlueMapping annotation.
+
+You can use packages to group pages. For example, if you create a package "books" in your root package, the URL "/books/index" will map to the class com.example.site.pages.books.index.
+
+By default, all pages are reachable. By convention, packages whose names begin with the dollar sign ("$") are considered private. Private packages and pages can't be accessed directly (via URL-to-page mapping), but can be used via internal custom routing. This feature is useful for dynamic URL construction.
+
+Because not all characters are allowed in package and class names, you are limited in how you're creating your external URLs. Additionally, Qlue does not allow dots (".") in the URLs (excluding file suffixes). You can work around these limitations using custom routing, which is described later in this guide. Because dashes ("-") are commonly used in URLs, there's a setting that automatically converts dashes to underscores. This setting is disabled by default; to enable it, invoke RouteManager.setConcertDashesToUnderscores().
 
 #### Responding to specific HTTP methods only
 
