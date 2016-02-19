@@ -16,6 +16,16 @@ To Do
 
 - Move build to Gradle.
 
+- Ability to specify the default page extension (e.g., ".html") at application level.
+  Pages can override using annotations.
+
+- Application-wide option to convert dashes in request paths to underscores.
+
+- Routing: Process .vm files directly when page class not available
+
+  - Would that be surprising the users? What if we expose some internal templates that way?
+    Perhaps require a special naming approach?
+
 
 Improvements
 ------------
@@ -24,7 +34,7 @@ Improvements
 
 - Keep a copy of all admin emails somewhere (on the filesystem).
 
-- Add AsyncEmailSender backed by filesystem or database.
+- Add AsyncEmailSender backed by filesystem.
 
 - When behind a trusted proxy, record the supplied unique ID (which is transported in a header).
 
@@ -49,12 +59,7 @@ Improvements
 
 - Users should be able to create private instances of MimeTypes, they should be able to
   tell the framework to use another mime type, and/or to override the settings
-  
-- Routing: Process .vm files directly when page class not available
 
-  - Would that be surprising the users? What if we expose some internal templates that way?
-    Perhaps require a special naming approach?
-  
 - Routing: control resource caching from the routing configuration.
 
 - Binding: Implement binding for JSON payloads.
