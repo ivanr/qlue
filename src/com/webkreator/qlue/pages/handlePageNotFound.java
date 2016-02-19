@@ -17,12 +17,14 @@
 package com.webkreator.qlue.pages;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueMapping;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.View;
 
 /**
  * Handle a 404. 
  */
+@QlueMapping(suffix = ".html")
 public class handlePageNotFound extends Page {
 
 	@Override

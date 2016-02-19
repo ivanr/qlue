@@ -28,6 +28,7 @@ import com.webkreator.qlue.view.FinalRedirectView;
 import com.webkreator.qlue.view.RedirectView;
 import com.webkreator.qlue.view.View;
 
+@QlueMapping(suffix = ".html")
 public class devMode extends Page {
 
 	@QlueParameter(mandatory = true, state = Page.STATE_POST)

@@ -22,6 +22,7 @@ import java.io.StringWriter;
 
 import javax.servlet.http.HttpServletResponse;
 
+import com.webkreator.qlue.QlueMapping;
 import org.apache.velocity.exception.ParseErrorException;
 
 import com.webkreator.qlue.util.HtmlEncoder;
@@ -35,6 +36,7 @@ import com.webkreator.qlue.view.View;
 /**
  * Handle an application exception.
  */
+@QlueMapping(suffix = ".html")
 public class handleThrowable extends Page {
 
 	@Override
