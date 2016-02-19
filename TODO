@@ -16,8 +16,6 @@ To Do
 
 - Move build to Gradle.
 
-- Application-wide option to convert dashes in request paths to underscores.
-
 - Routing: Process .vm files directly when page class not available
 
   - Would that be surprising the users? What if we expose some internal templates that way?
