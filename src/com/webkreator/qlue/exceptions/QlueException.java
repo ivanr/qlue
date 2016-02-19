@@ -23,12 +23,16 @@ package com.webkreator.qlue.exceptions;
 public class QlueException extends RuntimeException {
 
 	protected static final long serialVersionUID = 1L;
-	
-	public QlueException() {
+
+	protected QlueException() {
 		super();
 	}
 
 	public QlueException(String string) {
 		super(string);
 	}
+
+    public QlueException(String string, Throwable t) {
+        super(string, t);
+    }
 }

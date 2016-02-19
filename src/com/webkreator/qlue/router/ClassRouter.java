@@ -16,6 +16,7 @@
  */
 package com.webkreator.qlue.router;
 
+import com.webkreator.qlue.exceptions.QlueException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -53,9 +54,8 @@ public class ClassRouter implements Router {
 	public Object route(TransactionContext context, String pathSuffix) {
 		try {
 			return pageClass.newInstance();
-		} catch (Exception e) {
-			log.error("Error creating page instance: " + e.getMessage(), e);
-			return null;
+		} catch (Throwable t) {
+            throw new QlueException("Error creating page instance: " + t.getMessage(), t);
 		}
 	}
 }

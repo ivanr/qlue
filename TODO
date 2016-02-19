@@ -6,9 +6,6 @@ To Do
 
 - XXX Hardcoded caching in StaticFileRouter? Also not consistently applied.
 
-- XXX ClassRouter returns null when unable to create page instance. Should throw a runtime
-  exception that would ultimately cause a 500.
-
 - Register custom Velocity directives:
 
   - http://wiki.apache.org/velocity/CheckingForNull
