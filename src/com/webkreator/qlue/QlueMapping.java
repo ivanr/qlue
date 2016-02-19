@@ -7,6 +7,4 @@ import java.lang.annotation.RetentionPolicy;
 public @interface QlueMapping {
 
     String suffix() default "inheritAppSuffix";
-
-    boolean underscoresToDashes() default false;
 }
