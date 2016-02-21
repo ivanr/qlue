@@ -56,7 +56,9 @@ public class Route {
 		this.path = path;
 		this.router = router;
 
-		processPath();
+        if (path != null) {
+            processPath();
+        }
 	}
 
 	/**
@@ -90,7 +92,7 @@ public class Route {
 				// means it is the route suffix (the final part in a path)
 				pattern = ".*";
 				terminated = true;
-				name = "routeSuffix";
+				name = "pathSuffix";
 			} else {
 				// This path parameter has a name
 
@@ -194,7 +196,13 @@ public class Route {
 	 * @return
 	 */
 	public Object route(TransactionContext tx) {
-		// Try to match
+        // If the path is null, this route always matches.
+        if (path == null) {
+            return router.route(tx, null);
+        }
+
+		// Otherwise, attempt to match the request URI to the path we have.
+
 		Matcher m = pattern.matcher(tx.getRequestUri());
 		if (m.matches() == false) {
 			return null;

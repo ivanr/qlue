@@ -30,11 +30,7 @@ To Do
 
   - Application defines the default caching strategy
 
-  - DownloadView sets ETag and handles If-None-Match, If-Modified-Since.
-
   - Qlue default: Cache-Control: no-cache
-
-  - Meta routing directive @cache-control: applies to all routes that follow
 
   - Qlue sets the caching header before control given to page; pages can override.
 

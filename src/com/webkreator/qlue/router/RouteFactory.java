@@ -16,10 +16,15 @@
  */
 package com.webkreator.qlue.router;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * Creates route instaces given route text representations. 
  */
 public class RouteFactory {
+
+    private static final Pattern configRoutePattern = Pattern.compile("^@([a-zA-Z0-9]+)\\s+(.*)$");
 
 	/**
 	 * Creates route from its text representation.
@@ -30,6 +35,10 @@ public class RouteFactory {
 	 */
 	public static Route create(RouteManager manager, String route) {
 		Router router = null;
+
+        if ((route.length() > 0)&&(route.charAt(0) == '@')) {
+            return createConfig(manager, route);
+        }
 
 		// Split route into tokens
 		String[] tokens = route.split("\\s+");
@@ -147,7 +156,23 @@ public class RouteFactory {
 		return new Route(path, router);
 	}
 
-	/**
+    private static Route createConfig(RouteManager manager, String route) {
+        Matcher m = configRoutePattern.matcher(route);
+        if (m.matches() == false) {
+            throw new RuntimeException("Qlue: Invalid config route: " + route);
+        }
+
+        String configDirective = m.group(1);
+        String configText = m.group(2);
+
+        if (configDirective.equals("header")) {
+            return new Route(null, HeaderConfigRouter.fromString(manager, configText));
+        } else {
+            throw new RuntimeException("Qlue: Unknown configuration directive");
+        }
+    }
+
+    /**
 	 * Finds router instance based on class name.
 	 */
 	@SuppressWarnings("rawtypes")
