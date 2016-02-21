@@ -20,7 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Creates route instaces given route text representations. 
+ * Creates route instances given route text representations.
  */
 public class RouteFactory {
 
@@ -78,9 +78,7 @@ public class RouteFactory {
 				try {
 					status = Integer.parseInt(tokens[2]);
 				} catch (Exception e) {
-					throw new RuntimeException(
-							"Qlue: Invalid redirection status in route: "
-									+ tokens[2]);
+					throw new RuntimeException("Qlue: Invalid redirection status in route: " + tokens[2]);
 				}
 				
 				router = new RedirectionRouter(uri, status);
@@ -114,14 +112,10 @@ public class RouteFactory {
 						router = new StatusCodeRouter(statusCode);
 					}
 				} else {
-					throw new RuntimeException(
-							"Qlue: Invalid status code in route: "
-									+ statusCodeString);
+					throw new RuntimeException("Qlue: Invalid status code in route: " + statusCodeString);
 				}
 			} catch (Exception e) {
-				throw new RuntimeException(
-						"Qlue: Invalid status code in route: "
-								+ statusCodeString);
+				throw new RuntimeException("Qlue: Invalid status code in route: " + statusCodeString);
 			}
 		} else if (action.startsWith("static:")) {
 			// Static route
@@ -181,27 +175,22 @@ public class RouteFactory {
 
 		// Look for class
 		try {
-			ClassLoader classLoader = Thread.currentThread()
-					.getContextClassLoader();
+			ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 			candidate = Class.forName(className, true, classLoader);
 		} catch (Exception e) {
-			throw new RuntimeException("ClassRouter: Unknown class: "
-					+ className);
+			throw new RuntimeException("ClassRouter: Unknown class: " + className);
 		}
 
 		// Check class is instance of Page
 		if (!Router.class.isAssignableFrom(candidate)) {
-			throw new RuntimeException("ClassRouter: Class " + className
-					+ " is not a subclass of Page.");
+			throw new RuntimeException("ClassRouter: Class " + className + " is not a subclass of Page.");
 		}
 
 		// Return one instance
 		try {
 			return (Router) candidate.newInstance();
 		} catch (Exception e) {
-			throw new RuntimeException(
-					"ClassRouter: Failed to create class instance: "
-							+ e.getMessage(), e);
+			throw new RuntimeException("ClassRouter: Failed to create class instance: " + e.getMessage(), e);
 		}
 	}
 }
