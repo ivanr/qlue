@@ -156,3 +156,15 @@ Just before view generation is started, Qlue will automatically add a number of 
 | _cmd    | Command object, if any |
 | _errors | Processing errors      |
 | _secret | Session CSRF token     |
+
+## Routing
+
+Usually only trivial applications can rely 100% on routing by convention. In all other cases you'll need to use custom routing, defined by editing routes.conf placed in the application's WEB-INF folder. This file borrowed most of the syntax of the routing configuration as used by the Play framework some years ago.
+
+#### Setting response headers
+
+The routes file can be used to set custom HTTP response headers. If a line begins with @header, the rest of the line is interpreted as a custom response header. For example:
+
+	@header Cache-Control no-cache
+	
+Header configuration directives apply to all routes below themm. Thus, to establish defaults, place your confifuration directives at the top of the routes file. A directive for a header of the same name will overwrite the previous header version; this is useful, for example, to use different caching strategies for different parts of the application.
