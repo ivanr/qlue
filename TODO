@@ -26,13 +26,11 @@ To Do
 
 - API call to check if there are any scheduled activities running.
 
-- Caching control:
+- Response header control:
 
-  - Application defines the default caching strategy
+  - In Qlue configuration, support custom response headers: qlue.headers.cache-control=XYZ
 
-  - Qlue default: Cache-Control: no-cache
-
-  - Qlue sets the caching header before routing begins; routes and pages can override.
+  - Custom headers above set before routing begins.
 
 
 Improvements
