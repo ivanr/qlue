@@ -245,6 +245,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		this.suffix = suffix;
 	}
 
+    @Override
 	public View constructView(Page page, File viewFile) throws Exception {
 		// Find our repository
 		StringResourceRepository repo = StringResourceLoader.getRepository(VELOCITY_STRING_RESOURCE_LOADER_KEY);
