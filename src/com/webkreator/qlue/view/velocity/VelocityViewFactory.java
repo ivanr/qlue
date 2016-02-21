@@ -247,14 +247,11 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 	public View constructView(Page page, File viewFile) throws Exception {
 		// Find our repository
-		StringResourceRepository repo = StringResourceLoader
-				.getRepository(VELOCITY_STRING_RESOURCE_LOADER_KEY);
+		StringResourceRepository repo = StringResourceLoader.getRepository(VELOCITY_STRING_RESOURCE_LOADER_KEY);
 		// Add this file
-		repo.putStringResource(viewFile.getAbsolutePath(),
-				FileUtils.readFileToString(viewFile));
+		repo.putStringResource(viewFile.getAbsolutePath(), FileUtils.readFileToString(viewFile));
 		// Construct view
-		return new VelocityView(this, velocityEngine.getTemplate(viewFile
-				.getAbsolutePath()));
+		return new VelocityView(this, velocityEngine.getTemplate(viewFile.getAbsolutePath()));
 	}
 
 	public void setAutoEscaping(boolean b) {
