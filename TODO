@@ -32,9 +32,7 @@ To Do
 
   - Qlue default: Cache-Control: no-cache
 
-  - Qlue sets the caching header before control given to page; pages can override.
-
-  - XXX Hardcoded caching in StaticFileRouter? Also not consistently applied.
+  - Qlue sets the caching header before routing begins; routes and pages can override.
 
 
 Improvements
