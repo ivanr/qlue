@@ -11,7 +11,7 @@ Features (some not implemented yet):
 
 - Parameter binding and validation.
 
-- Integration with Apache Velocity; other view technologies possible.
+- Integration with Apache Velocity.
 
 - Support for stateful operations (e.g., multi-page forms).
 
