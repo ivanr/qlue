@@ -26,12 +26,6 @@ To Do
 
 - API call to check if there are any scheduled activities running.
 
-- Response header control:
-
-  - In Qlue configuration, support custom response headers: qlue.headers.cache-control=XYZ
-
-  - Custom headers above set before routing begins.
-
 
 Improvements
 ------------
