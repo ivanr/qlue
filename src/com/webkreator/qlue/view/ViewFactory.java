@@ -16,8 +16,6 @@
  */
 package com.webkreator.qlue.view;
 
-import java.io.File;
-
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 
@@ -34,7 +32,7 @@ public interface ViewFactory {
 	 * @param qlueApp
 	 * @throws Exception
 	 */
-	public void init(QlueApplication qlueApp) throws Exception;
+	void init(QlueApplication qlueApp) throws Exception;
 
 	/**
 	 * Find or construct a view from the given page and view name. View names
@@ -47,15 +45,5 @@ public interface ViewFactory {
 	 * @return
 	 * @throws Exception
 	 */
-	public View constructView(Page page, String viewName) throws Exception;
-
-	/**
-	 * Construct a view using the given file.
-	 * 
-	 * @param page
-	 * @param viewFile
-	 * @return
-	 * @throws Exception
-	 */
-	public View constructView(Page page, File viewFile) throws Exception;
+	View constructView(Page page, String viewName) throws Exception;
 }

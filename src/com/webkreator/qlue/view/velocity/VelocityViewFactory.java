@@ -16,15 +16,12 @@
  */
 package com.webkreator.qlue.view.velocity;
 
-import java.io.File;
-import java.io.Writer;
-import java.lang.reflect.Field;
-import java.util.Map;
-import java.util.Properties;
-
-import com.webkreator.qlue.view.View;
+import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueApplication;
+import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.util.HtmlEncoder;
+import com.webkreator.qlue.view.Canoe;
 import com.webkreator.qlue.view.ViewFactory;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.velocity.Template;
@@ -32,14 +29,11 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.app.event.EventCartridge;
 import org.apache.velocity.runtime.RuntimeConstants;
-import org.apache.velocity.runtime.resource.loader.StringResourceLoader;
-import org.apache.velocity.runtime.resource.util.StringResourceRepository;
 
-import com.webkreator.qlue.view.Canoe;
-import com.webkreator.qlue.util.HtmlEncoder;
-import com.webkreator.qlue.Page;
-import com.webkreator.qlue.QlueApplication;
-import com.webkreator.qlue.TransactionContext;
+import java.io.Writer;
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.Properties;
 
 /**
  * Base class for the view implementation that uses Velocity. Needs subclassing
@@ -243,16 +237,6 @@ public abstract class VelocityViewFactory implements ViewFactory {
 	 */
 	public void setSuffix(String suffix) {
 		this.suffix = suffix;
-	}
-
-    @Override
-	public View constructView(Page page, File viewFile) throws Exception {
-		// Find our repository
-		StringResourceRepository repo = StringResourceLoader.getRepository(VELOCITY_STRING_RESOURCE_LOADER_KEY);
-		// Add this file
-		repo.putStringResource(viewFile.getAbsolutePath(), FileUtils.readFileToString(viewFile));
-		// Construct view
-		return new VelocityView(this, velocityEngine.getTemplate(viewFile.getAbsolutePath()));
 	}
 
 	public void setAutoEscaping(boolean b) {
