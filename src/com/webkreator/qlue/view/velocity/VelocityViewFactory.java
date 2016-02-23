@@ -63,11 +63,8 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		properties.setProperty(RuntimeConstants.INPUT_ENCODING, inputEncoding);
 
 		properties.setProperty(RuntimeConstants.RESOURCE_LOADER, "file,string");
-		properties
-				.setProperty("string.resource.loader.class",
-						"org.apache.velocity.runtime.resource.loader.StringResourceLoader");
-		properties.setProperty("string.resource.loader.repository.name",
-				VELOCITY_STRING_RESOURCE_LOADER_KEY);
+		properties.setProperty("string.resource.loader.class", "org.apache.velocity.runtime.resource.loader.StringResourceLoader");
+		properties.setProperty("string.resource.loader.repository.name", VELOCITY_STRING_RESOURCE_LOADER_KEY);
 
 		properties.setProperty(RuntimeConstants.VM_LIBRARY, macroPath);
 		properties.setProperty(RuntimeConstants.VM_LIBRARY_AUTORELOAD, "true");
@@ -83,10 +80,9 @@ public abstract class VelocityViewFactory implements ViewFactory {
         }
 
 		if (qlueApp.getProperty("qlue.velocity.modificationCheckInterval") != null) {
-			properties
-					.setProperty(
-							"file.resource.loader.modificationCheckInterval",
-							qlueApp.getProperty("qlue.velocity.modificationCheckInterval"));
+			properties.setProperty(
+					"file.resource.loader.modificationCheckInterval",
+					qlueApp.getProperty("qlue.velocity.modificationCheckInterval"));
 		}
 
         properties.setProperty("directive.set.null.allowed", "true");
@@ -119,8 +115,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		// directly (without encoding) to responses, but some
 		// pages will need to do that.
 		if (page.allowDirectOutput()) {
-			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME,
-					HtmlEncoder.instance());
+			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME, HtmlEncoder.instance());
 		}
 
 		model.put("_app", page.getQlueApp());
@@ -129,11 +124,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 		model.put("_ctx", context);
 		model.put("_sess", page.getQlueApp().getQlueSession(context.request));
-		model.put(
-				"_m",
-				page.getQlueApp().getMessageSource(
-						page.getQlueApp().getQlueSession(context.request)
-								.getLocale()));
+		model.put("_m", page.getQlueApp().getMessageSource(page.getQlueApp().getQlueSession(context.request).getLocale()));
 		model.put("_req", context.request);
 		model.put("_res", context.response);
 		model.put("_cmd", page.getCommandObject());
@@ -164,8 +155,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 			if (useAutoEscaping) {
 				EventCartridge ec = new EventCartridge();
-				ec.addReferenceInsertionEventHandler(new CanoeReferenceInsertionHandler(
-						qlueWriter));
+				ec.addReferenceInsertionEventHandler(new CanoeReferenceInsertionHandler(qlueWriter));
 				ec.attachToContext(velocityContext);
 			}
 
@@ -217,8 +207,8 @@ public abstract class VelocityViewFactory implements ViewFactory {
 	/**
 	 * Callback interface.
 	 */
-	static interface FieldCallback {
-		public void processField(String fieldName, Object fieldValue);
+	interface FieldCallback {
+		void processField(String fieldName, Object fieldValue);
 	}
 
 	/**
