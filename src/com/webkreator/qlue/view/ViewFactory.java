@@ -46,4 +46,6 @@ public interface ViewFactory {
 	 * @throws Exception
 	 */
 	View constructView(Page page, String viewName) throws Exception;
+
+	View constructView(String viewName) throws Exception;
 }

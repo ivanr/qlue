@@ -16,13 +16,15 @@
  */
 package com.webkreator.qlue.router;
 
-import java.util.StringTokenizer;
-
-import com.webkreator.qlue.*;
+import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueMapping;
+import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.exceptions.QlueSecurityException;
+import com.webkreator.qlue.view.ClasspathView;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.webkreator.qlue.exceptions.QlueSecurityException;
+import java.util.StringTokenizer;
 
 /**
  * Routes transaction to an entire package, with
@@ -32,28 +34,30 @@ public class PackageRouter implements Router {
 
     private Log log = LogFactory.getLog(ClassRouter.class);
 
-    private String packageName;
+    private String rootPackage;
+
+    private String rootPackageAsPath;
 
     protected RouteManager manager;
 
     public PackageRouter(RouteManager manager, String packageName) {
         this.manager = manager;
-        this.packageName = packageName;
+        this.rootPackage = packageName;
+        this.rootPackageAsPath = packageName.replace('.', '/') + "/";
     }
 
     @Override
     public Object route(TransactionContext tx, String pathSuffix) {
-        return resolveUri(tx, pathSuffix, packageName);
+        return resolveUri(tx, pathSuffix);
     }
 
     /**
      * Returns page instance for a given URL.
      *
      * @param path
-     * @param rootPackage
      * @return page instance, or null if page cannot be found
      */
-    public Object resolveUri(TransactionContext tx, String path, String rootPackage) {
+    public Object resolveUri(TransactionContext tx, String path) {
         @SuppressWarnings("rawtypes")
         Class pageClass = null;
 
@@ -121,13 +125,24 @@ public class PackageRouter implements Router {
         // Look for a class with this name
         pageClass = classForName(className);
         if (pageClass == null) {
-            // We're here because we couldn't directly translate a request path
-            // into a class. So this might be directory access. But if we do
-            // find an index file, before we route to it we need to check if
-            // there is a terminating forward slash in the request URI. If not,
-            // we need to issue a redirect.
+            // Try a direct view.
+            String classpathFilename;
 
-            // Look for the index page
+            // Determine if we need to strip the suffix from the path or leave everything as is.
+            String suffix = manager.getSuffix();
+            if ((suffix != null)&&(path.endsWith(suffix))) {
+                classpathFilename = rootPackage + path.substring(0, path.length() - suffix.length()) + ".vmx";
+            } else {
+                classpathFilename = rootPackageAsPath + path + ".vmx";
+            }
+
+            log.debug("Trying direct view: " + classpathFilename);
+
+            if (getClass().getClassLoader().getResource(classpathFilename) != null) {
+                return new ClasspathView(classpathFilename);
+            }
+
+            // Check for directory access by looking for an index page.
             pageClass = classForName(className + "." + manager.getIndex());
             log.debug("Trying class: " + className + "." + manager.getIndex());
             if (pageClass == null) {
@@ -136,7 +151,7 @@ public class PackageRouter implements Router {
 
             log.debug("Found index page");
 
-            // Check if we need to issue a redirection
+            // If there's no terminating slash in directory access, issue a redirection.
             if (tx.getRequestUri().endsWith("/") == false) {
                 log.debug("Redirecting to " + tx.getRequestUri() + "/");
                 return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, path);

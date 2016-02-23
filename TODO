@@ -14,8 +14,6 @@ To Do
 
 - Move build to Gradle.
 
-- Routing: Process .vmx files directly when page class not available
-
 - JsonEditor to convert JSON into Java objects. Indicate via annotation?
 
 - Feature to invoke Java Bean validation afterward Qlue validation? See http://hibernate.org/validator/

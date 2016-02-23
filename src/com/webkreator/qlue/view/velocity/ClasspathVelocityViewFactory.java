@@ -70,7 +70,12 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 		return new VelocityView(this, velocityEngine.getTemplate(sb.toString()));
 	}
 
-	@Override
+    @Override
+    public View constructView(String classpathName) throws Exception {
+        return new VelocityView(this, velocityEngine.getTemplate(classpathName));
+    }
+
+    @Override
 	protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
         Properties properties = super.buildDefaultVelocityProperties(qlueApp);
         properties.setProperty("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");

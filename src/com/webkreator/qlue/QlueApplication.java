@@ -495,14 +495,11 @@ public class QlueApplication {
                 if (routeObject == null) {
                     throw new PageNotFoundException();
                 } else if (routeObject instanceof View) {
-                    renderView((View) routeObject, context, null);
-                    masterWriteRequestDevelopmentInformation(context, page);
-                    return;
+                    page = new DirectViewPage((View)routeObject);
                 } else if (routeObject instanceof Page) {
                     page = (Page) routeObject;
                 } else {
-                    throw new RuntimeException(
-                            "Qlue: Unexpected router response: " + routeObject);
+                    throw new RuntimeException("Qlue: Unexpected router response: " + routeObject);
                 }
             }
 
@@ -818,8 +815,7 @@ public class QlueApplication {
         }
     }
 
-    public void renderView(View view, TransactionContext tx, Page page)
-            throws Exception {
+    public void renderView(View view, TransactionContext tx, Page page) throws Exception {
         // NullView only indicates that no further output should be made.
         if (view instanceof NullView) {
             return;
@@ -829,9 +825,11 @@ public class QlueApplication {
         // we have to replace them with a real view, using
         // the name of the page in the view resolution process.
         if (view instanceof DefaultView) {
-            view = constructView(page, page.getViewName());
+            view = viewFactory.constructView(page, page.getViewName());
         } else if (view instanceof NamedView) {
-            view = constructView(page, ((NamedView)view).getViewName());
+            view = viewFactory.constructView(page, ((NamedView)view).getViewName());
+        } else if (view instanceof ClasspathView) {
+            view = viewFactory.constructView(((ClasspathView)view).getViewName());
         } else if (view instanceof FinalRedirectView) {
             page.setState(Page.STATE_FINISHED);
 
@@ -1405,18 +1403,6 @@ public class QlueApplication {
         registerPropertyEditor(new StringEditor());
         registerPropertyEditor(new BooleanEditor());
         registerPropertyEditor(new DateEditor());
-    }
-
-    /**
-     * Invoke the view factory to construct the view indicated by the name.
-     *
-     * @param page
-     * @param viewName
-     * @return
-     * @throws Exception
-     */
-    View constructView(Page page, String viewName) throws Exception {
-        return viewFactory.constructView(page, viewName);
     }
 
     /**
