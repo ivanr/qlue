@@ -49,7 +49,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 	 */
 	@Override
 	public View constructView(Page page, String viewName) throws Exception {
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 
 		StringTokenizer st = new StringTokenizer(page.getClass().getName(), ".");
 		String lastToken = null;
@@ -76,7 +76,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
         properties.setProperty("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
 
         String caching = properties.getProperty(RuntimeConstants.FILE_RESOURCE_LOADER_CACHE);
-        if ((caching == null)||(Boolean.valueOf(caching) == false)) {
+        if ((caching == null)||(!Boolean.valueOf(caching))) {
             properties.setProperty("file.resource.loader.class", "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");
         } else {
             properties.setProperty("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
