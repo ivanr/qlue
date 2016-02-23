@@ -16,14 +16,13 @@
  */
 package com.webkreator.qlue;
 
-import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.editors.*;
 import com.webkreator.qlue.exceptions.*;
 import com.webkreator.qlue.router.QlueRouteManager;
 import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
-import com.webkreator.qlue.view.velocity.FileVelocityViewFactory;
+import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
 import it.sauronsoftware.cron4j.InvalidPatternException;
 import it.sauronsoftware.cron4j.Scheduler;
 import org.apache.commons.fileupload.FileItem;
@@ -106,7 +105,7 @@ public class QlueApplication {
 
     private ViewResolver viewResolver = new ViewResolver();
 
-    private ViewFactory viewFactory = new FileVelocityViewFactory();
+    private ViewFactory viewFactory = new ClasspathVelocityViewFactory();
 
     @SuppressWarnings("rawtypes")
     private HashMap<Class, PropertyEditor> editors = new HashMap<Class, PropertyEditor>();
