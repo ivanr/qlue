@@ -830,11 +830,8 @@ public class QlueApplication {
         // we have to replace them with a real view, using
         // the name of the page in the view resolution process.
         if (view instanceof DefaultView) {
-            // The page wants to use the default view.
             view = constructView(page, page.getViewName());
         } else if (view instanceof NamedView) {
-            // We don't have a view, we just have its name.
-            // Construct view using view factory.
             view = constructView(page, ((NamedView)view).getViewName());
         } else if (view instanceof FinalRedirectView) {
             page.setState(Page.STATE_FINISHED);
