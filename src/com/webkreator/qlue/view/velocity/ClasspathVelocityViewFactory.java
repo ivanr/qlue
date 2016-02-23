@@ -16,16 +16,15 @@
  */
 package com.webkreator.qlue.view.velocity;
 
+import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueApplication;
+import com.webkreator.qlue.view.View;
+import org.apache.velocity.app.VelocityEngine;
+import org.apache.velocity.runtime.RuntimeConstants;
+
 import java.io.File;
 import java.util.Properties;
 import java.util.StringTokenizer;
-
-import com.webkreator.qlue.view.View;
-import org.apache.velocity.app.VelocityEngine;
-
-import com.webkreator.qlue.Page;
-import com.webkreator.qlue.QlueApplication;
-import org.apache.velocity.runtime.RuntimeConstants;
 
 /**
  * This variant of VelocityViewFactory expects templates to be stored on the
@@ -71,18 +70,16 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 		return new VelocityView(this, velocityEngine.getTemplate(sb.toString()));
 	}
 
-	@Override protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
+	@Override
+	protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
         Properties properties = super.buildDefaultVelocityProperties(qlueApp);
-        properties.setProperty("file.resource.loader.class",
-                "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+        properties.setProperty("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
 
         String caching = properties.getProperty(RuntimeConstants.FILE_RESOURCE_LOADER_CACHE);
         if ((caching == null)||(Boolean.valueOf(caching) == false)) {
-            properties.setProperty("file.resource.loader.class",
-                    "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");
+            properties.setProperty("file.resource.loader.class", "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");
         } else {
-            properties.setProperty("file.resource.loader.class",
-                    "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+            properties.setProperty("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
         }
 
         return properties;
