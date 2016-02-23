@@ -1423,10 +1423,6 @@ public class QlueApplication {
         return viewFactory.constructView(page, viewName);
     }
 
-    //View constructView(Page page, File viewFile) throws Exception {
-    //    return viewFactory.constructView(page, viewFile);
-    //}
-
     /**
      * Retrieve view resolver.
      *
