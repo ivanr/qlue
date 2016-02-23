@@ -16,15 +16,14 @@
  */
 package com.webkreator.qlue.view.velocity;
 
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
-import java.util.Properties;
-
+import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.view.View;
 import org.apache.velocity.app.VelocityEngine;
 
-import com.webkreator.qlue.Page;
-import com.webkreator.qlue.QlueApplication;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.util.Properties;
 
 /**
  * Implementation of VelocityViewFactory that keeps templates in a single
@@ -49,8 +48,7 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 		if (p.isAbsolute()) {
 			properties.setProperty("file.resource.loader.path", path);
 		} else {
-			properties.setProperty("file.resource.loader.path",
-					qlueApp.getApplicationRoot() + "/" + path);
+			properties.setProperty("file.resource.loader.path", qlueApp.getApplicationRoot() + "/" + path);
 		}
 		
 		log.info("Creating VelocityEngine with properties: " + properties);
@@ -75,8 +73,7 @@ public class FileVelocityViewFactory extends VelocityViewFactory {
 			templateName = viewName + suffix;
 		} else {
 			// Relative view names are added to their page's path			
-			String defaultView = page.getQlueApp().getViewResolver()
-					.resolveView(page.getNoParamUri().replace('-', '_'));
+			String defaultView = page.getQlueApp().getViewResolver().resolveView(page.getNoParamUri().replace('-', '_'));
 
 			int i = defaultView.lastIndexOf("/");
 			if (i != -1) {
