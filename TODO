@@ -8,6 +8,8 @@ To Do
   	- #ifnull
   	- #ifnotnull
 
+- Consider integrating Velocity Tools.
+
 - Remove dependency on Apache Commons FileUpload.
 
 - Move logging to SLF4J.
@@ -21,3 +23,5 @@ To Do
 - API call to shut down the scheduler.
 
 - API call to check if there are any scheduled activities running.
+
+- Review page states; document.
