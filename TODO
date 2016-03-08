@@ -16,9 +16,10 @@ To Do
 
 - Move build to Gradle.
 
-- JsonEditor to convert JSON into Java objects. Indicate via annotation?
+- Indicate command object via annotation?
 
 - Feature to invoke Java Bean validation afterward Qlue validation? See http://hibernate.org/validator/
+  At least make suer we have hooks for project root pages to use to invoke validation if they want to.
 
 - API call to shut down the scheduler.
 
