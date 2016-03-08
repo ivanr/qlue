@@ -21,8 +21,12 @@ To Do
 - Feature to invoke Java Bean validation afterward Qlue validation? See http://hibernate.org/validator/
   At least make suer we have hooks for project root pages to use to invoke validation if they want to.
 
+- Review page states; document.
+
+- Minimise dependencies.
+
+- Consider removing the scheduler; it goes against Qlue's minimalistic philosophy.
+
 - API call to shut down the scheduler.
 
 - API call to check if there are any scheduled activities running.
-
-- Review page states; document.
