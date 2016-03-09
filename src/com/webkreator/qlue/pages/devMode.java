@@ -37,11 +37,11 @@ public class devMode extends Page {
 	@Override
 	public View onGet() throws Exception {
 		// Check that the IP address is in range
-		if (getQlueApp().isDeveloperRequest(context) == false) {
+		if (getApp().isDeveloperRequest(context) == false) {
 			throw new AccessForbiddenException();
 		}
 
-		Integer appStatus = getQlueApp().getApplicationDevelopmentMode();
+		Integer appStatus = getApp().getApplicationDevelopmentMode();
 		Integer sessionStatus = getQlueSession().getDevelopmentMode();
 
 		context.response.setContentType("text/html");
@@ -126,11 +126,11 @@ public class devMode extends Page {
 	@Override
 	public View onPost() throws Exception {
 		// Check that the IP address is in range
-		if (getQlueApp().isDeveloperRequest(context) == false) {
+		if (getApp().isDeveloperRequest(context) == false) {
 			throw new AccessForbiddenException();
 		}
 
-		Integer appStatus = getQlueApp().getApplicationDevelopmentMode();
+		Integer appStatus = getApp().getApplicationDevelopmentMode();
 		Integer sessionStatus = getQlueSession().getDevelopmentMode();
 
 		// Check that session development mode state

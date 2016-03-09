@@ -111,7 +111,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 		Object f = page.getFormatTool();
 		if (f instanceof QlueVelocityTool) {
-			((QlueVelocityTool)f).setApp(page.getQlueApp());
+			((QlueVelocityTool)f).setApp(page.getApp());
 		}
 		model.put("_f", f);
 
@@ -122,13 +122,13 @@ public abstract class VelocityViewFactory implements ViewFactory {
 			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME, HtmlEncoder.instance());
 		}
 
-		model.put("_app", page.getQlueApp());
+		model.put("_app", page.getApp());
 		model.put("_page", page);
 		model.put("_i", page.getShadowInput());
 
 		model.put("_ctx", context);
-		model.put("_sess", page.getQlueApp().getQlueSession(context.request));
-		model.put("_m", page.getQlueApp().getMessageSource(page.getQlueApp().getQlueSession(context.request).getLocale()));
+		model.put("_sess", page.getApp().getQlueSession(context.request));
+		model.put("_m", page.getApp().getMessageSource(page.getApp().getQlueSession(context.request).getLocale()));
 		model.put("_req", context.request);
 		model.put("_res", context.response);
 		model.put("_cmd", page.getCommandObject());

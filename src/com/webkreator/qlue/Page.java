@@ -155,7 +155,7 @@ public abstract class Page {
 	 * 
 	 * @return
 	 */
-	public QlueApplication getQlueApp() {
+	public QlueApplication getApp() {
 		return qlueApp;
 	}
 
@@ -313,7 +313,7 @@ public abstract class Page {
 	 * @return
 	 */
 	public Object getFormatTool() {
-		return getQlueApp().getFormatTool();
+		return getApp().getFormatTool();
 	}
 
 	/**
