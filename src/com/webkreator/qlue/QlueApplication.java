@@ -380,8 +380,7 @@ public class QlueApplication {
      * @throws ServletException
      * @throws java.io.IOException
      */
-    protected void serviceInternal(TransactionContext context)
-            throws ServletException, java.io.IOException {
+    protected void serviceInternal(TransactionContext context) throws ServletException, java.io.IOException {
         Page page = null;
 
         try {
@@ -1787,7 +1786,10 @@ public class QlueApplication {
     }
 
     protected void scheduleTask(Runnable maintenanceTask, Date firstTime, long period) {
-        timer = new Timer();
+        if (timer == null) {
+            timer = new Timer();
+        }
+
         timer.scheduleAtFixedRate(new RunnableTaskWrapper(maintenanceTask), firstTime, period);
     }
 
