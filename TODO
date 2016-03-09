@@ -22,8 +22,6 @@ To Do
 
 - Review page states; document.
 
-- Minimise dependencies.
-
 - Refactor email sending in such a way that applications can take it over.
 
 - Use Jar Jar Links to embed Velocity and its dependencies.
