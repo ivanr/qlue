@@ -873,8 +873,7 @@ public class QlueApplication {
         }
     }
 
-    private void updateShadowInputArrayParam(Page page,
-                                             TransactionContext context, Field f) throws Exception {
+    private void updateShadowInputArrayParam(Page page, TransactionContext context, Field f) throws Exception {
         // Find the property editor
         PropertyEditor pe = editors.get(f.getType().getComponentType());
         if (pe == null) {
