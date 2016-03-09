@@ -16,22 +16,21 @@
  */
 package com.webkreator.qlue;
 
+import com.webkreator.qlue.exceptions.RequestMethodException;
+import com.webkreator.qlue.exceptions.ValidationException;
+import com.webkreator.qlue.util.BearerToken;
+import com.webkreator.qlue.util.HtmlEncoder;
+import com.webkreator.qlue.view.View;
+import com.webkreator.qlue.view.ViewResolver;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
-
-import com.webkreator.qlue.exceptions.RequestMethodException;
-import com.webkreator.qlue.exceptions.ValidationException;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
-import com.webkreator.qlue.util.HtmlEncoder;
-import com.webkreator.qlue.util.BearerToken;
-import com.webkreator.qlue.view.View;
-import com.webkreator.qlue.view.ViewResolver;
 
 /**
  * Represents a single unit of work application will perform.
@@ -200,13 +199,14 @@ public abstract class Page {
 	 * @throws Exception
 	 */
 	public View service() throws Exception {
-		if ((context.request.getMethod().compareTo("GET") == 0)
-				|| (context.request.getMethod().compareTo("HEAD") == 0)) {
-			return onGet();
-		} else if (context.request.getMethod().compareTo("POST") == 0) {
-			return onPost();
-		} else {
-			throw new RequestMethodException();
+		switch(context.request.getMethod()) {
+			case "GET" :
+			case "HEAD":
+				return onGet();
+			case "POST":
+				return onPost();
+			default:
+				throw new RequestMethodException();
 		}
 	}
 
@@ -337,8 +337,7 @@ public abstract class Page {
 		BearerToken sessionSecret = getQlueSession().getSessionSecret();
 
 		// Verify nonce on every POST
-		if (context.isPost()
-				&& getClass().isAnnotationPresent(QluePersistentPage.class)) {
+		if (context.isPost() && getClass().isAnnotationPresent(QluePersistentPage.class)) {
 			String suppliedSecret = context.getParameter("_secret");
 			if (suppliedSecret == null) {
 				throw new RuntimeException("Secret missing.");
@@ -352,8 +351,7 @@ public abstract class Page {
 			}
 		}
 
-		// Add nonce to the model so that it
-		// can be used from the templates
+		// Add nonce to the model so that it can be used from the templates.
 		model.put("_secret", sessionSecret.getMaskedToken());
 
 		return null;
@@ -561,7 +559,6 @@ public abstract class Page {
 		}
 
 		// Report fatal error
-		throw new ValidationException("Parameter validation failed: "
-				+ getErrors().toString());
+		throw new ValidationException("Parameter validation failed: " + getErrors().toString());
 	}
 }
