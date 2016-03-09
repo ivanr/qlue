@@ -225,8 +225,7 @@ public class QlueApplication {
         }
 
         if (propsFile.exists() == false) {
-            throw new QlueException("Unable to find file: "
-                    + propsFile.getAbsolutePath());
+            throw new QlueException("Unable to find file: " + propsFile.getAbsolutePath());
         }
 
         properties.load(new FileReader(propsFile));
@@ -235,8 +234,7 @@ public class QlueApplication {
         properties.setProperty("confPath", confPath);
 
         // Expose WEB-INF path in properties
-        properties.setProperty("webRoot", servlet.getServletContext()
-                .getRealPath("/"));
+        properties.setProperty("webRoot", servlet.getServletContext().getRealPath("/"));
 
         if (getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
             setCharacterEncoding(getProperty(PROPERTY_CHARACTER_ENCODING));
@@ -284,8 +282,7 @@ public class QlueApplication {
 
         smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
         if (getProperty("qlue.smtp.port") != null) {
-            smtpEmailSender.setSmtpPort(Integer
-                    .valueOf(getProperty("qlue.smtp.port")));
+            smtpEmailSender.setSmtpPort(Integer.valueOf(getProperty("qlue.smtp.port")));
         }
 
         if (getProperty("qlue.smtp.protocol") != null) {
@@ -339,18 +336,13 @@ public class QlueApplication {
                 if (Modifier.isPublic(m.getModifiers()) || (Modifier.isProtected(m.getModifiers()))) {
                     QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
                     try {
-                        scheduler
-                                .schedule(qs.value(),
-                                        new QlueScheduleMethodTaskWrapper(this,
-                                                this, m));
+                        scheduler.schedule(qs.value(), new QlueScheduleMethodTaskWrapper(this, this, m));
                         log.info("Scheduled method: " + m.getName());
                     } catch (InvalidPatternException ipe) {
-                        log.error("QlueSchedule: Invalid schedule pattern: "
-                                + qs.value());
+                        log.error("QlueSchedule: Invalid schedule pattern: " + qs.value());
                     }
                 } else {
-                    log.error("QlueSchedule: Scheduled methods must be public or protected: "
-                            + m.getName());
+                    log.error("QlueSchedule: Scheduled methods must be public or protected: " + m.getName());
                 }
             }
         }
@@ -361,8 +353,7 @@ public class QlueApplication {
      *
      * @param task
      * @param schedule
-     * @return Task ID, which can later be used to cancel, or reschedule the
-     * task.
+     * @return Task ID, which can later be used to cancel, or reschedule the task.
      */
     public String scheduleTask(Runnable task, String schedule) {
         return scheduler.schedule(schedule, task);
@@ -396,9 +387,9 @@ public class QlueApplication {
      * @throws ServletException
      * @throws java.io.IOException
      */
-    protected void service(HttpServlet servlet, HttpServletRequest request,
-                           HttpServletResponse response) throws ServletException,
-            java.io.IOException {
+    protected void service(HttpServlet servlet, HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, java.io.IOException
+    {
         // Remember when processing began
         long startTime = System.currentTimeMillis();
 
@@ -432,8 +423,7 @@ public class QlueApplication {
             serviceInternal(context);
 
             if (log.isDebugEnabled()) {
-                log.debug("Processed request in "
-                        + (System.currentTimeMillis() - startTime));
+                log.debug("Processed request in " + (System.currentTimeMillis() - startTime));
             }
         } finally {
             // Remove logging context
@@ -469,11 +459,9 @@ public class QlueApplication {
                 String pid = context.getParameter("_pid");
                 if (pid != null) {
                     // Find page record
-                    PersistentPageRecord pageRecord = context
-                            .findPersistentPageRecord(pid);
+                    PersistentPageRecord pageRecord = context.findPersistentPageRecord(pid);
                     if (pageRecord == null) {
-                        throw new PersistentPageNotFoundException(
-                                "Persistent page not found: " + pid);
+                        throw new PersistentPageNotFoundException("Persistent page not found: " + pid);
                     }
 
                     // OK, got the page
@@ -482,8 +470,7 @@ public class QlueApplication {
                     // If the requested persistent page no longer exists,
                     // redirect the user to where he is supposed to go
                     if (page == null) {
-                        context.getResponse().sendRedirect(
-                                pageRecord.replacementUri);
+                        context.getResponse().sendRedirect(pageRecord.replacementUri);
                         return;
                     }
                 }
@@ -533,8 +520,7 @@ public class QlueApplication {
 
                     // Binds parameters of a persistent page initially when
                     // the page is initialized, but later only on POST requests
-                    if ((page.getState().compareTo(Page.STATE_NEW) == 0)
-                            || (context.isPost())) {
+                    if ((page.getState().compareTo(Page.STATE_NEW) == 0) || (context.isPost())) {
                         page.getErrors().clear();
                         bindParameters(page, context);
                     }
@@ -644,11 +630,9 @@ public class QlueApplication {
                 // only if response headers have not been sent).
                 if (context.getResponse().isCommitted() == false) {
                     if (t instanceof ServiceUnavailableException) {
-                        context.getResponse().sendError(
-                                HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                        context.getResponse().sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
                     } else {
-                        context.getResponse().sendError(
-                                HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        context.getResponse().sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     }
                 }
             }
@@ -664,8 +648,7 @@ public class QlueApplication {
      * @param page
      * @param t
      */
-    protected void handleApplicationException(TransactionContext tx, Page page,
-                                              Throwable t) {
+    protected void handleApplicationException(TransactionContext tx, Page page, Throwable t) {
         String debugInfo = null;
 
         if (tx != null) {
@@ -674,8 +657,7 @@ public class QlueApplication {
             sw.append("Debugging information follows:");
 
             try {
-                _masterWriteRequestDevelopmentInformation(tx, page,
-                        new PrintWriter(sw));
+                _masterWriteRequestDevelopmentInformation(tx, page, new PrintWriter(sw));
             } catch (IOException e) {
                 // Ignore (but log, in case we do get something)
                 log.error("Exception while preparing debugging information", e);
@@ -896,9 +878,7 @@ public class QlueApplication {
         // Find the property editor
         PropertyEditor pe = editors.get(f.getType().getComponentType());
         if (pe == null) {
-            throw new RuntimeException(
-                    "Qlue: Binding does not know how to handle type: "
-                            + f.getType().getComponentType());
+            throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType().getComponentType());
         }
 
         // If there is any data in the command object
@@ -906,6 +886,7 @@ public class QlueApplication {
         if (f.get(page.getCommandObject()) != null) {
             Object[] originalValues = (Object[]) f.get(page.getCommandObject());
             String[] textValues = new String[originalValues.length];
+
             for (int i = 0; i < originalValues.length; i++) {
                 textValues[i] = pe.toText(originalValues[i]);
             }
@@ -914,9 +895,7 @@ public class QlueApplication {
         }
     }
 
-    private void updateShadowInputNonArrayParam(Page page,
-                                                TransactionContext context, Field f) throws Exception {
-
+    private void updateShadowInputNonArrayParam(Page page, TransactionContext context, Field f) throws Exception {
         // Find the property editor
         PropertyEditor pe = editors.get(f.getType());
         if (pe == null) {
@@ -941,8 +920,7 @@ public class QlueApplication {
      * @param page
      * @throws IOException
      */
-    protected void masterWriteRequestDevelopmentInformation(
-            TransactionContext context, Page page) throws IOException {
+    protected void masterWriteRequestDevelopmentInformation(TransactionContext context, Page page) throws IOException {
         if (page == null) {
             return;
         }
@@ -986,13 +964,10 @@ public class QlueApplication {
         }
 
         // Append output
-        _masterWriteRequestDevelopmentInformation(context, page,
-                context.response.getWriter());
+        _masterWriteRequestDevelopmentInformation(context, page, context.response.getWriter());
     }
 
-    protected void _masterWriteRequestDevelopmentInformation(
-            TransactionContext context, Page page, PrintWriter out)
-            throws IOException {
+    protected void _masterWriteRequestDevelopmentInformation(TransactionContext context, Page page, PrintWriter out) throws IOException {
         if (page == null) {
             return;
         }
@@ -1031,8 +1006,7 @@ public class QlueApplication {
      * @throws IllegalAccessException
      * @throws IllegalArgumentException
      */
-    private void bindParameters(Page page, TransactionContext context)
-            throws Exception {
+    private void bindParameters(Page page, TransactionContext context) throws Exception {
         // Ask the page to provide a command object, which can be
         // a custom object or the page itself.
         Object commandObject = page.getCommandObject();
@@ -1054,25 +1028,23 @@ public class QlueApplication {
 
                 if (qp.state().compareTo(Page.STATE_URL) == 0) {
                     // Bind parameters transported in URL
-                    bindParameterFromString(commandObject, f, page, context,
-                            context.getUrlParameter(f.getName()));
+                    bindParameterFromString(commandObject, f, page, context, context.getUrlParameter(f.getName()));
                 } else {
                     // Process only the parameters that are
                     // in the same state as the page, or if the parameter
                     // uses the special state POST, which triggers on all
                     // POST requests (irrespective of the state).
 
-                    if (((qp.state().compareTo(Page.STATE_POST) == 0) && (page.context
-                            .isPost()))
-                            || (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
-                            || (qp.state().compareTo(page.getState()) == 0)) {
+                    if ( ((qp.state().compareTo(Page.STATE_POST) == 0) && (page.context.isPost()))
+                         || (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
+                         || (qp.state().compareTo(page.getState()) == 0))
+                    {
                         // We have a parameter; dispatch
                         // to the appropriate handler.
                         if (f.getType().isArray()) {
                             bindArrayParameter(commandObject, f, page, context);
                         } else {
-                            bindNonArrayParameter(commandObject, f, page,
-                                    context);
+                            bindNonArrayParameter(commandObject, f, page, context);
                         }
                     }
                 }
@@ -1091,8 +1063,7 @@ public class QlueApplication {
      * @param page
      * @param context
      */
-    private void bindArrayParameter(Object commandObject, Field f, Page page,
-                                    TransactionContext context) throws Exception {
+    private void bindArrayParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
         // Find shadow input
         ShadowInput shadowInput = page.getShadowInput();
 
@@ -1103,17 +1074,14 @@ public class QlueApplication {
         // to convert text into a proper native type
         PropertyEditor pe = editors.get(f.getType().getComponentType());
         if (pe == null) {
-            throw new RuntimeException(
-                    "Qlue: Binding does not know how to handle type: "
-                            + f.getType().getComponentType());
+            throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType().getComponentType());
         }
 
         String[] values = context.getParameterValues(f.getName());
         if ((values == null) || (values.length == 0)) {
             // Parameter not in input; create an empty array
             // and set it on the command object.
-            f.set(commandObject,
-                    Array.newInstance(f.getType().getComponentType(), 0));
+            f.set(commandObject, Array.newInstance(f.getType().getComponentType(), 0));
             return;
         }
 
@@ -1122,14 +1090,12 @@ public class QlueApplication {
         shadowInput.set(f.getName(), values);
 
         boolean hasErrors = false;
-        Object[] convertedValues = (Object[]) Array.newInstance(f.getType()
-                .getComponentType(), values.length);
+        Object[] convertedValues = (Object[]) Array.newInstance(f.getType().getComponentType(), values.length);
         for (int i = 0; i < values.length; i++) {
             String newValue = validateParameter(page, f, qp, values[i]);
             if (newValue != null) {
                 values[i] = newValue;
-                convertedValues[i] = pe.fromText(f, values[i],
-                        f.get(commandObject));
+                convertedValues[i] = pe.fromText(f, values[i], f.get(commandObject));
             } else {
                 hasErrors = true;
             }
@@ -1149,8 +1115,7 @@ public class QlueApplication {
      * @param value
      * @return
      */
-    protected String validateParameter(Page page, Field f, QlueParameter qp,
-                                       String value) {
+    protected String validateParameter(Page page, Field f, QlueParameter qp, String value) {
         // Transform value according to the list
         // of transformation functions supplied
         String tfn = qp.tfn();
@@ -1164,9 +1129,7 @@ public class QlueApplication {
                 } else if (t.compareTo("lowercase") == 0) {
                     value = value.toLowerCase();
                 } else {
-                    throw new RuntimeException(
-                            "Qlue: Invalid parameter transformation function: "
-                                    + t);
+                    throw new RuntimeException("Qlue: Invalid parameter transformation function: " + t);
                 }
             }
         }
@@ -1201,9 +1164,7 @@ public class QlueApplication {
             try {
                 p = Pattern.compile(qp.pattern(), Pattern.DOTALL);
             } catch (PatternSyntaxException e) {
-                throw new RuntimeException(
-                        "Qlue: Invalid parameter validation pattern: "
-                                + qp.pattern());
+                throw new RuntimeException("Qlue: Invalid parameter validation pattern: " + qp.pattern());
             }
 
             // Try to match
@@ -1230,8 +1191,7 @@ public class QlueApplication {
      * @param context
      * @throws Exception
      */
-    private void bindNonArrayParameter(Object commandObject, Field f,
-                                       Page page, TransactionContext context) throws Exception {
+    private void bindNonArrayParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
         // Find shadow input
         ShadowInput shadowInput = page.getShadowInput();
 
@@ -1248,9 +1208,7 @@ public class QlueApplication {
         // to convert text into a native type
         PropertyEditor pe = editors.get(f.getType());
         if (pe == null) {
-            throw new RuntimeException(
-                    "Qlue: Binding does not know how to handle type: "
-                            + f.getType());
+            throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
 
         // Keep track of the original text parameter value
@@ -1272,8 +1230,7 @@ public class QlueApplication {
             String newValue = validateParameter(page, f, qp, value);
             if (newValue != null) {
                 value = newValue;
-                f.set(commandObject,
-                        pe.fromText(f, value, f.get(commandObject)));
+                f.set(commandObject, pe.fromText(f, value, f.get(commandObject)));
             }
         } else {
             f.set(commandObject, pe.fromText(f, value, f.get(commandObject)));
@@ -1286,9 +1243,7 @@ public class QlueApplication {
         }
     }
 
-    private void bindParameterFromString(Object commandObject, Field f,
-                                         Page page, TransactionContext context, String value)
-            throws Exception {
+    private void bindParameterFromString(Object commandObject, Field f, Page page, TransactionContext context, String value) throws Exception {
         // Find shadow input
         ShadowInput shadowInput = page.getShadowInput();
 
@@ -1297,17 +1252,14 @@ public class QlueApplication {
 
         // First check if the parameter is a file
         if (QlueFile.class.isAssignableFrom(f.getType())) {
-            throw new RuntimeException(
-                    "Qlue: Unable to bind a string to file parameter");
+            throw new RuntimeException("Qlue: Unable to bind a string to file parameter");
         }
 
         // Look for a property editor, which will know how
         // to convert text into a native type
         PropertyEditor pe = editors.get(f.getType());
         if (pe == null) {
-            throw new RuntimeException(
-                    "Qlue: Binding does not know how to handle type: "
-                            + f.getType());
+            throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
 
         // Keep track of the original text parameter value
@@ -1328,8 +1280,7 @@ public class QlueApplication {
             String newValue = validateParameter(page, f, qp, value);
             if (newValue != null) {
                 value = newValue;
-                f.set(commandObject,
-                        pe.fromText(f, value, f.get(commandObject)));
+                f.set(commandObject, pe.fromText(f, value, f.get(commandObject)));
             }
         } else {
             f.set(commandObject, pe.fromText(f, value, f.get(commandObject)));
@@ -1349,8 +1300,7 @@ public class QlueApplication {
      * @return
      */
     private String getFieldMissingMessage(QlueParameter qp) {
-        return (qp.fieldMissingMessage().length() > 0) ? qp
-                .fieldMissingMessage() : "qlue.validation.mandatory";
+        return (qp.fieldMissingMessage().length() > 0) ? qp.fieldMissingMessage() : "qlue.validation.mandatory";
     }
 
     /**
@@ -1362,8 +1312,7 @@ public class QlueApplication {
      * @param context
      * @throws Exception
      */
-    private void bindFileParameter(Object commandObject, Field f, Page page,
-                                   TransactionContext context) throws Exception {
+    private void bindFileParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
         FileItem fi = context.getFile(f.getName());
@@ -1495,8 +1444,7 @@ public class QlueApplication {
      * @return
      */
     public QlueSession getQlueSession(HttpServletRequest request) {
-        return (QlueSession) request.getSession().getAttribute(
-                QlueConstants.QLUE_SESSION_OBJECT);
+        return (QlueSession) request.getSession().getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
     }
 
     /**
@@ -1509,13 +1457,10 @@ public class QlueApplication {
      */
     public void regenerateSession(HttpServletRequest request) {
         QlueSession qlueSession = getQlueSession(request);
-        QluePageManager pageManager = (QluePageManager) request.getSession()
-                .getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
+        QluePageManager pageManager = (QluePageManager) request.getSession().getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
         request.getSession().invalidate();
-        request.getSession(true).setAttribute(
-                QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
-        request.getSession().setAttribute(
-                QlueConstants.QLUE_SESSION_PAGE_MANAGER, pageManager);
+        request.getSession(true).setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
+        request.getSession().setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER, pageManager);
     }
 
     /**
@@ -1574,8 +1519,7 @@ public class QlueApplication {
             return;
         }
 
-        throw new InvalidParameterException(
-                "Invalid value for development mode: " + input);
+        throw new InvalidParameterException("Invalid value for development mode: " + input);
     }
 
     /**
@@ -1628,7 +1572,7 @@ public class QlueApplication {
             return false;
         }
 
-        InetAddress remoteAddr = null;
+        InetAddress remoteAddr;
         try {
             remoteAddr = InetAddress.getByName(context.request.getRemoteAddr());
         } catch (Exception e) {
@@ -1654,8 +1598,7 @@ public class QlueApplication {
      *
      * @param combinedSubnets
      */
-    protected void setDevelopmentSubnets(String combinedSubnets)
-            throws Exception {
+    protected void setDevelopmentSubnets(String combinedSubnets) throws Exception {
         if (TextUtil.isEmpty(combinedSubnets)) {
             return;
         }
@@ -1677,8 +1620,7 @@ public class QlueApplication {
             try {
                 developmentSubnets[count++] = new IpRangeFilter(subnet);
             } catch (IllegalArgumentException iae) {
-                throw new RuntimeException("Qlue: Invalid development subnet: "
-                        + s);
+                throw new RuntimeException("Qlue: Invalid development subnet: " + s);
             }
         }
     }
@@ -1695,10 +1637,9 @@ public class QlueApplication {
             return false;
         }
 
-        InetAddress remoteAddr = null;
+        InetAddress remoteAddr;
         try {
-            remoteAddr = InetAddress
-                    .getByName(context.getEffectiveRemoteAddr());
+            remoteAddr = InetAddress.getByName(context.getEffectiveRemoteAddr());
         } catch (Exception e) {
             return false;
         }
@@ -1878,9 +1819,7 @@ public class QlueApplication {
     public MessageSource getMessageSource(Locale locale) {
         MessageSource source = messageSources.get(locale);
         if (source == null) {
-            source = new MessageSource(
-                    (PropertyResourceBundle) ResourceBundle.getBundle(
-                            messagesFilename, locale), locale);
+            source = new MessageSource((PropertyResourceBundle) ResourceBundle.getBundle(messagesFilename, locale), locale);
             messageSources.put(locale, source);
         }
 
@@ -1904,8 +1843,7 @@ public class QlueApplication {
      * @return
      */
     Page getActualPage(Page currentPage) {
-        return (Page) currentPage.context.request
-                .getAttribute(REQUEST_ACTUAL_PAGE_KEY);
+        return (Page) currentPage.context.request.getAttribute(REQUEST_ACTUAL_PAGE_KEY);
     }
 
     /**
