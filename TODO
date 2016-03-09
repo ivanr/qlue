@@ -2,14 +2,6 @@
 To Do
 -----
 
-- Register custom Velocity directives:
-
-  - http://wiki.apache.org/velocity/CheckingForNull
-  	- #ifnull
-  	- #ifnotnull
-
-- Consider integrating Velocity Tools.
-
 - Remove dependency on Apache Commons FileUpload.
 
 - Move logging to SLF4J.

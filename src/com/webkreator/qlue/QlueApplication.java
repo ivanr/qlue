@@ -23,6 +23,7 @@ import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
+import com.webkreator.qlue.view.velocity.DefaultVelocityTool;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -1325,10 +1326,10 @@ public class QlueApplication {
     /**
      * Retrieve this application's format tool, which is used in templates to
      * format output (but _not_ for output encoding). By default, that's an
-     * instance of FormatTool, but subclasses can use something else.
+     * instance of DefaultVelocityTool, but subclasses can use something else.
      */
     public Object getFormatTool() {
-        return new FormatTool();
+        return new DefaultVelocityTool();
     }
 
     /**

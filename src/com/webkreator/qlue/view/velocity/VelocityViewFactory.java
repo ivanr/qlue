@@ -109,7 +109,11 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 		// Add common objects to the model
 
-		model.put("_f", page.getFormatTool());
+		Object f = page.getFormatTool();
+		if (f instanceof QlueVelocityTool) {
+			((QlueVelocityTool)f).setApp(page.getQlueApp());
+		}
+		model.put("_f", f);
 
 		// Normally, we don't want templates to be able to output
 		// directly (without encoding) to responses, but some
