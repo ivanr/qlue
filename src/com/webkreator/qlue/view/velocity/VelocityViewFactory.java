@@ -109,7 +109,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 		// Add common objects to the model
 
-		Object f = page.getFormatTool();
+		Object f = page.getVelocityTool();
 		if (f instanceof QlueVelocityTool) {
 			((QlueVelocityTool)f).setApp(page.getApp());
 		}

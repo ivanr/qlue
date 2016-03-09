@@ -1328,7 +1328,7 @@ public class QlueApplication {
      * format output (but _not_ for output encoding). By default, that's an
      * instance of DefaultVelocityTool, but subclasses can use something else.
      */
-    public Object getFormatTool() {
+    public Object getVelocityTool() {
         return new DefaultVelocityTool();
     }
 

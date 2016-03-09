@@ -312,8 +312,8 @@ public abstract class Page {
 	 * 
 	 * @return
 	 */
-	public Object getFormatTool() {
-		return getApp().getFormatTool();
+	public Object getVelocityTool() {
+		return getApp().getVelocityTool();
 	}
 
 	/**
