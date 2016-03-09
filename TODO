@@ -18,8 +18,7 @@ To Do
 
 - Indicate command object via annotation?
 
-- Feature to invoke Java Bean validation afterward Qlue validation? See http://hibernate.org/validator/
-  At least make sure we have hooks for project root pages to use to invoke validation if they want to.
+- Create a page hook to invoke after Qlue validation but before service.
 
 - Review page states; document.
 
