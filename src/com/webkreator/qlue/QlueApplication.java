@@ -1807,7 +1807,7 @@ public class QlueApplication {
                 if (urgentCounter == 0) {
                     // Nothing has happened in the last period; setting
                     // the counter to -1 means that the next exception
-                    // will send an urgent email.
+                    // will send an urgent email immediately.
                     urgentCounter = -1;
                 } else {
                     // There were a number of exceptions in the last period,
