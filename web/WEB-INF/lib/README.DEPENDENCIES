@@ -1,3 +1,4 @@
 Apache Velocity requires:
 
   commons-collections 3.x
+  commons-lang 2.x
