@@ -23,3 +23,5 @@ To Do
 - Review page states; document.
 
 - Minimise dependencies.
+
+- Refactor email sending in such a way that applications can take it over.
