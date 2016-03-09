@@ -24,9 +24,3 @@ To Do
 - Review page states; document.
 
 - Minimise dependencies.
-
-- Consider removing the scheduler; it goes against Qlue's minimalistic philosophy.
-
-- API call to shut down the scheduler.
-
-- API call to check if there are any scheduled activities running.

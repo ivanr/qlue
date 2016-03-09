@@ -23,8 +23,6 @@ import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
-import it.sauronsoftware.cron4j.InvalidPatternException;
-import it.sauronsoftware.cron4j.Scheduler;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -41,8 +39,6 @@ import javax.servlet.http.HttpSession;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.security.InvalidParameterException;
 import java.util.*;
@@ -118,8 +114,6 @@ public class QlueApplication {
 
     private IpRangeFilter[] developmentSubnets = null;
 
-    private Scheduler scheduler;
-
     private IpRangeFilter[] trustedProxies = null;
 
     private String adminEmail;
@@ -137,6 +131,8 @@ public class QlueApplication {
     private String confPath;
 
     private int frontendEncryptionCheck = FRONTEND_ENCRYPTION_CONTAINER;
+
+    private Timer timer;
 
     /**
      * This is the default constructor. The idea is that a subclass will
@@ -200,7 +196,12 @@ public class QlueApplication {
 
         viewFactory.init(this);
 
-        scheduleApplicationJobs();
+        Calendar nextHour = Calendar.getInstance();
+        nextHour.set(Calendar.HOUR_OF_DAY, nextHour.get(Calendar.HOUR_OF_DAY) + 1);
+        nextHour.set(Calendar.MINUTE, 0);
+        nextHour.set(Calendar.SECOND, 0);
+
+        scheduleTask(new SendUrgentRemindersTask(), nextHour.getTime(), 60 * 60 * 1000);
     }
 
     protected void initRouteManagers() throws Exception {
@@ -313,69 +314,6 @@ public class QlueApplication {
      * Destroys application resources.
      */
     public void destroy() {
-        // Stop scheduler
-        if (scheduler != null) {
-            scheduler.stop();
-        }
-    }
-
-    /**
-     * Schedules application jobs for execution.
-     */
-    private void scheduleApplicationJobs() {
-        // Create scheduler
-        scheduler = new Scheduler();
-        scheduler.setDaemon(true);
-        scheduler.start();
-
-        // Enumerate all application methods and look
-        // for the QlueSchedule annotation
-        Method[] methods = this.getClass().getMethods();
-        for (Method m : methods) {
-            if (m.isAnnotationPresent(QlueSchedule.class)) {
-                if (Modifier.isPublic(m.getModifiers()) || (Modifier.isProtected(m.getModifiers()))) {
-                    QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
-                    try {
-                        scheduler.schedule(qs.value(), new QlueScheduleMethodTaskWrapper(this, this, m));
-                        log.info("Scheduled method: " + m.getName());
-                    } catch (InvalidPatternException ipe) {
-                        log.error("QlueSchedule: Invalid schedule pattern: " + qs.value());
-                    }
-                } else {
-                    log.error("QlueSchedule: Scheduled methods must be public or protected: " + m.getName());
-                }
-            }
-        }
-    }
-
-    /**
-     * Schedules the supplied task.
-     *
-     * @param task
-     * @param schedule
-     * @return Task ID, which can later be used to cancel, or reschedule the task.
-     */
-    public String scheduleTask(Runnable task, String schedule) {
-        return scheduler.schedule(schedule, task);
-    }
-
-    /**
-     * Deschedules task with the given ID.
-     *
-     * @param taskId
-     */
-    public void descheduleTask(String taskId) {
-        scheduler.deschedule(taskId);
-    }
-
-    /**
-     * Reschedules an existing task.
-     *
-     * @param taskId
-     * @param newSchedule
-     */
-    public void reschedule(String taskId, String newSchedule) {
-        scheduler.reschedule(taskId, newSchedule);
     }
 
     /**
@@ -763,37 +701,6 @@ public class QlueApplication {
             getEmailSender().send(email);
         } catch (Exception e) {
             log.error("Failed to send email", e);
-        }
-    }
-
-    @QlueSchedule("0 * * * *")
-    public synchronized void sendUrgentReminders() throws Exception {
-        if ((adminEmail == null) || (urgentEmail == null) || (urgentCounter < 0)) {
-            return;
-        }
-
-        log.info("Sending urgent reminder: urgentCounter=" + urgentCounter);
-
-        if (urgentCounter == 0) {
-            // Nothing has happened in the last period; setting
-            // the counter to -1 means that the next exception
-            // will send an urgent email.
-            urgentCounter = -1;
-        } else {
-            // There were a number of exceptions in the last period,
-            // which means that we should send a reminder email.
-            Email email = new SimpleEmail();
-            email.setCharset("UTF-8");
-            email.setFrom(adminEmail);
-            email.addTo(urgentEmail);
-            email.setSubject("[" + getAppPrefix() + "] " + "Suppressed " + urgentCounter + " exception(s) in the last period");
-
-            try {
-                getEmailSender().send(email);
-                urgentCounter = 0;
-            } catch (Exception e) {
-                log.error("Failed to send email", e);
-            }
         }
     }
 
@@ -1877,5 +1784,62 @@ public class QlueApplication {
 
     public String getAdminEmail() {
         return adminEmail;
+    }
+
+    protected void scheduleTask(Runnable maintenanceTask, Date firstTime, long period) {
+        timer = new Timer();
+        timer.scheduleAtFixedRate(new RunnableTaskWrapper(maintenanceTask), firstTime, period);
+    }
+
+    private class SendUrgentRemindersTask implements Runnable {
+
+        @Override
+        public void run() {
+            try {
+                if ((adminEmail == null) || (urgentEmail == null) || (urgentCounter < 0)) {
+                    return;
+                }
+
+                log.info("Sending urgent reminder: urgentCounter=" + urgentCounter);
+
+                if (urgentCounter == 0) {
+                    // Nothing has happened in the last period; setting
+                    // the counter to -1 means that the next exception
+                    // will send an urgent email.
+                    urgentCounter = -1;
+                } else {
+                    // There were a number of exceptions in the last period,
+                    // which means that we should send a reminder email.
+                    Email email = new SimpleEmail();
+                    email.setCharset("UTF-8");
+                    email.setFrom(adminEmail);
+                    email.addTo(urgentEmail);
+                    email.setSubject("[" + getAppPrefix() + "] " + "Suppressed " + urgentCounter + " exception(s) in the last period");
+
+                    try {
+                        getEmailSender().send(email);
+                        urgentCounter = 0;
+                    } catch (Exception e) {
+                        log.error("Failed to send email", e);
+                    }
+                }
+            } catch (Throwable t) {
+                log.error(t);
+            }
+        }
+    }
+
+    private class RunnableTaskWrapper extends TimerTask {
+
+        private Runnable task;
+
+        RunnableTaskWrapper(Runnable task) {
+            this.task = task;
+        }
+
+        @Override
+        public void run() {
+            task.run();
+        }
     }
 }
