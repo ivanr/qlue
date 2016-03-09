@@ -16,23 +16,16 @@
  */
 package com.webkreator.qlue.util;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.OutputStream;
+import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.exceptions.PageNotFoundException;
+import com.webkreator.qlue.exceptions.QlueSecurityException;
+
+import javax.servlet.http.HttpServletResponse;
+import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
-
-import javax.servlet.http.HttpServletResponse;
-
-import com.webkreator.qlue.exceptions.QlueSecurityException;
-import org.apache.commons.codec.binary.Base64;
-
-import com.webkreator.qlue.exceptions.PageNotFoundException;
-import com.webkreator.qlue.TransactionContext;
 
 /**
  * This utility class can send a file from the filesystem, either inline or as
@@ -157,7 +150,7 @@ public class DownloadUtil {
 	private static String constructHash(String input) {
 		try {
             MessageDigest md = MessageDigest.getInstance("SHA-1");
-            return Base64.encodeBase64URLSafeString(md.digest(input.getBytes()));
+            return TextUtil.toHex(md.digest(input.getBytes()));
 		} catch (NoSuchAlgorithmException e) {
 			throw new RuntimeException(e);
 		}

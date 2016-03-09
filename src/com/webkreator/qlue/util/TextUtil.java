@@ -16,45 +16,55 @@
  */
 package com.webkreator.qlue.util;
 
+import javax.xml.bind.DatatypeConverter;
+
 /**
  * This class contains a number of static methods
  * that can be useful when dealing with text.
  */
 public class TextUtil {
-	
-	/**
-	 * Is String empty (null, or 0-size).
-	 * 
-	 * @param input
-	 * @return
-	 */
-	public static boolean isEmpty(String input) {
-		if (input == null) return true;
-		if (input.length() == 0) return true;
-		return false;
-	}
-	
-	/**
-	 * Is String empty (null, zero-size, or contains only whitespace).
-	 * 
-	 * @param input
-	 * @return
-	 */
-	public static boolean isEmptyOrWhitespace(String input) {
-		if (input == null) return true;
-		if (input.length() == 0) return true;
-		
-		// Check every character
-		for(int i = 0, n = input.length(); i < n; i++) {
-			char c = input.charAt(i);
-			// If we find one character that is not a whitespace
-			// then the string is not empty
-			if (Character.isWhitespace(c) == false) {
-				return false;
-			}
-		}
-		
-		// All characters are whitespace
-		return true;
-	}
+
+    /**
+     * Is String empty (null, or 0-size).
+     *
+     * @param input
+     * @return
+     */
+    public static boolean isEmpty(String input) {
+        if (input == null) return true;
+        if (input.length() == 0) return true;
+        return false;
+    }
+
+    /**
+     * Is String empty (null, zero-size, or contains only whitespace).
+     *
+     * @param input
+     * @return
+     */
+    public static boolean isEmptyOrWhitespace(String input) {
+        if (input == null) return true;
+        if (input.length() == 0) return true;
+
+        // Check every character
+        for (int i = 0, n = input.length(); i < n; i++) {
+            char c = input.charAt(i);
+            // If we find one character that is not a whitespace
+            // then the string is not empty
+            if (Character.isWhitespace(c) == false) {
+                return false;
+            }
+        }
+
+        // All characters are whitespace
+        return true;
+    }
+
+    public static String toHex(byte[] b) {
+        return DatatypeConverter.printHexBinary(b);
+    }
+
+    public static byte[] fromHex(String s) {
+        return DatatypeConverter.parseHexBinary(s);
+    }
 }

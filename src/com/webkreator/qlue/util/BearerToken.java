@@ -5,9 +5,6 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Random;
 
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
-
 public class BearerToken implements Serializable {
 
 	private static final long serialVersionUID = 1L;
@@ -23,7 +20,7 @@ public class BearerToken implements Serializable {
 	}
 
 	public String getUnmaskedToken() {
-		return Hex.encodeHexString(tokenBytes);
+		return TextUtil.toHex(tokenBytes);
 	}
 
 	public static String unmaskTokenAsString(String maskedToken) {
@@ -32,19 +29,11 @@ public class BearerToken implements Serializable {
 			return null;
 		}
 
-		return Hex.encodeHexString(unmaskedBytes);
+		return TextUtil.toHex(unmaskedBytes);
 	}
 
 	public static byte[] unmaskToken(String maskedToken) {
-		// Decode hex-encoded string back into bytes.
-		byte[] maskedTokenBytes;
-
-		try {
-			maskedTokenBytes = Hex.decodeHex(maskedToken.toCharArray());
-		} catch (DecoderException e) {
-			return null;
-		}
-
+		byte[] maskedTokenBytes = TextUtil.fromHex(maskedToken);
 		if (maskedTokenBytes.length != 2 * TOKEN_LENGTH) {
 			return null;
 		}
@@ -53,8 +42,7 @@ public class BearerToken implements Serializable {
 
 		// Remove the mask.
 		for (int i = 0; i < TOKEN_LENGTH; i++) {
-			unmaskedBytes[i] = (byte) (maskedTokenBytes[i] ^ maskedTokenBytes[i
-					+ TOKEN_LENGTH]);
+			unmaskedBytes[i] = (byte) (maskedTokenBytes[i] ^ maskedTokenBytes[i + TOKEN_LENGTH]);
 		}
 
 		return unmaskedBytes;
@@ -75,8 +63,8 @@ public class BearerToken implements Serializable {
 			maskedBytes[TOKEN_LENGTH + i] = (byte) (randomBytes[i] ^ tokenBytes[i]);
 		}
 
-		// ...and return a hex-encoded String.
-		return Hex.encodeHexString(maskedBytes);
+		// ...and return a toHex-encoded String.
+		return TextUtil.toHex(maskedBytes);
 	}
 
 	public boolean checkMaskedToken(String maskedToken) {
