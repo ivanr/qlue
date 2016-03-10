@@ -25,6 +25,11 @@ public class DefaultVelocityTool implements QlueVelocityTool {
 
 	protected Page page;
 
+	@Override
+	public void setPage(Page page) {
+		this.page = page;
+	}
+
 	public boolean isNull(Object o) {
 		if (o == null) return true;
 		return false;
@@ -33,10 +38,5 @@ public class DefaultVelocityTool implements QlueVelocityTool {
 	public boolean isNotNull(Object o) {
 		if (o != null) return true;
 		return false;
-	}
-
-	@Override
-	public void setPage(Page page) {
-		this.page = page;
 	}
 }
