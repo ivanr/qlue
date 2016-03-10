@@ -23,6 +23,8 @@ import com.webkreator.qlue.Page;
  */
 public class DefaultVelocityTool implements QlueVelocityTool {
 
+	protected Page page;
+
 	public boolean isNull(Object o) {
 		if (o == null) return true;
 		return false;
@@ -35,6 +37,6 @@ public class DefaultVelocityTool implements QlueVelocityTool {
 
 	@Override
 	public void setPage(Page page) {
-		// Nothing to do. Useful for subclassing.
+		this.page = page;
 	}
 }
