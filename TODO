@@ -8,6 +8,8 @@ To Do
 
 - Create a page hook to invoke after Qlue validation but before service.
 
+- Examine exception hierarchy. Do we have enough? Are correct exceptions thrown?
+
 - Review page states; document.
 
 - Refactor email sending in such a way that applications can take it over.
