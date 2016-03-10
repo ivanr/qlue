@@ -34,9 +34,6 @@ public class MessageSource {
 	/**
 	 * Create a message source instance associated with the given
 	 * resource bundle and locale.
-	 * 
-	 * @param resourceBundle
-	 * @param locale
 	 */
 	protected MessageSource(PropertyResourceBundle resourceBundle, Locale locale) {
 		this.resourceBundle = resourceBundle;
@@ -45,9 +42,6 @@ public class MessageSource {
 
 	/**
 	 * Resolve a non-parameterized message code.
-	 * 
-	 * @param code
-	 * @return
 	 */
 	public String get(String code) {
 		try {
@@ -58,11 +52,7 @@ public class MessageSource {
 	}
 
 	/**
-	 * Resolve a message code using the given parameters.
-	 * 
-	 * @param code
-	 * @param params
-	 * @return
+	 * Resolve a message code using the given parameters.k
 	 */
 	public String get(String code, Object... params) {					
 		StringBuffer sb = new StringBuffer();
