@@ -56,7 +56,7 @@ public abstract class Page {
 
     private Log log = LogFactory.getLog(Page.class);
 
-    protected QlueApplication qlueApp;
+    protected QlueApplication app;
 
     protected TransactionContext context;
 
@@ -156,16 +156,16 @@ public abstract class Page {
      * @return
      */
     public QlueApplication getApp() {
-        return qlueApp;
+        return app;
     }
 
     /**
      * Associate Qlue application with this page.
      *
-     * @param qlueApp
+     * @param app
      */
-    void setQlueApp(QlueApplication qlueApp) {
-        this.qlueApp = qlueApp;
+    void setApp(QlueApplication app) {
+        this.app = app;
     }
 
     /**
@@ -437,15 +437,15 @@ public abstract class Page {
      * @return
      */
     protected QlueSession getQlueSession() {
-        return qlueApp.getQlueSession(context.getRequest());
+        return app.getQlueSession(context.getRequest());
     }
 
     public boolean allowDirectOutput() {
-        return qlueApp.allowDirectOutput();
+        return app.allowDirectOutput();
     }
 
     public boolean isDevelopmentMode() {
-        return qlueApp.isDevelopmentMode(context);
+        return app.isDevelopmentMode(context);
     }
 
     public String getNoParamUri() {

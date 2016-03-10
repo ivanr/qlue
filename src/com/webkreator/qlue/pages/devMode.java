@@ -152,8 +152,8 @@ public class devMode extends Page {
 			if (this.getErrors().hasErrors() == false) {
 				// Check that the supplied password matches
 				// the one specified in the configuration
-				if (qlueApp.checkDeveloperPassword(password) != true) {
-					if (qlueApp.getDeveloperPassword() == null) {
+				if (app.checkDeveloperPassword(password) != true) {
+					if (app.getDeveloperPassword() == null) {
 						errors.addError("Development mode password not set");
 					} else {
 						errors.addError("Password mismatch");

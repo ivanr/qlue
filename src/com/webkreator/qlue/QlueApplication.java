@@ -428,7 +428,7 @@ public class QlueApplication {
             // but only if you abuse persistent pages, which were designed
             // to be used by one user at a time (on per-session basis).
             synchronized (page) {
-                page.setQlueApp(this);
+                page.setApp(this);
                 page.determineDefaultViewName(viewResolver);
                 page.setContext(context);
                 page.determineCommandObject();
