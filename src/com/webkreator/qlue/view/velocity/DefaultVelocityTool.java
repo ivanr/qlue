@@ -16,7 +16,7 @@
  */
 package com.webkreator.qlue.view.velocity;
 
-import com.webkreator.qlue.QlueApplication;
+import com.webkreator.qlue.Page;
 
 /**
  * This tool is designed for use from within Velocity templates.
@@ -34,7 +34,7 @@ public class DefaultVelocityTool implements QlueVelocityTool {
 	}
 
 	@Override
-	public void setApp(QlueApplication app) {
+	public void setPage(Page page) {
 		// Nothing to do. Useful for subclassing.
 	}
 }

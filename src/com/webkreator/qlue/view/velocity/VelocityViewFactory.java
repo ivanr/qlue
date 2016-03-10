@@ -111,7 +111,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 		Object f = page.getVelocityTool();
 		if (f instanceof QlueVelocityTool) {
-			((QlueVelocityTool)f).setApp(page.getApp());
+			((QlueVelocityTool)f).setPage(page);
 		}
 		model.put("_f", f);
 

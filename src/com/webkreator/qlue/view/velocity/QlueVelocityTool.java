@@ -1,8 +1,8 @@
 package com.webkreator.qlue.view.velocity;
 
-import com.webkreator.qlue.QlueApplication;
+import com.webkreator.qlue.Page;
 
 public interface QlueVelocityTool {
 
-    void setApp(QlueApplication app);
+    void setPage(Page page);
 }
