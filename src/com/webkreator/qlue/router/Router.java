@@ -22,10 +22,6 @@ public interface Router {
 
 	/**
 	 * Routes transaction to a page.
-	 * 
-	 * @param context
-	 * @param pathSuffix
-	 * @return
 	 */
-	public Object route(TransactionContext context, String pathSuffix);
+	Object route(TransactionContext context, String pathSuffix);
 }

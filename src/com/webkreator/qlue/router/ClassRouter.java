@@ -16,19 +16,14 @@
  */
 package com.webkreator.qlue.router;
 
-import com.webkreator.qlue.exceptions.QlueException;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.exceptions.QlueException;
 
 /**
  * Routes transaction to a single class.
  */
 public class ClassRouter implements Router {
-
-	private Log log = LogFactory.getLog(ClassRouter.class);
 
 	private Class<Page> pageClass;
 

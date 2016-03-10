@@ -40,7 +40,7 @@ public class HeaderConfigRouter implements Router {
         context.response.setHeader(name, value);
 
         // Configuration routes can change the context but typically
-        // return null, leaving some other route to handle the request.61713124
+        // return null, leaving some other route to handle the request.
         return null;
     }
 }

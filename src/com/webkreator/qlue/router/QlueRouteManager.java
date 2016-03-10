@@ -16,18 +16,17 @@
  */
 package com.webkreator.qlue.router;
 
+import com.webkreator.qlue.QlueApplication;
+import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.util.VariableExpander;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
-import com.webkreator.qlue.QlueApplication;
-import com.webkreator.qlue.TransactionContext;
-import com.webkreator.qlue.util.VariableExpander;
 
 /**
  * Implements the default routing functionality, which accepts
@@ -40,7 +39,7 @@ public class QlueRouteManager implements RouteManager {
 	
 	private QlueApplication app;
 
-	private List<Route> routes = new ArrayList<Route>();	
+	private List<Route> routes = new ArrayList<>();
 	
 	private String suffix;
 	
@@ -54,9 +53,6 @@ public class QlueRouteManager implements RouteManager {
 
 	/**
 	 * Loads routes from a file.
-	 * 
-	 * @param routesFile
-	 * @throws Exception
 	 */
 	public void load(File routesFile) throws Exception {
 		routes.clear();
@@ -65,8 +61,8 @@ public class QlueRouteManager implements RouteManager {
         // each line as a single routing instruction.
 
 		BufferedReader in = new BufferedReader(new FileReader(routesFile));
+		String line;
 
-		String line = null;
 		while ((line = in.readLine()) != null) {
 			// Ignore comment lines; those that are empty or on
             // which the first non-whitespace character is #.
@@ -85,8 +81,6 @@ public class QlueRouteManager implements RouteManager {
 
 	/**
 	 * Adds a new route.
-	 * 
-	 * @param route
 	 */
 	public void add(Route route) {
 		routes.add(route);
@@ -94,9 +88,6 @@ public class QlueRouteManager implements RouteManager {
 
 	/**
 	 * Routes transaction using previously configured routes.
-	 * 
-	 * @param context
-	 * @return
 	 */
 	public Object route(TransactionContext context) {
 		Object r;
@@ -123,9 +114,6 @@ public class QlueRouteManager implements RouteManager {
 	/**
 	 * Replace variables (in the format "${variableName}") with
 	 * their values from the Qlue properties file.
-	 * 
-	 * @param input
-	 * @return
 	 */
 	String expandProperties(String input) {
 		return VariableExpander.expand(input, app.getProperties());		

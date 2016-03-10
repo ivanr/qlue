@@ -28,13 +28,9 @@ public class RouteFactory {
 
 	/**
 	 * Creates route from its text representation.
-	 *  
-	 * @param manager
-	 * @param route
-	 * @return
 	 */
 	public static Route create(RouteManager manager, String route) {
-		Router router = null;
+		Router router;
 
         if ((route.length() > 0)&&(route.charAt(0) == '@')) {
             return createConfig(manager, route);
@@ -74,7 +70,8 @@ public class RouteFactory {
 
 			// Check for explicit redirection status code
 			if (tokens.length > 2) {
-				int status = 301;
+				int status;
+
 				try {
 					status = Integer.parseInt(tokens[2]);
 				} catch (Exception e) {
@@ -87,7 +84,7 @@ public class RouteFactory {
 			}
 		} else if (action.startsWith("status:")) {
 			String statusCodeString = action.substring(7).trim();
-			int statusCode = 0;
+			int statusCode;
 			
 			try {
 				// Parse and validate response status code
@@ -96,7 +93,7 @@ public class RouteFactory {
 					if (tokens.length > 2) {
 						// Recombine the remaining tokens back
 						// into a single string
-						StringBuffer sb = new StringBuffer();
+						StringBuilder sb = new StringBuilder();
 						for(int i = 2; i <= tokens.length -1; i++) {
 							if (i > 2) {
 								sb.append(' ');
@@ -124,7 +121,7 @@ public class RouteFactory {
 			if (tokens.length > 2) {
 				// Recombine the remaining tokens back
 				// into a single string
-				StringBuffer sb = new StringBuffer();
+				StringBuilder sb = new StringBuilder();
 				sb.append(staticPath);
 				sb.append(' ');
 				
@@ -152,7 +149,7 @@ public class RouteFactory {
 
     private static Route createConfig(RouteManager manager, String route) {
         Matcher m = configRoutePattern.matcher(route);
-        if (m.matches() == false) {
+        if (!m.matches()) {
             throw new RuntimeException("Qlue: Invalid config route: " + route);
         }
 
@@ -169,9 +166,8 @@ public class RouteFactory {
     /**
 	 * Finds router instance based on class name.
 	 */
-	@SuppressWarnings("rawtypes")
 	private static Router findRouter(String className) {
-		Class candidate = null;
+		Class candidate;
 
 		// Look for class
 		try {

@@ -9,28 +9,28 @@ public interface RouteManager {
 	/**
 	 * Returns the name of the default index name (e.g., "index").
 	 */
-	public String getIndex();
+	String getIndex();
 
     /**
      * Changes the default index name.
      * @param index New index name.
      */
-    public void setIndex(String index);
+    void setIndex(String index);
 	
 	/**
 	 * Returns the suffix that will be used to determine which transactions can be mapped to pages. (e.g., ".html").
 	 */
-	public String getSuffix();
+	String getSuffix();
 
     /**
      * Changes the default page suffix.
      * @param suffix New suffix.
      */
-    public void setSuffix(String suffix);
+    void setSuffix(String suffix);
 
-    public String getIndexWithSuffix();
+    String getIndexWithSuffix();
 
-    public boolean isConvertDashesToUnderscores();
+    boolean isConvertDashesToUnderscores();
 
-    public void setConcertDashesToUnderscores(boolean b);
+    void setConcertDashesToUnderscores(boolean b);
 }

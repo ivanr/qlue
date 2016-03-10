@@ -16,16 +16,15 @@
  */
 package com.webkreator.qlue.router;
 
+import com.webkreator.qlue.TransactionContext;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
-import com.webkreator.qlue.TransactionContext;
 
 /**
  * Represents one route in the routing table.
@@ -38,7 +37,7 @@ public class Route {
 
 	private Pattern pattern;
 
-	private List<String> names = new ArrayList<String>();
+	private List<String> names = new ArrayList<>();
 
 	private Router router;
 
@@ -48,9 +47,6 @@ public class Route {
 
 	/**
 	 * Creates new route, given path and router instance.
-	 * 
-	 * @param path
-	 * @param router
 	 */
 	public Route(String path, Router router) {
 		this.path = path;
@@ -67,7 +63,7 @@ public class Route {
 	 */
 	public void processPath() {
 		// Start building actual path with an anchor at the beginning
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		sb.append('^');
 
 		// Loop through the path to find path parameters and
@@ -191,9 +187,6 @@ public class Route {
 	/**
 	 * Attempts to match the transaction to this route and, if successful,
 	 * returns the route associated with the route.
-	 * 
-	 * @param tx
-	 * @return
 	 */
 	public Object route(TransactionContext tx) {
         // If the path is null, this route always matches.
@@ -237,8 +230,6 @@ public class Route {
 
 	/**
 	 * Returns the patch attached to this route.
-	 * 
-	 * @return
 	 */
 	public String getPath() {
 		return path;
