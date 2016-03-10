@@ -16,11 +16,11 @@
  */
 package com.webkreator.qlue;
 
+import com.webkreator.qlue.util.BearerToken;
+
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.util.Locale;
-
-import com.webkreator.qlue.util.BearerToken;
 
 /**
  * Represents a user session. This class implements the basics needed by the
@@ -46,24 +46,20 @@ public class QlueSession implements Serializable {
 
 	/**
 	 * Set session development mode.
-	 * 
-	 * @param developmentMode
 	 */
 	public void setDevelopmentMode(Integer developmentMode) {
 		if ((developmentMode != QlueConstants.DEVMODE_DISABLED)
 				&& (developmentMode != QlueConstants.DEVMODE_ENABLED)
-				&& (developmentMode != QlueConstants.DEVMODE_ONDEMAND)) {
-			throw new RuntimeException(
-					"Qlue: Invalid development mode setting: "
-							+ developmentMode);
+				&& (developmentMode != QlueConstants.DEVMODE_ONDEMAND))
+		{
+			throw new RuntimeException("Qlue: Invalid development mode setting: " + developmentMode);
 		}
 
 		this.developmentMode = developmentMode;
 	}
 
 	public void writeDevelopmentInformation(PrintWriter out) {
-		out.println(" Session secret (not masked): "
-				+ sessionSecret.getUnmaskedToken());
+		out.println(" Session secret (not masked): " + sessionSecret.getUnmaskedToken());
 		out.println(" Development mode: " + developmentMode);
 	}
 
