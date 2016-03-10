@@ -16,20 +16,21 @@
  */
 package com.webkreator.qlue;
 
-import java.io.IOException;
-import java.net.SocketException;
-
 import javax.servlet.ServletException;
 import javax.servlet.UnavailableException;
+import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.net.SocketException;
 
 /**
  * This class serves as a glue between Qlue applications and the Servlet
  * specification. It's an abstract class; a subclass should be used to create
  * the desired instance of the Qlue application.
  */
+@MultipartConfig
 public class QlueServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;

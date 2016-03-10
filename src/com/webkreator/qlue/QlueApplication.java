@@ -24,7 +24,6 @@ import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
 import com.webkreator.qlue.view.velocity.DefaultVelocityTool;
-import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
@@ -33,10 +32,7 @@ import org.apache.commons.mail.SimpleEmail;
 import org.apache.log4j.NDC;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import javax.servlet.http.*;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -385,9 +381,6 @@ public class QlueApplication {
         Page page = null;
 
         try {
-            // Check if we need to handle multipart/form-data
-            context.processMultipart();
-
             // -- Page resolution --
 
             // Check if this is a request for a persistent page. We can
@@ -1221,8 +1214,8 @@ public class QlueApplication {
     private void bindFileParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
-        FileItem fi = context.getFile(f.getName());
-        if ((fi == null) || (fi.getSize() == 0)) {
+        Part p = context.getPart(f.getName());
+        if ((p == null) || (p.getSize() == 0)) {
             if (qp.mandatory()) {
                 page.addError(f.getName(), getFieldMissingMessage(qp));
             }
@@ -1231,11 +1224,12 @@ public class QlueApplication {
         }
 
         File file = File.createTempFile("qlue-", ".tmp");
-        fi.write(file);
-        fi.delete();
+        p.write(file.getAbsolutePath());
+        p.delete();
 
         QlueFile qf = new QlueFile(file.getAbsolutePath());
-        qf.setContentType(fi.getContentType());
+        qf.setContentType(p.getContentType());
+        qf.setSubmittedFilename(p.getSubmittedFileName());
 
         f.set(commandObject, qf);
     }

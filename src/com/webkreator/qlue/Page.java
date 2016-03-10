@@ -542,7 +542,6 @@ public abstract class Page {
      * Delete files created by processing multipart/form-data.
      */
     void deleteFiles() {
-        // Retrieve the command object
         Object commandObject = getCommandObject();
         if (commandObject == null) {
             return;

@@ -2,8 +2,6 @@
 To Do
 -----
 
-- Remove dependency on Apache Commons FileUpload.
-
 - Move logging to SLF4J.
 
 - Move build to Gradle.

@@ -27,6 +27,8 @@ public class QlueFile extends File {
 		
 	private String contentType;
 
+	private String submittedFilename;
+
 	public QlueFile(String pathname) {
 		super(pathname);		
 	}
@@ -37,5 +39,21 @@ public class QlueFile extends File {
 
 	void setContentType(String contentType) {
 		this.contentType = contentType;
-	}	
+	}
+
+	public String getSubmittedFilename() {
+		return submittedFilename;
+	}
+
+	public void setSubmittedFilename(String submittedFilename) {
+		this.submittedFilename = submittedFilename;
+	}
+
+	public long getSize() {
+		return length();
+	}
+
+	public long getLength() {
+		return length();
+	}
 }

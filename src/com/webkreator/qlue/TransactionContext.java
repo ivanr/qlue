@@ -16,14 +16,10 @@
  */
 package com.webkreator.qlue;
 
-import java.io.PrintWriter;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.webkreator.qlue.util.HtmlEncoder;
+import com.webkreator.qlue.util.TextUtil;
+import com.webkreator.qlue.util.WebUtil;
+import com.webkreator.qlue.view.FinalRedirectView;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
@@ -31,16 +27,14 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.FileItemFactory;
-import org.apache.commons.fileupload.disk.DiskFileItemFactory;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
-
-import com.webkreator.qlue.util.HtmlEncoder;
-import com.webkreator.qlue.util.TextUtil;
-import com.webkreator.qlue.util.WebUtil;
-import com.webkreator.qlue.view.FinalRedirectView;
+import javax.servlet.http.Part;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * This class is used mostly to keep all the other stuff (relevant to a single
@@ -67,10 +61,6 @@ public class TransactionContext {
 	public String requestUri;
 
 	public String requestUriWithQueryString;
-
-	private boolean isMultipart;
-
-	private List<FileItem> multipartItems;
 
 	private Map<String, String> urlParams = new HashMap<String, String>();
 
@@ -251,26 +241,6 @@ public class TransactionContext {
 		}
 
 		return request.getRemoteAddr();
-	}
-
-	/**
-	 * Detect and process multipart/form-data request.
-	 * 
-	 * @throws Exception
-	 */
-	@SuppressWarnings("unchecked")
-	void processMultipart() throws Exception {
-		isMultipart = ServletFileUpload.isMultipartContent(request);
-
-		if (isMultipart) {
-			FileItemFactory factory = new DiskFileItemFactory();
-
-			// Create a new file upload handler
-			ServletFileUpload upload = new ServletFileUpload(factory);
-
-			// Parse the request
-			multipartItems = (List<FileItem>) upload.parseRequest(request);
-		}
 	}
 
 	/**
@@ -499,28 +469,7 @@ public class TransactionContext {
 	 * @throws Exception
 	 */
 	public String getParameter(String name) throws Exception {
-		// If we're not dealing with a multipart/form-data
-		// request, simply refer to the underlying request object
-		if (isMultipart == false) {
-			return getRequest().getParameter(name);
-		}
-
-		// Otherwise, find the parameter in our own storage
-		for (int i = 0, n = multipartItems.size(); i < n; i++) {
-			FileItem fi = multipartItems.get(i);
-			if (fi.getFieldName().compareToIgnoreCase(name) == 0) {
-				if (fi.isFormField() == false) {
-					throw new RuntimeException(
-							"Qlue: Unexpected file parameter");
-				}
-
-				// Return parameter value using application's
-				// character encoding.
-				return fi.getString(app.getCharacterEncoding());
-			}
-		}
-
-		return null;
+		return getRequest().getParameter(name);
 	}
 
 	/**
@@ -531,61 +480,7 @@ public class TransactionContext {
 	 * @throws Exception
 	 */
 	public String[] getParameterValues(String name) throws Exception {
-		// If we're not dealing with a multipart/form-data
-		// request, simply refer to the underlying request object
-		if (isMultipart == false) {
-			return getRequest().getParameterValues(name);
-		}
-
-		// Otherwise, find the parameter in our own storage
-		ArrayList<String> valuesList = new ArrayList<String>();
-
-		for (int i = 0, n = multipartItems.size(); i < n; i++) {
-			FileItem fi = multipartItems.get(i);
-			if (fi.getFieldName().compareToIgnoreCase(name) == 0) {
-				if (fi.isFormField() == false) {
-					throw new RuntimeException(
-							"Qlue: Unexpected file parameter");
-				}
-
-				// Add to the list
-				valuesList.add(fi.getString(app.getCharacterEncoding()));
-			}
-		}
-
-		// Return all values in an array
-		String[] values = new String[valuesList.size()];
-		return (String[]) valuesList.toArray(values);
-	}
-
-	/**
-	 * Retrieves file with the given name.
-	 * 
-	 * @param name
-	 * @return
-	 * @throws Exception
-	 */
-	public FileItem getFile(String name) throws Exception {
-		// It is an error to request a file from a
-		// a transaction that is not multipart/form-data
-		if (isMultipart == false) {
-			throw new RuntimeException("Qlue: multipart/form-data expected");
-		}
-
-		// Find the requested file among out parameters
-		for (int i = 0, n = multipartItems.size(); i < n; i++) {
-			FileItem fi = multipartItems.get(i);
-			if (fi.getFieldName().compareToIgnoreCase(name) == 0) {
-				if (fi.isFormField() == true) {
-					throw new RuntimeException(
-							"Qlue: Unexpected simple parameter");
-				}
-
-				return fi;
-			}
-		}
-
-		return null;
+		return getRequest().getParameterValues(name);
 	}
 
 	public String getUrlParameter(String name) {
@@ -634,5 +529,9 @@ public class TransactionContext {
 
 	public boolean isFrontendEncrypted() {
 		return frontendEncrypted;
+	}
+
+	public Part getPart(String name) throws IOException, ServletException {
+		return request.getPart(name);
 	}
 }
