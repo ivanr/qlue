@@ -25,12 +25,10 @@ import java.util.List;
  */
 public class Errors {
 
-	protected ArrayList<Error> errors = new ArrayList<Error>();
+	private ArrayList<Error> errors = new ArrayList<>();
 
 	/**
 	 * Add an error message.
-	 * 
-	 * @param message
 	 */
 	public void addError(String message) {
 		errors.add(new Error(null, message));
@@ -38,9 +36,6 @@ public class Errors {
 
 	/**
 	 * Add an error message associated with a field.
-	 * 
-	 * @param field
-	 * @param message
 	 */
 	public void addError(String field, String message) {
 		errors.add(new Error(field, message));
@@ -48,8 +43,6 @@ public class Errors {
 
 	/**
 	 * Return a list with all errors.
-	 * 
-	 * @return
 	 */
 	public List<Error> getAllErrors() {
 		return errors;
@@ -57,12 +50,9 @@ public class Errors {
 
 	/**
 	 * Return all errors pertaining to the given field.
-	 * 
-	 * @param field
-	 * @return
 	 */
 	public List<String> getFieldErrors(String field) {
-		ArrayList<String> list = new ArrayList<String>();
+		ArrayList<String> list = new ArrayList<>();
 
 		for (Error error : errors) {
 			if ((error.getField() != null) && (field.compareTo(error.getField()) == 0)) {
@@ -76,11 +66,9 @@ public class Errors {
 	/**
 	 * Return all non-specific errors (which are those that
 	 * are not associated with a field).
-	 * 
-	 * @return
 	 */
 	public List<String> getFormErrors() {
-		ArrayList<String> list = new ArrayList<String>();
+		ArrayList<String> list = new ArrayList<>();
 
 		for (Error error : errors) {
 			if (error.getField() == null) {
@@ -100,15 +88,9 @@ public class Errors {
 
 	/**
 	 * Checks if there are any errors.
-	 * 
-	 * @return
 	 */
 	public boolean hasErrors() {
-		if (errors.size() != 0) {
-			return true;
-		}
-
-		return false;
+		return (errors.size() != 0);
 	}
 	
 	@Override
