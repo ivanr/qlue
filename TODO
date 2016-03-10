@@ -8,8 +8,6 @@ To Do
 
 - Move build to Gradle.
 
-- Indicate command object via annotation?
-
 - Create a page hook to invoke after Qlue validation but before service.
 
 - Review page states; document.
