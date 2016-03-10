@@ -17,23 +17,11 @@ Features (some not implemented yet):
 
   - Built-in redirection after POST.
 
-- Scheduled (cron-like) activity.
-
-  - Once a day, once a week, once a month, etc.
-
-  - Scheduled event train.
-
-  - Graceful shutdown (complete in progress, don't start new).
-
-- Detailed logging of errors for troubleshooting.
-
 - Security:
 
   - Built-in XSS defence (via automatic context-aware output encoding).
 
   - Built-in CSRF defence (w/token masking for Breach mitigation).
-
-  - Hardened session management.
 
 ## Getting started
 
