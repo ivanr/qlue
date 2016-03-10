@@ -89,8 +89,6 @@ public class QlueServlet extends HttpServlet {
 
     /**
      * Associate Qlue application with this servlet.
-     *
-     * @param app
      */
     protected void setApp(QlueApplication app) {
         this.qlueApp = app;
@@ -98,8 +96,6 @@ public class QlueServlet extends HttpServlet {
 
     /**
      * Retrieve the application associated with this servlet.
-     *
-     * @return
      */
     protected QlueApplication getApp() {
         return qlueApp;

@@ -16,15 +16,14 @@
  */
 package com.webkreator.qlue;
 
+import com.webkreator.qlue.view.FinalRedirectView;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
-import com.webkreator.qlue.view.FinalRedirectView;
 
 /**
  * Keeps track of all persistent pages.
@@ -56,9 +55,6 @@ public class QluePageManager {
 
 	/**
 	 * Find persistent page with given ID.
-	 * 
-	 * @param id
-	 * @return
 	 */
 	public Page findPage(Integer id) {
 		PersistentPageRecord record = pages.get(id);
@@ -71,16 +67,13 @@ public class QluePageManager {
 
 	/**
 	 * Store persistent page.
-	 * 
-	 * @param page
 	 */
 	public synchronized void storePage(Page page) {
 		// Generate persistence ID when we're storing
 		// the page for the first time.
 		if (page.getId() == null) {
 			page.setId(new Integer(generatePageId()));
-			pages.put(page.getId(),
-					new PersistentPageRecord(System.currentTimeMillis(), page));
+			pages.put(page.getId(), new PersistentPageRecord(System.currentTimeMillis(), page));
 		} else {
 			// A page that already has an ID probably also
 			// has a record. Look it up.
@@ -113,8 +106,6 @@ public class QluePageManager {
 
 	/**
 	 * Generate unique persistent page ID.
-	 * 
-	 * @return
 	 */
 	public synchronized int generatePageId() {
 		return nextPersistentPageId + new Random().nextInt(1000);
@@ -122,9 +113,6 @@ public class QluePageManager {
 
 	/**
 	 * Replace a persistent page with the ReplacementView instance provide.
-	 * 
-	 * @param page
-	 * @param view
 	 */
 	public void replacePage(Page page, FinalRedirectView view) {
 		PersistentPageRecord record = pages.get(page.getId());
@@ -139,9 +127,6 @@ public class QluePageManager {
 
 	/**
 	 * Look for the record of the page with the given ID.
-	 * 
-	 * @param id
-	 * @return
 	 */
 	public PersistentPageRecord findPageRecord(int id) {
 		return pages.get(id);

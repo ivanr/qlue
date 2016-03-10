@@ -74,8 +74,6 @@ public abstract class Page {
 
     /**
      * Has this page finished its work?
-     *
-     * @return
      */
     public boolean isFinished() {
         return (getState().compareTo(STATE_FINISHED) == 0);
@@ -83,8 +81,6 @@ public abstract class Page {
 
     /**
      * Retrieve unique page ID.
-     *
-     * @return
      */
     public Integer getId() {
         return id;
@@ -93,8 +89,6 @@ public abstract class Page {
     /**
      * Set page ID. Pages are allocated IDs only prior to being persisted.
      * Transient pages do not need IDs.
-     *
-     * @param id
      */
     void setId(Integer id) {
         this.id = id;
@@ -105,8 +99,6 @@ public abstract class Page {
      * STATE_NEW to STATE_SUBMIT on first POST and we never move away from
      * STATE_SUBMIT. An advanced implementation could have several submit states
      * and offer means to cycle among them.
-     *
-     * @return
      */
     void updateState() {
         if (context.isPost()) {
@@ -116,8 +108,6 @@ public abstract class Page {
 
     /**
      * Retrieve shadow input associated with page.
-     *
-     * @return
      */
     public ShadowInput getShadowInput() {
         return shadowInput;
@@ -125,8 +115,6 @@ public abstract class Page {
 
     /**
      * Retrieve page state.
-     *
-     * @return
      */
     public String getState() {
         return state;
@@ -134,8 +122,6 @@ public abstract class Page {
 
     /**
      * Change page state to given value.
-     *
-     * @param state
      */
     protected void setState(String state) {
         this.state = state;
@@ -143,8 +129,6 @@ public abstract class Page {
 
     /**
      * Retrieve the log object used by this page.
-     *
-     * @return
      */
     protected Log getLog() {
         return log;
@@ -152,8 +136,6 @@ public abstract class Page {
 
     /**
      * Retrieve the application to which this page belongs.
-     *
-     * @return
      */
     public QlueApplication getApp() {
         return app;
@@ -161,8 +143,6 @@ public abstract class Page {
 
     /**
      * Associate Qlue application with this page.
-     *
-     * @param app
      */
     void setApp(QlueApplication app) {
         this.app = app;
@@ -227,9 +207,6 @@ public abstract class Page {
     /**
      * Process one HTTP request. By default, pages accept only GET (and HEAD,
      * treated as GET) and POST.
-     *
-     * @return
-     * @throws Exception
      */
     public View service() throws Exception {
         switch (context.request.getMethod()) {
@@ -246,9 +223,6 @@ public abstract class Page {
     /**
      * Process a GET request. The default implementation does not actually do
      * anything -- it just throws an exception.
-     *
-     * @return
-     * @throws Exception
      */
     public View onGet() throws Exception {
         throw new RequestMethodException();
@@ -257,9 +231,6 @@ public abstract class Page {
     /**
      * Process a POST request. The default implementation does not actually do
      * anything -- it just throws an exception.
-     *
-     * @return
-     * @throws Exception
      */
     public View onPost() throws Exception {
         throw new RequestMethodException();
@@ -267,18 +238,13 @@ public abstract class Page {
 
     /**
      * Retrieve the model associated with a page.
-     *
-     * @return
      */
     public Map<String, Object> getModel() {
         return model;
     }
 
     /**
-     * Add key-value pair to the model.
-     *
-     * @param key
-     * @param value
+     * Add a key-value pair to the model.
      */
     void addToModel(String key, Object value) {
         model.put(key, value);
@@ -286,9 +252,6 @@ public abstract class Page {
 
     /**
      * Retrieve value from the model, using the given key.
-     *
-     * @param key
-     * @return
      */
     public Object getFromModel(String key) {
         return model.get(key);
@@ -296,8 +259,6 @@ public abstract class Page {
 
     /**
      * Retrieve the default view name associated with page.
-     *
-     * @return
      */
     public String getViewName() {
         return viewName;
@@ -305,8 +266,6 @@ public abstract class Page {
 
     /**
      * Retrieve the response content type associated with this page.
-     *
-     * @return
      */
     public String getContentType() {
         return contentType;
@@ -314,8 +273,6 @@ public abstract class Page {
 
     /**
      * Set response content type.
-     *
-     * @param contentType
      */
     public void setContentType(String contentType) {
         this.contentType = contentType;
@@ -323,8 +280,6 @@ public abstract class Page {
 
     /**
      * Retrieve page transaction context.
-     *
-     * @return
      */
     public TransactionContext getContext() {
         return context;
@@ -332,8 +287,6 @@ public abstract class Page {
 
     /**
      * Set page transaction context.
-     *
-     * @param context
      */
     void setContext(TransactionContext context) {
         this.context = context;
@@ -342,8 +295,6 @@ public abstract class Page {
     /**
      * Return page's format tool. By default, we respond with application's
      * format tool, but pages (subclasses) can create their own.
-     *
-     * @return
      */
     public Object getVelocityTool() {
         return getApp().getVelocityTool();
@@ -351,8 +302,6 @@ public abstract class Page {
 
     /**
      * Determine the default view name for this page.
-     *
-     * @param resolver
      */
     void determineDefaultViewName(ViewResolver resolver) {
         viewName = this.getClass().getSimpleName();
@@ -396,8 +345,6 @@ public abstract class Page {
 
     /**
      * Does this page has any parameter validation errors?
-     *
-     * @return
      */
     protected boolean hasErrors() {
         return errors.hasErrors();
@@ -405,8 +352,6 @@ public abstract class Page {
 
     /**
      * Retrieve validation errors.
-     *
-     * @return
      */
     public Errors getErrors() {
         return errors;
@@ -414,8 +359,6 @@ public abstract class Page {
 
     /**
      * Adds a page-specific error message.
-     *
-     * @param message
      */
     protected void addError(String message) {
         errors.addError(message);
@@ -423,9 +366,6 @@ public abstract class Page {
 
     /**
      * Adds a field-specific error message.
-     *
-     * @param fieldName
-     * @param message
      */
     public void addError(String fieldName, String message) {
         errors.addError(fieldName, message);
@@ -433,8 +373,6 @@ public abstract class Page {
 
     /**
      * Retrieve session associated with this page.
-     *
-     * @return
      */
     protected QlueSession getQlueSession() {
         return app.getQlueSession(context.getRequest());
@@ -454,8 +392,6 @@ public abstract class Page {
 
     /**
      * Outputs page-specific debugging information.
-     *
-     * @param out
      */
     void writeDevelopmentInformation(PrintWriter out) {
         // Page fields
@@ -486,7 +422,7 @@ public abstract class Page {
 
         Map<String, Object> model = getModel();
 
-        TreeMap<String, Object> treeMap = new TreeMap<String, Object>();
+        TreeMap<String, Object> treeMap = new TreeMap<>();
 
         for (Iterator<String> it = model.keySet().iterator(); it.hasNext(); ) {
             String name = it.next();
@@ -531,8 +467,6 @@ public abstract class Page {
      * Invoked after data validation and binding, but before request processing,
      * giving the page a chance to initialize itself. This method is invoked
      * only when the state is STATE_NEW (which means only once for a page).
-     *
-     * @throws Exception
      */
     public void init() throws Exception {
         // This method exists to be overrided in a subclass
@@ -569,8 +503,6 @@ public abstract class Page {
 
     /**
      * Is page persistent?
-     *
-     * @return
      */
     public boolean isPersistent() {
         return getClass().isAnnotationPresent(QluePersistentPage.class);
@@ -580,9 +512,6 @@ public abstract class Page {
      * This method is invoked after built-in parameter validation fails. The
      * default implementation will throw an exception for non-persistent pages,
      * and ignore the problem for persistent pages.
-     *
-     * @return
-     * @throws Exception
      */
     public View onValidationError() throws Exception {
         if (isPersistent() == true) {
@@ -590,7 +519,6 @@ public abstract class Page {
             return null;
         }
 
-        // Report fatal error
         throw new ValidationException("Parameter validation failed: " + getErrors().toString());
     }
 }
