@@ -18,9 +18,8 @@ package com.webkreator.qlue.editors;
 
 import java.lang.reflect.Field;
 
-
 /**
- * Property editors convert text into, well, text.
+ * Converts String objects to and from String objects.
  */
 public class StringEditor implements PropertyEditor {
 
@@ -32,8 +31,7 @@ public class StringEditor implements PropertyEditor {
 		
 		return text;
 	}
-	
-	@SuppressWarnings("rawtypes")
+
 	@Override
 	public Class getEditorClass() {		
 		return String.class;

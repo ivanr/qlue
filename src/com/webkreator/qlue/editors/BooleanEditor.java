@@ -19,9 +19,8 @@ package com.webkreator.qlue.editors;
 import java.lang.reflect.Field;
 import java.security.InvalidParameterException;
 
-
 /**
- * Handle conversion to and from Boolean values.
+ * Converts Boolean objects to and from text.
  */
 public class BooleanEditor implements PropertyEditor {
 
@@ -35,7 +34,8 @@ public class BooleanEditor implements PropertyEditor {
 				|| (text.compareToIgnoreCase("true") == 0)
 				|| (text.compareToIgnoreCase("yes") == 0)
 				|| (text.compareToIgnoreCase("da") == 0)
-				|| (text.compareToIgnoreCase("1") == 0)) {
+				|| (text.compareToIgnoreCase("1") == 0))
+		{
 			return Boolean.TRUE;
 		}
 
@@ -43,14 +43,14 @@ public class BooleanEditor implements PropertyEditor {
 				|| (text.compareToIgnoreCase("false") == 0)
 				|| (text.compareToIgnoreCase("no") == 0)
 				|| (text.compareToIgnoreCase("ne") == 0)
-				|| (text.compareToIgnoreCase("0") == 0)) {
+				|| (text.compareToIgnoreCase("0") == 0))
+		{
 			return Boolean.FALSE;
 		}
 
 		throw new InvalidParameterException("qp.validation.boolean.invalid");
 	}
 
-	@SuppressWarnings("rawtypes")
 	@Override
 	public Class getEditorClass() {
 		return Boolean.class;
@@ -58,6 +58,6 @@ public class BooleanEditor implements PropertyEditor {
 
 	@Override
 	public String toText(Object o) {
-		return ((Boolean)o).toString();
+		return o.toString();
 	}
 }

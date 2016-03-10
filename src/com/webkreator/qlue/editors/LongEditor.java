@@ -4,7 +4,7 @@ import java.lang.reflect.Field;
 import java.security.InvalidParameterException;
 
 /**
- * Handle conversion to and from Integer fields.
+ * Converts Long objects to and from text.
  */
 public class LongEditor implements PropertyEditor {
 
@@ -17,12 +17,10 @@ public class LongEditor implements PropertyEditor {
         try {
             return Long.valueOf(text);
         } catch (NumberFormatException nfe) {
-            throw new InvalidParameterException(
-                    "LongEditor: Invalid long value: " + text);
+            throw new InvalidParameterException("LongEditor: Invalid long value: " + text);
         }
     }
 
-    @SuppressWarnings("rawtypes")
     @Override
     public Class getEditorClass() {
         return Long.class;
@@ -30,6 +28,6 @@ public class LongEditor implements PropertyEditor {
 
     @Override
     public String toText(Object o) {
-        return ((Long) o).toString();
+        return o.toString();
     }
 }

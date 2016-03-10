@@ -1,17 +1,17 @@
 package com.webkreator.qlue.editors;
 
+import javax.xml.bind.DatatypeConverter;
 import java.lang.reflect.Field;
 import java.security.InvalidParameterException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import javax.xml.bind.DatatypeConverter;
-
-
+/**
+ * Converts Date objects to and from text.
+ */
 public class DateEditor implements PropertyEditor {
 
-	@SuppressWarnings("rawtypes")
 	@Override
 	public Class getEditorClass() {
 		return Date.class;

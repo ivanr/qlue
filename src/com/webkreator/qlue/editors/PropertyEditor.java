@@ -19,32 +19,23 @@ package com.webkreator.qlue.editors;
 import java.lang.reflect.Field;
 
 /**
- * Property editors convert text into objects.
+ * Editors are classes that convert text parameters into the
+ * correct types to match those used in command objects.
  */
 public interface PropertyEditor {
 
 	/**
 	 * Returns the class that this editor deals with.
-	 * 
-	 * @return
 	 */
-	@SuppressWarnings("rawtypes")
-	public Class getEditorClass();
+	Class getEditorClass();
 	
 	/**
-	 * Creates object out of its textual representation.
-	 * 
-	 * @param field
-	 * @param text
-	 * @return
+	 * Creates object from its textual representation.
 	 */
-	public Object fromText(Field field, String text, Object currentValue);
+	Object fromText(Field field, String text, Object currentValue);
 	
 	/**
 	 * Converts object to text.
-	 * 
-	 * @param o
-	 * @return
 	 */
-	public String toText(Object o);
+	String toText(Object o);
 }
