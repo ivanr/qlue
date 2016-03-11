@@ -3,11 +3,3 @@ To Do
 -----
 
 - Move logging to SLF4J.
-
-- Move build to Gradle.
-
-- Examine exception hierarchy. Do we have enough? Are correct exceptions thrown?
-
-- Use Jar Jar Links to embed Velocity and its dependencies.
-
-- Publish to Maven Central.
