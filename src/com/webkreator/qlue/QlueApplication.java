@@ -163,8 +163,6 @@ public class QlueApplication {
         confPath = servlet.getServletContext().getRealPath("/WEB-INF/");
     }
 
-    // -- Main entry points --
-
     /**
      * Initialize QlueApp instance. Qlue applications are designed to be used by
      * servlets to delegate both initialization and request processing.
@@ -495,22 +493,21 @@ public class QlueApplication {
                 page.rollback();
             }
 
-            // Convert RequestMethodException into a 405 response
-            context.getResponse().sendError(
-                    HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            // Convert RequestMethodException into a 405 response.
+            context.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } catch (PageNotFoundException pnfe) {
             if (page != null) {
                 page.rollback();
             }
 
-            // Convert PageNotFoundException into a 404 response
+            // Convert PageNotFoundException into a 404 response.
             context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (ValidationException ve) {
             if (page != null) {
                 page.rollback();
             }
 
-            // Respond to validation errors with a 400 response
+            // Respond to validation errors with a 400 response.
             context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (QlueSecurityException se) {
             if (page != null) {
@@ -519,7 +516,7 @@ public class QlueApplication {
 
             log.error("Security exception: " + context.getRequestUriWithQueryString(), se);
 
-            // Respond to security exceptions with a 400 response
+            // Respond to security exceptions with a 400 response.
             context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (Throwable t) {
             if (page != null) {
@@ -527,8 +524,7 @@ public class QlueApplication {
 
                 // Because we are about to throw an exception, which may cause
                 // another page to handle this request, we need to remember
-                // the current page (which is useful for debugging information,
-                // etc)
+                // the current page (which is useful for debugging information, etc).
                 setActualPage(page);
             }
 
