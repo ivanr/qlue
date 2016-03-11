@@ -697,7 +697,7 @@ public class QlueApplication {
     }
 
     public void renderView(View view, TransactionContext tx, Page page) throws Exception {
-        // NullView only indicates that no further output should be made.
+        // NullView only indicates that no further output is needed.
         if (view instanceof NullView) {
             return;
         }
@@ -723,11 +723,9 @@ public class QlueApplication {
             throw new RuntimeException("Qlue: Unable to resolve view");
         }
 
-        // Render the view now.
         try {
             view.render(tx, page);
         } catch (Throwable t) {
-            // Ignore exceptions during view rendering.
             t.printStackTrace(System.err);
         }
     }
