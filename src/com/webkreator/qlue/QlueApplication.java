@@ -307,15 +307,15 @@ public class QlueApplication {
      * This method is the main entry point for request processing.
      */
     protected void service(HttpServlet servlet, HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+            throws ServletException, IOException
+    {
         // Remember when processing began.
         long startTime = System.currentTimeMillis();
 
         // Set the default character encoding.
         request.setCharacterEncoding(characterEncoding);
 
-        // Create a new application session
-        // object if one does not exist.
+        // Create a new application session object if one does not exist.
         HttpSession session = request.getSession();
         synchronized (session) {
             if (session.getAttribute(QlueConstants.QLUE_SESSION_OBJECT) == null) {
