@@ -293,7 +293,7 @@ public class QlueApplication {
         } else if ("trustedHeader".equals(value)) {
             frontendEncryptionCheck = FRONTEND_ENCRYPTION_TRUSTED_HEADER;
         } else {
-            throw new RuntimeException("Invalud value for the " + PROPERTY_FRONTEND_ENCRYPTION + " parameter:" + value);
+            throw new RuntimeException("Invalid value for the " + PROPERTY_FRONTEND_ENCRYPTION + " parameter:" + value);
         }
     }
 
