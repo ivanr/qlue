@@ -142,8 +142,6 @@ public class QlueApplication {
     /**
      * This constructor is intended for use by very simple web applications that
      * consist of only one package.
-     *
-     * @param pagesHome
      */
     public QlueApplication(String pagesHome) {
         initPropertyEditors();
@@ -170,9 +168,6 @@ public class QlueApplication {
     /**
      * Initialize QlueApp instance. Qlue applications are designed to be used by
      * servlets to delegate both initialization and request processing.
-     *
-     * @param servlet
-     * @throws Exception
      */
     public void init(HttpServlet servlet) throws Exception {
         this.servlet = servlet;
@@ -315,12 +310,6 @@ public class QlueApplication {
 
     /**
      * This method is the main entry point for request processing.
-     *
-     * @param servlet
-     * @param request
-     * @param response
-     * @throws ServletException
-     * @throws java.io.IOException
      */
     protected void service(HttpServlet servlet, HttpServletRequest request, HttpServletResponse response)
             throws ServletException, java.io.IOException
@@ -372,10 +361,6 @@ public class QlueApplication {
 
     /**
      * Request processing entry point.
-     *
-     * @param context
-     * @throws ServletException
-     * @throws java.io.IOException
      */
     protected void serviceInternal(TransactionContext context) throws ServletException, java.io.IOException {
         Page page = null;
@@ -433,7 +418,6 @@ public class QlueApplication {
                 page.setContext(context);
                 page.determineCommandObject();
 
-                // Persist persistent pages when we see a POST
                 if (page.isPersistent()) {
                     context.persistPage(page);
                 }
@@ -573,10 +557,6 @@ public class QlueApplication {
      * Handle application exception. We dump debugging information into the
      * application activity log and, if the admin email address is configured,
      * we send the same via email.
-     *
-     * @param tx
-     * @param page
-     * @param t
      */
     protected void handleApplicationException(TransactionContext tx, Page page, Throwable t) {
         String debugInfo = null;
@@ -734,10 +714,6 @@ public class QlueApplication {
      * Invoked to store the original text values for parameters. The text is
      * needed in the cases where it cannot be converted to the intended type
      * (e.g., integer).
-     *
-     * @param page
-     * @param context
-     * @throws Exception
      */
     private void updateShadowInput(Page page, TransactionContext context)
             throws Exception {
@@ -809,12 +785,7 @@ public class QlueApplication {
     }
 
     /**
-     * Appends debugging information to the view, but only if the development
-     * mode is active.
-     *
-     * @param context
-     * @param page
-     * @throws IOException
+     * Appends debugging information to the view, but only if the development mode is active.
      */
     protected void masterWriteRequestDevelopmentInformation(TransactionContext context, Page page) throws IOException {
         if (page == null) {
@@ -885,8 +856,6 @@ public class QlueApplication {
 
     /**
      * Write application-specific debugging output.
-     *
-     * @param out
      */
     protected void writeDevelopmentInformation(PrintWriter out) {
         out.println(" Prefix: " + HtmlEncoder.encodeForHTML(appPrefix));
@@ -896,11 +865,6 @@ public class QlueApplication {
 
     /**
      * Bind request parameters to the command object provided by the page.
-     *
-     * @param page
-     * @param context
-     * @throws IllegalAccessException
-     * @throws IllegalArgumentException
      */
     private void bindParameters(Page page, TransactionContext context) throws Exception {
         // Ask the page to provide a command object, which can be
@@ -953,11 +917,6 @@ public class QlueApplication {
 
     /**
      * Bind an array parameter.
-     *
-     * @param commandObject
-     * @param f
-     * @param page
-     * @param context
      */
     private void bindArrayParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
         // Find shadow input
@@ -1004,12 +963,6 @@ public class QlueApplication {
 
     /**
      * Validate one parameter.
-     *
-     * @param page
-     * @param f
-     * @param qp
-     * @param value
-     * @return
      */
     protected String validateParameter(Page page, Field f, QlueParameter qp, String value) {
         // Transform value according to the list
@@ -1080,12 +1033,6 @@ public class QlueApplication {
 
     /**
      * Bind a parameter that is not an array.
-     *
-     * @param commandObject
-     * @param f
-     * @param page
-     * @param context
-     * @throws Exception
      */
     private void bindNonArrayParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
         // Find shadow input
@@ -1191,9 +1138,6 @@ public class QlueApplication {
     /**
      * Retrieve field message that we need to emit when a mandatory parameter is
      * missing.
-     *
-     * @param qp
-     * @return
      */
     private String getFieldMissingMessage(QlueParameter qp) {
         return (qp.fieldMissingMessage().length() > 0) ? qp.fieldMissingMessage() : "qlue.validation.mandatory";
@@ -1201,12 +1145,6 @@ public class QlueApplication {
 
     /**
      * Bind file parameter.
-     *
-     * @param commandObject
-     * @param f
-     * @param page
-     * @param context
-     * @throws Exception
      */
     private void bindFileParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
@@ -1233,8 +1171,6 @@ public class QlueApplication {
 
     /**
      * Register a new property editor.
-     *
-     * @param editor
      */
     private void registerPropertyEditor(PropertyEditor editor) {
         editors.put(editor.getEditorClass(), editor);
@@ -1253,8 +1189,6 @@ public class QlueApplication {
 
     /**
      * Retrieve view resolver.
-     *
-     * @return
      */
     public ViewResolver getViewResolver() {
         return viewResolver;
@@ -1262,8 +1196,6 @@ public class QlueApplication {
 
     /**
      * Set view resolver.
-     *
-     * @param viewResolver
      */
     protected void setViewResolver(ViewResolver viewResolver) {
         this.viewResolver = viewResolver;
@@ -1271,8 +1203,6 @@ public class QlueApplication {
 
     /**
      * Retrieve view factory.
-     *
-     * @return
      */
     public ViewFactory getViewFactory() {
         return viewFactory;
@@ -1280,8 +1210,6 @@ public class QlueApplication {
 
     /**
      * Set view factory.
-     *
-     * @param viewFactory
      */
     protected void setViewFactory(ViewFactory viewFactory) {
         this.viewFactory = viewFactory;
@@ -1289,8 +1217,6 @@ public class QlueApplication {
 
     /**
      * Get application root directory.
-     *
-     * @return
      */
     public String getApplicationRoot() {
         return servlet.getServletContext().getRealPath("/");
@@ -1298,8 +1224,6 @@ public class QlueApplication {
 
     /**
      * Get application prefix.
-     *
-     * @return
      */
     public String getAppPrefix() {
         return appPrefix;
@@ -1307,8 +1231,6 @@ public class QlueApplication {
 
     /**
      * Set application prefix.
-     *
-     * @param appPrefix
      */
     protected void setAppPrefix(String appPrefix) {
         this.appPrefix = appPrefix;
@@ -1327,8 +1249,6 @@ public class QlueApplication {
      * This method is invoked to create a new session object. A QlueSession
      * instance is returned by default, but most applications will want to
      * override this method and provide their own session objects.
-     *
-     * @return new session object
      */
     protected QlueSession createNewSessionObject() {
         return new QlueSession();
@@ -1336,9 +1256,6 @@ public class QlueApplication {
 
     /**
      * Returns the session object associated with the current HTTP session.
-     *
-     * @param request
-     * @return
      */
     public QlueSession getQlueSession(HttpServletRequest request) {
         return (QlueSession) request.getSession().getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
@@ -1349,8 +1266,6 @@ public class QlueApplication {
      * QlueSession object in the process. This method should be invoked
      * immediately after a user is authenticated to prevent session fixation
      * attacks.
-     *
-     * @param request
      */
     public void regenerateSession(HttpServletRequest request) {
         QlueSession qlueSession = getQlueSession(request);
@@ -1361,10 +1276,7 @@ public class QlueApplication {
     }
 
     /**
-     * Set application prefix, which is used in logging as part of the unique
-     * transaction identifier.
-     *
-     * @param prefix
+     * Set application prefix, which is used in logging as part of the unique transaction identifier.
      */
     protected void setPrefix(String prefix) {
         this.appPrefix = prefix;
@@ -1374,8 +1286,6 @@ public class QlueApplication {
      * Whether direct output (in which the programmer is expected to manually
      * encode data) is allowed. We do not allow direct output by default.
      * Override this method to change the behaviour.
-     *
-     * @return always false
      */
     public boolean allowDirectOutput() {
         return false;
@@ -1383,8 +1293,6 @@ public class QlueApplication {
 
     /**
      * Configure character encoding.
-     *
-     * @param characterEncoding
      */
     protected void setCharacterEncoding(String characterEncoding) {
         this.characterEncoding = characterEncoding;
@@ -1392,8 +1300,6 @@ public class QlueApplication {
 
     /**
      * Retrieves application's character encoding.
-     *
-     * @return
      */
     public String getCharacterEncoding() {
         return characterEncoding;
@@ -1401,8 +1307,6 @@ public class QlueApplication {
 
     /**
      * Configure development mode.
-     *
-     * @param input
      */
     protected void setApplicationDevelopmentMode(String input) {
         if (input.compareToIgnoreCase("on") == 0) {
@@ -1421,8 +1325,6 @@ public class QlueApplication {
 
     /**
      * Get the development mode setting.
-     *
-     * @return
      */
     public int getApplicationDevelopmentMode() {
         return developmentMode;
@@ -1430,8 +1332,6 @@ public class QlueApplication {
 
     /**
      * Set development mode password.
-     *
-     * @param developmentModePassword
      */
     public void setDevelopmentModePassword(String developmentModePassword) {
         this.developmentModePassword = developmentModePassword;
@@ -1490,10 +1390,7 @@ public class QlueApplication {
     }
 
     /**
-     * Configure the set of IP addresses that are allowed to use development
-     * mode.
-     *
-     * @param combinedSubnets
+     * Configure the set of IP addresses that are allowed to use development mode.
      */
     protected void setDevelopmentSubnets(String combinedSubnets) throws Exception {
         if (TextUtil.isEmpty(combinedSubnets)) {
@@ -1525,9 +1422,6 @@ public class QlueApplication {
     /**
      * Check if the current transaction comes from an IP address that is allowed
      * to use development mode.
-     *
-     * @param context
-     * @return
      */
     public boolean isDeveloperRequest(TransactionContext context) {
         if (developmentSubnets == null) {
@@ -1557,9 +1451,6 @@ public class QlueApplication {
 
     /**
      * Check if the current transaction comes from a developer.
-     *
-     * @param context
-     * @return
      */
     public boolean isDevelopmentMode(TransactionContext context) {
         // Check IP address first
@@ -1587,9 +1478,6 @@ public class QlueApplication {
 
     /**
      * Check given password against the current development password.
-     *
-     * @param password
-     * @return
      */
     public boolean checkDeveloperPassword(String password) {
         if ((password == null) || (developmentModePassword == null)) {
@@ -1605,8 +1493,6 @@ public class QlueApplication {
 
     /**
      * Get the current development password.
-     *
-     * @return
      */
     public String getDeveloperPassword() {
         return developmentModePassword;
@@ -1614,8 +1500,6 @@ public class QlueApplication {
 
     /**
      * Retrieve this application's properties.
-     *
-     * @return
      */
     public Properties getProperties() {
         return properties;
@@ -1623,9 +1507,6 @@ public class QlueApplication {
 
     /**
      * Retrieve a single named property as text.
-     *
-     * @param key
-     * @return
      */
     public String getProperty(String key) {
         return VariableExpander.expand(properties.getProperty(key), properties);
@@ -1634,10 +1515,6 @@ public class QlueApplication {
     /**
      * Retrieve a single named property as text, using the supplied default
      * value if the property is not set.
-     *
-     * @param key
-     * @param defaultValue
-     * @return
      */
     public String getProperty(String key, String defaultValue) {
         String value = getProperty(key);
@@ -1668,9 +1545,6 @@ public class QlueApplication {
 
     /**
      * Retrieve a single integer property.
-     *
-     * @param key
-     * @return
      */
     public Integer getIntProperty(String key) {
         String value = getProperty(key);
@@ -1684,10 +1558,6 @@ public class QlueApplication {
     /**
      * Retrieve a single integer property, using the supplied default value if
      * the property is not set.
-     *
-     * @param key
-     * @param defaultValue
-     * @return
      */
     public Integer getIntProperty(String key, int defaultValue) {
         String value = getProperty(key);
@@ -1700,8 +1570,6 @@ public class QlueApplication {
 
     /**
      * Configure the path to the file that contains localized messages.
-     *
-     * @param messagesFilename
      */
     protected void setMessagesFilename(String messagesFilename) {
         this.messagesFilename = messagesFilename;
@@ -1709,9 +1577,6 @@ public class QlueApplication {
 
     /**
      * Retrieve this application's message source.
-     *
-     * @param locale
-     * @return
      */
     public MessageSource getMessageSource(Locale locale) {
         MessageSource source = messageSources.get(locale);
@@ -1725,8 +1590,6 @@ public class QlueApplication {
 
     /**
      * Remember the current page for later use (e.g., in an error handler).
-     *
-     * @param page
      */
     void setActualPage(Page page) {
         page.context.request.setAttribute(REQUEST_ACTUAL_PAGE_KEY, page);
@@ -1735,9 +1598,6 @@ public class QlueApplication {
     /**
      * Retrieve the actual page that tried to handle the current transaction and
      * failed.
-     *
-     * @param currentPage
-     * @return
      */
     Page getActualPage(Page currentPage) {
         return (Page) currentPage.context.request.getAttribute(REQUEST_ACTUAL_PAGE_KEY);
@@ -1745,8 +1605,6 @@ public class QlueApplication {
 
     /**
      * Allocates a new page ID.
-     *
-     * @return
      */
     synchronized int allocatePageId() {
         txIdsCounter++;
