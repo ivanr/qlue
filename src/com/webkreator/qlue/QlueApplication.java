@@ -305,7 +305,8 @@ public class QlueApplication {
     /**
      * Destroys the application. Invoked when the backing servlet is destroyed.
      */
-    public void destroy() {}
+    public void destroy() {
+    }
 
     /**
      * This method is the main entry point for request processing.
@@ -359,6 +360,43 @@ public class QlueApplication {
         return routeManager.route(context);
     }
 
+    protected View processPage(Page page) throws Exception {
+        // Give page a chance to prepare for the execution
+        View view = page.preService();
+        if (view != null) {
+            return view;
+        }
+
+        page.transitionState();
+
+        // Binds parameters of a persistent page initially when
+        // the page is initialized, but later only on POST requests
+        if ((page.getState().compareTo(Page.STATE_NEW) == 0) || (page.context.isPost())) {
+            page.getErrors().clear();
+            bindParameters(page, page.context);
+        }
+
+        // preServiceWithParams after parameter binding, but before init.
+        view = page.preServiceWithParams();
+        if (view != null) {
+            return view;
+        }
+
+        if (page.getState().compareTo(Page.STATE_NEW) == 0) {
+            page.init();
+            updateShadowInput(page);
+        }
+
+        if (page.hasErrors()) {
+            view = page.onValidationError();
+            if (view != null) {
+                return view;
+            }
+        }
+
+        return page.service();
+    }
+
     /**
      * Request processing entry point.
      */
@@ -407,7 +445,7 @@ public class QlueApplication {
                 if (routeObject == null) {
                     throw new PageNotFoundException();
                 } else if (routeObject instanceof View) {
-                    page = new DirectViewPage((View)routeObject);
+                    page = new DirectViewPage((View) routeObject);
                 } else if (routeObject instanceof Page) {
                     page = (Page) routeObject;
                 } else {
@@ -428,51 +466,7 @@ public class QlueApplication {
                     context.persistPage(page);
                 }
 
-                // Give page a chance to prepare for the execution
-                View view = page.preService();
-
-                // If we don't have a view here, that means that
-                // the pre-service method didn't interrupt request
-                // processing -- we can continue.
-                if (view == null) {
-                    // Instruct page to transition to its next state
-                    page.updateState();
-
-                    // Binds parameters of a persistent page initially when
-                    // the page is initialized, but later only on POST requests
-                    if ((page.getState().compareTo(Page.STATE_NEW) == 0) || (context.isPost())) {
-                        page.getErrors().clear();
-                        bindParameters(page, context);
-                    }
-
-                    // preServiceWithParams after parameter binding, but before init.
-                    view = page.preServiceWithParams();
-                    if (view == null) {
-                        if (page.getState().compareTo(Page.STATE_NEW) == 0) {
-                            // Give page the opportunity to initialize
-                            page.init();
-
-                            // Update shadow input
-                            updateShadowInput(page, context);
-                        }
-
-                        // -- Process request --
-
-                        if (page.hasErrors()) {
-                            view = page.onValidationError();
-                        }
-
-                        // If we've made it so far that means that all is
-                        // dandy, and that we can finally let the page
-                        // process the current request
-                        if (view == null) {
-                            // Process request
-                            view = page.service();
-                        }
-                    }
-                }
-
-                // Render view
+                View view = processPage(page);
                 if (view != null) {
                     renderView(view, context, page);
                 }
@@ -642,7 +636,7 @@ public class QlueApplication {
             // If this is a fatal error and we have an
             // email address for emergencies, treat it
             // as an emergency.
-            if ((fatalError)&&(urgentEmail != null)) {
+            if ((fatalError) && (urgentEmail != null)) {
                 email.addTo(urgentEmail);
             } else {
                 email.addTo(adminEmail);
@@ -657,7 +651,7 @@ public class QlueApplication {
         // If the email is about a fatal problem, determine
         // if we want to urgently notify the administrators; we
         // want to send only one urgent email per time period.
-        if ((fatalError)&&(urgentEmail != null)) {
+        if ((fatalError) && (urgentEmail != null)) {
             // When the counter is at -1 that means we didn't
             // send any emails in the previous time period. In
             // other words, we can send one now.
@@ -694,9 +688,9 @@ public class QlueApplication {
         if (view instanceof DefaultView) {
             view = viewFactory.constructView(page, page.getViewName());
         } else if (view instanceof NamedView) {
-            view = viewFactory.constructView(page, ((NamedView)view).getViewName());
+            view = viewFactory.constructView(page, ((NamedView) view).getViewName());
         } else if (view instanceof ClasspathView) {
-            view = viewFactory.constructView(((ClasspathView)view).getViewName());
+            view = viewFactory.constructView(((ClasspathView) view).getViewName());
         } else if (view instanceof FinalRedirectView) {
             page.setState(Page.STATE_FINISHED);
 
@@ -721,8 +715,7 @@ public class QlueApplication {
      * needed in the cases where it cannot be converted to the intended type
      * (e.g., integer).
      */
-    private void updateShadowInput(Page page, TransactionContext context)
-            throws Exception {
+    private void updateShadowInput(Page page) throws Exception {
         // Ask the page to provide a command object, which can be
         // a custom object or the page itself.
         Object commandObject = page.getCommandObject();
@@ -743,16 +736,16 @@ public class QlueApplication {
                 // Update missing shadow input fields
                 if (page.getShadowInput().get(f.getName()) == null) {
                     if (f.getType().isArray()) {
-                        updateShadowInputArrayParam(page, context, f);
+                        updateShadowInputArrayParam(page, f);
                     } else {
-                        updateShadowInputNonArrayParam(page, context, f);
+                        updateShadowInputNonArrayParam(page, f);
                     }
                 }
             }
         }
     }
 
-    private void updateShadowInputArrayParam(Page page, TransactionContext context, Field f) throws Exception {
+    private void updateShadowInputArrayParam(Page page, Field f) throws Exception {
         // Find the property editor
         PropertyEditor pe = editors.get(f.getType().getComponentType());
         if (pe == null) {
@@ -773,7 +766,7 @@ public class QlueApplication {
         }
     }
 
-    private void updateShadowInputNonArrayParam(Page page, TransactionContext context, Field f) throws Exception {
+    private void updateShadowInputNonArrayParam(Page page, Field f) throws Exception {
         // Find the property editor
         PropertyEditor pe = editors.get(f.getType());
         if (pe == null) {
@@ -901,10 +894,9 @@ public class QlueApplication {
                     // uses the special state POST, which triggers on all
                     // POST requests (irrespective of the state).
 
-                    if ( ((qp.state().compareTo(Page.STATE_POST) == 0) && (page.context.isPost()))
-                         || (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
-                         || (qp.state().compareTo(page.getState()) == 0))
-                    {
+                    if (((qp.state().compareTo(Page.STATE_POST) == 0) && (page.context.isPost()))
+                            || (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
+                            || (qp.state().compareTo(page.getState()) == 0)) {
                         // We have a parameter; dispatch
                         // to the appropriate handler.
                         if (f.getType().isArray()) {

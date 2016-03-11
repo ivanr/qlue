@@ -100,7 +100,7 @@ public abstract class Page {
      * STATE_SUBMIT. An advanced implementation could have several submit states
      * and offer means to cycle among them.
      */
-    void updateState() {
+    void transitionState() {
         if (context.isPost()) {
             setState(STATE_SUBMIT);
         }
