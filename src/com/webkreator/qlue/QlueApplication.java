@@ -202,7 +202,7 @@ public class QlueApplication {
     }
 
     void loadProperties() throws Exception {
-        File propsFile = null;
+        File propsFile;
 
         String filename = System.getProperty("qlue.properties");
         if (filename == null) {
@@ -221,10 +221,7 @@ public class QlueApplication {
 
         properties.load(new FileReader(propsFile));
 
-        // Expose confPath in properties
         properties.setProperty("confPath", confPath);
-
-        // Expose WEB-INF path in properties
         properties.setProperty("webRoot", servlet.getServletContext().getRealPath("/"));
 
         if (getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
