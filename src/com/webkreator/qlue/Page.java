@@ -42,8 +42,6 @@ public abstract class Page {
 
     public static final String STATE_POST = "POST";
 
-    public static final String STATE_SUBMIT = "SUBMIT";
-
     public static final String STATE_FINISHED = "FINISHED";
 
     public static final String STATE_NEW_OR_POST = "NEW_OR_POST";
@@ -55,6 +53,8 @@ public abstract class Page {
     private String state = STATE_NEW;
 
     private Log log = LogFactory.getLog(Page.class);
+
+    private boolean cleanupInvoked;
 
     protected QlueApplication app;
 
@@ -92,18 +92,6 @@ public abstract class Page {
      */
     void setId(Integer id) {
         this.id = id;
-    }
-
-    /**
-     * Update this page's state. In this default implementation, we change from
-     * STATE_NEW to STATE_SUBMIT on first POST and we never move away from
-     * STATE_SUBMIT. An advanced implementation could have several submit states
-     * and offer means to cycle among them.
-     */
-    void transitionState() {
-        if (context.isPost()) {
-            setState(STATE_SUBMIT);
-        }
     }
 
     /**
@@ -314,7 +302,7 @@ public abstract class Page {
      * request, and that the value matches the value stored in the session. It
      * will also expose the nonce to the model.
      */
-    public View preService() throws Exception {
+    public View checkAccess() throws Exception {
         // Retrieve session nonce
         BearerToken sessionSecret = getQlueSession().getSessionSecret();
 
@@ -339,7 +327,11 @@ public abstract class Page {
         return null;
     }
 
-    public View preServiceWithParams() {
+    public View validateParameters() {
+        return null;
+    }
+
+    public View prepareForService() {
         return null;
     }
 
@@ -445,14 +437,12 @@ public abstract class Page {
      * Executes page rollback. The default implementation cleans up resources.
      */
     public void rollback() {
-        cleanup();
     }
 
     /**
      * Executes page commit. The default implementation cleans up resources.
      */
     public void commit() {
-        cleanup();
     }
 
     /**
@@ -460,6 +450,7 @@ public abstract class Page {
      * during the processing of a multipart/form-data request.
      */
     void cleanup() {
+        cleanupInvoked = true;
         deleteFiles();
     }
 
@@ -468,8 +459,8 @@ public abstract class Page {
      * giving the page a chance to initialize itself. This method is invoked
      * only when the state is STATE_NEW (which means only once for a page).
      */
-    public void init() throws Exception {
-        // This method exists to be overrided in a subclass
+    public View init() throws Exception {
+        return null;
     }
 
     /**
@@ -513,12 +504,16 @@ public abstract class Page {
      * default implementation will throw an exception for non-persistent pages,
      * and ignore the problem for persistent pages.
      */
-    public View onValidationError() throws Exception {
+    public View handleValidationError() throws Exception {
         if (isPersistent() == true) {
-            // Let the page handle validation errors
+            // Let the page handle validation errors.
             return null;
         }
 
         throw new ValidationException("Parameter validation failed: " + getErrors().toString());
+    }
+
+    public boolean isCleanupInvoked() {
+        return cleanupInvoked;
     }
 }

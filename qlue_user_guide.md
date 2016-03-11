@@ -100,7 +100,56 @@ Because not all characters are allowed in package and class names, you are limit
 #### Responding to specific HTTP methods only
 
 When you override Page.service(), your page will respond to any HTTP method, which is generally not a good idea. Pages usually only need to respond to GET requests. If that's the case, override onGet() insteaf service(). If any other HTTP method is used, Qlue will respond with the 405 status code. The Page class also defines onPost(), but this method is rarely used; it's usually more convenient to use persistent pages, which will be explained later. If you need to respond to arbitrary request methods, override service() and determine course of action by checking the request method.
+
+#### Page state
+
+Page state is an arbitrary string. Some values are reserved for use by the framework and have special
+meanings. Other than that, any custom value is possible. The starting state of any page is always NEW.
+
+Non-persistent pages have no use for this field because they terminate after processing one HTTP transaction.
+
+Simper persistent pages also might not care about the state much, because they are typically designed to
+collect some data from the user (e.g., using a form) then perform some action. They finish immediately after
+the action is carried out.
+
+More complicated persistent pages might consist of multiple forms and can move from one step to another, finally
+finishing in the FINISHED state. Qlue generally doesn't care about page states, except in two cases. First, when a
+page changes its state to FINISHED, the cleanup() method is invoked. Second, each page parameter can be designed so
+that it is updated from HTTP parameters when only on certain states.
 	
+#### Page processing
+
+Pages execution is split into many methods, with each method designed to serve a specific purpose.
+A non-persistent page will typically use the following methods:
+
+ * checkAccess() - this is an early hook that is invoked before any work is carried out; intended for access control.
+ * validateParameters() - invoked after parameter binding and validation. This is an opportunity for the page to
+                          perform additional work checking the data.
+ * prepareForService() - this method is intended for use when a group of pages share common functionality. Such work
+                     can be implemented only once in a parent class, leaving subclasses to focus on the main
+                     functionality. This method is called after successful parameter binding and validation.
+ * service() - the main page entry point where the main work is done.
+ * commit() - executed immediately after the service() method completes. This method should commit
+              all the work carried out by the page.
+ * rollback() - executed if there is an unhandled exception during page processing. This method should
+                undo all work (if any) attempted by the page.
+
+Additional methods of interest:
+
+ * handleValidationError() - this method is called when parameter binding and validation fails, allowing the page to
+                             construct a custom view to respond. This method is typically intended for non-persistent
+                             pages, which typically use the GET method and which are typically not intended to fail
+                             parameter validation. The default implementation will return a 400 status code, but
+                             application might want to show a friendly error message. If this method returns null
+                             then page processing continues as if there were no errors.
+  
+Persistent pages can make use of these additional methods:
+
+ * init() - this method is called only once per persistent page, immediately after successful parameter
+            binding and validation (including custom validation in validateParameters() and before
+            prepareForService().
+ * cleanup() - called at the end of transaction that transitioned to FINISHED state.
+
 ### Views
 
 Although it's possible to write pages that do some work and generate output, in general that's not recommended. Instead, each page should delegate output generation to an instance of View. Qlue is bundled with Apache Velocity, which is a generic templating language. When used with Velocity, it's a page's job to create a set of objects (model), and determine which Velocity template should be invoked to turn the model into a HTTP response.

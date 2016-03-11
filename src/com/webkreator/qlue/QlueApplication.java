@@ -356,39 +356,52 @@ public class QlueApplication {
     }
 
     protected View processPage(Page page) throws Exception {
-        // Give page a chance to prepare for the execution
-        View view = page.preService();
+        // Check access. The idea with this hook is to run it as early as possible,
+        // before any parameters are accessed, thus minimising the executed code.
+        View view = page.checkAccess();
         if (view != null) {
             return view;
         }
 
-        page.transitionState();
-
-        // Binds parameters of a persistent page initially when
-        // the page is initialized, but later only on POST requests
-        if ((page.getState().compareTo(Page.STATE_NEW) == 0) || (page.context.isPost())) {
+        // Parameter binding always runs for non-persistent pages. For
+        // persistent pages, it runs only on POST requests.
+        if (!page.isPersistent() || (page.context.isPost())) {
             page.getErrors().clear();
+            updateShadowInput(page);
             bindParameters(page, page.context);
         }
 
-        // preServiceWithParams after parameter binding, but before init.
-        view = page.preServiceWithParams();
+        // Run custom parameter validation.
+        view = page.validateParameters();
         if (view != null) {
             return view;
         }
 
-        if (page.getState().compareTo(Page.STATE_NEW) == 0) {
-            page.init();
-            updateShadowInput(page);
-        }
-
+        // Handle validation errors, if any.
         if (page.hasErrors()) {
-            view = page.onValidationError();
+            view = page.handleValidationError();
             if (view != null) {
                 return view;
             }
         }
 
+        // Initialize the page. This really only makes sense for persistent pages, where you
+        // want to run some code only once. With non-persistent pages, it's better to have
+        // all the code in the same method.
+        if (page.getState().compareTo(Page.STATE_NEW) == 0) {
+            view = page.init();
+            if (view != null) {
+                return view;
+            }
+        }
+
+        // Early call to prepare the page for the main thing.
+        view = page.prepareForService();
+        if (view != null) {
+            return view;
+        }
+
+        // Finally, run the main processing entry point.
         return page.service();
     }
 
@@ -473,8 +486,11 @@ public class QlueApplication {
                 // Execute page commit. This is what it sounds like,
                 // an opportunity to use a simple approach to transaction
                 // management for simple applications.
-                if (page != null) {
-                    page.commit();
+                page.commit();
+
+                // Non-persistent pages automatically transition to FINISHED.
+                if (!page.isPersistent()) {
+                    page.setState(Page.STATE_FINISHED);
                 }
             }
         } catch (PersistentPageNotFoundException ppnfe) {
@@ -542,6 +558,10 @@ public class QlueApplication {
                         context.getResponse().sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     }
                 }
+            }
+        } finally {
+            if ((page != null)&&(page.isFinished())&&(!page.isCleanupInvoked())) {
+                page.cleanup();
             }
         }
     }
@@ -705,8 +725,7 @@ public class QlueApplication {
 
     /**
      * Invoked to store the original text values for parameters. The text is
-     * needed in the cases where it cannot be converted to the intended type
-     * (e.g., integer).
+     * needed in the cases where it cannot be converted to the intended type.
      */
     private void updateShadowInput(Page page) throws Exception {
         // Ask the page to provide a command object, which can be
