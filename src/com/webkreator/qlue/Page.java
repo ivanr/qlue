@@ -76,7 +76,7 @@ public abstract class Page {
      * Has this page finished its work?
      */
     public boolean isFinished() {
-        return (getState().compareTo(STATE_FINISHED) == 0);
+        return getState().equals(STATE_FINISHED);
     }
 
     /**
