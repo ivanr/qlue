@@ -303,25 +303,23 @@ public class QlueApplication {
     }
 
     /**
-     * Destroys application resources.
+     * Destroys the application. Invoked when the backing servlet is destroyed.
      */
-    public void destroy() {
-    }
+    public void destroy() {}
 
     /**
      * This method is the main entry point for request processing.
      */
     protected void service(HttpServlet servlet, HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, java.io.IOException
-    {
-        // Remember when processing began
+            throws ServletException, IOException {
+        // Remember when processing began.
         long startTime = System.currentTimeMillis();
 
-        // Set character encoding
+        // Set the default character encoding.
         request.setCharacterEncoding(characterEncoding);
 
         // Create a new application session
-        // object if one does not exist
+        // object if one does not exist.
         HttpSession session = request.getSession();
         synchronized (session) {
             if (session.getAttribute(QlueConstants.QLUE_SESSION_OBJECT) == null) {
@@ -330,12 +328,15 @@ public class QlueApplication {
             }
         }
 
-        // Create new context
-        TransactionContext context = new TransactionContext(this,
-                servlet.getServletConfig(), servlet.getServletContext(),
-                request, response);
+        // Create a new context.
+        TransactionContext context = new TransactionContext(
+                this,
+                servlet.getServletConfig(),
+                servlet.getServletContext(),
+                request,
+                response);
 
-        // Create a logging context using the unique transaction ID
+        // Create a logging context using the unique transaction ID.
         NDC.push(appPrefix + "/" + context.getTxId());
 
         // Proceed to the second stage of request processing
@@ -350,7 +351,6 @@ public class QlueApplication {
                 log.debug("Processed request in " + (System.currentTimeMillis() - startTime));
             }
         } finally {
-            // Remove logging context
             NDC.remove();
         }
     }
@@ -362,37 +362,46 @@ public class QlueApplication {
     /**
      * Request processing entry point.
      */
-    protected void serviceInternal(TransactionContext context) throws ServletException, java.io.IOException {
+    protected void serviceInternal(TransactionContext context) throws IOException {
         Page page = null;
 
         try {
-            // -- Page resolution --
+            // First check if this is a request for a persistent page. We can
+            // honour such requests only when we're not handling errors.
 
-            // Check if this is a request for a persistent page. We can
-            // honor such requests only if we are not handling errors
             if (context.isErrorHandler() == false) {
-                // Is this request for a persistent page?
-                String pid = context.getParameter("_pid");
-                if (pid != null) {
-                    // Find page record
-                    PersistentPageRecord pageRecord = context.findPersistentPageRecord(pid);
-                    if (pageRecord == null) {
-                        throw new PersistentPageNotFoundException("Persistent page not found: " + pid);
+                // Perisistent pages are identified via the "_pid" parameter. If we have
+                // one such parameter, we look for the corresponding page in session storage.
+                String pids[] = context.getParameterValues("_pid");
+                if (pids.length != 0) {
+                    // Only one _pid parameter is allowed.
+                    if (pids.length != 1) {
+                        throw new RuntimeException("Request contains multiple _pid parameters");
                     }
 
-                    // OK, got the page
-                    page = pageRecord.page;
+                    // Find the page using the requested page ID.
+                    PersistentPageRecord pageRecord = context.findPersistentPageRecord(pids[0]);
+                    if (pageRecord == null) {
+                        throw new PersistentPageNotFoundException("Persistent page not found: " + pids[0]);
+                    }
 
-                    // If the requested persistent page no longer exists,
-                    // redirect the user to where he is supposed to go
-                    if (page == null) {
+                    // If the replacementUri is set that means that the page no longer
+                    // exist and that we need to forward all further request to it.
+                    if (pageRecord.replacementUri != null) {
                         context.getResponse().sendRedirect(pageRecord.replacementUri);
                         return;
+                    }
+
+                    // Otherwise, let's use this page.
+                    page = pageRecord.page;
+                    if (page == null) {
+                        throw new RuntimeException("Page record doesn't contain page");
                     }
                 }
             }
 
-            // If we still don't have a page see if we can create a new one
+            // If we don't have a persistent page we'll create a new one by routing this request.
+
             if (page == null) {
                 Object routeObject = route(context);
                 if (routeObject == null) {
@@ -406,12 +415,9 @@ public class QlueApplication {
                 }
             }
 
-            // Page access in Qlue is synchronized, which means that
-            // it can process only one request at a time. This is not
-            // a problem for non-persistent pages, which are created
-            // on per-request basis. Synchronization may be a problem,
-            // but only if you abuse persistent pages, which were designed
-            // to be used by one user at a time (on per-session basis).
+            // Run the page. Access to the page is synchronised, which means that only one
+            // HTTP request can handle it at any given time.
+
             synchronized (page) {
                 page.setApp(this);
                 page.determineDefaultViewName(viewResolver);

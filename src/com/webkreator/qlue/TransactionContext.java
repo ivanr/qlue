@@ -479,7 +479,7 @@ public class TransactionContext {
 	 * @return
 	 * @throws Exception
 	 */
-	public String[] getParameterValues(String name) throws Exception {
+	public String[] getParameterValues(String name) {
 		return getRequest().getParameterValues(name);
 	}
 
