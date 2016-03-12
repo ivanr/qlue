@@ -1,15 +1,15 @@
 package com.webkreator.qlue.util;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.Queue;
 
 public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
 
-    protected Log log = LogFactory.getLog(AsyncSmtpEmailSender.class);
+    protected Logger log = LoggerFactory.getLogger(AsyncSmtpEmailSender.class);
 
     private SmtpEmailSender smtpEmailSender;
 

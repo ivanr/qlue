@@ -19,8 +19,8 @@ package com.webkreator.qlue.router;
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.util.VariableExpander;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -35,7 +35,7 @@ import java.util.List;
  */
 public class QlueRouteManager implements RouteManager {
 	
-	private Log log = LogFactory.getLog(QlueRouteManager.class);
+	private Logger log = LoggerFactory.getLogger(QlueRouteManager.class);
 	
 	private QlueApplication app;
 

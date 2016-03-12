@@ -1,12 +1,12 @@
 package com.webkreator.qlue.util;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SmtpEmailSender implements EmailSender {
 
-	protected Log log = LogFactory.getLog(SmtpEmailSender.class);
+	protected Logger log = LoggerFactory.getLogger(SmtpEmailSender.class);
 
 	private String smtpServer;
 

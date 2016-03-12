@@ -16,22 +16,21 @@
  */
 package com.webkreator.qlue.router;
 
-import java.io.File;
-
-import com.webkreator.qlue.exceptions.QlueSecurityException;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.exceptions.QlueSecurityException;
 import com.webkreator.qlue.view.DownloadView;
 import com.webkreator.qlue.view.StatusCodeView;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
 
 /**
  * Routes transaction to a static file.
  */
 public class StaticFileRouter implements Router {
 
-    private Log log = LogFactory.getLog(StaticFileRouter.class);
+    private Logger log = LoggerFactory.getLogger(StaticFileRouter.class);
 
     protected RouteManager manager;
 

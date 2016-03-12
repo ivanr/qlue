@@ -24,12 +24,12 @@ import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
 import com.webkreator.qlue.view.velocity.DefaultVelocityTool;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.commons.mail.Email;
 import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.SimpleEmail;
-import org.apache.log4j.NDC;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.*;
@@ -92,7 +92,7 @@ public class QlueApplication {
 
     private HttpServlet servlet;
 
-    private Log log = LogFactory.getLog(QlueApplication.class);
+    private Logger log = LoggerFactory.getLogger(QlueApplication.class);
 
     private QlueRouteManager routeManager = new QlueRouteManager(this);
 
@@ -333,7 +333,7 @@ public class QlueApplication {
                 response);
 
         // Create a logging context using the unique transaction ID.
-        NDC.push(appPrefix + "/" + context.getTxId());
+        MDC.put("txId", Integer.toString(context.getTxId()));
 
         // Proceed to the second stage of request processing
         try {
@@ -347,7 +347,7 @@ public class QlueApplication {
                 log.debug("Processed request in " + (System.currentTimeMillis() - startTime));
             }
         } finally {
-            NDC.remove();
+            MDC.clear();
         }
     }
 
@@ -419,7 +419,7 @@ public class QlueApplication {
                 // Perisistent pages are identified via the "_pid" parameter. If we have
                 // one such parameter, we look for the corresponding page in session storage.
                 String pids[] = context.getParameterValues("_pid");
-                if (pids.length != 0) {
+                if ((pids != null)&&(pids.length != 0)) {
                     // Only one _pid parameter is allowed.
                     if (pids.length != 1) {
                         throw new RuntimeException("Request contains multiple _pid parameters");
@@ -1686,7 +1686,7 @@ public class QlueApplication {
                     }
                 }
             } catch (Throwable t) {
-                log.error(t);
+                log.error("SendUrgentRemindersTask exception", t);
             }
         }
     }

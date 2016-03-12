@@ -22,8 +22,8 @@ import com.webkreator.qlue.util.BearerToken;
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.View;
 import com.webkreator.qlue.view.ViewResolver;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
@@ -52,7 +52,7 @@ public abstract class Page {
 
     private String state = STATE_NEW;
 
-    private Log log = LogFactory.getLog(Page.class);
+    protected Logger log = LoggerFactory.getLogger(Page.class);
 
     private boolean cleanupInvoked;
 
@@ -113,13 +113,6 @@ public abstract class Page {
      */
     protected void setState(String state) {
         this.state = state;
-    }
-
-    /**
-     * Retrieve the log object used by this page.
-     */
-    protected Log getLog() {
-        return log;
     }
 
     /**

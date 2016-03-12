@@ -21,12 +21,6 @@
 	</filter>
 	-->
 
-	<listener>
-		<listener-class>
-			com.webkreator.qlue.util.Log4jConfigListener
-		</listener-class>
-	</listener>	
-
 	<servlet>
 		<servlet-name>QlueServlet</servlet-name>
 

@@ -17,8 +17,8 @@
 package com.webkreator.qlue;
 
 import com.webkreator.qlue.view.FinalRedirectView;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.security.SecureRandom;
 import java.util.HashMap;
@@ -30,7 +30,7 @@ import java.util.Random;
  */
 public class QluePageManager {
 
-	private Log log = LogFactory.getLog(QluePageManager.class);
+	private Logger log = LoggerFactory.getLogger(QluePageManager.class);
 
 	private static final int MAX_PERSISTENT_PAGES_PER_SESSION = 64;
 

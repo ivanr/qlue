@@ -21,8 +21,8 @@ import com.webkreator.qlue.QlueMapping;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.exceptions.QlueSecurityException;
 import com.webkreator.qlue.view.ClasspathView;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.StringTokenizer;
 
@@ -32,7 +32,7 @@ import java.util.StringTokenizer;
  */
 public class PackageRouter implements Router {
 
-    private Log log = LogFactory.getLog(ClassRouter.class);
+    private Logger log = LoggerFactory.getLogger(ClassRouter.class);
 
     private String rootPackage;
 

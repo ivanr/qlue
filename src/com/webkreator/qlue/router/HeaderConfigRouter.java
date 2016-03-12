@@ -1,15 +1,15 @@
 package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.TransactionContext;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class HeaderConfigRouter implements Router {
 
-    private Log log = LogFactory.getLog(HeaderConfigRouter.class);
+    private Logger log = LoggerFactory.getLogger(HeaderConfigRouter.class);
 
     private static final Pattern configPattern = Pattern.compile("^([a-zA-Z0-9_-]+)\\s+(.*)$");
 

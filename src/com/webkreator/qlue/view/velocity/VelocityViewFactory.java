@@ -22,13 +22,13 @@ import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.Canoe;
 import com.webkreator.qlue.view.ViewFactory;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.app.event.EventCartridge;
 import org.apache.velocity.runtime.RuntimeConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Writer;
 import java.lang.reflect.Field;
@@ -41,13 +41,13 @@ import java.util.Properties;
  */
 public abstract class VelocityViewFactory implements ViewFactory {
 	
-	protected Log log = LogFactory.getLog(QlueApplication.class);
+	protected Logger log = LoggerFactory.getLogger(QlueApplication.class);
 
 	protected String suffix = ".vm";
 
 	protected String inputEncoding = "UTF-8";
 
-	protected String logChute = "com.webkreator.qlue.util.VelocityLog4jLogChute";
+	protected String logChute = "com.webkreator.qlue.view.velocity.SLF4JLogChute";
 
 	protected VelocityEngine velocityEngine;
 

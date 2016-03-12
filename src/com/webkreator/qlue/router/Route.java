@@ -17,8 +17,8 @@
 package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.TransactionContext;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +31,7 @@ import java.util.regex.PatternSyntaxException;
  */
 public class Route {
 
-	private Log log = LogFactory.getLog(Route.class);
+	private Logger log = LoggerFactory.getLogger(Route.class);
 
 	private String path;
 
