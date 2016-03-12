@@ -28,9 +28,9 @@ import java.io.File;
 public class TomcatMain {
 
 	public static void main(String args[]) throws Exception {
+		// Disable JAR scanning to improve startup performance.
 		System.setProperty("tomcat.util.scan.StandardJarScanFilter.jarsToSkip", "*");
 
-		// Handle command line options
 		Options options = new Options();
 		options.addOption("h", "home", true, "application home path");
 		options.addOption("I", "ip", true, "IP address");
@@ -45,33 +45,27 @@ public class TomcatMain {
 			System.err.println("Failed to parse command line: " + pe.getMessage());
 			System.exit(1);
 		}
+
+		Tomcat tomcat = new Tomcat();
+		tomcat.setBaseDir(System.getProperty("java.io.tmpdir"));
 		
 		String home = new File("./web").getAbsolutePath();
-		
 		if (commandLine.hasOption("home")) {
 			home = commandLine.getOptionValue("home");
 			home = new File(home).getAbsolutePath();
-		}			
+		}
+		tomcat.addWebapp("", home);
 
 		Integer port = 8080;
 		if (commandLine.hasOption("port")) {
 			port = Integer.parseInt(commandLine.getOptionValue("port"));
 		}
+		tomcat.setPort(port);
 
-		String hostname = null;
 		if (commandLine.hasOption("ip")) {
-			hostname = commandLine.getOptionValue("ip");
+			tomcat.setHostname(commandLine.getOptionValue("ip"));
 		}
 
-		Tomcat tomcat = new Tomcat();
-		tomcat.setBaseDir(System.getProperty("java.io.tmpdir"));
-		if (hostname != null) {
-			tomcat.setHostname(hostname);
-		}			
-		
-		tomcat.setPort(port);
-		tomcat.addWebapp("/", home);
-		
 		if ((port == 443)||(port == 8443)) {
 			String keystoreFile = home + "/WEB-INF/dev-keystore";
 			String keystorePass = "changeit";
