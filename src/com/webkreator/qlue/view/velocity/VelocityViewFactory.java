@@ -40,6 +40,8 @@ import java.util.Properties;
  * to provide initialization and decide where to look for template files.
  */
 public abstract class VelocityViewFactory implements ViewFactory {
+
+	public static final String QLUE_STRING_RESOURCE_LOADER_KEY = "QLUE_STRING_RESOURCE_LOADER";
 	
 	protected Logger log = LoggerFactory.getLogger(QlueApplication.class);
 
@@ -50,8 +52,6 @@ public abstract class VelocityViewFactory implements ViewFactory {
 	protected String logChute = "com.webkreator.qlue.view.velocity.SLF4JLogChute";
 
 	protected VelocityEngine velocityEngine;
-
-	protected String VELOCITY_STRING_RESOURCE_LOADER_KEY = "_QLUE_LOADER";
 
 	protected boolean useAutoEscaping = true;
 
@@ -64,7 +64,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 		properties.setProperty(RuntimeConstants.RESOURCE_LOADER, "file,string");
 		properties.setProperty("string.resource.loader.class", "org.apache.velocity.runtime.resource.loader.StringResourceLoader");
-		properties.setProperty("string.resource.loader.repository.name", VELOCITY_STRING_RESOURCE_LOADER_KEY);
+		properties.setProperty("string.resource.loader.repository.name", QLUE_STRING_RESOURCE_LOADER_KEY);
 
 		properties.setProperty(RuntimeConstants.VM_LIBRARY, macroPath);
 		properties.setProperty(RuntimeConstants.VM_LIBRARY_AUTORELOAD, "true");

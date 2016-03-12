@@ -20,6 +20,7 @@ import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.view.View;
 import org.apache.velocity.app.VelocityEngine;
+import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 
 import java.io.File;
@@ -40,6 +41,26 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 		Properties properties = buildDefaultVelocityProperties(qlueApp);
 		log.info("Creating VelocityEngine with properties: " + properties);
 		velocityEngine = new VelocityEngine(properties);
+
+		// There appears to be some sort of problem with Velocity where it loads
+		// some classes using one classloader and some other classes using a different
+		// classloader. Because of that it is unable to match a perfectly valid
+		// class to an interface.
+		//
+		// Workaround taken from: https://github.com/whitesource/whitesource-bamboo-agent/issues/9
+		//
+		Thread thread = Thread.currentThread();
+		ClassLoader loader = thread.getContextClassLoader();
+		thread.setContextClassLoader(this.getClass().getClassLoader());
+		try {
+			SLF4JLogChute.setLoggingEnabled(false);
+			velocityEngine.getTemplate("FORCE_CLASSES_BE_LOADED_BY_THE_SAME_CLASSLOADER");
+		} catch(ResourceNotFoundException e) {
+			// This is expected, so ignore.
+		} finally {
+			thread.setContextClassLoader(loader);
+			SLF4JLogChute.setLoggingEnabled(true);
+		}
 	}
 
 	/**

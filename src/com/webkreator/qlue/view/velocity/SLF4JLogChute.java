@@ -13,6 +13,8 @@ public class SLF4JLogChute implements LogChute {
 
     private Logger logger = null;
 
+    private static boolean loggingEnabled = true;
+
     /**
      * @see org.apache.velocity.runtime.log.LogChute#init(org.apache.velocity.runtime.RuntimeServices)
      */
@@ -31,6 +33,9 @@ public class SLF4JLogChute implements LogChute {
      * @see org.apache.velocity.runtime.log.LogChute#log(int, java.lang.String)
      */
     public void log(int level, String message) {
+        if (!loggingEnabled) {
+            return;
+        }
         switch (level) {
             case LogChute.WARN_ID:
                 logger.warn(message);
@@ -55,6 +60,9 @@ public class SLF4JLogChute implements LogChute {
      * @see org.apache.velocity.runtime.log.LogChute#log(int, java.lang.String, java.lang.Throwable)
      */
     public void log(int level, String message, Throwable t) {
+        if (!loggingEnabled) {
+            return;
+        }
         switch (level) {
             case LogChute.WARN_ID:
                 logger.warn(message, t);
@@ -79,6 +87,10 @@ public class SLF4JLogChute implements LogChute {
      * @see org.apache.velocity.runtime.log.LogChute#isLevelEnabled(int)
      */
     public boolean isLevelEnabled(int level) {
+        if (!loggingEnabled) {
+            return false;
+        }
+
         switch (level) {
             case LogChute.DEBUG_ID:
                 return logger.isDebugEnabled();
@@ -93,5 +105,9 @@ public class SLF4JLogChute implements LogChute {
             default:
                 return true;
         }
+    }
+
+    static void setLoggingEnabled(boolean b) {
+        loggingEnabled = b;
     }
 }

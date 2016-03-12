@@ -1174,7 +1174,7 @@ public class QlueApplication {
 
         QlueFile qf = new QlueFile(file.getAbsolutePath());
         qf.setContentType(p.getContentType());
-        qf.setSubmittedFilename(p.getSubmittedFileName());
+        //qf.setSubmittedFilename(p.getSubmittedFileName());
 
         f.set(commandObject, qf);
     }
