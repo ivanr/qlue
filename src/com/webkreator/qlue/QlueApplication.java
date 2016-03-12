@@ -487,10 +487,8 @@ public class QlueApplication {
         } catch (PersistentPageNotFoundException ppnfe) {
             // When we encounter an unknown process reference, we
             // redirect back to the site home page. Showing errors
-            // is not really helpful, and may actually compel the
+            // is probably not going to be helpful, and may actually compel the
             // user to go back and try again (and that's not going to work).
-
-            // No need to roll-back page here, as page has not been located yet.
             context.getResponse().sendRedirect("/");
         } catch (RequestMethodException rme) {
             if (page != null) {
@@ -536,12 +534,11 @@ public class QlueApplication {
             // by the client going away (e.g., interrupted file download).
             if (!t.getClass().getName().contains("ClientAbortException")) {
                 // Handle application exception, which will record full context
-                // data and, optionally, notify the administrator via email
+                // data and, optionally, notify the administrator via email.
                 handleApplicationException(context, page, t);
 
-                // We do not wish to propagate the exception
-                // further, so simply send a 500 response here (but
-                // only if response headers have not been sent).
+                // We do not wish to propagate the exception further, so simply send a 500 response
+                // here (but only if response headers have not been sent).
                 if (context.getResponse().isCommitted() == false) {
                     if (t instanceof ServiceUnavailableException) {
                         context.getResponse().sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
@@ -551,6 +548,7 @@ public class QlueApplication {
                 }
             }
         } finally {
+            // Invoke cleanup on finished pages.
             if ((page != null)&&(page.isFinished())&&(!page.isCleanupInvoked())) {
                 page.cleanup();
             }
