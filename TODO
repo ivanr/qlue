@@ -2,8 +2,6 @@
 To Do
 -----
 
-- In development mode, use custom error messages that show exception root cause.
-
 - Review interaction of parameter binding and states.
 
 - Review state names.
