@@ -492,6 +492,10 @@ public class QlueApplication {
             context.getResponse().sendRedirect("/");
         } catch (RequestMethodException rme) {
             if (page != null) {
+                if (page.isDevelopmentMode()) {
+                    log.error(rme.getMessage(), rme);
+                }
+
                 page.rollback();
             }
 
@@ -499,6 +503,10 @@ public class QlueApplication {
             context.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } catch (PageNotFoundException pnfe) {
             if (page != null) {
+                if (page.isDevelopmentMode()) {
+                    log.error(pnfe.getMessage(), pnfe);
+                }
+
                 page.rollback();
             }
 
@@ -506,6 +514,10 @@ public class QlueApplication {
             context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (ValidationException ve) {
             if (page != null) {
+                if (page.isDevelopmentMode()) {
+                    log.error(ve.getMessage(), ve);
+                }
+
                 page.rollback();
             }
 

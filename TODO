@@ -2,7 +2,7 @@
 To Do
 -----
 
-- Show exceptions in the response when in debugging/development mode. Include validation exceptions.
+- In development mode, use custom error messages that show exception root cause.
 
 - Review interaction of parameter binding and states.
 
