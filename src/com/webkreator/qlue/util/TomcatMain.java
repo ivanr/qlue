@@ -16,14 +16,10 @@
  */
 package com.webkreator.qlue.util;
 
-import java.io.File;
-
 import org.apache.catalina.startup.Tomcat;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
+import org.apache.commons.cli.*;
+
+import java.io.File;
 
 /**
  * Run a web application (determined using the given home directory)
@@ -32,6 +28,8 @@ import org.apache.commons.cli.PosixParser;
 public class TomcatMain {
 
 	public static void main(String args[]) throws Exception {
+		System.setProperty("tomcat.util.scan.StandardJarScanFilter.jarsToSkip", "*");
+
 		// Handle command line options
 		Options options = new Options();
 		options.addOption("h", "home", true, "application home path");
@@ -44,8 +42,7 @@ public class TomcatMain {
 		try {
 			commandLine = parser.parse(options, args);
 		} catch (ParseException pe) {
-			System.err.println("Failed to parse command line: "
-					+ pe.getMessage());
+			System.err.println("Failed to parse command line: " + pe.getMessage());
 			System.exit(1);
 		}
 		

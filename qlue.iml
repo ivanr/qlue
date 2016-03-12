@@ -10,5 +10,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Tomcat" level="project" />
     <orderEntry type="library" name="Qlue libs" level="project" />
+    <orderEntry type="library" name="Tomcat2" level="project" />
   </component>
 </module>

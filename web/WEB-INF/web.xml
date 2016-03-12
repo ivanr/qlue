@@ -2,7 +2,7 @@
 <web-app xmlns="http://java.sun.com/xml/ns/j2ee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee/web-app_3_0.xsd"
 	version="3.0" metadata-complete="true">
-	
+
 	<!--
 	<filter-mapping>
 		<filter-name>StrictTransportSecurityFilter</filter-name>
