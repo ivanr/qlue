@@ -36,6 +36,7 @@ import javax.servlet.http.*;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.security.InvalidParameterException;
 import java.util.*;
@@ -362,7 +363,7 @@ public class QlueApplication {
         if (!page.isPersistent() || (page.context.isPost())) {
             page.getErrors().clear();
             updateShadowInput(page);
-            bindParameters(page, page.context);
+            bindParameters(page);
         }
 
         // Run custom parameter validation.
@@ -871,7 +872,7 @@ public class QlueApplication {
     /**
      * Bind request parameters to the command object provided by the page.
      */
-    private void bindParameters(Page page, TransactionContext context) throws Exception {
+    private void bindParameters(Page page) throws Exception {
         // Ask the page to provide a command object, which can be
         // a custom object or the page itself.
         Object commandObject = page.getCommandObject();
@@ -882,10 +883,14 @@ public class QlueApplication {
         // Loop through the command object fields in order to determine
         // if any are annotated as parameters. Validate those that are,
         // then bind them.
-        Field[] fields = commandObject.getClass().getFields();
+        Field[] fields = commandObject.getClass().getDeclaredFields();
         for (Field f : fields) {
             if (f.isAnnotationPresent(QlueParameter.class) == false) {
                 continue;
+            }
+
+            if (!Modifier.isPublic(f.getModifiers())) {
+                throw new QlueException("QlueParameter used on a non-public field");
             }
 
             try {
@@ -893,7 +898,7 @@ public class QlueApplication {
 
                 if (qp.state().compareTo(Page.STATE_URL) == 0) {
                     // Bind parameters transported in URL
-                    bindParameterFromString(commandObject, f, page, context, context.getUrlParameter(f.getName()));
+                    bindParameterFromString(commandObject, f, page, page.context.getUrlParameter(f.getName()));
                 } else {
                     // Process only the parameters that are
                     // in the same state as the page, or if the parameter
@@ -906,9 +911,9 @@ public class QlueApplication {
                         // We have a parameter; dispatch
                         // to the appropriate handler.
                         if (f.getType().isArray()) {
-                            bindArrayParameter(commandObject, f, page, context);
+                            bindArrayParameter(commandObject, f, page);
                         } else {
-                            bindNonArrayParameter(commandObject, f, page, context);
+                            bindNonArrayParameter(commandObject, f, page);
                         }
                     }
                 }
@@ -922,7 +927,7 @@ public class QlueApplication {
     /**
      * Bind an array parameter.
      */
-    private void bindArrayParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
+    private void bindArrayParameter(Object commandObject, Field f, Page page) throws Exception {
         // Find shadow input
         ShadowInput shadowInput = page.getShadowInput();
 
@@ -936,7 +941,7 @@ public class QlueApplication {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType().getComponentType());
         }
 
-        String[] values = context.getParameterValues(f.getName());
+        String[] values = page.context.getParameterValues(f.getName());
         if ((values == null) || (values.length == 0)) {
             // Parameter not in input; create an empty array
             // and set it on the command object.
@@ -1038,7 +1043,7 @@ public class QlueApplication {
     /**
      * Bind a parameter that is not an array.
      */
-    private void bindNonArrayParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
+    private void bindNonArrayParameter(Object commandObject, Field f, Page page) throws Exception {
         // Find shadow input
         ShadowInput shadowInput = page.getShadowInput();
 
@@ -1047,7 +1052,7 @@ public class QlueApplication {
 
         // First check if the parameter is a file
         if (QlueFile.class.isAssignableFrom(f.getType())) {
-            bindFileParameter(commandObject, f, page, context);
+            bindFileParameter(commandObject, f, page);
             return;
         }
 
@@ -1059,7 +1064,7 @@ public class QlueApplication {
         }
 
         // Keep track of the original text parameter value
-        String value = context.getParameter(f.getName());
+        String value = page.context.getParameter(f.getName());
         if (value != null) {
             // Load from the parameter
             shadowInput.set(f.getName(), value);
@@ -1090,7 +1095,7 @@ public class QlueApplication {
         }
     }
 
-    private void bindParameterFromString(Object commandObject, Field f, Page page, TransactionContext context, String value) throws Exception {
+    private void bindParameterFromString(Object commandObject, Field f, Page page, String value) throws Exception {
         // Find shadow input
         ShadowInput shadowInput = page.getShadowInput();
 
@@ -1150,13 +1155,13 @@ public class QlueApplication {
     /**
      * Bind file parameter.
      */
-    private void bindFileParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
+    private void bindFileParameter(Object commandObject, Field f, Page page) throws Exception {
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
         Part p = null;
 
         try {
-            p = context.getPart(f.getName());
+            p = page.context.getPart(f.getName());
         } catch(ServletException e) {}
 
         if ((p == null) || (p.getSize() == 0)) {

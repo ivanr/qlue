@@ -2,6 +2,4 @@
 To Do
 -----
 
-- Binding works only with public fields? If so, force errors if QlueParameter used on a non-public field.
-
-- We don't log validation exceptions as errors; maybe as warnings?
+- Show exceptions in the response when in debugging/development mode.
