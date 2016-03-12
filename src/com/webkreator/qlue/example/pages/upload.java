@@ -9,7 +9,7 @@ import com.webkreator.qlue.view.View;
 public class upload extends Page {
 
     @QlueParameter(state = Page.STATE_POST)
-    QlueFile file;
+    public QlueFile file;
 
     @Override
     public View onGet() throws Exception {

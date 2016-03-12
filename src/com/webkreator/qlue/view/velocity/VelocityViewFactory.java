@@ -43,7 +43,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
 	public static final String QLUE_STRING_RESOURCE_LOADER_KEY = "QLUE_STRING_RESOURCE_LOADER";
 	
-	protected Logger log = LoggerFactory.getLogger(QlueApplication.class);
+	protected static Logger log = LoggerFactory.getLogger(VelocityViewFactory.class);
 
 	protected String suffix = ".vm";
 

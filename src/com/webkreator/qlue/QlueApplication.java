@@ -337,15 +337,9 @@ public class QlueApplication {
 
         // Proceed to the second stage of request processing
         try {
-            if (log.isDebugEnabled()) {
-                log.debug("Processing request: " + request.getRequestURI());
-            }
-
+            log.debug("Processing request: " + request.getRequestURI());
             serviceInternal(context);
-
-            if (log.isDebugEnabled()) {
-                log.debug("Processed request in " + (System.currentTimeMillis() - startTime));
-            }
+            log.debug("Processed request in " + (System.currentTimeMillis() - startTime));
         } finally {
             MDC.clear();
         }
@@ -1159,7 +1153,12 @@ public class QlueApplication {
     private void bindFileParameter(Object commandObject, Field f, Page page, TransactionContext context) throws Exception {
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
-        Part p = context.getPart(f.getName());
+        Part p = null;
+
+        try {
+            p = context.getPart(f.getName());
+        } catch(ServletException e) {}
+
         if ((p == null) || (p.getSize() == 0)) {
             if (qp.mandatory()) {
                 page.addError(f.getName(), getFieldMissingMessage(qp));
