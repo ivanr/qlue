@@ -2,4 +2,4 @@
 To Do
 -----
 
-- Show exceptions in the response when in debugging/development mode.
+- Show exceptions in the response when in debugging/development mode. Include validation exceptions.
