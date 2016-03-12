@@ -145,8 +145,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 			}
 		});
 
-		// Configure Content-Type (which will set both the MIME
-		// type and the character encoding).
+		// Configure Content-Type (which will set both the MIME type and the character encoding).
 		context.response.setContentType(page.getContentType());
 
 		Writer writer = context.response.getWriter();
