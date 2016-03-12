@@ -13,6 +13,7 @@ public class helloName extends Page {
 
     @Override
     public View onGet() throws Exception {
+        context.response.setContentType("text/html");
         context.response.getWriter().println("Hello " + HtmlEncoder.encodeForHTML(name) + "!");
         return new NullView();
     }

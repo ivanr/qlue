@@ -59,7 +59,7 @@ public class QlueSession implements Serializable {
 	}
 
 	public void writeDevelopmentInformation(PrintWriter out) {
-		out.println(" Session secret (not masked): " + sessionSecret.getUnmaskedToken());
+		out.println(" Session secret (unmasked): " + sessionSecret.getUnmaskedToken());
 		out.println(" Development mode: " + developmentMode);
 	}
 
