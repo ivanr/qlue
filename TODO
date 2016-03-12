@@ -3,3 +3,7 @@ To Do
 -----
 
 - Show exceptions in the response when in debugging/development mode. Include validation exceptions.
+
+- Review interaction of parameter binding and states.
+
+- Review state names.
