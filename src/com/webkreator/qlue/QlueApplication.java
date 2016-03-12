@@ -474,10 +474,6 @@ public class QlueApplication {
                     renderView(view, context, page);
                 }
 
-                // In development mode, append debugging
-                // information to the end of the page
-                masterWriteRequestDevelopmentInformation(context, page);
-
                 // Execute page commit. This is what it sounds like,
                 // an opportunity to use a simple approach to transaction
                 // management for simple applications.
@@ -558,6 +554,9 @@ public class QlueApplication {
             if ((page != null)&&(page.isFinished())&&(!page.isCleanupInvoked())) {
                 page.cleanup();
             }
+
+            // In development mode, append debugging information to the end of the page.
+            masterWriteRequestDevelopmentInformation(context, page);
         }
     }
 
@@ -777,9 +776,7 @@ public class QlueApplication {
         // Find the property editor
         PropertyEditor pe = editors.get(f.getType());
         if (pe == null) {
-            throw new RuntimeException(
-                    "Qlue: Binding does not know how to handle type: "
-                            + f.getType());
+            throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
 
         // If the object exists, convert it to
@@ -823,17 +820,15 @@ public class QlueApplication {
         // Ignore responses other than text/html; we don't want to
         // corrupt images and other resources that are not pages.
         String contentType = context.response.getContentType();
-        if (contentType == null) {
-            return;
-        }
+        if (contentType != null) {
+            int i = contentType.indexOf(';');
+            if (i != -1) {
+                contentType = contentType.substring(0, i);
+            }
 
-        int i = contentType.indexOf(';');
-        if (i != -1) {
-            contentType = contentType.substring(0, i);
-        }
-
-        if (contentType.compareToIgnoreCase("text/html") != 0) {
-            return;
+            if (contentType.compareToIgnoreCase("text/html") != 0) {
+                return;
+            }
         }
 
         // Append output
@@ -1428,7 +1423,7 @@ public class QlueApplication {
             try {
                 developmentSubnets[count++] = new IpRangeFilter(subnet);
             } catch (IllegalArgumentException iae) {
-                throw new RuntimeException("Qlue: Invalid development subnet: " + s);
+                throw new RuntimeException("Qlue: Invalid development subnet: " + subnet);
             }
         }
     }
