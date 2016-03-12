@@ -513,17 +513,19 @@ public class QlueApplication {
             // Convert PageNotFoundException into a 404 response.
             context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (ValidationException ve) {
-            if (page != null) {
-                if (page.isDevelopmentMode()) {
-                    // Log the error message, but not the exception; we don't need the entire stacktrace.
-                    log.error("ValidationException: " + ve.getMessage());
+            if (!page.isDevelopmentMode()) {
+                if (page != null) {
+                    page.rollback();
                 }
 
-                page.rollback();
+                // Respond to validation errors with a 400 response.
+                context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
+            } else {
+                // In development mode, we let the exception propagate to that it
+                // can be handled by our generic exception handler, which will show
+                // the error information on the screen.
+                throw ve;
             }
-
-            // Respond to validation errors with a 400 response.
-            context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (QlueSecurityException se) {
             if (page != null) {
                 page.rollback();

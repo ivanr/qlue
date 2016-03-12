@@ -16,22 +16,20 @@
  */
 package com.webkreator.qlue.pages;
 
+import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueMapping;
+import com.webkreator.qlue.exceptions.AccessForbiddenException;
+import com.webkreator.qlue.exceptions.PersistentPageNotFoundException;
+import com.webkreator.qlue.exceptions.ValidationException;
+import com.webkreator.qlue.util.HtmlEncoder;
+import com.webkreator.qlue.util.WebUtil;
+import com.webkreator.qlue.view.View;
+import org.apache.velocity.exception.ParseErrorException;
+
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-
-import javax.servlet.http.HttpServletResponse;
-
-import com.webkreator.qlue.QlueMapping;
-import org.apache.velocity.exception.ParseErrorException;
-
-import com.webkreator.qlue.util.HtmlEncoder;
-import com.webkreator.qlue.exceptions.AccessForbiddenException;
-import com.webkreator.qlue.Page;
-import com.webkreator.qlue.exceptions.PersistentPageNotFoundException;
-import com.webkreator.qlue.exceptions.ValidationException;
-import com.webkreator.qlue.util.WebUtil;
-import com.webkreator.qlue.view.View;
 
 /**
  * Handle an application exception.
@@ -121,6 +119,11 @@ public class handleThrowable extends Page {
 		out.println("<html>");
 		out.println("<head><title>Parameter Validation Failed</title></head>");
 		out.println("<body><h1>Parameter Validation Failed</h1>");
+
+		if (isDevelopmentMode()) {
+			out.println(ve.getMessage());
+		}
+
 		WebUtil.writePagePaddingforInternetExplorer(out);
 		out.println("</body></html>");
 
