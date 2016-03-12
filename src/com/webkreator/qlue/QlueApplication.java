@@ -515,7 +515,8 @@ public class QlueApplication {
         } catch (ValidationException ve) {
             if (page != null) {
                 if (page.isDevelopmentMode()) {
-                    log.error(ve.getMessage(), ve);
+                    // Log the error message, but not the exception; we don't need the entire stacktrace.
+                    log.error(ve.getMessage());
                 }
 
                 page.rollback();
