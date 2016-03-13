@@ -112,6 +112,10 @@ public abstract class Page {
      * Change page state to given value.
      */
     protected void setState(String state) {
+        if (state == Page.STATE_NEW) {
+            throw new IllegalArgumentException("Page state can't be set to NEW");
+        }
+
         this.state = state;
     }
 
