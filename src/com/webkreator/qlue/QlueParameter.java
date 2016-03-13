@@ -67,5 +67,12 @@ public @interface QlueParameter {
 	 * state must match that of the page in which they
 	 * are used.
 	 */
-	String state() default Page.STATE_NEW;
+	String state() default Page.STATE_ANY;
+
+	/**
+	 * Determines the permitted origins for a parameter. By
+	 * default, any HTTP parameter with a matching name is
+	 * used, irrespective of the source.
+     */
+	ParamSource source() default ParamSource.GET_POST;
 }

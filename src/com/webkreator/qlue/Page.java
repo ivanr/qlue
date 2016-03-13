@@ -41,17 +41,17 @@ import java.util.TreeMap;
  */
 public abstract class Page {
 
-    public static final String STATE_NEW = "NEW";
+    public static final String STATE_ANY = "ANY";
 
-    public static final String STATE_POSTED = "POSTED";
-
-    public static final String STATE_FINISHED = "FINISHED";
+    public static final String STATE_GET = "GET";
 
     public static final String STATE_POST = "POST";
 
-    public static final String STATE_NEW_OR_POST = "NEW_OR_POST";
+    public static final String STATE_NEW = "NEW";
 
-    public static final String STATE_URL = "STATE_URL";
+    public static final String STATE_ACTIVATED = "ACTIVATED";
+
+    public static final String STATE_FINISHED = "FINISHED";
 
     private Integer id;
 
@@ -117,8 +117,8 @@ public abstract class Page {
      * Change page state to given value.
      */
     protected void setState(String state) {
-        if (state == Page.STATE_NEW) {
-            throw new IllegalArgumentException("Page state can't be set to NEW");
+        if ((state == Page.STATE_NEW)||(state == Page.STATE_ANY)||(state == Page.STATE_GET)||(state == Page.STATE_POST)) {
+            throw new IllegalArgumentException("Invalid state transition: " + state);
         }
 
         this.state = state;

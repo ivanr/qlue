@@ -487,7 +487,7 @@ public class QlueApplication {
                     // For persistent pages, we change their state only if they're left as NEW
                     // after execution. We change to POSTED in order to prevent multiple calls to init().
                     if (page.getState().equals(Page.STATE_NEW)) {
-                        page.setState(Page.STATE_POSTED);
+                        page.setState(Page.STATE_ACTIVATED);
                     }
                 }
             }
@@ -899,10 +899,15 @@ public class QlueApplication {
         // parameters. Validate those that are, then bind them.
         Field[] fields = commandObject.getClass().getDeclaredFields();
         for (Field f : fields) {
+            // We bind command object fields that have the QlueParameter annotation.
             if (f.isAnnotationPresent(QlueParameter.class) == false) {
                 continue;
             }
 
+            // We bind only to public fields, but it commonly happens that the QlueParameter
+            // annotation is used on other field types, leading to frustration because it's
+            // not obvious why binding is not working. For this reason, we detect that problem
+            // here and force an error to inform the developer.
             if (!Modifier.isPublic(f.getModifiers())) {
                 throw new QlueException("QlueParameter used on a non-public field");
             }
@@ -910,29 +915,28 @@ public class QlueApplication {
             try {
                 QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
-                if (qp.state().compareTo(Page.STATE_URL) == 0) {
-                    // Bind parameters transported in URL
-                    bindParameterFromString(commandObject, f, page, page.context.getUrlParameter(f.getName()));
-                } else {
-                    // Process only the parameters that are
-                    // in the same state as the page, or if the parameter
-                    // uses the special state POST, which triggers on all
-                    // POST requests (irrespective of the state).
+                // Bind this parameter only if it matches any state, or if it matches the page's current state.
+                if (qp.state().equals(Page.STATE_ANY)||(qp.state().equals(page.getState()))) {
 
-                    if (((qp.state().compareTo(Page.STATE_POST) == 0) && (page.context.isPost()))
-                            || (qp.state().compareTo(Page.STATE_NEW_OR_POST) == 0)
-                            || (qp.state().compareTo(page.getState()) == 0)) {
-                        // We have a parameter; dispatch
-                        // to the appropriate handler.
-                        if (f.getType().isArray()) {
-                            bindArrayParameter(commandObject, f, page);
-                        } else {
-                            bindNonArrayParameter(commandObject, f, page);
+                    if (qp.source().equals(ParamSource.URL)) {
+                        // Bind parameters transported in URL. For this to work there needs
+                        // to exist a route that parses out the parameter out of the URL.
+                        bindParameterFromString(commandObject, f, page, page.context.getUrlParameter(f.getName()));
+                    } else {
+                        if (qp.source().equals(ParamSource.GET_POST)
+                            || (qp.source().equals(ParamSource.GET) && page.context.isGet())
+                            || (qp.source().equals(ParamSource.POST) && page.context.isPost()))
+                        {
+                            if (f.getType().isArray()) {
+                                bindArrayParameter(commandObject, f, page);
+                            } else {
+                                bindNonArrayParameter(commandObject, f, page);
+                            }
                         }
                     }
                 }
             } catch (IllegalArgumentException e) {
-                // Transform editor exception into a validation error
+                // Transform editor exception into a validation error.
                 page.addError(f.getName(), e.getMessage());
             }
         }
