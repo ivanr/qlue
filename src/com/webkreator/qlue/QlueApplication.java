@@ -882,16 +882,15 @@ public class QlueApplication {
      * Bind request parameters to the command object provided by the page.
      */
     private void bindParameters(Page page) throws Exception {
-        // Ask the page to provide a command object, which can be
-        // a custom object or the page itself.
+        // Ask the page to provide a command object we can bind to. Simpler pages
+        // might see themselves as the command objects; more complex might use more than one.
         Object commandObject = page.getCommandObject();
         if (commandObject == null) {
             throw new RuntimeException("Qlue: Command object cannot be null");
         }
 
-        // Loop through the command object fields in order to determine
-        // if any are annotated as parameters. Validate those that are,
-        // then bind them.
+        // Loop through the command object fields in order to determine if any are annotated as
+        // parameters. Validate those that are, then bind them.
         Field[] fields = commandObject.getClass().getDeclaredFields();
         for (Field f : fields) {
             if (f.isAnnotationPresent(QlueParameter.class) == false) {

@@ -148,7 +148,7 @@ Persistent pages can make use of these additional methods:
  * init() - this method is called only once per persistent page, immediately after successful parameter
             binding and validation (including custom validation in validateParameters() and before
             prepareForService().
- * cleanup() - called at the end of transaction that transitioned to FINISHED state.
+ * cleanup() - called at the end of transaction that transitioned the page to the FINISHED state.
 
 ### Views
 
