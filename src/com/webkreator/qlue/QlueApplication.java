@@ -38,6 +38,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -110,9 +111,9 @@ public class QlueApplication {
 
     private String developmentModePassword = null;
 
-    private IpRangeFilter[] developmentSubnets = null;
+    private List<CIDRUtils> developmentSubnets = null;
 
-    private IpRangeFilter[] trustedProxies = null;
+    private List<CIDRUtils> trustedProxies = null;
 
     private String adminEmail;
 
@@ -1366,20 +1367,18 @@ public class QlueApplication {
 
         String[] subnets = combinedSubnets.split("[;,\\x20]");
 
-        trustedProxies = new IpRangeFilter[subnets.length];
-        int count = 0;
+        trustedProxies = new ArrayList<>();
         for (String s : subnets) {
             if (TextUtil.isEmpty(s)) {
                 continue;
             }
 
-            String subnet = s;
-            if (s.contains("/") == false) {
-                subnet = s + "/32";
+            if ((!s.contains("/"))&&(!s.contains(":"))) {
+                s = s + "/32";
             }
 
             try {
-                trustedProxies[count++] = new IpRangeFilter(subnet);
+                trustedProxies.add(new CIDRUtils(s));
             } catch (IllegalArgumentException iae) {
                 throw new RuntimeException("Qlue: Invalid proxy subnet: " + s);
             }
@@ -1391,21 +1390,17 @@ public class QlueApplication {
             return false;
         }
 
-        InetAddress remoteAddr;
         try {
-            remoteAddr = InetAddress.getByName(context.request.getRemoteAddr());
-        } catch (Exception e) {
+            InetAddress remoteAddr = InetAddress.getByName(context.request.getRemoteAddr());
+            for (CIDRUtils su : trustedProxies) {
+                if (su.isInRange(remoteAddr)) {
+                    return true;
+                }
+            }
+        } catch(UnknownHostException e) {
+            // Shouldn't happen.
+            e.printStackTrace(System.err);
             return false;
-        }
-
-        for (IpRangeFilter su : trustedProxies) {
-            if (su == null) {
-                continue;
-            }
-
-            if (su.isInRange(remoteAddr)) {
-                return true;
-            }
         }
 
         return false;
@@ -1421,22 +1416,20 @@ public class QlueApplication {
 
         String[] subnets = combinedSubnets.split("[;,\\x20]");
 
-        developmentSubnets = new IpRangeFilter[subnets.length];
-        int count = 0;
+        developmentSubnets = new ArrayList<>();
         for (String s : subnets) {
             if (TextUtil.isEmpty(s)) {
                 continue;
             }
 
-            String subnet = s;
-            if (s.contains("/") == false) {
-                subnet = s + "/32";
+            if ((!s.contains("/"))&&(!s.contains(":"))) {
+                s = s + "/32";
             }
 
             try {
-                developmentSubnets[count++] = new IpRangeFilter(subnet);
+                developmentSubnets.add(new CIDRUtils(s));
             } catch (IllegalArgumentException iae) {
-                throw new RuntimeException("Qlue: Invalid development subnet: " + subnet);
+                throw new RuntimeException("Qlue: Invalid development subnet: " + s);
             }
         }
     }
@@ -1450,22 +1443,18 @@ public class QlueApplication {
             return false;
         }
 
-        InetAddress remoteAddr;
         try {
-            remoteAddr = InetAddress.getByName(context.getEffectiveRemoteAddr());
-        } catch (Exception e) {
+            InetAddress remoteAddr = InetAddress.getByName(context.getEffectiveRemoteAddr());
+            for (CIDRUtils su : developmentSubnets) {
+                if (su.isInRange(remoteAddr)) {
+                    return true;
+                }
+
+            }
+        } catch(UnknownHostException e) {
+            // Shouldn't happen.
+            e.printStackTrace(System.err);
             return false;
-        }
-
-        for (IpRangeFilter su : developmentSubnets) {
-            if (su == null) {
-                continue;
-            }
-
-            if (su.isInRange(remoteAddr)) {
-                return true;
-            }
-
         }
 
         return false;

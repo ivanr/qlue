@@ -7,5 +7,3 @@ To Do
 - Review state names.
 
 - Invoking FINISHED pages should be an error.
-
-- Developer subnet matching doesn't seem to support IPv6.
