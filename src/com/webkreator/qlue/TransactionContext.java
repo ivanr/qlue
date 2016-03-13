@@ -74,16 +74,11 @@ public class TransactionContext {
 
 	/**
 	 * Initialise context instance.
-	 * 
-	 * @param app
-	 * @param servletConfig
-	 * @param servletContext
-	 * @param request
-	 * @param response
 	 */
 	public TransactionContext(QlueApplication app, ServletConfig servletConfig,
 			ServletContext servletContext, HttpServletRequest request,
-			HttpServletResponse response) throws ServletException {
+			HttpServletResponse response) throws ServletException
+	{
 		this.app = app;
 		this.servletConfig = servletConfig;
 		this.servletContext = servletContext;
@@ -93,13 +88,11 @@ public class TransactionContext {
 
 		// Get the QlueSession instance
 		synchronized (session) {
-			qluePageManager = (QluePageManager) session
-					.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
+			qluePageManager = (QluePageManager) session.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
 			// No page manager? Then create a new one...
 			if (qluePageManager == null) {
 				qluePageManager = new QluePageManager();
-				session.setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER,
-						qluePageManager);
+				session.setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER, qluePageManager);
 			}
 		}
 
@@ -129,8 +122,7 @@ public class TransactionContext {
 		case QlueApplication.FRONTEND_ENCRYPTION_TRUSTED_HEADER:
 			// Look for a trusted header to tell us.
 			if (app.isTrustedProxyRequest(this)) {
-				String frontendProtocol = request
-						.getHeader("X-Forwarded-Proto");
+				String frontendProtocol = request.getHeader("X-Forwarded-Proto");
 				if (frontendProtocol != null) {
 					if (frontendProtocol.equals("https")) {
 						setFrontendEncrypted(true);
@@ -139,9 +131,7 @@ public class TransactionContext {
 			}
 			break;
 		default:
-			throw new RuntimeException(
-					"Unknown value for the frontend encryption check: "
-							+ app.getFrontendEncryptionCheck());
+			throw new RuntimeException("Unknown value for the frontend encryption check: " + app.getFrontendEncryptionCheck());
 		}
 	}
 
@@ -157,10 +147,8 @@ public class TransactionContext {
 
 				// Extract the last IP address.
 				try {
-					// Use round-trip conversion to validate the provided
-					// string.
-					effectiveRemoteAddr = InetAddress.getByName(
-							sx[sx.length - 1]).getHostAddress();
+					// Use round-trip conversion to validate the provided string.
+					effectiveRemoteAddr = InetAddress.getByName(sx[sx.length - 1]).getHostAddress();
 				} catch (UnknownHostException e) {
 					// TODO Log
 					// e.printStackTrace();
@@ -168,8 +156,7 @@ public class TransactionContext {
 				}
 
 				// If there's more than one IP address provided, combine them
-				// in order to produce the effective X-Forwarded-For header
-				// value.
+				// in order to produce the effective X-Forwarded-For header value.
 				if (sx.length > 1) {
 					StringBuffer sb = new StringBuffer();
 					for (int i = 0; i < sx.length - 1; i++) {
@@ -213,8 +200,7 @@ public class TransactionContext {
 
 		// Extract the last IP address.
 		try {
-			// Use round-trip conversion to validate the provided
-			// string.
+			// Use round-trip conversion to validate the provided string.
 			return InetAddress.getByName(sx[sx.length - 1]).getHostAddress();
 		} catch (UnknownHostException e) {
 			// TODO Log
@@ -246,12 +232,9 @@ public class TransactionContext {
 	/**
 	 * Does the request associated with this transaction use GET or HEAD (the
 	 * latter has the same semantics as GET)?
-	 * 
-	 * @return
 	 */
 	public boolean isGet() {
-		if ((request.getMethod().compareTo("GET") == 0)
-				|| (request.getMethod().compareTo("HEAD") == 0)) {
+		if (request.getMethod().equals("GET") || request.getMethod().equals("POST")) {
 			return true;
 		} else {
 			return false;
@@ -260,11 +243,9 @@ public class TransactionContext {
 
 	/**
 	 * Does the request associated with this transaction use POST?
-	 * 
-	 * @return
 	 */
 	public boolean isPost() {
-		if (request.getMethod().compareTo("POST") == 0) {
+		if (request.getMethod().equals("POST")) {
 			return true;
 		} else {
 			return false;
@@ -273,9 +254,6 @@ public class TransactionContext {
 
 	/**
 	 * Find persistent page with the given ID.
-	 * 
-	 * @param pid
-	 * @return
 	 */
 	public Page findPersistentPage(String pid) {
 		return qluePageManager.findPage(Integer.parseInt(pid));
@@ -283,8 +261,6 @@ public class TransactionContext {
 
 	/**
 	 * Keep the given page in persistent storage.
-	 * 
-	 * @param page
 	 */
 	public void persistPage(Page page) {
 		qluePageManager.storePage(page);
@@ -292,8 +268,6 @@ public class TransactionContext {
 
 	/**
 	 * Retrieve request associated with this transaction.
-	 * 
-	 * @return
 	 */
 	public HttpServletRequest getRequest() {
 		return request;
@@ -301,8 +275,6 @@ public class TransactionContext {
 
 	/**
 	 * Retrieve response associated with this transaction.
-	 * 
-	 * @return
 	 */
 	public HttpServletResponse getResponse() {
 		return response;
@@ -310,8 +282,6 @@ public class TransactionContext {
 
 	/**
 	 * Retrieve servlet config associated with this transaction.
-	 * 
-	 * @return
 	 */
 	public ServletConfig getServletConfig() {
 		return servletConfig;
@@ -319,8 +289,6 @@ public class TransactionContext {
 
 	/**
 	 * Retrieve servlet context associated with this transaction.
-	 * 
-	 * @return
 	 */
 	public ServletContext getServletContext() {
 		return servletContext;
@@ -328,8 +296,6 @@ public class TransactionContext {
 
 	/**
 	 * Retrieve the servlet session associated with this transaction.
-	 * 
-	 * @return
 	 */
 	public HttpSession getSession() {
 		return session;
@@ -337,8 +303,6 @@ public class TransactionContext {
 
 	/**
 	 * Retrieve request URI associated with this transaction.
-	 * 
-	 * @return
 	 */
 	public String getRequestUriWithQueryString() {
 		return requestUriWithQueryString;
@@ -350,8 +314,6 @@ public class TransactionContext {
 
 	/**
 	 * Initialise request URI.
-	 * 
-	 * @throws ServletException
 	 */
 	private void initRequestUri() throws ServletException {
 		// Retrieve URI and normalise it
@@ -377,9 +339,6 @@ public class TransactionContext {
 
 	/**
 	 * Replaces persistent page with a view.
-	 * 
-	 * @param page
-	 * @param view
 	 */
 	public void replacePage(Page page, FinalRedirectView view) {
 		qluePageManager.replacePage(page, view);
@@ -387,8 +346,6 @@ public class TransactionContext {
 
 	/**
 	 * Check if the current contexts is an error handler.
-	 * 
-	 * @return
 	 */
 	public boolean isErrorHandler() {
 		Integer errorStatusCode = (Integer) request
@@ -403,8 +360,6 @@ public class TransactionContext {
 
 	/**
 	 * Retrieves transaction ID.
-	 * 
-	 * @return
 	 */
 	public int getTxId() {
 		return txId;
@@ -412,9 +367,6 @@ public class TransactionContext {
 
 	/**
 	 * Retrieves the record of the persistent page with the given ID.
-	 * 
-	 * @param pid
-	 * @return
 	 */
 	public PersistentPageRecord findPersistentPageRecord(String pid) {
 		return qluePageManager.findPageRecord(Integer.parseInt(pid));
@@ -422,51 +374,35 @@ public class TransactionContext {
 
 	/**
 	 * Outputs transaction-related debugging information.
-	 * 
-	 * @param out
 	 */
 	public void writeRequestDevelopmentInformation(PrintWriter out) {
-		out.println(" Method: "
-				+ HtmlEncoder.encodeForHTML(request.getMethod()));
-		out.println(" URI: "
-				+ HtmlEncoder.encodeForHTML(request.getRequestURI()));
-		out.println(" Query String: "
-				+ HtmlEncoder.encodeForHTML(request.getQueryString()));
-		out.println(" Remote Addr: "
-				+ HtmlEncoder.encodeForHTML(request.getRemoteAddr()));
+		out.println(" Method: " + HtmlEncoder.encodeForHTML(request.getMethod()));
+		out.println(" URI: " + HtmlEncoder.encodeForHTML(request.getRequestURI()));
+		out.println(" Query String: " + HtmlEncoder.encodeForHTML(request.getQueryString()));
+		out.println(" Remote Addr: " + HtmlEncoder.encodeForHTML(request.getRemoteAddr()));
 		out.println(" Remote Port: " + request.getRemotePort());
-		out.println(" Protocol: "
-				+ HtmlEncoder.encodeForHTML(request.getProtocol()));
+		out.println(" Protocol: " + HtmlEncoder.encodeForHTML(request.getProtocol()));
 		out.println("");
 		out.println("<b>Request Headers</b>\n");
-		for (Enumeration<String> e = request.getHeaderNames(); e
-				.hasMoreElements();) {
+		for (Enumeration<String> e = request.getHeaderNames(); e.hasMoreElements();) {
 			String name = e.nextElement();
-			for (Enumeration<String> e2 = request.getHeaders(name); e2
-					.hasMoreElements();) {
-				out.println(" " + HtmlEncoder.encodeForHTML(name) + ": "
-						+ HtmlEncoder.encodeForHTML(e2.nextElement()));
+			for (Enumeration<String> e2 = request.getHeaders(name); e2.hasMoreElements();) {
+				out.println(" " + HtmlEncoder.encodeForHTML(name) + ": " + HtmlEncoder.encodeForHTML(e2.nextElement()));
 			}
 		}
 		out.println("");
 		out.println("<b>Request Parameters</b>\n");
-		for (Enumeration<String> e = request.getParameterNames(); e
-				.hasMoreElements();) {
+		for (Enumeration<String> e = request.getParameterNames(); e.hasMoreElements();) {
 			String name = e.nextElement();
 			String[] values = request.getParameterValues(name);
 			for (String value : values) {
-				out.println(" " + HtmlEncoder.encodeForHTML(name) + ": "
-						+ HtmlEncoder.encodeForHTML(value));
+				out.println(" " + HtmlEncoder.encodeForHTML(name) + ": " + HtmlEncoder.encodeForHTML(value));
 			}
 		}
 	}
 
 	/**
 	 * Retrieves parameter with the given name.
-	 * 
-	 * @param name
-	 * @return
-	 * @throws Exception
 	 */
 	public String getParameter(String name) throws Exception {
 		return getRequest().getParameter(name);
@@ -474,10 +410,6 @@ public class TransactionContext {
 
 	/**
 	 * Retrieves all values of parameters with the given name.
-	 * 
-	 * @param name
-	 * @return
-	 * @throws Exception
 	 */
 	public String[] getParameterValues(String name) {
 		return getRequest().getParameterValues(name);
