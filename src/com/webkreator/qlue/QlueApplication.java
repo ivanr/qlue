@@ -39,7 +39,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -925,7 +924,7 @@ public class QlueApplication {
                         }
                     }
                 }
-            } catch (InvalidParameterException e) {
+            } catch (IllegalArgumentException e) {
                 // Transform editor exception into a validation error
                 page.addError(f.getName(), e.getMessage());
             }
@@ -1342,7 +1341,7 @@ public class QlueApplication {
             return;
         }
 
-        throw new InvalidParameterException("Invalid value for development mode: " + input);
+        throw new IllegalArgumentException("Invalid value for development mode: " + input);
     }
 
     /**

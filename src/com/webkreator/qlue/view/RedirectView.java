@@ -16,13 +16,12 @@
  */
 package com.webkreator.qlue.view;
 
-import java.io.PrintWriter;
-import java.security.InvalidParameterException;
-
-import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.UriBuilder;
+
+import java.io.PrintWriter;
 
 /**
  * This specialized view implementation is actually a redirection, supporting
@@ -61,7 +60,7 @@ public class RedirectView implements View {
      */
     public RedirectView(String uri, int redirectStatus) {
         if (uri == null) {
-            throw new InvalidParameterException("RedirectView: Cannot redirect to null URI");
+            throw new IllegalArgumentException("RedirectView: Cannot redirect to null URI");
         }
 
         setStatus(redirectStatus);
@@ -76,7 +75,7 @@ public class RedirectView implements View {
 	 */
 	public RedirectView(Page page) {
 		if (page == null) {
-			throw new InvalidParameterException("RedirectView: Cannot redirect to null page");
+			throw new IllegalArgumentException("RedirectView: Cannot redirect to null page");
 		}
 		
 		this.page = page;
@@ -132,8 +131,7 @@ public class RedirectView implements View {
 				&& (redirectStatus != REDIRECT)
 				&& (redirectStatus != REDIRECT_TEMPORARY))
         {
-			throw new InvalidParameterException("Invalid redirection status: "
-					+ redirectStatus);
+			throw new IllegalArgumentException("Invalid redirection status: " + redirectStatus);
 		}
 
 		this.redirectStatus = redirectStatus;

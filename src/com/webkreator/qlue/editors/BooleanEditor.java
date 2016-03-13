@@ -17,7 +17,6 @@
 package com.webkreator.qlue.editors;
 
 import java.lang.reflect.Field;
-import java.security.InvalidParameterException;
 
 /**
  * Converts Boolean objects to and from text.
@@ -48,7 +47,7 @@ public class BooleanEditor implements PropertyEditor {
 			return Boolean.FALSE;
 		}
 
-		throw new InvalidParameterException("qp.validation.boolean.invalid");
+		throw new IllegalArgumentException("qp.validation.boolean.invalid");
 	}
 
 	@Override

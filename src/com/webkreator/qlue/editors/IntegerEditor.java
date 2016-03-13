@@ -17,7 +17,6 @@
 package com.webkreator.qlue.editors;
 
 import java.lang.reflect.Field;
-import java.security.InvalidParameterException;
 
 /**
  * Converts Integer objects to and from text.
@@ -33,7 +32,7 @@ public class IntegerEditor implements PropertyEditor {
 		try {
 			return Integer.valueOf(text);
 		} catch (NumberFormatException nfe) {
-			throw new InvalidParameterException("IntegerEditor: Invalid integer value: " + text);
+			throw new IllegalArgumentException("IntegerEditor: Invalid integer value: " + text);
 		}
 	}
 

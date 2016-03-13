@@ -1,7 +1,6 @@
 package com.webkreator.qlue.editors;
 
 import java.lang.reflect.Field;
-import java.security.InvalidParameterException;
 
 /**
  * Converts Long objects to and from text.
@@ -17,7 +16,7 @@ public class LongEditor implements PropertyEditor {
         try {
             return Long.valueOf(text);
         } catch (NumberFormatException nfe) {
-            throw new InvalidParameterException("LongEditor: Invalid long value: " + text);
+            throw new IllegalArgumentException("LongEditor: Invalid long value: " + text);
         }
     }
 
