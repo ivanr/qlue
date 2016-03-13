@@ -2,4 +2,17 @@
 To Do
 -----
 
--
+- Persistent pages: Support multiple command objects per page; choose one that matches page's state.
+
+  - In this case, don't examine the state of individual parameters.
+
+- Persistent pages: Support more than one onPost() method based on a parameter, say "_cmd". Detect
+  presence of the command parameter and automatically invoke the correct method, say onPost_something().
+  The idea here is web applications are becoming smarter. In most situations state can be kept in the
+  browser and pages invoked only when an action is required. In some cases it might be needed to
+  keep some of the state on the server (e.g., file uploads). Then, the application could (from JavaScript)
+  create a new persistent page, then invoke various actions on it, and then "commit" at the end.
+
+  - Should be an option to destroy a persistent page.
+
+  - Page state could be taken into account for onPost() sub-routing.
