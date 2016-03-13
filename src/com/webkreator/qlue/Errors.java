@@ -31,7 +31,7 @@ public class Errors {
 	 * Add an error message.
 	 */
 	public void addError(String message) {
-		errors.add(new Error(null, message));
+		errors.add(new Error(message));
 	}
 
 	/**

@@ -27,7 +27,14 @@ public class Error {
 	private String message;
 
 	/**
-	 * Create new error, given field name and message.
+	 * Create a new error that's associated with the entire page.
+     */
+	public Error(String message) {
+		this(null, message);
+	}
+
+	/**
+	 * Create a new error, associated with the given field.
 	 */
 	public Error(String field, String message) {
 		this.field = field;
@@ -35,14 +42,15 @@ public class Error {
 	}
 	
 	/**
-	 * Retrieve field name.
+	 * Retrieve field name. If the returned value is null that means
+	 * the error is associated with the entire page.
 	 */
 	public String getField() {
 		return field;
 	}
 	
 	/**
-	 * Retrieve message.
+	 * Retrieve the error message.
 	 */
 	public String getMessage() {
 		return message;
