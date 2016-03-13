@@ -1,4 +1,4 @@
-# Qlue v2.1.x (development)
+# Qlue v3.x (development)
 
 Qlue is a lightweight framework for Java web applications. Its purpose is to provide a structure
 in which applications can be developed with as little complexity as possible.
