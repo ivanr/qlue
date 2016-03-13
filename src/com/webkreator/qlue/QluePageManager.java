@@ -32,7 +32,7 @@ public class QluePageManager {
 
 	private Logger log = LoggerFactory.getLogger(QluePageManager.class);
 
-	private static final int MAX_PERSISTENT_PAGES_PER_SESSION = 64;
+	private static final int MAX_PERSISTENT_PAGES_PER_SESSION = 32;
 
 	private int nextPersistentPageId;
 
