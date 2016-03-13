@@ -5,5 +5,3 @@ To Do
 - Review interaction of parameter binding and states.
 
 - Review state names.
-
-- Invoking FINISHED pages should be an error.
