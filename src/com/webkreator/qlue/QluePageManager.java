@@ -93,13 +93,21 @@ public class QluePageManager {
 				}
 			}
 
-			pages.remove(oldestId);
+			PersistentPageRecord removedRecord = pages.remove(oldestId);
 
 			if (log.isWarnEnabled()) {
 				log.warn("Forced removal of page from session storage: "
 						+ oldestId + " (sessionId="
 						+ page.getContext().getRequest().getSession().getId()
 						+ ")");
+			}
+
+			if (removedRecord.page != null) {
+				try {
+					removedRecord.page.cleanup();
+				} catch(Throwable t) {
+					log.error("Exception during page cleanup", t);
+				}
 			}
 		}
 	}
