@@ -55,7 +55,7 @@ public class Errors {
 		ArrayList<String> list = new ArrayList<>();
 
 		for (Error error : errors) {
-			if ((error.getField() != null) && (field.compareTo(error.getField()) == 0)) {
+			if ((error.getField() != null) && (field.equals(error.getField()))) {
 				list.add(error.getMessage());
 			}
 		}
