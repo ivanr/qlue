@@ -383,7 +383,7 @@ public class QlueApplication {
         // Initialize the page. This really only makes sense for persistent pages, where you
         // want to run some code only once. With non-persistent pages, it's better to have
         // all the code in the same method.
-        if (page.getState().compareTo(Page.STATE_NEW) == 0) {
+        if (page.getState().equals(Page.STATE_NEW)) {
             view = page.init();
             if (view != null) {
                 return view;
@@ -479,9 +479,16 @@ public class QlueApplication {
                 // management for simple applications.
                 page.commit();
 
-                // Non-persistent pages automatically transition to FINISHED.
+                // Automatic page state transition.
                 if (!page.isPersistent()) {
+                    // Non-persistent pages automatically transition to FINISHED so that cleanup can be invoked.
                     page.setState(Page.STATE_FINISHED);
+                } else {
+                    // For persistent pages, we change their state only if they're left as NEW
+                    // after execution. We change to POSTED in order to prevent multiple calls to init().
+                    if (page.getState().equals(Page.STATE_NEW)) {
+                        page.setState(Page.STATE_POSTED);
+                    }
                 }
             }
         } catch (PersistentPageNotFoundException ppnfe) {

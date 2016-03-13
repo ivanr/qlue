@@ -40,9 +40,11 @@ public abstract class Page {
 
     public static final String STATE_NEW = "NEW";
 
-    public static final String STATE_POST = "POST";
+    public static final String STATE_POSTED = "POSTED";
 
     public static final String STATE_FINISHED = "FINISHED";
+
+    public static final String STATE_POST = "POST";
 
     public static final String STATE_NEW_OR_POST = "NEW_OR_POST";
 
