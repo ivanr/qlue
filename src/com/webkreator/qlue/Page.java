@@ -34,7 +34,10 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * Represents a single unit of work application will perform.
+ * Represents a single unit of work application will perform. This class handles both non-persistent
+ * and persistent pages. I used only one class for both because the intention is that applications
+ * never really subclass this class directly. Rather, they should create their own base page class. And,
+ * because Java doesn't support multiple inheritance, having two Qlue base classes would complicate things.
  */
 public abstract class Page {
 
