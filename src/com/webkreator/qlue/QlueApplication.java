@@ -101,8 +101,7 @@ public class QlueApplication {
 
     private ViewFactory viewFactory = new ClasspathVelocityViewFactory();
 
-    @SuppressWarnings("rawtypes")
-    private HashMap<Class, PropertyEditor> editors = new HashMap<Class, PropertyEditor>();
+    private HashMap<Class, PropertyEditor> editors = new HashMap<>();
 
     private String characterEncoding = "UTF-8";
 
@@ -124,7 +123,7 @@ public class QlueApplication {
 
     private SmtpEmailSender asyncSmtpEmailSender;
 
-    private HashMap<Locale, MessageSource> messageSources = new HashMap<Locale, MessageSource>();
+    private HashMap<Locale, MessageSource> messageSources = new HashMap<>();
 
     private String confPath;
 
