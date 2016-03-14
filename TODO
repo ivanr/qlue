@@ -2,6 +2,8 @@
 To Do
 -----
 
+- Have a way to submit arbitrary problems as application exceptions, triggering notification.
+
 - Persistent pages: Support multiple command objects per page; choose one that matches page's state.
 
   - In this case, don't examine the state of individual parameters.
