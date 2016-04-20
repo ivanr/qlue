@@ -153,4 +153,9 @@ public class QlueRouteManager implements RouteManager {
     public void setConcertDashesToUnderscores(boolean b) {
         convertDashesToUnderscores = b;
     }
+
+	@Override
+	public String getPriorityTemplatePath() {
+		return app.getPriorityTemplatePath();
+	}
 }

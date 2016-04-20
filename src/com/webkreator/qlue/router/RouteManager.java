@@ -33,4 +33,6 @@ public interface RouteManager {
     boolean isConvertDashesToUnderscores();
 
     void setConcertDashesToUnderscores(boolean b);
+
+	String getPriorityTemplatePath();
 }

@@ -24,6 +24,7 @@ import com.webkreator.qlue.view.ClasspathView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.util.StringTokenizer;
 
 /**
@@ -127,14 +128,17 @@ public class PackageRouter implements Router {
         if (pageClass == null) {
             // Try a direct view.
             String classpathFilename;
+            String classpathBase;
 
             // Determine if we need to strip the suffix from the path or leave everything as is.
             String suffix = manager.getSuffix();
             if ((suffix != null)&&(path.endsWith(suffix))) {
-                classpathFilename = rootPackage + path.substring(0, path.length() - suffix.length()) + ".vmx";
+                classpathBase = rootPackage + path.substring(0, path.length() - suffix.length());
             } else {
-                classpathFilename = rootPackageAsPath + path + ".vmx";
+                classpathBase = rootPackageAsPath + path;
             }
+
+            classpathFilename = classpathBase + ".vmx";
 
             log.debug("Trying direct view: " + classpathFilename);
 
@@ -142,10 +146,39 @@ public class PackageRouter implements Router {
                 return new ClasspathView(classpathFilename);
             }
 
+            // Try the priority path. This is a little inefficient, but this
+            // feature is intended for use in development only.
+            String priorityPath = manager.getPriorityTemplatePath();
+            if (priorityPath != null) {
+                // We just need to check if the file exists on the alternative
+                // patch. If it does, the Velocity engine should be able to find it.
+                // So our goal here basically is not to signal "file not found".
+                File f = new File(priorityPath, classpathFilename);
+                if (f.exists()) {
+                    return new ClasspathView(classpathFilename);
+                }
+            }
+
             // Check for directory access by looking for an index page.
             pageClass = classForName(className + "." + manager.getIndex());
             log.debug("Trying class: " + className + "." + manager.getIndex());
             if (pageClass == null) {
+                // Before we give up, another try with the priority path,
+                // this time looking for "index.vmx".
+                if (priorityPath != null) {
+                    classpathFilename = classpathBase + "/index.vmx";
+                    File f = new File(priorityPath, classpathFilename);
+                    if (f.exists()) {
+                        // If there's no terminating slash in directory access, issue a redirection.
+                        if (tx.getRequestUri().endsWith("/") == false) {
+                            log.debug("Redirecting to " + tx.getRequestUri() + "/");
+                            return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, path);
+                        }
+
+                        return new ClasspathView(classpathFilename);
+                    }
+                }
+
                 return null;
             }
 

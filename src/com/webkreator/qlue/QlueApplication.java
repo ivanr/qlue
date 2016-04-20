@@ -39,6 +39,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -130,6 +132,8 @@ public class QlueApplication {
     private int frontendEncryptionCheck = FRONTEND_ENCRYPTION_CONTAINER;
 
     private Timer timer;
+
+    private String priorityTemplatePath;
 
     /**
      * This is the default constructor. The idea is that a subclass will
@@ -280,6 +284,23 @@ public class QlueApplication {
         if (getProperty("qlue.smtp.username") != null) {
             smtpEmailSender.setSmtpUsername(getProperty("qlue.smtp.username"));
             smtpEmailSender.setSmtpPassword(getProperty("qlue.smtp.password"));
+        }
+
+        priorityTemplatePath = getProperty("qlue.velocity.priorityTemplatePath");
+        if (priorityTemplatePath != null) {
+            Path p = FileSystems.getDefault().getPath(priorityTemplatePath);
+            if (!p.isAbsolute()) {
+                priorityTemplatePath = getApplicationRoot() + "/" + priorityTemplatePath;
+            }
+
+            File f = new File(priorityTemplatePath);
+            if (!f.exists()) {
+                throw new QlueException("Priority template path doesn't exist: " + priorityTemplatePath);
+            }
+
+            if (!f.isDirectory()) {
+                throw new QlueException("Priority template path is not a directory: " + priorityTemplatePath);
+            }
         }
     }
 
@@ -1712,5 +1733,9 @@ public class QlueApplication {
         public void run() {
             task.run();
         }
+    }
+
+    public String getPriorityTemplatePath() {
+        return priorityTemplatePath;
     }
 }

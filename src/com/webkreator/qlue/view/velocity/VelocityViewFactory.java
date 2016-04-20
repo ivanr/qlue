@@ -32,8 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Writer;
 import java.lang.reflect.Field;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.Properties;
 
@@ -69,19 +67,11 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		properties.setProperty("string.resource.loader.class", "org.apache.velocity.runtime.resource.loader.StringResourceLoader");
 		properties.setProperty("string.resource.loader.repository.name", QLUE_STRING_RESOURCE_LOADER_KEY);
 
-		if (qlueApp.getProperty("qlue.velocity.priorityTemplatePath") != null) {
-			String path = qlueApp.getProperty("qlue.velocity.priorityTemplatePath");
-
+		if (qlueApp.getPriorityTemplatePath() != null) {
 			properties.setProperty(RuntimeConstants.RESOURCE_LOADER, "file,class,string");
 			properties.setProperty("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.FileResourceLoader");
 			properties.setProperty("file.resource.loader.cache", "false");
-
-			Path p = FileSystems.getDefault().getPath(path);
-			if (p.isAbsolute()) {
-				properties.setProperty("file.resource.loader.path", path);
-			} else {
-				properties.setProperty("file.resource.loader.path", qlueApp.getApplicationRoot() + "/" + path);
-			}
+			properties.setProperty("file.resource.loader.path", qlueApp.getPriorityTemplatePath());
 		}
 
 		properties.setProperty(RuntimeConstants.VM_LIBRARY, macroPath);
