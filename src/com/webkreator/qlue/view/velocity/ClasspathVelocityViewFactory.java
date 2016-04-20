@@ -99,13 +99,13 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
     @Override
 	protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
         Properties properties = super.buildDefaultVelocityProperties(qlueApp);
-        properties.setProperty("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+        properties.setProperty("class.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
 
         String caching = properties.getProperty(RuntimeConstants.FILE_RESOURCE_LOADER_CACHE);
         if ((caching == null)||(!Boolean.valueOf(caching))) {
-            properties.setProperty("file.resource.loader.class", "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");
+            properties.setProperty("class.resource.loader.class", "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");
         } else {
-            properties.setProperty("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+            properties.setProperty("class.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
         }
 
         return properties;
