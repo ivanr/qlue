@@ -772,11 +772,16 @@ public class QlueApplication {
         // Loop through the command object fields in order to determine
         // if any are annotated as parameters. Remember the original
         // text values of parameters.
-        Field[] fields = commandObject.getClass().getFields();
+        //Field[] fields = commandObject.getClass().getFields();
+        Set<Field> fields = getClassPublicFields(commandObject.getClass());
         for (Field f : fields) {
             if (f.isAnnotationPresent(QlueParameter.class)) {
                 if (QlueFile.class.isAssignableFrom(f.getType())) {
                     continue;
+                }
+
+                if (!Modifier.isPublic(f.getModifiers())) {
+                    throw new QlueException("QlueParameter used on a non-public field");
                 }
 
                 // Update missing shadow input fields
@@ -904,6 +909,28 @@ public class QlueApplication {
         out.println(" Development mode: " + developmentMode);
     }
 
+    protected Set<Field> getClassPublicFields(Class klass) {
+        Set<Field> fields = new HashSet<>();
+
+        for(;;) {
+            Field[] fs = klass.getDeclaredFields();
+            for (Field f : fs) {
+                fields.add(f);
+            }
+
+            klass = klass.getSuperclass();
+            if (klass == null) {
+                break;
+            }
+
+            if (klass.getCanonicalName().equals(Page.class.getCanonicalName())) {
+                break;
+            }
+        }
+
+        return fields;
+    }
+
     /**
      * Bind request parameters to the command object provided by the page.
      */
@@ -917,7 +944,8 @@ public class QlueApplication {
 
         // Loop through the command object fields in order to determine if any are annotated as
         // parameters. Validate those that are, then bind them.
-        Field[] fields = commandObject.getClass().getDeclaredFields();
+        //Field[] fields = commandObject.getClass().getDeclaredFields();
+        Set<Field> fields = getClassPublicFields(commandObject.getClass());
         for (Field f : fields) {
             // We bind command object fields that have the QlueParameter annotation.
             if (f.isAnnotationPresent(QlueParameter.class) == false) {
