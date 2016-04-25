@@ -66,10 +66,10 @@ public class QlueServlet extends HttpServlet {
      */
     protected void createApplicationObject() throws ClassNotFoundException {
         String pagesPackage = getServletConfig().getInitParameter(QLUE_PAGES_ROOT_PACKAGE);
-        String appClass = getServletConfig().getInitParameter(QLUE_APP_CLASS);
+        String appClassName = getServletConfig().getInitParameter(QLUE_APP_CLASS);
 
         if (pagesPackage != null) {
-            if (appClass != null) {
+            if (appClassName != null) {
                 throw new RuntimeException("Only one parameter allowed");
             }
 
@@ -77,12 +77,20 @@ public class QlueServlet extends HttpServlet {
             return;
         }
 
-        if (appClass != null) {
-            Object app =  Class.forName(appClass);
-            if (app instanceof QlueApplication) {
-                setApp((QlueApplication) app);
-            } else {
-                throw new RuntimeException("Application object not instance of QlueApplication");
+        if (appClassName != null) {
+            Class appClass = QlueApplication.classForName(appClassName);
+            if (appClass == null) {
+                throw new RuntimeException("Unable to find application class: " + appClassName);
+            }
+
+            if (!QlueApplication.class.isAssignableFrom(appClass)) {
+                throw new RuntimeException("Application object not instance of QlueApplication: " + appClassName);
+            }
+
+            try {
+                setApp((QlueApplication) appClass.newInstance());
+            } catch (InstantiationException|IllegalAccessException e) {
+                throw new RuntimeException("Unable to create application instance: " + appClassName);
             }
         }
     }

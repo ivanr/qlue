@@ -1738,4 +1738,24 @@ public class QlueApplication {
     public String getPriorityTemplatePath() {
         return priorityTemplatePath;
     }
+
+    /**
+     * Returns class given its name.
+     *
+     * @param name
+     * @return
+     */
+    public static Class classForName(String name) {
+        try {
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            return Class.forName(name, true /* initialize */, classLoader);
+        } catch (ClassNotFoundException e) {
+            return null;
+        } catch (NoClassDefFoundError e) {
+            // NoClassDefFoundError is thrown when there is a class
+            // that matches the name when ignoring case differences.
+            // We do not care about that.
+            return null;
+        }
+    }
 }

@@ -17,6 +17,7 @@
 package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.QlueMapping;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.exceptions.QlueSecurityException;
@@ -60,7 +61,7 @@ public class PackageRouter implements Router {
      */
     public Object resolveUri(TransactionContext tx, String path) {
         @SuppressWarnings("rawtypes")
-        Class pageClass = null;
+        Class pageClass;
 
         if (path.indexOf("/../") != -1) {
             throw new QlueSecurityException("Directory backreferences not allowed in path");
@@ -124,7 +125,7 @@ public class PackageRouter implements Router {
         log.debug("Trying class: " + className);
 
         // Look for a class with this name
-        pageClass = classForName(className);
+        pageClass = QlueApplication.classForName(className);
         if (pageClass == null) {
             // Try a direct view.
             String classpathFilename;
@@ -160,7 +161,7 @@ public class PackageRouter implements Router {
             }
 
             // Check for directory access by looking for an index page.
-            pageClass = classForName(className + "." + manager.getIndex());
+            pageClass = QlueApplication.classForName(className + "." + manager.getIndex());
             log.debug("Trying class: " + className + "." + manager.getIndex());
             if (pageClass == null) {
                 // Before we give up, another try with the priority path,
@@ -242,25 +243,5 @@ public class PackageRouter implements Router {
         }
 
         return true;
-    }
-
-    /**
-     * Returns class given its name.
-     *
-     * @param name
-     * @return
-     */
-    protected static Class classForName(String name) {
-        try {
-            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            return Class.forName(name, true, classLoader);
-        } catch (ClassNotFoundException e) {
-            return null;
-        } catch (NoClassDefFoundError e) {
-            // NoClassDefFoundError is thrown when there is a class
-            // that matches the name when ignoring case differences.
-            // We do not care about that.
-            return null;
-        }
     }
 }
