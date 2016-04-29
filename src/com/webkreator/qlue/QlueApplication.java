@@ -1329,7 +1329,7 @@ public class QlueApplication {
      * Retrieve an encoding tool the application can use to write directly to HTML.
      */
     public Object getEncodingTool() {
-        return HtmlEncoder.instance();
+        return new HtmlEncoder();
     }
 
     /**

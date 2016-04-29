@@ -16,19 +16,22 @@
  */
 package com.webkreator.qlue.util;
 
+import com.webkreator.qlue.Page;
+import com.webkreator.qlue.view.velocity.QlueVelocityTool;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Contains a number of utility methods to properly encode data when preparing
- * HTML responses.
+ * Contains a number of utility methods to properly encode data when preparing HTML responses.
  */
-public class HtmlEncoder {
+public class HtmlEncoder implements QlueVelocityTool {
+
+	private Page page;
 
 	protected static HtmlEncoder _instance;
 
-	private static Pattern uriPattern = Pattern
-			.compile("^(https?://)([^/]+)(/.*)?$");
+	private static Pattern uriPattern = Pattern.compile("^(https?://)([^/]+)(/.*)?$");
 
 	/**
 	 * Creates an instance of this encoder. We'd normally not need it, as all
@@ -368,5 +371,10 @@ public class HtmlEncoder {
 
 	public static String asis(String input) {
 		return input;
+	}
+
+	@Override
+	public void setPage(Page page) {
+		this.page = page;
 	}
 }
