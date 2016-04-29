@@ -29,22 +29,7 @@ public class HtmlEncoder implements QlueVelocityTool {
 
 	private Page page;
 
-	protected static HtmlEncoder _instance;
-
 	private static Pattern uriPattern = Pattern.compile("^(https?://)([^/]+)(/.*)?$");
-
-	/**
-	 * Creates an instance of this encoder. We'd normally not need it, as all
-	 * methods are static, but we need to pass an object into the model used by
-	 * Velocity templates.
-	 */
-	public static synchronized HtmlEncoder instance() {
-		if (_instance == null) {
-			_instance = new HtmlEncoder();
-		}
-
-		return _instance;
-	}
 
 	/**
 	 * Encodes input string for output into HTML.
