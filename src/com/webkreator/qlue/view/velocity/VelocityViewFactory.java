@@ -19,7 +19,6 @@ package com.webkreator.qlue.view.velocity;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
-import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.Canoe;
 import com.webkreator.qlue.view.ViewFactory;
 import org.apache.velocity.Template;
@@ -127,7 +126,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		// directly (without encoding) to responses, but some
 		// pages will need to do that.
 		if (page.allowDirectOutput()) {
-			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME, HtmlEncoder.instance());
+			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME, page.getApp().getEncodingTool());
 		}
 
 		model.put("_app", page.getApp());

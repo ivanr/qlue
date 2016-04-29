@@ -1326,6 +1326,13 @@ public class QlueApplication {
     }
 
     /**
+     * Retrieve an encoding tool the application can use to write directly to HTML.
+     */
+    public Object getEncodingTool() {
+        return HtmlEncoder.instance();
+    }
+
+    /**
      * This method is invoked to create a new session object. A QlueSession
      * instance is returned by default, but most applications will want to
      * override this method and provide their own session objects.
