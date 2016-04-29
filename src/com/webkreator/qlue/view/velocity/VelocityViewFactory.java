@@ -126,7 +126,12 @@ public abstract class VelocityViewFactory implements ViewFactory {
 		// directly (without encoding) to responses, but some
 		// pages will need to do that.
 		if (page.allowDirectOutput()) {
-			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME, page.getApp().getEncodingTool());
+			Object h = page.getApp().getEncodingTool();
+			if (h instanceof QlueVelocityTool) {
+				((QlueVelocityTool)h).setPage(page);
+			}
+
+			model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME, h);
 		}
 
 		model.put("_app", page.getApp());
