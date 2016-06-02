@@ -19,6 +19,8 @@ package com.webkreator.qlue.router;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.view.RedirectView;
 
+import javax.servlet.http.HttpServletResponse;
+
 /**
  * Routes transaction to a redirection.
  */
@@ -26,7 +28,7 @@ public class RedirectionRouter implements Router {
 
 	private String uri;
 
-	private int status = 301;
+	private int status = HttpServletResponse.SC_TEMPORARY_REDIRECT;
 
 	public RedirectionRouter(String uri) {
 		this.uri = uri;
