@@ -362,4 +362,8 @@ public class HtmlEncoder implements QlueVelocityTool {
 	public void setPage(Page page) {
 		this.page = page;
 	}
+
+	public static String encodeForHTMLAttribute(String input) {
+		return encodeForHTML(input);
+	}
 }
