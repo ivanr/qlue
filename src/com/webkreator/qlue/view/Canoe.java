@@ -34,11 +34,13 @@ public class Canoe extends Writer {
 
 	public static final int CTX_HTML = 1;
 
-	public static final int CTX_JS = 2;
+	public static final int CTX_HTML_ATTR = 2;
 
-	public static final int CTX_URI = 3;
+	public static final int CTX_JS = 3;
 
-	public static final int CTX_CSS = 4;
+	public static final int CTX_URI = 4;
+
+	public static final int CTX_CSS = 5;
 
 	public static final String ERROR_PREFIX = "Encoding Error: ";
 
@@ -288,6 +290,8 @@ public class Canoe extends Writer {
 			attributeContext = ATTR_URI;
 			return;
 		}
+
+		// XXX The following two cases are the same, which one is correct?
 
 		// content
 		if ((buf[0] == 'd') && (buf[1] == 'a') && (buf[2] == 't')
@@ -1030,7 +1034,7 @@ public class Canoe extends Writer {
 		case TAG_ATTR_VALUE:
 			switch (attributeContext) {
 			case ATTR_HTML:
-				return CTX_HTML;
+				return CTX_HTML_ATTR;
 
 			case ATTR_JS:
 				return CTX_JS;
@@ -1064,6 +1068,8 @@ public class Canoe extends Writer {
 		switch (ctx) {
 		case CTX_HTML:
 			return HtmlEncoder.encodeForHTML(input);
+		case CTX_HTML_ATTR:
+			return HtmlEncoder.encodeForHTMLAttribute(input);
 		case CTX_JS:
 			// Do not output anything into JS contexts
 			// return HtmlEncoder.encodeForJavaScript(input);
