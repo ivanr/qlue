@@ -457,9 +457,17 @@ public class QlueApplication {
         Page page = null;
 
         try {
-            // Check if we need to handle multipart/form-data
+            // Check if we need to handle multipart/form-data.
             context.processMultipart();
+        } catch(Throwable t) {
+            // Short-circuit processing. Because this is a client
+            // error we don't want to send any notifications, etc.
+            context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
+            log.info("Multipart processing failed; aborting request", t);
+            return;
+        }
 
+        try {
             // -- Page resolution --
 
             // Check if this is a request for a persistent page. We can
