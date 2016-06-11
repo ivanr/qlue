@@ -1003,21 +1003,29 @@ public class QlueApplication {
 
     protected void _masterWriteRequestDevelopmentInformation(
             TransactionContext context, Page page, PrintWriter out)
-            throws IOException {
-        if (page == null) {
-            return;
-        }
-
+            throws IOException
+    {
         out.println("<hr><div align=left><pre>");
         out.println("<b>Request</b>\n");
         context.writeRequestDevelopmentInformation(out);
         out.println("");
+
         out.println("<b>Page</b>\n");
-        page.writeDevelopmentInformation(out);
+        if (page != null) {
+            page.writeDevelopmentInformation(out);
+        } else {
+            out.println("(page not determined yet)");
+        }
         out.println("");
+
         out.println("<b>Session</b>\n");
-        page.getQlueSession().writeDevelopmentInformation(out);
+        if (page != null) {
+            page.getQlueSession().writeDevelopmentInformation(out);
+        } else {
+            out.println("(page is null, so no session either)");
+        }
         out.println("");
+
         out.println("<b>Application</b>\n");
         this.writeDevelopmentInformation(out);
         out.println("</pre></div>");
