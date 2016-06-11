@@ -16,13 +16,14 @@
  */
 package com.webkreator.qlue.util;
 
+import com.webkreator.canoe.HtmlEncoder;
+import com.webkreator.qlue.QlueClientErrorException;
+import com.webkreator.qlue.TransactionContext;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
-
-import com.webkreator.canoe.HtmlEncoder;
-import com.webkreator.qlue.TransactionContext;
 
 /**
  * This class contains various utility methods useful in web applications.
@@ -43,7 +44,7 @@ public class WebUtil {
 			URI u = new URI("http://localhost/" + uri);
 			uri = u.normalize().getPath();
 		} catch (URISyntaxException e) {
-			throw new RuntimeException("Invalid uri", e);
+			throw new QlueClientErrorException("Invalid URI", e);
 		}
 
 		// Remove consecutive forward slash characters

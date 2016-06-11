@@ -632,6 +632,13 @@ public class QlueApplication {
 
             // Respond to security exceptions with a 400 response
             context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
+        } catch (QlueClientErrorException cee) {
+            if (page != null) {
+                page.rollback();
+            }
+
+            log.error("Client error: " + cee.getMessage());
+            context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (Throwable t) {
             if (page != null) {
                 page.rollback();

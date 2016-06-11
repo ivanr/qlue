@@ -28,7 +28,15 @@ public class QlueException extends RuntimeException {
 		super();
 	}
 
+	public QlueException(Throwable t) {
+		super(t);
+	}
+
 	public QlueException(String string) {
 		super(string);
+	}
+
+	public QlueException(String string, Throwable t) {
+		super(string, t);
 	}
 }
