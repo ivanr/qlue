@@ -112,7 +112,6 @@ public abstract class VelocityViewFactory implements ViewFactory {
         while (e.hasMoreElements()) {
             String key = (String) e.nextElement();
             if (key.startsWith(QLUE_RAW_VELOCITY_CONFIG_PREFIX)) {
-                System.err.println("[" + key.substring(QLUE_RAW_VELOCITY_CONFIG_PREFIX.length()) + "][" + qlueProperties.getProperty(key) + "]");
                 properties.setProperty(
                         key.substring(QLUE_RAW_VELOCITY_CONFIG_PREFIX.length()),
                         qlueProperties.getProperty(key));
