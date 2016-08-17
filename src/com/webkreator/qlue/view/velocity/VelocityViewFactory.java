@@ -96,6 +96,12 @@ public abstract class VelocityViewFactory implements ViewFactory {
         }
 
         properties.setProperty("directive.set.null.allowed", "true");
+        properties.setProperty("resource.manager.logwhenfound", "false");
+        properties.setProperty("velocimacro.permissions.allow.inline.local.scope", "true");
+        properties.setProperty("velocimacro.arguments.strict", "true");
+        properties.setProperty("macro.provide.scope.control", "true");
+        properties.setProperty("runtime.references.strict", "true");
+        properties.setProperty("runtime.strict.math", "false");
 
         return properties;
     }
