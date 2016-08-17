@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Writer;
 import java.lang.reflect.Field;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.Properties;
 
@@ -41,6 +42,8 @@ import java.util.Properties;
 public abstract class VelocityViewFactory implements ViewFactory {
 
     public static final String QLUE_STRING_RESOURCE_LOADER_KEY = "QLUE_STRING_RESOURCE_LOADER";
+
+    public static final String QLUE_RAW_VELOCITY_CONFIG_PREFIX = "qlue.velocity.raw.";
 
     protected static Logger log = LoggerFactory.getLogger(VelocityViewFactory.class);
 
@@ -101,7 +104,20 @@ public abstract class VelocityViewFactory implements ViewFactory {
         properties.setProperty("velocimacro.arguments.strict", "true");
         properties.setProperty("macro.provide.scope.control", "true");
         properties.setProperty("runtime.references.strict", "true");
-        properties.setProperty("runtime.strict.math", "false");
+        properties.setProperty("runtime.strict.math", "true");
+
+        // Pass raw Velocity configuration from Qlue properties.
+        Properties qlueProperties = qlueApp.getProperties();
+        Enumeration e = qlueProperties.propertyNames();
+        while (e.hasMoreElements()) {
+            String key = (String) e.nextElement();
+            if (key.startsWith(QLUE_RAW_VELOCITY_CONFIG_PREFIX)) {
+                System.err.println("[" + key.substring(QLUE_RAW_VELOCITY_CONFIG_PREFIX.length()) + "][" + qlueProperties.getProperty(key) + "]");
+                properties.setProperty(
+                        key.substring(QLUE_RAW_VELOCITY_CONFIG_PREFIX.length()),
+                        qlueProperties.getProperty(key));
+            }
+        }
 
         return properties;
     }

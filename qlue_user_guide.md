@@ -205,3 +205,20 @@ The routes file can be used to set custom HTTP response headers. If a line begin
 	@header Cache-Control no-cache
 	
 Header configuration directives apply to all routes below themm. Thus, to establish defaults, place your confifuration directives at the top of the routes file. A directive for a header of the same name will overwrite the previous header version; this is useful, for example, to use different caching strategies for different parts of the application.
+
+## Velocity configuration
+
+The default Velocity configuration should be sufficient for most situations. Custom configuration can be deployed programmatically, by building a custom ViewFactory inherting from VelocityViewFactory. Then override and implement tweakVelocityContext().
+
+Qlue supports several configuration parameters that control Velocity:
+
+ * qlue.velocity.cache - controls if template caching is enabled; should be disabled in development and enabled in production. Defaults to false.
+
+ * qlue.velocity.modificationCheckInterval - if caching is enabled, controls the interval between checks for modified templates.
+ 
+ * qlue.velocity.priorityTemplatePath - specifies a priority path on the filesystem from which the templates will be loaded. This feature is intended for use in development when application is run from an IDE.
+ 
+It is possible to configure Velocity directly from Qlue configuration; if there are any properties that start with the "qlue.velocity.raw" prefix they will be passed through unmodified (with the prefix removed) to the Velocity engine as the last step in the configuration process.
+ 
+ VelocityViewFactory will dump Velocity configuration to the log at level INFO just prior to creating an instance of the Velocity engine.
+ 
