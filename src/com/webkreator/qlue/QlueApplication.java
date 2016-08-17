@@ -328,8 +328,7 @@ public class QlueApplication {
      * This method is the main entry point for request processing.
      */
     protected void service(HttpServlet servlet, HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException
-    {
+            throws ServletException, IOException {
         // Remember when processing began.
         long startTime = System.currentTimeMillis();
 
@@ -434,7 +433,7 @@ public class QlueApplication {
                 // Perisistent pages are identified via the "_pid" parameter. If we have
                 // one such parameter, we look for the corresponding page in session storage.
                 String pids[] = context.getParameterValues("_pid");
-                if ((pids != null)&&(pids.length != 0)) {
+                if ((pids != null) && (pids.length != 0)) {
                     // Only one _pid parameter is allowed.
                     if (pids.length != 1) {
                         throw new RuntimeException("Request contains multiple _pid parameters");
@@ -591,7 +590,7 @@ public class QlueApplication {
             }
         } finally {
             // Invoke cleanup on finished pages.
-            if ((page != null)&&(page.isFinished())&&(!page.isCleanupInvoked())) {
+            if ((page != null) && (page.isFinished()) && (!page.isCleanupInvoked())) {
                 page.cleanup();
             }
 
@@ -750,11 +749,7 @@ public class QlueApplication {
             throw new RuntimeException("Qlue: Unable to resolve view");
         }
 
-        try {
-            view.render(tx, page);
-        } catch (Throwable t) {
-            t.printStackTrace(System.err);
-        }
+        view.render(tx, page);
     }
 
     /**
@@ -912,7 +907,7 @@ public class QlueApplication {
     protected Set<Field> getClassPublicFields(Class klass) {
         Set<Field> fields = new HashSet<>();
 
-        for(;;) {
+        for (; ; ) {
             Field[] fs = klass.getDeclaredFields();
             for (Field f : fs) {
                 fields.add(f);
@@ -964,7 +959,7 @@ public class QlueApplication {
                 QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
                 // Bind this parameter only if it matches any state, or if it matches the page's current state.
-                if (qp.state().equals(Page.STATE_ANY)||(qp.state().equals(page.getState()))) {
+                if (qp.state().equals(Page.STATE_ANY) || (qp.state().equals(page.getState()))) {
 
                     if (qp.source().equals(ParamSource.URL)) {
                         // Bind parameters transported in URL. For this to work there needs
@@ -972,9 +967,8 @@ public class QlueApplication {
                         bindParameterFromString(commandObject, f, page, page.context.getUrlParameter(f.getName()));
                     } else {
                         if (qp.source().equals(ParamSource.GET_POST)
-                            || (qp.source().equals(ParamSource.GET) && page.context.isGet())
-                            || (qp.source().equals(ParamSource.POST) && page.context.isPost()))
-                        {
+                                || (qp.source().equals(ParamSource.GET) && page.context.isGet())
+                                || (qp.source().equals(ParamSource.POST) && page.context.isPost())) {
                             if (f.getType().isArray()) {
                                 bindArrayParameter(commandObject, f, page);
                             } else {
@@ -1228,7 +1222,8 @@ public class QlueApplication {
 
         try {
             p = page.context.getPart(f.getName());
-        } catch(ServletException e) {}
+        } catch (ServletException e) {
+        }
 
         if ((p == null) || (p.getSize() == 0)) {
             if (qp.mandatory()) {
@@ -1437,7 +1432,7 @@ public class QlueApplication {
                 continue;
             }
 
-            if ((!s.contains("/"))&&(!s.contains(":"))) {
+            if ((!s.contains("/")) && (!s.contains(":"))) {
                 s = s + "/32";
             }
 
@@ -1461,7 +1456,7 @@ public class QlueApplication {
                     return true;
                 }
             }
-        } catch(UnknownHostException e) {
+        } catch (UnknownHostException e) {
             // Shouldn't happen.
             e.printStackTrace(System.err);
             return false;
@@ -1486,7 +1481,7 @@ public class QlueApplication {
                 continue;
             }
 
-            if ((!s.contains("/"))&&(!s.contains(":"))) {
+            if ((!s.contains("/")) && (!s.contains(":"))) {
                 s = s + "/32";
             }
 
@@ -1515,7 +1510,7 @@ public class QlueApplication {
                 }
 
             }
-        } catch(UnknownHostException e) {
+        } catch (UnknownHostException e) {
             // Shouldn't happen.
             e.printStackTrace(System.err);
             return false;
