@@ -1,0 +1,13 @@
+formTest
+
+<form action="/formTest" method="POST">
+    <input type="hidden" name="_secret" value="$_secret">
+    
+    #if ($_page.id)
+        <input type="hidden" name="_pid" value="$_page.id">
+    #end
+
+    <input type="text" name="name" value="$!_i.name">
+
+    <input type="submit" value="Submit">
+</form>

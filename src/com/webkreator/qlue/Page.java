@@ -47,15 +47,15 @@ public abstract class Page {
 
     public static final String STATE_POST = "POST";
 
-    public static final String STATE_NEW = "NEW";
+    public static final String STATE_INIT = "INIT";
 
-    public static final String STATE_ACTIVATED = "ACTIVATED";
+    public static final String STATE_WORKING = "WORKING";
 
     public static final String STATE_FINISHED = "FINISHED";
 
     private Integer id;
 
-    private String state = STATE_NEW;
+    private String state = STATE_INIT;
 
     protected Logger log = LoggerFactory.getLogger(Page.class);
 
@@ -99,6 +99,10 @@ public abstract class Page {
         this.id = id;
     }
 
+    public void clearShadowInput() {
+        shadowInput = new ShadowInput();
+    }
+
     /**
      * Retrieve shadow input associated with page.
      */
@@ -117,7 +121,7 @@ public abstract class Page {
      * Change page state to given value.
      */
     protected void setState(String state) {
-        if ((state == Page.STATE_NEW)||(state == Page.STATE_ANY)||(state == Page.STATE_GET)||(state == Page.STATE_POST)) {
+        if ((state == Page.STATE_INIT) || (state == Page.STATE_ANY) || (state == Page.STATE_GET) || (state == Page.STATE_POST)) {
             throw new IllegalArgumentException("Invalid state transition: " + state);
         }
 

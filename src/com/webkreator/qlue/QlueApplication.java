@@ -377,21 +377,22 @@ public class QlueApplication {
             return view;
         }
 
-        // Parameter binding always runs for non-persistent pages. For
-        // persistent pages, it runs only on POST requests.
-        if (!page.isPersistent() || (page.context.isPost())) {
+        // For persistent pages, we clear errors only on POSTs; that
+        // means that a subsequent GET can access the errors to show
+        // them to the user.
+        if (!page.isPersistent() || page.context.isPost()) {
             page.getErrors().clear();
-            updateShadowInput(page);
-            bindParameters(page);
         }
 
-        // Run custom parameter validation.
+        bindParameters(page);
+
+        // Custom parameter validation.
         view = page.validateParameters();
         if (view != null) {
             return view;
         }
 
-        // Handle validation errors, if any.
+        // Custom error handling.
         if (page.hasErrors()) {
             view = page.handleValidationError();
             if (view != null) {
@@ -402,10 +403,21 @@ public class QlueApplication {
         // Initialize the page. This really only makes sense for persistent pages, where you
         // want to run some code only once. With non-persistent pages, it's better to have
         // all the code in the same method.
-        if (page.getState().equals(Page.STATE_NEW)) {
+        if (page.getState().equals(Page.STATE_INIT)) {
             view = page.init();
             if (view != null) {
                 return view;
+            }
+        }
+
+        // For persistent pages, we clear errors only on POSTs; that
+        // means that a subsequent GET can access the errors to show
+        // them to the user.
+        if (!page.isPersistent() || page.context.isPost()) {
+            createShadowInput(page, /* fromRequest */ true);
+        } else {
+            if (page.getState() == Page.STATE_INIT) {
+                createShadowInput(page, /* fromRequest */ false);
             }
         }
 
@@ -505,8 +517,8 @@ public class QlueApplication {
                 } else {
                     // For persistent pages, we change their state only if they're left as NEW
                     // after execution. We change to POSTED in order to prevent multiple calls to init().
-                    if (page.getState().equals(Page.STATE_NEW)) {
-                        page.setState(Page.STATE_ACTIVATED);
+                    if (page.getState().equals(Page.STATE_INIT)) {
+                        page.setState(Page.STATE_WORKING);
                     }
                 }
             }
@@ -756,18 +768,19 @@ public class QlueApplication {
      * Invoked to store the original text values for parameters. The text is
      * needed in the cases where it cannot be converted to the intended type.
      */
-    private void updateShadowInput(Page page) throws Exception {
+    private void createShadowInput(Page page, boolean fromRequest) throws Exception {
+        page.clearShadowInput();
+
         // Ask the page to provide a command object, which can be
         // a custom object or the page itself.
         Object commandObject = page.getCommandObject();
         if (commandObject == null) {
-            throw new RuntimeException("Qlue: Command object cannot be null.");
+            throw new RuntimeException("Qlue: Command object cannot be null");
         }
 
         // Loop through the command object fields in order to determine
         // if any are annotated as parameters. Remember the original
         // text values of parameters.
-        //Field[] fields = commandObject.getClass().getFields();
         Set<Field> fields = getClassPublicFields(commandObject.getClass());
         for (Field f : fields) {
             if (f.isAnnotationPresent(QlueParameter.class)) {
@@ -782,24 +795,23 @@ public class QlueApplication {
                 // Update missing shadow input fields
                 if (page.getShadowInput().get(f.getName()) == null) {
                     if (f.getType().isArray()) {
-                        updateShadowInputArrayParam(page, f);
+                        createShadowInputArrayParam(page, f, fromRequest);
                     } else {
-                        updateShadowInputNonArrayParam(page, f);
+                        createShadowInputNonArrayParam(page, f, fromRequest);
                     }
                 }
             }
         }
     }
 
-    private void updateShadowInputArrayParam(Page page, Field f) throws Exception {
+    private void createShadowInputArrayParam(Page page, Field f, boolean fromRequest) throws Exception {
         // Find the property editor
         PropertyEditor pe = editors.get(f.getType().getComponentType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType().getComponentType());
         }
 
-        // If there is any data in the command object
-        // use it to populate shadow input
+        // If there is any data in the command object use it to populate shadow input
         if (f.get(page.getCommandObject()) != null) {
             Object[] originalValues = (Object[]) f.get(page.getCommandObject());
             String[] textValues = new String[originalValues.length];
@@ -810,20 +822,35 @@ public class QlueApplication {
 
             page.getShadowInput().set(f.getName(), textValues);
         }
+
+        if (fromRequest) {
+            // Overwrite with the value in the request, if present
+            String[] requestParamValues = page.context.getParameterValues(f.getName());
+            if (requestParamValues != null) {
+                page.getShadowInput().set(f.getName(), requestParamValues);
+            }
+        }
     }
 
-    private void updateShadowInputNonArrayParam(Page page, Field f) throws Exception {
+    private void createShadowInputNonArrayParam(Page page, Field f, boolean fromRequest) throws Exception {
         // Find the property editor
         PropertyEditor pe = editors.get(f.getType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
 
-        // If the object exists, convert it to
-        // text using the property editor
+        // If the object exists in the command object, convert it to text using the property editor
         Object o = f.get(page.getCommandObject());
         if (o != null) {
             page.getShadowInput().set(f.getName(), pe.toText(o));
+        }
+
+        // Overwrite with the value in the request, if present
+        if (fromRequest) {
+            String requestParamValue = page.context.getParameter(f.getName());
+            if (requestParamValue != null) {
+                page.getShadowInput().set(f.getName(), requestParamValue);
+            }
         }
     }
 
@@ -939,7 +966,6 @@ public class QlueApplication {
 
         // Loop through the command object fields in order to determine if any are annotated as
         // parameters. Validate those that are, then bind them.
-        //Field[] fields = commandObject.getClass().getDeclaredFields();
         Set<Field> fields = getClassPublicFields(commandObject.getClass());
         for (Field f : fields) {
             // We bind command object fields that have the QlueParameter annotation.
@@ -958,9 +984,11 @@ public class QlueApplication {
             try {
                 QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
-                // Bind this parameter only if it matches any state, or if it matches the page's current state.
-                if (qp.state().equals(Page.STATE_ANY) || (qp.state().equals(page.getState()))) {
-
+                // Bind parameter when appropriate.
+                if (qp.state().equals(Page.STATE_ANY)
+                        || (qp.state().equals(page.getState()))
+                        || ((page.context.isGet()) && (qp.state().equals(Page.STATE_GET)))
+                        || ((page.context.isPost()) && (qp.state().equals(Page.STATE_POST)))) {
                     if (qp.source().equals(ParamSource.URL)) {
                         // Bind parameters transported in URL. For this to work there needs
                         // to exist a route that parses out the parameter out of the URL.
@@ -988,9 +1016,6 @@ public class QlueApplication {
      * Bind an array parameter.
      */
     private void bindArrayParameter(Object commandObject, Field f, Page page) throws Exception {
-        // Find shadow input
-        ShadowInput shadowInput = page.getShadowInput();
-
         // Get the annotation
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
@@ -1003,15 +1028,12 @@ public class QlueApplication {
 
         String[] values = page.context.getParameterValues(f.getName());
         if ((values == null) || (values.length == 0)) {
-            // Parameter not in input; create an empty array
-            // and set it on the command object.
+            // Parameter not in input; create an empty array and set it on the command object.
             f.set(commandObject, Array.newInstance(f.getType().getComponentType(), 0));
             return;
         }
 
         // Parameter in input
-
-        shadowInput.set(f.getName(), values);
 
         boolean hasErrors = false;
         Object[] convertedValues = (Object[]) Array.newInstance(f.getType().getComponentType(), values.length);
@@ -1104,9 +1126,6 @@ public class QlueApplication {
      * Bind a parameter that is not an array.
      */
     private void bindNonArrayParameter(Object commandObject, Field f, Page page) throws Exception {
-        // Find shadow input
-        ShadowInput shadowInput = page.getShadowInput();
-
         // Get the annotation
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
@@ -1123,21 +1142,9 @@ public class QlueApplication {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
 
-        // Keep track of the original text parameter value
-        String value = page.context.getParameter(f.getName());
-        if (value != null) {
-            // Load from the parameter
-            shadowInput.set(f.getName(), value);
-        } else {
-            // Load from the command object
-            Object o = f.get(commandObject);
-            if (o != null) {
-                shadowInput.set(f.getName(), pe.toText(o));
-            }
-        }
+        // If the parameter is present in request, validate it and set on the command object
 
-        // If the parameter is present in request, validate it
-        // and set on the command object
+        String value = page.context.getParameter(f.getName());
         if (value != null) {
             String newValue = validateParameter(page, f, qp, value);
             if (newValue != null) {
@@ -1156,9 +1163,6 @@ public class QlueApplication {
     }
 
     private void bindParameterFromString(Object commandObject, Field f, Page page, String value) throws Exception {
-        // Find shadow input
-        ShadowInput shadowInput = page.getShadowInput();
-
         // Get the annotation
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
@@ -1172,18 +1176,6 @@ public class QlueApplication {
         PropertyEditor pe = editors.get(f.getType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
-        }
-
-        // Keep track of the original text parameter value
-        if (value != null) {
-            // Load from the parameter
-            shadowInput.set(f.getName(), value);
-        } else {
-            // Load from the command object
-            Object o = f.get(commandObject);
-            if (o != null) {
-                shadowInput.set(f.getName(), pe.toText(o));
-            }
         }
 
         // If the parameter is present in request, validate it
