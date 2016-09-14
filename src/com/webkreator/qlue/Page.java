@@ -43,6 +43,8 @@ public abstract class Page {
 
     public static final String STATE_ANY = "ANY";
 
+    public static final String STATE_DEFAULT = "DEFAULT";
+
     public static final String STATE_GET = "GET";
 
     public static final String STATE_POST = "POST";

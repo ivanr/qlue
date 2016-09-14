@@ -953,6 +953,42 @@ public class QlueApplication {
         return fields;
     }
 
+    public boolean shouldBindParameter(QlueParameter qp, Page page) {
+        String state = qp.state();
+
+        // Always bind.
+        if (state.equals(Page.STATE_ANY)) {
+            return true;
+        }
+
+        // Bind if the parameter state matches page state.
+        if (state.equals(page.getState())) {
+            return true;
+        }
+
+        // Special state STATE_DEFAULT: if the page is not persistent,
+        // bind always. Otherwise, bind only on POST.
+        if (state.equals(Page.STATE_DEFAULT)) {
+            if (!page.isPersistent() || page.context.isPost()) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        // Bind on GET requests.
+        if (state.equals(Page.STATE_GET) && page.context.isGet()) {
+            return true;
+        }
+
+        // Bind on POST requests.
+        if (state.equals(Page.STATE_POST) && page.context.isPost()) {
+            return true;
+        }
+
+        return false;
+    }
+
     /**
      * Bind request parameters to the command object provided by the page.
      */
@@ -985,10 +1021,7 @@ public class QlueApplication {
                 QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
                 // Bind parameter when appropriate.
-                if (qp.state().equals(Page.STATE_ANY)
-                        || (qp.state().equals(page.getState()))
-                        || ((page.context.isGet()) && (qp.state().equals(Page.STATE_GET)))
-                        || ((page.context.isPost()) && (qp.state().equals(Page.STATE_POST)))) {
+                if (shouldBindParameter(qp, page)) {
                     if (qp.source().equals(ParamSource.URL)) {
                         // Bind parameters transported in URL. For this to work there needs
                         // to exist a route that parses out the parameter out of the URL.

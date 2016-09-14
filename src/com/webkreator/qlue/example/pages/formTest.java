@@ -13,7 +13,7 @@ public class formTest extends Page {
     @QlueParameter(state = Page.STATE_INIT)
     public Integer id;
 
-    @QlueParameter(state = Page.STATE_POST)
+    @QlueParameter
     public String name;
 
     @Override

@@ -25,54 +25,54 @@ import java.lang.annotation.RetentionPolicy;
  */
 @Retention(RetentionPolicy.RUNTIME)
 public @interface QlueParameter {
-	
-	/**
-	 * Is this parameter mandatory?
-	 */
-	boolean mandatory() default true;
-	
-	/**
-	 * When set, this message overrides the default
-	 * message that is used when a mandatory field
-	 * is not present.
-	 */
-	String fieldMissingMessage() default "";
-	
-	/**
-	 * Regular expression pattern to use when
-	 * validating parameter value. 
-	 */
-	String pattern() default "";
-	
-	/**
-	 * Maximum value for integer parameters.
-	 */
-	int maxSize() default -1;
-	
-	/**
-	 * A comma-separated list of transformation
-	 * functions to apply before validation.
-	 */
-	String tfn() default "";
-	
-	/**
-	 * When true, validation errors in the field
-	 * will be ignored; the field will not be
-	 * populated.
-	 */
-	boolean ignoreInvalid() default false;
-	
-	/**
-	 * In order for a parameter to be updated, its
-	 * state must match that of the page in which they
-	 * are used.
-	 */
-	String state() default Page.STATE_ANY;
 
-	/**
-	 * Determines the permitted origins for a parameter. By
-	 * default, any HTTP parameter with a matching name is
-	 * used, irrespective of the source.
+    /**
+     * Is this parameter mandatory?
      */
-	ParamSource source() default ParamSource.GET_POST;
+    boolean mandatory() default true;
+
+    /**
+     * When set, this message overrides the default
+     * message that is used when a mandatory field
+     * is not present.
+     */
+    String fieldMissingMessage() default "";
+
+    /**
+     * Regular expression pattern to use when
+     * validating parameter value.
+     */
+    String pattern() default "";
+
+    /**
+     * Maximum value for integer parameters.
+     */
+    int maxSize() default -1;
+
+    /**
+     * A comma-separated list of transformation
+     * functions to apply before validation.
+     */
+    String tfn() default "";
+
+    /**
+     * When true, validation errors in the field
+     * will be ignored; the field will not be
+     * populated.
+     */
+    boolean ignoreInvalid() default false;
+
+    /**
+     * In order for a parameter to be updated, its
+     * state must match that of the page in which they
+     * are used.
+     */
+    String state() default Page.STATE_DEFAULT;
+
+    /**
+     * Determines the permitted origins for a parameter. By
+     * default, any HTTP parameter with a matching name is
+     * used, irrespective of the source.
+     */
+    ParamSource source() default ParamSource.GET_POST;
 }
