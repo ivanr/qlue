@@ -410,17 +410,6 @@ public class QlueApplication {
             }
         }
 
-        // For persistent pages, we clear errors only on POSTs; that
-        // means that a subsequent GET can access the errors to show
-        // them to the user.
-        if (!page.isPersistent() || page.context.isPost()) {
-            createShadowInput(page, /* fromRequest */ true);
-        } else {
-            if (page.getState() == Page.STATE_INIT) {
-                createShadowInput(page, /* fromRequest */ false);
-            }
-        }
-
         // Early call to prepare the page for the main thing.
         view = page.prepareForService();
         if (view != null) {
@@ -735,6 +724,17 @@ public class QlueApplication {
     }
 
     public void renderView(View view, TransactionContext tx, Page page) throws Exception {
+        // For persistent pages, we clear errors only on POSTs; that
+        // means that a subsequent GET can access the errors to show
+        // them to the user.
+        if (!page.isPersistent() || page.context.isPost()) {
+            createShadowInput(page, /* fromRequest */ true);
+        } else {
+            if (page.getState() == Page.STATE_INIT) {
+                createShadowInput(page, /* fromRequest */ false);
+            }
+        }
+
         // NullView only indicates that no further output is needed.
         if (view instanceof NullView) {
             return;
