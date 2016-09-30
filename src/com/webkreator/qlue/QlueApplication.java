@@ -334,6 +334,7 @@ public class QlueApplication {
 
         // Set the default character encoding.
         request.setCharacterEncoding(characterEncoding);
+        response.setCharacterEncoding(characterEncoding);
 
         // Create a new application session object if one does not exist.
         HttpSession session = request.getSession();
