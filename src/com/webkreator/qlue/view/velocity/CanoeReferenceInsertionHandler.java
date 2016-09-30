@@ -22,42 +22,36 @@ import org.apache.velocity.app.event.ReferenceInsertionEventHandler;
 /**
  * This class is a bridge between Canoe and Velocity.
  */
-public class CanoeReferenceInsertionHandler implements
-		ReferenceInsertionEventHandler {
+public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHandler {
 
-	public static final String SAFE_REFERENCE_NAME = "_x";
+    public static final String SAFE_REFERENCE_NAME = "_x";
 
-	public static final String SAFE_REFERENCE_PREFIX1 = "$"
-			+ SAFE_REFERENCE_NAME + ".";
+    public static final String SAFE_REFERENCE_PREFIX1 = "$" + SAFE_REFERENCE_NAME + ".";
 
-	public static final String SAFE_REFERENCE_PREFIX2 = "$!"
-			+ SAFE_REFERENCE_NAME + ".";
+    public static final String SAFE_REFERENCE_PREFIX2 = "$!" + SAFE_REFERENCE_NAME + ".";
 
-	protected Canoe qlueWriter;
+    protected Canoe qlueWriter;
 
-	public CanoeReferenceInsertionHandler(Canoe qlueWriter) {
-		this.qlueWriter = qlueWriter;
-	}
+    public CanoeReferenceInsertionHandler(Canoe qlueWriter) {
+        this.qlueWriter = qlueWriter;
+    }
 
-	/**
-	 * Encodes text for output.
-	 */
-	@Override
-	public Object referenceInsert(String arg0, Object arg1) {
-		// We ignore references that start with the prefix
-		// we consider to be safe. This allows developers to
-		// bypass the automatic encoding mechanism and prepare
-		// output themselves.
-		if (arg0.startsWith(SAFE_REFERENCE_PREFIX1)||arg0.startsWith(SAFE_REFERENCE_PREFIX2)) {
-			return arg1;
-		}
+    @Override
+    public Object referenceInsert(String arg0, Object arg1) {
+        // We ignore references that start with the prefix
+        // we consider to be safe. This allows developers to
+        // bypass the automatic encoding mechanism and prepare
+        // output themselves.
+        if (arg0.startsWith(SAFE_REFERENCE_PREFIX1) || arg0.startsWith(SAFE_REFERENCE_PREFIX2)) {
+            return arg1;
+        }
 
-		// Give up if there's nothing to output
-		if (arg1 == null) {
-			return null;
-		}
+        // Give up if there's nothing to output
+        if (arg1 == null) {
+            return null;
+        }
 
-		// Now encode the text using the correct encoder
-		return Canoe.encode(arg1.toString(), qlueWriter.currentContext());
-	}
+        // Otherwise encode the text using the correct encoder
+        return Canoe.encode(arg1.toString(), qlueWriter.currentContext());
+    }
 }
