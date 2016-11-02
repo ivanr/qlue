@@ -27,343 +27,341 @@ import java.util.regex.Pattern;
  */
 public class HtmlEncoder implements QlueVelocityTool {
 
-	private Page page;
+    private Page page;
 
-	private static Pattern uriPattern = Pattern.compile("^(https?://)([^/]+)(/.*)?$");
+    private static Pattern uriPattern = Pattern.compile("^(https?://)([^/]+)(/.*)?$");
 
-	/**
-	 * Encodes input string for output into HTML.
-	 * 
-	 * @param input
-	 * @return
-	 */
-	public static String encodeForHTML(String input) {
-		if (input == null) {
-			return null;
-		}
+    /**
+     * Encodes input string for output into HTML.
+     *
+     * @param input
+     * @return
+     */
+    public static String encodeForHTML(String input) {
+        if (input == null) {
+            return null;
+        }
 
-		StringBuffer sb = new StringBuffer(input.length() * 2);
-		encodeForHTML(input, sb);
+        StringBuffer sb = new StringBuffer(input.length() * 2);
+        encodeForHTML(input, sb);
 
-		return sb.toString();
-	}
+        return sb.toString();
+    }
 
-	/**
-	 * Encodes input string for output into HTML.
-	 * 
-	 * @param input
-	 * @param sb
-	 */
-	public static void encodeForHTML(String input, StringBuffer sb) {
-		if (input == null) {
-			return;
-		}
+    /**
+     * Encodes input string for output into HTML.
+     *
+     * @param input
+     * @param sb
+     */
+    public static void encodeForHTML(String input, StringBuffer sb) {
+        if (input == null) {
+            return;
+        }
+        
+        for (int c : input.codePoints().toArray()) {
+            switch (c) {
+                // A few explicit conversions first
+                case '<':
+                    sb.append("&lt;");
+                    break;
+                case '>':
+                    sb.append("&gt;");
+                    break;
+                case '&':
+                    sb.append("&amp;");
+                    break;
+                case '"':
+                    sb.append("&quot;");
+                    break;
+                case '\'':
+                    sb.append("&#39;");
+                    break;
+                case '/':
+                    sb.append("&#47;");
+                    break;
+                case '=':
+                    sb.append("&#61;");
+                    break;
+                default:
+                    // Ranges a-z, A-Z, and 0-9 are allowed naked
+                    if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
+                            || ((c >= '0') && (c <= '9'))) {
+                        sb.append((char) c);
+                    } else {
+                        // Make control characters visible
+                        if (c < 32) {
+                            sb.append("[");
+                            sb.append(Integer.toHexString((int) c));
+                            sb.append("]");
+                        } else {
+                            // Encode everything else
+                            sb.append("&#");
+                            sb.append(c);
+                            sb.append(';');
+                        }
+                    }
+                    break;
+            }
+        }
+    }
 
-		for (int i = 0, n = input.length(); i < n; i++) {
-			char c = input.charAt(i);
+    /**
+     * Encodes input string for output into JavaScript.
+     *
+     * @param input
+     * @return
+     */
+    public static String encodeForJavaScript(String input) {
+        if (input == null) {
+            return null;
+        }
 
-			switch (c) {
-			// A few explicit conversions first
-			case '<':
-				sb.append("&lt;");
-				break;
-			case '>':
-				sb.append("&gt;");
-				break;
-			case '&':
-				sb.append("&amp;");
-				break;
-			case '"':
-				sb.append("&quot;");
-				break;
-			case '\'':
-				sb.append("&#39;");
-				break;
-			case '/':
-				sb.append("&#47;");
-				break;
-			case '=':
-				sb.append("&#61;");
-				break;
-			default:
-				// Ranges a-z, A-Z, and 0-9 are allowed naked
-				if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
-						|| ((c >= '0') && (c <= '9'))) {
-					sb.append(c);
-				} else {
-					// Make control characters visible
-					if (c < 32) {
-						sb.append("[");
-						sb.append(Integer.toHexString((int) c));
-						sb.append("]");
-					} else {
-						// Encode everything else
-						sb.append("&#");
-						sb.append((int) c);
-						sb.append(';');
-					}
-				}
-				break;
-			}
-		}
-	}
+        StringBuffer sb = new StringBuffer(input.length() * 2);
+        encodeForJavaScript(input, sb);
 
-	/**
-	 * Encodes input string for output into JavaScript.
-	 * 
-	 * @param input
-	 * @return
-	 */
-	public static String encodeForJavaScript(String input) {
-		if (input == null) {
-			return null;
-		}
+        return sb.toString();
+    }
 
-		StringBuffer sb = new StringBuffer(input.length() * 2);
-		encodeForJavaScript(input, sb);
+    /**
+     * Encodes input string for output into JavaScript.
+     *
+     * @param input
+     * @param sb
+     */
+    public static void encodeForJavaScript(String input, StringBuffer sb) {
+        if (input == null) {
+            return;
+        }
 
-		return sb.toString();
-	}
+        sb.append('\'');
 
-	/**
-	 * Encodes input string for output into JavaScript.
-	 * 
-	 * @param input
-	 * @param sb
-	 */
-	public static void encodeForJavaScript(String input, StringBuffer sb) {
-		if (input == null) {
-			return;
-		}
+        for (int i = 0, n = input.length(); i < n; i++) {
+            char c = input.charAt(i);
 
-		sb.append('\'');
+            if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
+                    || ((c >= '0') && (c <= '9'))) {
+                sb.append(c);
+            } else if (c <= 127) {
+                sb.append("\\x");
+                String hex = Integer.toString(c, 16);
+                if (hex.length() < 2) {
+                    sb.append('0');
+                }
+                sb.append(hex);
+            } else {
+                sb.append("\\u");
+                String hex = Integer.toString(c, 16);
+                for (int k = hex.length(); k < 4; k++) {
+                    sb.append('0');
+                }
+                sb.append(hex);
+            }
+        }
 
-		for (int i = 0, n = input.length(); i < n; i++) {
-			char c = input.charAt(i);
+        sb.append('\'');
+    }
 
-			if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
-					|| ((c >= '0') && (c <= '9'))) {
-				sb.append(c);
-			} else if (c <= 127) {
-				sb.append("\\x");
-				String hex = Integer.toString(c, 16);
-				if (hex.length() < 2) {
-					sb.append('0');
-				}
-				sb.append(hex);
-			} else {
-				sb.append("\\u");
-				String hex = Integer.toString(c, 16);
-				for (int k = hex.length(); k < 4; k++) {
-					sb.append('0');
-				}
-				sb.append(hex);
-			}
-		}
+    /**
+     * Encodes input string for output into URL.
+     *
+     * @param input
+     * @return
+     */
+    public static String encodeForURL(String input) {
+        if (input == null) {
+            return null;
+        }
 
-		sb.append('\'');
-	}
+        StringBuffer sb = new StringBuffer(input.length() * 2);
 
-	/**
-	 * Encodes input string for output into URL.
-	 * 
-	 * @param input
-	 * @return
-	 */
-	public static String encodeForURL(String input) {
-		if (input == null) {
-			return null;
-		}
-		
-		StringBuffer sb = new StringBuffer(input.length() * 2);
+        Matcher m = uriPattern.matcher(input);
+        if (m.matches()) {
+            sb.append(m.group(1));
+            encodeForURL(m.group(2), sb);
+            encodeForURL(m.group(3), sb);
+        } else {
+            encodeForURL(input, sb);
+        }
 
-		Matcher m = uriPattern.matcher(input);
-		if (m.matches()) {
-			sb.append(m.group(1));
-			encodeForURL(m.group(2), sb);
-			encodeForURL(m.group(3), sb);
-		} else {
-			encodeForURL(input, sb);
-		}
-	
-		return sb.toString();
-	}
+        return sb.toString();
+    }
 
-	/**
-	 * Encodes input string for output into URL.
-	 * 
-	 * @param input
-	 * @param sb
-	 */
-	private static void encodeForURL(String input, StringBuffer sb) {
-		if (input == null) {
-			return;
-		}
+    /**
+     * Encodes input string for output into URL.
+     *
+     * @param input
+     * @param sb
+     */
+    private static void encodeForURL(String input, StringBuffer sb) {
+        if (input == null) {
+            return;
+        }
 
-		for (int i = 0, n = input.length(); i < n; i++) {
-			char c = input.charAt(i);
+        for (int i = 0, n = input.length(); i < n; i++) {
+            char c = input.charAt(i);
 
-			if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-					|| (c >= '0' && c <= '9') || (c == '/') || (c == '.')
-					|| (c == '#') || (c == '?') || (c == '=')) {
-				sb.append(c);
-			} else {
-				if (c <= 255) {
-					sb.append('%');
-					String hex = Integer.toString(c, 16);
-					if (hex.length() < 2) {
-						sb.append('0');
-					}
-					sb.append(hex);
-				} else {
-					sb.append('?');
-				}
-			}
-		}
-	}
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9') || (c == '/') || (c == '.')
+                    || (c == '#') || (c == '?') || (c == '=')) {
+                sb.append(c);
+            } else {
+                if (c <= 255) {
+                    sb.append('%');
+                    String hex = Integer.toString(c, 16);
+                    if (hex.length() < 2) {
+                        sb.append('0');
+                    }
+                    sb.append(hex);
+                } else {
+                    sb.append('?');
+                }
+            }
+        }
+    }
 
-	/**
-	 * Encodes input string for output into CSS.
-	 * 
-	 * @param input
-	 * @return
-	 */
-	public static String encodeForCSS(String input) {
-		if (input == null) {
-			return null;
-		}
+    /**
+     * Encodes input string for output into CSS.
+     *
+     * @param input
+     * @return
+     */
+    public static String encodeForCSS(String input) {
+        if (input == null) {
+            return null;
+        }
 
-		StringBuffer sb = new StringBuffer(input.length() * 2);
-		encodeForCSS(input, sb);
+        StringBuffer sb = new StringBuffer(input.length() * 2);
+        encodeForCSS(input, sb);
 
-		return sb.toString();
-	}
+        return sb.toString();
+    }
 
-	/**
-	 * Encodes input string for output into CSS.
-	 * 
-	 * @param input
-	 * @param sb
-	 */
-	private static void encodeForCSS(String input, StringBuffer sb) {
-		if (input == null) {
-			return;
-		}
+    /**
+     * Encodes input string for output into CSS.
+     *
+     * @param input
+     * @param sb
+     */
+    private static void encodeForCSS(String input, StringBuffer sb) {
+        if (input == null) {
+            return;
+        }
 
-		sb.append('\'');
+        sb.append('\'');
 
-		for (int i = 0, n = input.length(); i < n; i++) {
-			char c = input.charAt(i);
+        for (int i = 0, n = input.length(); i < n; i++) {
+            char c = input.charAt(i);
 
-			if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-					|| (c >= '0' && c <= '9')) {
-				sb.append(c);
-			} else {
-				if (c <= 255) {
-					sb.append('\\');
-					String hex = Integer.toString(c, 16);
-					if (hex.length() < 2) {
-						sb.append('0');
-					}
-					sb.append(hex);
-				} else {
-					sb.append('?');
-				}
-			}
-		}
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9')) {
+                sb.append(c);
+            } else {
+                if (c <= 255) {
+                    sb.append('\\');
+                    String hex = Integer.toString(c, 16);
+                    if (hex.length() < 2) {
+                        sb.append('0');
+                    }
+                    sb.append(hex);
+                } else {
+                    sb.append('?');
+                }
+            }
+        }
 
-		sb.append('\'');
-	}
+        sb.append('\'');
+    }
 
-	/**
-	 * Encodes input for HTML, preserving whitespace.
-	 * 
-	 * @param input
-	 * @return
-	 */
-	public static String encodeForHTMLPreserveWhitespace(String input) {
-		if (input == null) {
-			return null;
-		}
+    /**
+     * Encodes input for HTML, preserving whitespace.
+     *
+     * @param input
+     * @return
+     */
+    public static String encodeForHTMLPreserveWhitespace(String input) {
+        if (input == null) {
+            return null;
+        }
 
-		StringBuffer sb = new StringBuffer(input.length() * 2);
-		encodeForHTMLPreserveWhitespace(input, sb);
+        StringBuffer sb = new StringBuffer(input.length() * 2);
+        encodeForHTMLPreserveWhitespace(input, sb);
 
-		return sb.toString();
-	}
+        return sb.toString();
+    }
 
-	/**
-	 * Encodes input for HTML, preserving whitespace.
-	 * 
-	 * @param input
-	 * @param sb
-	 */
-	public static void encodeForHTMLPreserveWhitespace(String input,
-			StringBuffer sb) {
-		if (input == null) {
-			return;
-		}
+    /**
+     * Encodes input for HTML, preserving whitespace.
+     *
+     * @param input
+     * @param sb
+     */
+    public static void encodeForHTMLPreserveWhitespace(String input,
+                                                       StringBuffer sb) {
+        if (input == null) {
+            return;
+        }
 
-		for (int i = 0, n = input.length(); i < n; i++) {
-			char c = input.charAt(i);
+        for (int i = 0, n = input.length(); i < n; i++) {
+            char c = input.charAt(i);
 
-			switch (c) {
-			// A few explicit conversions first
-			case '<':
-				sb.append("&lt;");
-				break;
-			case '>':
-				sb.append("&gt;");
-				break;
-			case '&':
-				sb.append("&amp;");
-				break;
-			case '"':
-				sb.append("&quot;");
-				break;
-			case '\'':
-				sb.append("&#39;");
-				break;
-			case '/':
-				sb.append("&#47;");
-				break;
-			case '=':
-				sb.append("&#61;");
-				break;
-			default:
-				// Ranges a-z, A-Z, and 0-9 are allowed naked
-				if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
-						|| ((c >= '0') && (c <= '9')) || (c == 0x0d)
-						|| (c == 0x0a) || (c == 0x09)) {
-					sb.append(c);
-				} else {
-					// Make control characters visible
-					if (c < 32) {
-						sb.append("[");
-						sb.append(Integer.toHexString((int) c));
-						sb.append("]");
-					} else {
-						// Encode everything else
-						sb.append("&#");
-						sb.append((int) c);
-						sb.append(';');
-					}
-				}
-				break;
-			}
-		}
-	}
+            switch (c) {
+                // A few explicit conversions first
+                case '<':
+                    sb.append("&lt;");
+                    break;
+                case '>':
+                    sb.append("&gt;");
+                    break;
+                case '&':
+                    sb.append("&amp;");
+                    break;
+                case '"':
+                    sb.append("&quot;");
+                    break;
+                case '\'':
+                    sb.append("&#39;");
+                    break;
+                case '/':
+                    sb.append("&#47;");
+                    break;
+                case '=':
+                    sb.append("&#61;");
+                    break;
+                default:
+                    // Ranges a-z, A-Z, and 0-9 are allowed naked
+                    if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
+                            || ((c >= '0') && (c <= '9')) || (c == 0x0d)
+                            || (c == 0x0a) || (c == 0x09)) {
+                        sb.append(c);
+                    } else {
+                        // Make control characters visible
+                        if (c < 32) {
+                            sb.append("[");
+                            sb.append(Integer.toHexString((int) c));
+                            sb.append("]");
+                        } else {
+                            // Encode everything else
+                            sb.append("&#");
+                            sb.append((int) c);
+                            sb.append(';');
+                        }
+                    }
+                    break;
+            }
+        }
+    }
 
-	public static String asis(String input) {
-		return input;
-	}
+    public static String asis(String input) {
+        return input;
+    }
 
-	@Override
-	public void setPage(Page page) {
-		this.page = page;
-	}
+    @Override
+    public void setPage(Page page) {
+        this.page = page;
+    }
 
-	public static String encodeForHTMLAttribute(String input) {
-		return encodeForHTML(input);
-	}
+    public static String encodeForHTMLAttribute(String input) {
+        return encodeForHTML(input);
+    }
 }
