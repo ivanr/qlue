@@ -25,32 +25,32 @@ import com.webkreator.qlue.exceptions.QlueException;
  */
 public class ClassRouter implements Router {
 
-	private Class<Page> pageClass;
+    private Class<Page> pageClass;
 
-	public ClassRouter(String className) {
-		Class candidate;
+    public ClassRouter(String className) {
+        Class candidate;
 
-		// Look for the desired class.
-		try {
-			candidate = Class.forName(className, true, Thread.currentThread().getContextClassLoader());
-		} catch (Exception e) {
-			throw new RuntimeException("ClassRouter: Unknown class: " + className);
-		}
+        // Look for the desired class.
+        try {
+            candidate = Class.forName(className, true, Thread.currentThread().getContextClassLoader());
+        } catch (Exception e) {
+            throw new RuntimeException("ClassRouter: Unknown class: " + className);
+        }
 
-		// Check that the class is a subclass of Page.
-		if (!Page.class.isAssignableFrom(candidate)) {
-			throw new RuntimeException("ClassRouter: Class " + className + " is not a subclass of Page");
-		}
+        // Check that the class is a subclass of Page.
+        if (!Page.class.isAssignableFrom(candidate)) {
+            throw new RuntimeException("ClassRouter: Class " + className + " is not a subclass of Page");
+        }
 
-		pageClass = candidate;
-	}
+        pageClass = candidate;
+    }
 
-	@Override
-	public Object route(TransactionContext context, String pathSuffix) {
-		try {
-			return pageClass.newInstance();
-		} catch (Throwable t) {
-            throw new QlueException("Error creating page instance: " + t.getMessage(), t);
-		}
-	}
+    @Override
+    public Object route(TransactionContext context, String pathSuffix) {
+        try {
+            return pageClass.newInstance();
+        } catch (Exception e) {
+            throw new QlueException("Error creating page instance: " + e.getMessage(), e);
+        }
+    }
 }

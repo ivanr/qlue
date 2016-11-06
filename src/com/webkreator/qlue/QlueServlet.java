@@ -54,8 +54,8 @@ public class QlueServlet extends HttpServlet {
             }
 
             qlueApp.init(this);
-        } catch (Throwable t) {
-            throw new ServletException(t);
+        } catch (Exception e) {
+            throw new ServletException(e);
         }
     }
 
@@ -89,7 +89,7 @@ public class QlueServlet extends HttpServlet {
 
             try {
                 setApp((QlueApplication) appClass.newInstance());
-            } catch (InstantiationException|IllegalAccessException e) {
+            } catch (InstantiationException | IllegalAccessException e) {
                 throw new RuntimeException("Unable to create application instance: " + appClassName);
             }
         }

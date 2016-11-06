@@ -74,14 +74,14 @@ public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
                 // to send, and we send with sendMimeMessage().
                 String id = email.sendMimeMessage();
                 log.info("Email sent: " + email.getToAddresses() + " " + id);
-            } catch (Throwable t) {
+            } catch (Exception e) {
                 // Failed to send email. Sleep for a while,
                 // then queue the email again.
-                log.error("Failed to send email", t);
+                log.error("Failed to send email", e);
 
                 try {
                     Thread.currentThread().sleep(BACKOFF_MILLISECONDS);
-                } catch (InterruptedException e) {
+                } catch (InterruptedException ie) {
                     // Do nothing.
                 }
 

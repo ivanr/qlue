@@ -566,7 +566,7 @@ public class QlueApplication {
 
             // Respond to security exceptions with a 400 response.
             context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
-        } catch (Throwable t) {
+        } catch (Exception e) {
             if (page != null) {
                 page.rollback();
 
@@ -578,15 +578,15 @@ public class QlueApplication {
 
             // Don't process the exception further if the problem is caused
             // by the client going away (e.g., interrupted file download).
-            if (!t.getClass().getName().contains("ClientAbortException")) {
+            if (!e.getClass().getName().contains("ClientAbortException")) {
                 // Handle application exception, which will record full context
                 // data and, optionally, notify the administrator via email.
-                handleApplicationException(context, page, t);
+                handleApplicationException(context, page, e);
 
                 // We do not wish to propagate the exception further, so simply send a 500 response
                 // here (but only if response headers have not been sent).
                 if (context.getResponse().isCommitted() == false) {
-                    if (t instanceof ServiceUnavailableException) {
+                    if (e instanceof ServiceUnavailableException) {
                         context.getResponse().sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
                     } else {
                         context.getResponse().sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -1774,8 +1774,8 @@ public class QlueApplication {
                         log.error("Failed to send email", e);
                     }
                 }
-            } catch (Throwable t) {
-                log.error("SendUrgentRemindersTask exception", t);
+            } catch (Exception e) {
+                log.error("SendUrgentRemindersTask exception", e);
             }
         }
     }
