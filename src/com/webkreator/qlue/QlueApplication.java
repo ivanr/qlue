@@ -581,8 +581,8 @@ public class QlueApplication {
                 // data and, optionally, notify the administrator via email.
                 handleApplicationException(context, page, e);
 
-                // We do not wish to propagate the exception further, so simply send a 500 response
-                // here (but only if response headers have not been sent).
+                // We do not wish to propagate the exception further, but, if it's not too late
+                // (the response not committed), we should use a meaningful status code.
                 if (context.getResponse().isCommitted() == false) {
                     if (e instanceof ServiceUnavailableException) {
                         context.getResponse().sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
