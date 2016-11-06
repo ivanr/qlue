@@ -83,7 +83,7 @@ public class QluePageManager {
 
         // Remove one page if we went over the limit.
         if (pages.size() > MAX_PERSISTENT_PAGES_PER_SESSION) {
-            int oldestId = 0;
+            int oldestId = -1;
             long oldestTime = System.currentTimeMillis();
 
             for (PersistentPageRecord record : pages.values()) {
@@ -93,20 +93,22 @@ public class QluePageManager {
                 }
             }
 
-            PersistentPageRecord removedRecord = pages.remove(oldestId);
+            if (oldestId != -1) {
+                PersistentPageRecord removedRecord = pages.remove(oldestId);
 
-            if (log.isWarnEnabled()) {
-                log.warn("Forced removal of page from session storage: "
-                        + oldestId + " (sessionId="
-                        + page.getContext().getRequest().getSession().getId()
-                        + ")");
-            }
+                if (log.isWarnEnabled()) {
+                    log.warn("Forced removal of page from session storage: "
+                            + oldestId + " (sessionId="
+                            + page.getContext().getRequest().getSession().getId()
+                            + ")");
+                }
 
-            if (removedRecord.page != null) {
-                try {
-                    removedRecord.page.cleanup();
-                } catch (Exception e) {
-                    log.error("Exception during page cleanup", e);
+                if (removedRecord.page != null) {
+                    try {
+                        removedRecord.page.cleanup();
+                    } catch (Exception e) {
+                        log.error("Exception during page cleanup", e);
+                    }
                 }
             }
         }

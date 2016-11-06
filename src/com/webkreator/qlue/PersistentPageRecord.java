@@ -20,19 +20,23 @@ package com.webkreator.qlue;
  * Keeps track of a persistent page and the related metadata.
  */
 public class PersistentPageRecord {
-	
-	long createTime;
 
-	long lastActivityTime;
+    long createTime;
 
-	Page page;
+    long lastActivityTime;
 
-	String replacementUri;
+    Page page;
 
-	PersistentPageRecord(long time, Page page) {
-		this.createTime = time;
-		this.lastActivityTime = time;
-		this.page = page;
-		this.replacementUri = null;
-	}
+    String replacementUri;
+
+    PersistentPageRecord(long time, Page page) {
+        if (page == null) {
+            throw new IllegalArgumentException("page");
+        }
+
+        this.createTime = time;
+        this.lastActivityTime = time;
+        this.page = page;
+        this.replacementUri = null;
+    }
 }
