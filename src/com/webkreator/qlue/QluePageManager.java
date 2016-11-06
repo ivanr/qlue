@@ -69,10 +69,9 @@ public class QluePageManager {
      * Store persistent page.
      */
     public synchronized void storePage(Page page) {
-        // Generate persistence ID when we're storing
-        // the page for the first time.
+        // Generate persistence ID when we're storing the page for the first time.
         if (page.getId() == null) {
-            page.setId(new Integer(generatePageId()));
+            page.setId(generatePageId());
             pages.put(page.getId(), new PersistentPageRecord(System.currentTimeMillis(), page));
         } else {
             // A page that already has an ID probably also

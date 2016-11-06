@@ -97,7 +97,7 @@ public abstract class Page {
      * Set page ID. Pages are allocated IDs only prior to being persisted.
      * Transient pages do not need IDs.
      */
-    void setId(Integer id) {
+    void setId(int id) {
         this.id = id;
     }
 
