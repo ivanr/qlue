@@ -635,10 +635,7 @@ public class QlueApplication {
         }
 
         // Record message to the activity log
-        log.error("Application exception", t);
-        if (debugInfo != null) {
-            log.error(debugInfo);
-        }
+        log.error("Qlue: Unhandled application exception", t);
 
         // Send email notification
         try {
