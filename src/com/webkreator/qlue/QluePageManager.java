@@ -74,15 +74,16 @@ public class QluePageManager {
             page.setId(generatePageId());
             pages.put(page.getId(), new PersistentPageRecord(System.currentTimeMillis(), page));
         } else {
-            // A page that already has an ID probably also
-            // has a record. Look it up.
+            // A page that already has an ID probably also has a record. Look it up.
             PersistentPageRecord record = pages.get(page.getId());
-            record.lastActivityTime = System.currentTimeMillis();
+            if (record != null) {
+                record.lastActivityTime = System.currentTimeMillis();
+            }
         }
 
         // Remove one page if we went over the limit.
         if (pages.size() > MAX_PERSISTENT_PAGES_PER_SESSION) {
-            Integer oldestId = 0;
+            int oldestId = 0;
             long oldestTime = System.currentTimeMillis();
 
             for (PersistentPageRecord record : pages.values()) {
