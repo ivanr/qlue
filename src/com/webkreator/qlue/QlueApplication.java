@@ -91,8 +91,6 @@ public class QlueApplication {
 
     private String appPrefix = "QlueApp";
 
-    private Integer txIdsCounter = 10000;
-
     private HttpServlet servlet;
 
     private Logger log = LoggerFactory.getLogger(QlueApplication.class);
@@ -354,7 +352,7 @@ public class QlueApplication {
                 response);
 
         // Create a logging context using the unique transaction ID.
-        MDC.put("txId", Integer.toString(context.getTxId()));
+        MDC.put("txId", context.getTxId());
 
         // Proceed to the second stage of request processing
         try {
@@ -931,7 +929,6 @@ public class QlueApplication {
      */
     protected void writeDevelopmentInformation(PrintWriter out) {
         out.println(" Prefix: " + HtmlEncoder.encodeForHTML(appPrefix));
-        out.println(" Page ID counter: " + txIdsCounter);
         out.println(" Development mode: " + developmentMode);
     }
 
@@ -1705,9 +1702,8 @@ public class QlueApplication {
     /**
      * Allocates a new page ID.
      */
-    synchronized int allocatePageId() {
-        txIdsCounter++;
-        return txIdsCounter;
+    synchronized String generateTransactionId() {
+        return UUID.randomUUID().toString();
     }
 
     public EmailSender getEmailSender() {

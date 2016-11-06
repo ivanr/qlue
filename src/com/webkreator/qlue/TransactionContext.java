@@ -42,7 +42,7 @@ import java.util.Map;
  */
 public class TransactionContext {
 
-    public int txId;
+    public String txId;
 
     public ServletConfig servletConfig;
 
@@ -98,7 +98,7 @@ public class TransactionContext {
         handleFrontendEncryption();
         handleForwardedFor();
 
-        txId = app.allocatePageId();
+        txId = app.generateTransactionId();
     }
 
     private void handleFrontendEncryption() {
@@ -359,7 +359,7 @@ public class TransactionContext {
     /**
      * Retrieves transaction ID.
      */
-    public int getTxId() {
+    public String getTxId() {
         return txId;
     }
 
