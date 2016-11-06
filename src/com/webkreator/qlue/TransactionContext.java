@@ -104,7 +104,9 @@ public class TransactionContext {
     private void generateTxId() {
         if (app.isTrustedProxyRequest(this)) {
             txId = request.getHeader("X-Transaction-ID");
-            return;
+            if (txId != null) {
+                return;
+            }
         }
 
         txId = app.generateTransactionId();
