@@ -85,6 +85,8 @@ public class TransactionContext {
         this.response = response;
         this.session = request.getSession();
 
+        generateTxId();
+
         // Get the QlueSession instance
         synchronized (session) {
             qluePageManager = (QluePageManager) session.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
@@ -97,6 +99,13 @@ public class TransactionContext {
         initRequestUri();
         handleFrontendEncryption();
         handleForwardedFor();
+    }
+
+    private void generateTxId() {
+        if (app.isTrustedProxyRequest(this)) {
+            txId = request.getHeader("X-Transaction-ID");
+            return;
+        }
 
         txId = app.generateTransactionId();
     }
@@ -319,8 +328,7 @@ public class TransactionContext {
 
         // We want our URI to include the query string
         if (request.getQueryString() != null) {
-            requestUriWithQueryString = requestUri + "?"
-                    + request.getQueryString();
+            requestUriWithQueryString = requestUri + "?" + request.getQueryString();
         } else {
             requestUriWithQueryString = requestUri;
         }
