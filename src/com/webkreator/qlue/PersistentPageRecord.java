@@ -21,22 +21,64 @@ package com.webkreator.qlue;
  */
 public class PersistentPageRecord {
 
-    long createTime;
+    private int pageId;
 
-    long lastActivityTime;
+    private long createTime;
 
-    Page page;
+    private long lastActivityTime;
 
-    String replacementUri;
+    private Page page;
+
+    private String replacementUri;
 
     PersistentPageRecord(long time, Page page) {
         if (page == null) {
             throw new IllegalArgumentException("page");
         }
 
+        if (page.getId() == null) {
+            throw new IllegalArgumentException("page.id");
+        }
+
         this.createTime = time;
         this.lastActivityTime = time;
         this.page = page;
+        // We're keeping a copy of the page ID because the page
+        // itself can disappear later on, and we'll still need its ID.
+        this.pageId = page.getId();
         this.replacementUri = null;
+    }
+
+    public Page getPage() {
+        return page;
+    }
+
+    public int getPageId() {
+        return pageId;
+    }
+
+    public long getLastActivityTime() {
+        return lastActivityTime;
+    }
+
+    public void setLastActivityTime(long time) {
+        lastActivityTime = time;
+    }
+
+    public String getReplacementUri() {
+        return replacementUri;
+    }
+
+    public long getCreateTime() {
+        return createTime;
+    }
+
+    public void replacePage(String uri) {
+        if (uri == null) {
+            throw new IllegalArgumentException("replacementUri");
+        }
+
+        page = null;
+        replacementUri = uri;
     }
 }

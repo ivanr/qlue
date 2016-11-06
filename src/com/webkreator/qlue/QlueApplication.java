@@ -449,13 +449,13 @@ public class QlueApplication {
 
                     // If the replacementUri is set that means that the page no longer
                     // exist and that we need to forward all further request to it.
-                    if (pageRecord.replacementUri != null) {
-                        context.getResponse().sendRedirect(pageRecord.replacementUri);
+                    if (pageRecord.getReplacementUri() != null) {
+                        context.getResponse().sendRedirect(pageRecord.getReplacementUri());
                         return;
                     }
 
                     // Otherwise, let's use this page.
-                    page = pageRecord.page;
+                    page = pageRecord.getPage();
                     if (page == null) {
                         throw new RuntimeException("Page record doesn't contain page");
                     }

@@ -16,8 +16,6 @@
  */
 package com.webkreator.qlue.view;
 
-import com.webkreator.qlue.Page;
-
 /**
  * A FinalRedirectView instance is used to indicate that a persistent page is
  * about to shut down. In order to prevent the breaking of the persistent URI
@@ -28,21 +26,12 @@ import com.webkreator.qlue.Page;
  */
 public class FinalRedirectView extends RedirectView {
 
-	/**
-	 * Create final redirection to a page.
-	 * 
-	 * @param page
-	 */
-	public FinalRedirectView(Page page) {
-		super(page);
-	}
-
-	/**
-	 * Create final redirection to a URI.
-	 * 
-	 * @param toUri
-	 */
-	public FinalRedirectView(String toUri) {
-		super(toUri);
-	}
+    /**
+     * Create a final redirection to a URI.
+     *
+     * @param toUri
+     */
+    public FinalRedirectView(String toUri) {
+        super(toUri);
+    }
 }

@@ -62,7 +62,7 @@ public class QluePageManager {
             return null;
         }
 
-        return record.page;
+        return record.getPage();
     }
 
     /**
@@ -77,7 +77,7 @@ public class QluePageManager {
             // A page that already has an ID probably also has a record. Look it up.
             PersistentPageRecord record = pages.get(page.getId());
             if (record != null) {
-                record.lastActivityTime = System.currentTimeMillis();
+                record.setLastActivityTime(System.currentTimeMillis());
             }
         }
 
@@ -87,9 +87,9 @@ public class QluePageManager {
             long oldestTime = System.currentTimeMillis();
 
             for (PersistentPageRecord record : pages.values()) {
-                if (record.lastActivityTime <= oldestTime) {
-                    oldestTime = record.createTime;
-                    oldestId = record.page.getId();
+                if (record.getLastActivityTime() <= oldestTime) {
+                    oldestTime = record.getLastActivityTime();
+                    oldestId = record.getPage().getId();
                 }
             }
 
@@ -103,9 +103,9 @@ public class QluePageManager {
                             + ")");
                 }
 
-                if (removedRecord.page != null) {
+                if (removedRecord.getPage() != null) {
                     try {
-                        removedRecord.page.cleanup();
+                        removedRecord.getPage().cleanup();
                     } catch (Exception e) {
                         log.error("Exception during page cleanup", e);
                     }
@@ -126,13 +126,7 @@ public class QluePageManager {
      */
     public void replacePage(Page page, FinalRedirectView view) {
         PersistentPageRecord record = pages.get(page.getId());
-
-        record.page = view.getPage();
-
-        // Configure the replacement URI only when not redirecting to a page.
-        if (view.getPage() == null) {
-            record.replacementUri = view.getUri();
-        }
+        record.replacePage(view.getUri());
     }
 
     /**
