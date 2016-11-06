@@ -432,7 +432,7 @@ public class QlueApplication {
             // honour such requests only when we're not handling errors.
 
             if (context.isErrorHandler() == false) {
-                // Perisistent pages are identified via the "_pid" parameter. If we have
+                // Persistent pages are identified via the "_pid" parameter. If we have
                 // one such parameter, we look for the corresponding page in session storage.
                 String pids[] = context.getParameterValues("_pid");
                 if ((pids != null) && (pids.length != 0)) {
