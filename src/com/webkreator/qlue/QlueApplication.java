@@ -351,8 +351,10 @@ public class QlueApplication {
                 request,
                 response);
 
-        // Create a logging context using the unique transaction ID.
+        // Expose transaction information to the logging subsystem.
         MDC.put("txId", context.getTxId());
+        MDC.put("remoteAddr", context.getEffectiveRemoteAddr());
+        MDC.put("sessionId", context.getSession().getId());
 
         // Proceed to the second stage of request processing
         try {
