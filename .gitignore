@@ -4,4 +4,7 @@ qlue.properties
 *.class
 .DS_Store
 web/WEB-INF/var
+.idea
+build
+output
 *~
