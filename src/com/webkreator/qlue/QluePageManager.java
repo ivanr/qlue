@@ -89,7 +89,7 @@ public class QluePageManager {
             for (PersistentPageRecord record : pages.values()) {
                 if (record.getLastActivityTime() <= oldestTime) {
                     oldestTime = record.getLastActivityTime();
-                    oldestId = record.getPage().getId();
+                    oldestId = record.getPageId();
                 }
             }
 
