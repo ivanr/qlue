@@ -11,9 +11,11 @@ public class SLF4JLogChute implements LogChute {
 
     private static final String RUNTIME_LOG_SLF4J_LOGGER = "runtime.log.logsystem.slf4j.logger";
 
+    private static boolean loggingEnabled = true;
+
     private Logger logger = null;
 
-    private static boolean loggingEnabled = true;
+    private int maxLogLevel = LogChute.ERROR_ID;
 
     /**
      * @see org.apache.velocity.runtime.log.LogChute#init(org.apache.velocity.runtime.RuntimeServices)
@@ -27,6 +29,39 @@ public class SLF4JLogChute implements LogChute {
             logger = LoggerFactory.getLogger(this.getClass());
             log(DEBUG_ID, "SLF4JLogChute using logger '" + logger.getClass() + '\'');
         }
+
+        String maxLogLevelText = rs.getString(VelocityViewFactory.QLUE_VELOCITY_MAX_LOG_LEVEL);
+        if (maxLogLevelText != null) {
+            switch (maxLogLevelText.toLowerCase()) {
+                case "trace":
+                    maxLogLevel = LogChute.TRACE_ID;
+                    break;
+                case "debug":
+                    maxLogLevel = LogChute.DEBUG_ID;
+                    break;
+                case "info":
+                    maxLogLevel = LogChute.INFO_ID;
+                    break;
+                case "warn":
+                    maxLogLevel = LogChute.WARN_ID;
+                    break;
+                case "warning":
+                    maxLogLevel = LogChute.WARN_ID;
+                    break;
+                case "error":
+                    maxLogLevel = LogChute.ERROR_ID;
+                    break;
+                default:
+                    logger.error("Invalid value for "
+                            + VelocityViewFactory.QLUE_VELOCITY_MAX_LOG_LEVEL
+                            + ": " + maxLogLevelText);
+                    break;
+            }
+
+            if (maxLogLevel != LogChute.ERROR_ID) {
+                logger.info("Limiting Velocity logging to level " + maxLogLevelText);
+            }
+        }
     }
 
     /**
@@ -36,6 +71,11 @@ public class SLF4JLogChute implements LogChute {
         if (!loggingEnabled) {
             return;
         }
+
+        if (level > maxLogLevel) {
+            level = maxLogLevel;
+        }
+
         switch (level) {
             case LogChute.WARN_ID:
                 logger.warn(message);
@@ -63,6 +103,11 @@ public class SLF4JLogChute implements LogChute {
         if (!loggingEnabled) {
             return;
         }
+
+        if (level > maxLogLevel) {
+            level = maxLogLevel;
+        }
+
         switch (level) {
             case LogChute.WARN_ID:
                 logger.warn(message, t);
@@ -89,6 +134,10 @@ public class SLF4JLogChute implements LogChute {
     public boolean isLevelEnabled(int level) {
         if (!loggingEnabled) {
             return false;
+        }
+
+        if (level > maxLogLevel) {
+            level = maxLogLevel;
         }
 
         switch (level) {

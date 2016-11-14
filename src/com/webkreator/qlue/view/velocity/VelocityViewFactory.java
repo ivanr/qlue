@@ -45,6 +45,8 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
     public static final String QLUE_RAW_VELOCITY_CONFIG_PREFIX = "qlue.velocity.raw.";
 
+    public static final String QLUE_VELOCITY_MAX_LOG_LEVEL = "qlue.velocity.maxLogLevel";
+
     protected static Logger log = LoggerFactory.getLogger(VelocityViewFactory.class);
 
     protected String suffix = ".vm";
@@ -105,6 +107,12 @@ public abstract class VelocityViewFactory implements ViewFactory {
         properties.setProperty("macro.provide.scope.control", "true");
         properties.setProperty("runtime.references.strict", "true");
         properties.setProperty("runtime.strict.math", "true");
+
+        // Pass-through the maxLogLevel setting into Velocity properties, for SLF4JLogChute to consume.
+        String maxLogLevel = qlueApp.getProperty(VelocityViewFactory.QLUE_VELOCITY_MAX_LOG_LEVEL);
+        if (maxLogLevel != null) {
+            properties.setProperty(VelocityViewFactory.QLUE_VELOCITY_MAX_LOG_LEVEL, maxLogLevel);
+        }
 
         // Pass raw Velocity configuration from Qlue properties.
         Properties qlueProperties = qlueApp.getProperties();
