@@ -31,26 +31,26 @@ import java.io.PrintWriter;
  */
 public class RedirectView implements View {
 
-	public static final int REDIRECT = 302;
+    public static final int REDIRECT = 302;
 
-	public static final int REDIRECT_TEMPORARY = 307;
+    public static final int REDIRECT_TEMPORARY = 307;
 
-	public static final int REDIRECT_PERMANENT = 301;
+    public static final int REDIRECT_PERMANENT = 301;
 
-	private UriBuilder redirection;
+    private UriBuilder redirection;
 
-	private Page page;
+    private Page page;
 
-	private int redirectStatus = REDIRECT;
+    private int redirectStatus = REDIRECT;
 
-	/**
-	 * Redirect to the provided URI.
+    /**
+     * Redirect to the provided URI.
      *
      * @param uri
-	 */
-	public RedirectView(String uri) {
+     */
+    public RedirectView(String uri) {
         this(uri, REDIRECT);
-	}
+    }
 
     /**
      * Redirect to the provided URI, using the supplied redirection status.
@@ -68,100 +68,99 @@ public class RedirectView implements View {
         redirection = new UriBuilder(uri);
     }
 
-	/**
-	 * Redirect to an existing page.
-	 * 
-	 * @param page
-	 */
-	public RedirectView(Page page) {
-		if (page == null) {
-			throw new IllegalArgumentException("RedirectView: Cannot redirect to null page");
-		}
-		
-		this.page = page;
+    /**
+     * Redirect to an existing page.
+     *
+     * @param page
+     */
+    public RedirectView(Page page) {
+        if (page == null) {
+            throw new IllegalArgumentException("RedirectView: Cannot redirect to null page");
+        }
 
-		redirection = new UriBuilder(page.getContext().getRequestUri());
+        this.page = page;
 
-		if (page.getId() != null) {
-			redirection.clearParams();
-			redirection.addParam("_pid", page.getId());
-		}
-	}
+        redirection = new UriBuilder(page.getContext().getRequestUri());
 
-	/**
-	 * Add one parameter to the redirection URI.
-	 * 
-	 * @param name
-	 * @param value
-	 */
-	public RedirectView addParam(String name, String value) {
+        if (page.getId() != null) {
+            redirection.clearParams();
+            redirection.addParam("_pid", page.getId());
+        }
+    }
+
+    /**
+     * Add one parameter to the redirection URI.
+     *
+     * @param name
+     * @param value
+     */
+    public RedirectView addParam(String name, String value) {
         redirection.addParam(name, value);
         return this;
-	}
+    }
 
-	/**
-	 * Returns the page to which redirection is to take place.
-	 * 
-	 * @return page instance, or null if redirection is to a URL
-	 */
-	public Page getPage() {
-		return page;
-	}
+    /**
+     * Returns the page to which redirection is to take place.
+     *
+     * @return page instance, or null if redirection is to a URL
+     */
+    public Page getPage() {
+        return page;
+    }
 
-	/**
-	 * Returns the URL to which redirection is to take place.
-	 * 
-	 * @return URL string
-	 */
-	public String getUri() {
-		if (redirection == null) {
-			return null;
-		}
+    /**
+     * Returns the URL to which redirection is to take place.
+     *
+     * @return URL string
+     */
+    public String getUri() {
+        if (redirection == null) {
+            return null;
+        }
 
-		return redirection.getUri();
-	}
+        return redirection.getUri();
+    }
 
-	/**
-	 * Set the status code that will be used for the redirection.
-	 * 
-	 * @param redirectStatus
-	 */
-	public RedirectView setStatus(int redirectStatus) {
-		if ((redirectStatus != REDIRECT_PERMANENT)
-				&& (redirectStatus != REDIRECT)
-				&& (redirectStatus != REDIRECT_TEMPORARY))
-        {
-			throw new IllegalArgumentException("Invalid redirection status: " + redirectStatus);
-		}
+    /**
+     * Set the status code that will be used for the redirection.
+     *
+     * @param redirectStatus
+     */
+    public RedirectView setStatus(int redirectStatus) {
+        if ((redirectStatus != REDIRECT_PERMANENT)
+                && (redirectStatus != REDIRECT)
+                && (redirectStatus != REDIRECT_TEMPORARY)) {
+            throw new IllegalArgumentException("Invalid redirection status: " + redirectStatus);
+        }
 
-		this.redirectStatus = redirectStatus;
+        this.redirectStatus = redirectStatus;
         return this;
-	}
+    }
 
-	/**
-	 * Issue a redirection to a page or a URI.
-	 */
-	@Override
-	public void render(TransactionContext context, Page page) throws Exception {
-		if ((page != null) && (page.isDevelopmentMode())) {
-			context.response.setContentType("text/html");
-			PrintWriter out = context.response.getWriter();
-			out.print("<html><head><title>");
-			out.print("Development Mode Redirection");
-			out.println("</title></head>");
-			out.print("<body><h1>");
-			out.print("Development Mode Redirection");
-			out.println("</h1>");
-			out.println("<p>Destination: <code>");
-			out.print(HtmlEncoder.encodeForHTML(redirection.getUri()));
-			out.println("</code></p>");
-			out.print("<form action=\"");
-			out.print(HtmlEncoder.encodeForURL(redirection.getUri()));
-			out.println("\"><br><input type=submit value=\"Proceed &gt;&gt;\"></form>");
-			out.println("</body></html>");
-		} else {
-			context.response.setStatus(redirectStatus);
-			context.response.setHeader("Location", redirection.getUri());
-		}
-	}
+    /**
+     * Issue a redirection to a page or a URI.
+     */
+    @Override
+    public void render(TransactionContext context, Page page) throws Exception {
+        if ((page != null) && (page.isDevelopmentMode())) {
+            context.response.setContentType("text/html");
+            PrintWriter out = context.response.getWriter();
+            out.print("<html><head><title>");
+            out.print("Development Mode Redirection");
+            out.println("</title></head>");
+            out.print("<body><h1>");
+            out.print("Development Mode Redirection");
+            out.println("</h1>");
+            out.println("<p>Destination: <code>");
+            out.print(HtmlEncoder.encodeForHTML(redirection.getUri()));
+            out.println("</code></p>");
+            out.print("<form action=\"");
+            out.print(HtmlEncoder.url(redirection.getUri()));
+            out.println("\"><br><input type=submit value=\"Proceed &gt;&gt;\"></form>");
+            out.println("</body></html>");
+        } else {
+            context.response.setStatus(redirectStatus);
+            context.response.setHeader("Location", redirection.getUri());
+        }
+    }
 }

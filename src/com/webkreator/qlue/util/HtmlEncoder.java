@@ -27,6 +27,12 @@ import java.util.regex.Pattern;
  */
 public class HtmlEncoder implements QlueVelocityTool {
 
+    public static final int HTAB = 0x09;
+
+    public static final int LF = 0x0a;
+
+    public static final int CR = 0x0d;
+
     private Page page;
 
     private static Pattern uriPattern = Pattern.compile("^(https?://)([^/]+)(/.*)?$");
@@ -37,13 +43,13 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @return
      */
-    public static String encodeForHTML(String input) {
+    public static String html(String input) {
         if (input == null) {
             return null;
         }
 
         StringBuffer sb = new StringBuffer(input.length() * 2);
-        encodeForHTML(input, sb);
+        HtmlEncoder.html(input, sb);
 
         return sb.toString();
     }
@@ -54,11 +60,11 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    public static void encodeForHTML(String input, StringBuffer sb) {
+    public static void html(String input, StringBuffer sb) {
         if (input == null) {
             return;
         }
-        
+
         for (int c : input.codePoints().toArray()) {
             switch (c) {
                 // A few explicit conversions first
@@ -85,19 +91,19 @@ public class HtmlEncoder implements QlueVelocityTool {
                     break;
                 default:
                     // Ranges a-z, A-Z, and 0-9 are allowed naked
-                    if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
+                    if (((c >= 'a') && (c <= 'z'))
+                            || ((c >= 'A') && (c <= 'Z'))
                             || ((c >= '0') && (c <= '9'))) {
                         sb.append((char) c);
                     } else {
                         // Make control characters visible
                         if (c < 32) {
-                            sb.append("[");
-                            sb.append(Integer.toHexString((int) c));
-                            sb.append("]");
+                            sb.append("\\x");
+                            sb.append(Integer.toHexString(c));
                         } else {
                             // Encode everything else
                             sb.append("&#");
-                            sb.append(c);
+                            sb.append(Integer.toString(c));
                             sb.append(';');
                         }
                     }
@@ -112,13 +118,13 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @return
      */
-    public static String encodeForJavaScript(String input) {
+    public static String js(String input) {
         if (input == null) {
             return null;
         }
 
         StringBuffer sb = new StringBuffer(input.length() * 2);
-        encodeForJavaScript(input, sb);
+        HtmlEncoder.js(input, sb);
 
         return sb.toString();
     }
@@ -129,29 +135,27 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    public static void encodeForJavaScript(String input, StringBuffer sb) {
+    public static void js(String input, StringBuffer sb) {
         if (input == null) {
             return;
         }
 
         sb.append('\'');
 
-        for (int i = 0, n = input.length(); i < n; i++) {
-            char c = input.charAt(i);
-
+        for (int c : input.codePoints().toArray()) {
             if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
                     || ((c >= '0') && (c <= '9'))) {
                 sb.append(c);
             } else if (c <= 127) {
                 sb.append("\\x");
-                String hex = Integer.toString(c, 16);
+                String hex = Integer.toHexString(c);
                 if (hex.length() < 2) {
                     sb.append('0');
                 }
                 sb.append(hex);
             } else {
                 sb.append("\\u");
-                String hex = Integer.toString(c, 16);
+                String hex = Integer.toHexString(c);
                 for (int k = hex.length(); k < 4; k++) {
                     sb.append('0');
                 }
@@ -168,7 +172,7 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @return
      */
-    public static String encodeForURL(String input) {
+    public static String url(String input) {
         if (input == null) {
             return null;
         }
@@ -177,11 +181,12 @@ public class HtmlEncoder implements QlueVelocityTool {
 
         Matcher m = uriPattern.matcher(input);
         if (m.matches()) {
+            // The first group is only literals "http://" and "https://"
             sb.append(m.group(1));
-            encodeForURL(m.group(2), sb);
-            encodeForURL(m.group(3), sb);
+            HtmlEncoder.url(m.group(2), sb);
+            HtmlEncoder.url(m.group(3), sb);
         } else {
-            encodeForURL(input, sb);
+            HtmlEncoder.url(input, sb);
         }
 
         return sb.toString();
@@ -193,22 +198,25 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    private static void encodeForURL(String input, StringBuffer sb) {
+    private static void url(String input, StringBuffer sb) {
         if (input == null) {
             return;
         }
 
-        for (int i = 0, n = input.length(); i < n; i++) {
-            char c = input.charAt(i);
-
-            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-                    || (c >= '0' && c <= '9') || (c == '/') || (c == '.')
-                    || (c == '#') || (c == '?') || (c == '=')) {
+        for (int c : input.codePoints().toArray()) {
+            if ((c >= 'a' && c <= 'z')
+                    || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9')
+                    || (c == '/')
+                    || (c == '.')
+                    || (c == '#')
+                    || (c == '?')
+                    || (c == '=')) {
                 sb.append(c);
             } else {
                 if (c <= 255) {
                     sb.append('%');
-                    String hex = Integer.toString(c, 16);
+                    String hex = Integer.toHexString(c);
                     if (hex.length() < 2) {
                         sb.append('0');
                     }
@@ -226,13 +234,13 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @return
      */
-    public static String encodeForCSS(String input) {
+    public static String css(String input) {
         if (input == null) {
             return null;
         }
 
         StringBuffer sb = new StringBuffer(input.length() * 2);
-        encodeForCSS(input, sb);
+        HtmlEncoder.css(input, sb);
 
         return sb.toString();
     }
@@ -243,23 +251,22 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    private static void encodeForCSS(String input, StringBuffer sb) {
+    private static void css(String input, StringBuffer sb) {
         if (input == null) {
             return;
         }
 
         sb.append('\'');
 
-        for (int i = 0, n = input.length(); i < n; i++) {
-            char c = input.charAt(i);
-
-            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+        for (int c : input.codePoints().toArray()) {
+            if ((c >= 'a' && c <= 'z')
+                    || (c >= 'A' && c <= 'Z')
                     || (c >= '0' && c <= '9')) {
                 sb.append(c);
             } else {
                 if (c <= 255) {
                     sb.append('\\');
-                    String hex = Integer.toString(c, 16);
+                    String hex = Integer.toHexString(c);
                     if (hex.length() < 2) {
                         sb.append('0');
                     }
@@ -279,13 +286,13 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @return
      */
-    public static String encodeForHTMLPreserveWhitespace(String input) {
+    public static String htmlWhite(String input) {
         if (input == null) {
             return null;
         }
 
         StringBuffer sb = new StringBuffer(input.length() * 2);
-        encodeForHTMLPreserveWhitespace(input, sb);
+        HtmlEncoder.htmlWhite(input, sb);
 
         return sb.toString();
     }
@@ -296,15 +303,12 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    public static void encodeForHTMLPreserveWhitespace(String input,
-                                                       StringBuffer sb) {
+    public static void htmlWhite(String input, StringBuffer sb) {
         if (input == null) {
             return;
         }
 
-        for (int i = 0, n = input.length(); i < n; i++) {
-            char c = input.charAt(i);
-
+        for (int c : input.codePoints().toArray()) {
             switch (c) {
                 // A few explicit conversions first
                 case '<':
@@ -329,21 +333,24 @@ public class HtmlEncoder implements QlueVelocityTool {
                     sb.append("&#61;");
                     break;
                 default:
-                    // Ranges a-z, A-Z, and 0-9 are allowed naked
-                    if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))
-                            || ((c >= '0') && (c <= '9')) || (c == 0x0d)
-                            || (c == 0x0a) || (c == 0x09)) {
+                    // Ranges a-z, A-Z, and 0-9 are allowed as-is
+                    if (((c >= 'a') && (c <= 'z'))
+                            || ((c >= 'A') && (c <= 'Z'))
+                            || ((c >= '0') && (c <= '9'))
+                            || (c == CR)
+                            || (c == LF)
+                            || (c == ' ')
+                            || (c == HTAB)) {
                         sb.append(c);
                     } else {
                         // Make control characters visible
                         if (c < 32) {
-                            sb.append("[");
-                            sb.append(Integer.toHexString((int) c));
-                            sb.append("]");
+                            sb.append("\\x");
+                            sb.append(Integer.toHexString(c));
                         } else {
                             // Encode everything else
                             sb.append("&#");
-                            sb.append((int) c);
+                            sb.append(Integer.toString(c));
                             sb.append(';');
                         }
                     }
@@ -361,7 +368,7 @@ public class HtmlEncoder implements QlueVelocityTool {
         this.page = page;
     }
 
-    public static String encodeForHTMLAttribute(String input) {
-        return encodeForHTML(input);
+    public static String htmlAttr(String input) {
+        return HtmlEncoder.html(input);
     }
 }
