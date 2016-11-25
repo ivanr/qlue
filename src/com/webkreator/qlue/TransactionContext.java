@@ -384,18 +384,18 @@ public class TransactionContext {
      * Outputs transaction-related debugging information.
      */
     public void writeRequestDevelopmentInformation(PrintWriter out) {
-        out.println(" Method: " + HtmlEncoder.encodeForHTML(request.getMethod()));
-        out.println(" URI: " + HtmlEncoder.encodeForHTML(request.getRequestURI()));
-        out.println(" Query String: " + HtmlEncoder.encodeForHTML(request.getQueryString()));
-        out.println(" Remote Addr: " + HtmlEncoder.encodeForHTML(request.getRemoteAddr()));
+        out.println(" Method: " + HtmlEncoder.html(request.getMethod()));
+        out.println(" URI: " + HtmlEncoder.html(request.getRequestURI()));
+        out.println(" Query String: " + HtmlEncoder.html(request.getQueryString()));
+        out.println(" Remote Addr: " + HtmlEncoder.html(request.getRemoteAddr()));
         out.println(" Remote Port: " + request.getRemotePort());
-        out.println(" Protocol: " + HtmlEncoder.encodeForHTML(request.getProtocol()));
+        out.println(" Protocol: " + HtmlEncoder.html(request.getProtocol()));
         out.println("");
         out.println("<b>Request Headers</b>\n");
         for (Enumeration<String> e = request.getHeaderNames(); e.hasMoreElements(); ) {
             String name = e.nextElement();
             for (Enumeration<String> e2 = request.getHeaders(name); e2.hasMoreElements(); ) {
-                out.println(" " + HtmlEncoder.encodeForHTML(name) + ": " + HtmlEncoder.encodeForHTML(e2.nextElement()));
+                out.println(" " + HtmlEncoder.html(name) + ": " + HtmlEncoder.html(e2.nextElement()));
             }
         }
         out.println("");
@@ -404,7 +404,7 @@ public class TransactionContext {
             String name = e.nextElement();
             String[] values = request.getParameterValues(name);
             for (String value : values) {
-                out.println(" " + HtmlEncoder.encodeForHTML(name) + ": " + HtmlEncoder.encodeForHTML(value));
+                out.println(" " + HtmlEncoder.html(name) + ": " + HtmlEncoder.html(value));
             }
         }
     }

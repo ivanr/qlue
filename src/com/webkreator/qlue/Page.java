@@ -397,17 +397,17 @@ public abstract class Page {
         // Page fields
         out.println(" Id: " + getId());
         out.println(" Class: " + this.getClass());
-        out.println(" State: " + HtmlEncoder.encodeForHTML(getState()));
+        out.println(" State: " + HtmlEncoder.html(getState()));
         out.println(" Errors {");
 
         // Errors
         int i = 1;
         for (Error e : errors.getAllErrors()) {
             out.print("   " + i++ + ". ");
-            out.print(HtmlEncoder.encodeForHTML(e.getMessage()));
+            out.print(HtmlEncoder.html(e.getMessage()));
 
             if (e.getField() != null) {
-                out.print(" [field " + HtmlEncoder.encodeForHTML(e.getField())
+                out.print(" [field " + HtmlEncoder.html(e.getField())
                         + "]");
             }
 
@@ -434,9 +434,9 @@ public abstract class Page {
             String name = it.next();
             Object o = treeMap.get(name);
             out.println(" "
-                    + HtmlEncoder.encodeForHTML(name)
+                    + HtmlEncoder.html(name)
                     + ": "
-                    + ((o != null) ? HtmlEncoder.encodeForHTML(o.toString())
+                    + ((o != null) ? HtmlEncoder.html(o.toString())
                     : "null"));
         }
     }

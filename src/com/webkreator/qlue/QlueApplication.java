@@ -927,7 +927,7 @@ public class QlueApplication {
      * Write application-specific debugging output.
      */
     protected void writeDevelopmentInformation(PrintWriter out) {
-        out.println(" Prefix: " + HtmlEncoder.encodeForHTML(appPrefix));
+        out.println(" Prefix: " + HtmlEncoder.html(appPrefix));
         out.println(" Development mode: " + developmentMode);
     }
 

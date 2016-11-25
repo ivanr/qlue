@@ -152,7 +152,7 @@ public class RedirectView implements View {
             out.print("Development Mode Redirection");
             out.println("</h1>");
             out.println("<p>Destination: <code>");
-            out.print(HtmlEncoder.encodeForHTML(redirection.getUri()));
+            out.print(HtmlEncoder.html(redirection.getUri()));
             out.println("</code></p>");
             out.print("<form action=\"");
             out.print(HtmlEncoder.url(redirection.getUri()));
