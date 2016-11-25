@@ -152,7 +152,7 @@ public class HtmlEncoder implements QlueVelocityTool {
             if (((c >= 'a') && (c <= 'z'))
                     || ((c >= 'A') && (c <= 'Z'))
                     || ((c >= '0') && (c <= '9'))) {
-                sb.append(c);
+                sb.append((char) c);
             } else if (c <= 127) {
                 sb.append("\\x");
                 HtmlEncoder.hex(c, sb);
@@ -212,7 +212,7 @@ public class HtmlEncoder implements QlueVelocityTool {
                     || (c == '#')
                     || (c == '?')
                     || (c == '=')) {
-                sb.append(c);
+                sb.append((char) c);
             } else {
                 if (c <= 255) {
                     sb.append('%');
@@ -258,7 +258,7 @@ public class HtmlEncoder implements QlueVelocityTool {
             if ((c >= 'a' && c <= 'z')
                     || (c >= 'A' && c <= 'Z')
                     || (c >= '0' && c <= '9')) {
-                sb.append(c);
+                sb.append((char) c);
             } else {
                 if (c <= 255) {
                     sb.append('\\');
