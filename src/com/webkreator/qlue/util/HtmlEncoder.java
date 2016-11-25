@@ -66,49 +66,53 @@ public class HtmlEncoder implements QlueVelocityTool {
         }
 
         for (int c : input.codePoints().toArray()) {
-            switch (c) {
-                // A few explicit conversions first
-                case '<':
-                    sb.append("&lt;");
-                    break;
-                case '>':
-                    sb.append("&gt;");
-                    break;
-                case '&':
-                    sb.append("&amp;");
-                    break;
-                case '"':
-                    sb.append("&quot;");
-                    break;
-                case '\'':
-                    sb.append("&#39;");
-                    break;
-                case '/':
-                    sb.append("&#47;");
-                    break;
-                case '=':
-                    sb.append("&#61;");
-                    break;
-                default:
-                    // Ranges a-z, A-Z, and 0-9 are allowed naked
-                    if (((c >= 'a') && (c <= 'z'))
-                            || ((c >= 'A') && (c <= 'Z'))
-                            || ((c >= '0') && (c <= '9'))) {
-                        sb.append((char) c);
+            HtmlEncoder.html(c, sb);
+        }
+    }
+
+    public static void html(int c, StringBuffer sb) {
+        switch (c) {
+            // A few explicit conversions first
+            case '<':
+                sb.append("&lt;");
+                break;
+            case '>':
+                sb.append("&gt;");
+                break;
+            case '&':
+                sb.append("&amp;");
+                break;
+            case '"':
+                sb.append("&quot;");
+                break;
+            case '\'':
+                sb.append("&#39;");
+                break;
+            case '/':
+                sb.append("&#47;");
+                break;
+            case '=':
+                sb.append("&#61;");
+                break;
+            default:
+                // Ranges a-z, A-Z, and 0-9 are allowed naked
+                if (((c >= 'a') && (c <= 'z'))
+                        || ((c >= 'A') && (c <= 'Z'))
+                        || ((c >= '0') && (c <= '9'))) {
+                    sb.append((char) c);
+                } else {
+                    // Make control characters visible
+                    if (c < 32) {
+                        sb.append("\\x");
+                        sb.append(Integer.toHexString(c));
                     } else {
-                        // Make control characters visible
-                        if (c < 32) {
-                            sb.append("\\x");
-                            sb.append(Integer.toHexString(c));
-                        } else {
-                            // Encode everything else
-                            sb.append("&#");
-                            sb.append(Integer.toString(c));
-                            sb.append(';');
-                        }
+                        // Encode everything else
+                        sb.append("&#");
+                        sb.append(Integer.toString(c));
+                        sb.append(';');
                     }
-                    break;
-            }
+                }
+                break;
         }
     }
 
@@ -309,53 +313,57 @@ public class HtmlEncoder implements QlueVelocityTool {
         }
 
         for (int c : input.codePoints().toArray()) {
-            switch (c) {
-                // A few explicit conversions first
-                case '<':
-                    sb.append("&lt;");
-                    break;
-                case '>':
-                    sb.append("&gt;");
-                    break;
-                case '&':
-                    sb.append("&amp;");
-                    break;
-                case '"':
-                    sb.append("&quot;");
-                    break;
-                case '\'':
-                    sb.append("&#39;");
-                    break;
-                case '/':
-                    sb.append("&#47;");
-                    break;
-                case '=':
-                    sb.append("&#61;");
-                    break;
-                default:
-                    // Ranges a-z, A-Z, and 0-9 are allowed as-is
-                    if (((c >= 'a') && (c <= 'z'))
-                            || ((c >= 'A') && (c <= 'Z'))
-                            || ((c >= '0') && (c <= '9'))
-                            || (c == CR)
-                            || (c == LF)
-                            || (c == ' ')
-                            || (c == HTAB)) {
-                        sb.append(c);
+            HtmlEncoder.htmlWhite(c, sb);
+        }
+    }
+
+    public static void htmlWhite(int c, StringBuffer sb) {
+        switch (c) {
+            // A few explicit conversions first
+            case '<':
+                sb.append("&lt;");
+                break;
+            case '>':
+                sb.append("&gt;");
+                break;
+            case '&':
+                sb.append("&amp;");
+                break;
+            case '"':
+                sb.append("&quot;");
+                break;
+            case '\'':
+                sb.append("&#39;");
+                break;
+            case '/':
+                sb.append("&#47;");
+                break;
+            case '=':
+                sb.append("&#61;");
+                break;
+            default:
+                // Ranges a-z, A-Z, and 0-9 are allowed as-is
+                if (((c >= 'a') && (c <= 'z'))
+                        || ((c >= 'A') && (c <= 'Z'))
+                        || ((c >= '0') && (c <= '9'))
+                        || (c == CR)
+                        || (c == LF)
+                        || (c == ' ')
+                        || (c == HTAB)) {
+                    sb.append(c);
+                } else {
+                    // Make control characters visible
+                    if (c < 32) {
+                        sb.append("\\x");
+                        sb.append(Integer.toHexString(c));
                     } else {
-                        // Make control characters visible
-                        if (c < 32) {
-                            sb.append("\\x");
-                            sb.append(Integer.toHexString(c));
-                        } else {
-                            // Encode everything else
-                            sb.append("&#");
-                            sb.append(Integer.toString(c));
-                            sb.append(';');
-                        }
+                        // Encode everything else
+                        sb.append("&#");
+                        sb.append(Integer.toString(c));
+                        sb.append(';');
                     }
-                    break;
-            }
+                }
+                break;
         }
     }
 
