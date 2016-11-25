@@ -14,7 +14,7 @@ public class helloName extends Page {
     @Override
     public View onGet() throws Exception {
         context.response.setContentType("text/html");
-        context.response.getWriter().println("Hello " + HtmlEncoder.html(name) + "!");
+        context.response.getWriter().println("Hello " + HtmlEncoder.htmlWhite(name) + "!");
         return new NullView();
     }
 }

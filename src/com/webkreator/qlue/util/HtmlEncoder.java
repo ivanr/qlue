@@ -350,7 +350,7 @@ public class HtmlEncoder implements QlueVelocityTool {
                         || (c == LF)
                         || (c == ' ')
                         || (c == HTAB)) {
-                    sb.append(c);
+                    sb.append((char) c);
                 } else {
                     // Make control characters visible
                     if (c < 32) {
