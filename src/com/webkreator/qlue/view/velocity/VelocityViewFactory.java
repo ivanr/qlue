@@ -141,19 +141,23 @@ public abstract class VelocityViewFactory implements ViewFactory {
      * @param view
      * @throws Exception
      */
-    protected void render(Page page, VelocityView view) throws Exception {
-        TransactionContext context = page.getContext();
+    public void render(Page page, VelocityView view) throws Exception {
+        render(page, view, page.getContext().getResponse().getWriter());
+    }
 
-        // Obtain the model from the page
+    public void render(Page page, VelocityView view, Writer writer) throws Exception {
         final Map<String, Object> model = page.getModel();
 
         // Add common objects to the model
 
         Object f = page.getVelocityTool();
-        if (f instanceof QlueVelocityTool) {
-            ((QlueVelocityTool) f).setPage(page);
+        if (f != null) {
+            if (f instanceof QlueVelocityTool) {
+                ((QlueVelocityTool) f).setPage(page);
+            }
+
+            model.put("_f", f);
         }
-        model.put("_f", f);
 
         // Normally, we don't want templates to be able to output
         // directly (without encoding) to responses, but some
@@ -170,14 +174,17 @@ public abstract class VelocityViewFactory implements ViewFactory {
         model.put("_app", page.getApp());
         model.put("_page", page);
         model.put("_i", page.getShadowInput());
-
-        model.put("_ctx", context);
-        model.put("_sess", page.getApp().getQlueSession(context.request));
-        model.put("_m", page.getApp().getMessageSource(page.getApp().getQlueSession(context.request).getLocale()));
-        model.put("_req", context.request);
-        model.put("_res", context.response);
         model.put("_cmd", page.getCommandObject());
         model.put("_errors", page.getErrors());
+
+        TransactionContext context = page.getContext();
+        if (context != null) {
+            model.put("_ctx", context);
+            model.put("_sess", page.getApp().getQlueSession(context.request));
+            model.put("_m", page.getApp().getMessageSource(page.getApp().getQlueSession(context.request).getLocale()));
+            model.put("_req", context.request);
+            model.put("_res", context.response);
+        }
 
         // Expose the public variables of the command object
         processPageFields(page.getCommandObject(), new FieldCallback() {
@@ -189,8 +196,6 @@ public abstract class VelocityViewFactory implements ViewFactory {
                 }
             }
         });
-
-        Writer writer = context.response.getWriter();
 
         try {
             Canoe qlueWriter = new Canoe(writer);
