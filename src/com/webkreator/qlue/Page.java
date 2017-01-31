@@ -79,6 +79,15 @@ public abstract class Page {
 
     protected ShadowInput shadowInput = new ShadowInput();
 
+    protected Page() {
+    }
+
+    public Page(QlueApplication app) {
+        setApp(app);
+        determineDefaultViewName(app.getViewResolver());
+        determineCommandObject();
+    }
+
     /**
      * Has this page finished its work?
      */

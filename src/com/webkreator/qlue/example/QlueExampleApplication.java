@@ -16,7 +16,29 @@
  */
 package com.webkreator.qlue.example;
 
+import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
+import com.webkreator.qlue.example.pages.$BackgroundPage;
+import com.webkreator.qlue.view.velocity.VelocityView;
+import com.webkreator.qlue.view.velocity.VelocityViewFactory;
+
+import javax.servlet.http.HttpServlet;
+import java.io.StringWriter;
 
 public class QlueExampleApplication extends QlueApplication {
+
+    @Override
+    public void init(HttpServlet servlet) throws Exception {
+        super.init(servlet);
+        testBackgroundVelocity();
+    }
+
+    private void testBackgroundVelocity() throws Exception {
+        VelocityViewFactory viewFactory = (VelocityViewFactory) getViewFactory();
+        VelocityView view = (VelocityView) viewFactory.constructView("com/webkreator/qlue/example/pages/$BackgroundPage.vm");
+        Page page = new $BackgroundPage(this);
+        StringWriter writer = new StringWriter();
+        viewFactory.render(page, view, writer);
+        System.err.println(writer.toString());
+    }
 }
