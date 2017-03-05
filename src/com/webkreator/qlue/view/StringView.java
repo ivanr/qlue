@@ -1,9 +1,9 @@
 package com.webkreator.qlue.view;
 
-import java.io.PrintWriter;
-
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
+
+import java.io.PrintWriter;
 
 /**
  * Sends the provided string as the response body, optionally configuring the
@@ -13,7 +13,7 @@ public class StringView implements View {
 
 	private String text;
 
-	private String contentType = "text/plain";
+	private String contentType;
 
 	/**
 	 * Create a new view, using the provided text.
@@ -37,7 +37,10 @@ public class StringView implements View {
 
 	@Override
 	public void render(TransactionContext tx, Page page) throws Exception {
-		tx.getResponse().setContentType(contentType);
+		if (contentType != null) {
+			tx.getResponse().setContentType(contentType);
+		}
+
 		PrintWriter out = tx.response.getWriter();
 		out.write(text);
 		out.close();
