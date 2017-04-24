@@ -30,6 +30,8 @@ public class UriBuilder {
 
 	private String path;
 
+	private String fragment;
+
 	private List<UriBuilderParam> params = new ArrayList<UriBuilderParam>();
 
 	private Pattern uriPattern = Pattern.compile("^(https?://[^/]+)(/.*)?$");
@@ -118,6 +120,12 @@ public class UriBuilder {
 
 		// Look for parameters
 		if (uri != null) {
+			int j = uri.indexOf('#');
+			if (j != -1) {
+				fragment = uri.substring(j + 1);
+				uri = uri.substring(0, j);
+			}
+
 			int i = uri.indexOf('?');
 			if (i == -1) {
 				// No parameters, just store the normalized path
@@ -164,31 +172,33 @@ public class UriBuilder {
 			sb.append(path);
 		}
 
-		// Return straight away if there are no parameters
-		if (params.size() == 0) {
-			return sb.toString();
+		// Parameters
+		if (params.size() != 0) {
+			try {
+				sb.append("?");
+
+				// Iterate through the list of parameters and
+				// add them to the URI, properly transforming them
+				// in the process.
+				for (int i = 0, n = params.size(); i < n; i++) {
+					if (i != 0) {
+						sb.append('&');
+					}
+
+					UriBuilderParam param = params.get(i);
+					sb.append(URLEncoder.encode(param.name, "UTF-8"));
+					sb.append("=");
+					sb.append(URLEncoder.encode(param.value, "UTF-8"));
+				}
+			} catch (UnsupportedEncodingException uee) {
+				// Should never happen, as we know that UTF-8 is supported
+				uee.printStackTrace(System.err);
+			}
 		}
 
-		// Otherwise, append parameters
-		try {
-			sb.append("?");
-
-			// Iterate through the list of parameters and
-			// add them to the URI, properly transforming them
-			// in the process.
-			for (int i = 0, n = params.size(); i < n; i++) {
-				if (i != 0) {
-					sb.append('&');
-				}
-
-				UriBuilderParam param = params.get(i);
-				sb.append(URLEncoder.encode(param.name, "UTF-8"));
-				sb.append("=");
-				sb.append(URLEncoder.encode(param.value, "UTF-8"));
-			}
-		} catch (UnsupportedEncodingException uee) {
-			// Should never happen, as we know that UTF-8 is supported
-			uee.printStackTrace(System.err);
+		if (fragment != null) {
+			sb.append('#');
+			sb.append(fragment);
 		}
 
 		return sb.toString();
