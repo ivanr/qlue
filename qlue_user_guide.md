@@ -122,9 +122,12 @@ that it is updated from HTTP parameters when only on certain states.
 Pages execution is split into many methods, with each method designed to serve a specific purpose.
 A non-persistent page will typically use the following methods:
 
+ * initBackend() - invoked first, for example to configure database access.
  * checkAccess() - this is an early hook that is invoked before any work is carried out; intended for access control.
  * validateParameters() - invoked after parameter binding and validation. This is an opportunity for the page to
                           perform additional work checking the data.
+ * init() - called only once per persistent page, to be used to do some initialisation, for example fetch
+            some data from the database.
  * prepareForService() - this method is intended for use when a group of pages share common functionality. Such work
                      can be implemented only once in a parent class, leaving subclasses to focus on the main
                      functionality. This method is called after successful parameter binding and validation.
@@ -133,6 +136,7 @@ A non-persistent page will typically use the following methods:
               all the work carried out by the page.
  * rollback() - executed if there is an unhandled exception during page processing. This method should
                 undo all work (if any) attempted by the page.
+ * cleanup() - called at the end of transaction that transitioned the page to the FINISHED state.
 
 Additional methods of interest:
 
@@ -142,13 +146,6 @@ Additional methods of interest:
                              parameter validation. The default implementation will return a 400 status code, but
                              application might want to show a friendly error message. If this method returns null
                              then page processing continues as if there were no errors.
-  
-Persistent pages can make use of these additional methods:
-
- * init() - this method is called only once per persistent page, immediately after successful parameter
-            binding and validation (including custom validation in validateParameters() and before
-            prepareForService().
- * cleanup() - called at the end of transaction that transitioned the page to the FINISHED state.
 
 ### Views
 
