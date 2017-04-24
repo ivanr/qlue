@@ -312,6 +312,10 @@ public abstract class Page {
         viewName = this.getClass().getSimpleName();
     }
 
+    public View initBackend() throws Exception {
+        return null;
+    }
+
     /**
      * This method is invoked right before the main service method. It allows
      * the page to prepare for request processing. The default implementation

@@ -371,9 +371,18 @@ public class QlueApplication {
     }
 
     protected View processPage(Page page) throws Exception {
+        View view = null;
+
+        // Initialize backend. This is a handy place to do things needed for later
+        // on, for example, configure database access.
+        view = page.initBackend();
+        if (view != null) {
+            return view;
+        }
+
         // Check access. The idea with this hook is to run it as early as possible,
         // before any parameters are accessed, thus minimising the executed code.
-        View view = page.checkAccess();
+        view = page.checkAccess();
         if (view != null) {
             return view;
         }
