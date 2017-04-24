@@ -335,11 +335,10 @@ public class QlueApplication {
         response.setCharacterEncoding(characterEncoding);
 
         // Create a new application session object if one does not exist.
-        HttpSession session = request.getSession();
+        HttpSession session = request.getSession(true);
         synchronized (session) {
             if (session.getAttribute(QlueConstants.QLUE_SESSION_OBJECT) == null) {
-                session.setAttribute(QlueConstants.QLUE_SESSION_OBJECT,
-                        createNewSessionObject());
+                session.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, createNewSessionObject());
             }
         }
 
@@ -603,13 +602,13 @@ public class QlueApplication {
                 }
             }
         } finally {
+            // In development mode, append debugging information to the end of the page.
+            masterWriteRequestDevelopmentInformation(context, page);
+
             // Invoke cleanup on finished pages.
             if ((page != null) && (page.isFinished()) && (!page.isCleanupInvoked())) {
                 page.cleanup();
             }
-
-            // In development mode, append debugging information to the end of the page.
-            masterWriteRequestDevelopmentInformation(context, page);
         }
     }
 
@@ -928,7 +927,7 @@ public class QlueApplication {
 
         QlueSession qlueSession = page.getQlueSession();
         if (qlueSession != null) {
-            page.getQlueSession().writeDevelopmentInformation(out);
+            qlueSession.writeDevelopmentInformation(out);
             out.println("");
         }
 
@@ -1379,6 +1378,11 @@ public class QlueApplication {
      * Returns the session object associated with the current HTTP session.
      */
     public QlueSession getQlueSession(HttpServletRequest request) {
+        HttpSession httpSession = request.getSession(false);
+        if (httpSession == null) {
+            return null;
+        }
+
         return (QlueSession) request.getSession().getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
     }
 
@@ -1389,11 +1393,26 @@ public class QlueApplication {
      * attacks.
      */
     public void regenerateSession(HttpServletRequest request) {
+        HttpSession existingHttpSession = request.getSession(false);
+        if (existingHttpSession == null) {
+            throw new IllegalStateException("Unable to regenerate session: No HTTP session");
+        }
+
         QlueSession qlueSession = getQlueSession(request);
-        QluePageManager pageManager = (QluePageManager) request.getSession().getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
-        request.getSession().invalidate();
-        request.getSession(true).setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
-        request.getSession().setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER, pageManager);
+        if (qlueSession == null) {
+            throw new IllegalStateException("Unable to regenerate session: No Qlue session");
+        }
+
+        QluePageManager pageManager = (QluePageManager) existingHttpSession.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
+        if (pageManager == null) {
+            throw new IllegalStateException("Unable to regenerate session: No page manager");
+        }
+
+        existingHttpSession.invalidate();
+
+        HttpSession newHttpSession = request.getSession(true);
+        newHttpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
+        newHttpSession.setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER, pageManager);
     }
 
     /**

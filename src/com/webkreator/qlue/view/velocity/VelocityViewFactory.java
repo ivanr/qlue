@@ -18,6 +18,7 @@ package com.webkreator.qlue.view.velocity;
 
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
+import com.webkreator.qlue.QlueSession;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.view.Canoe;
 import com.webkreator.qlue.view.ViewFactory;
@@ -180,10 +181,14 @@ public abstract class VelocityViewFactory implements ViewFactory {
         TransactionContext context = page.getContext();
         if (context != null) {
             model.put("_ctx", context);
-            model.put("_sess", page.getApp().getQlueSession(context.request));
-            model.put("_m", page.getApp().getMessageSource(page.getApp().getQlueSession(context.request).getLocale()));
             model.put("_req", context.request);
             model.put("_res", context.response);
+
+            QlueSession qlueSession = page.getQlueSession();
+            if (qlueSession != null) {
+                model.put("_sess", qlueSession);
+                model.put("_m", page.getApp().getMessageSource(qlueSession.getLocale()));
+            }
         }
 
         // Expose the public variables of the command object

@@ -387,7 +387,7 @@ public abstract class Page {
     /**
      * Retrieve session associated with this page.
      */
-    protected QlueSession getQlueSession() {
+    public QlueSession getQlueSession() {
         return app.getQlueSession(context.getRequest());
     }
 
@@ -470,7 +470,7 @@ public abstract class Page {
      * In the default implementation, we delete any files that were created
      * during the processing of a multipart/form-data request.
      */
-    void cleanup() {
+    public void cleanup() {
         cleanupInvoked = true;
         deleteFiles();
     }
