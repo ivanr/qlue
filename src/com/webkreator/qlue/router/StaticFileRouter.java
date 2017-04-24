@@ -68,6 +68,11 @@ public class StaticFileRouter implements Router {
         // The request is for a directory; ask the manager for
         // the default file and attempt to serve that.
 
+        // If there's no terminating slash in directory access, issue a redirection.
+        if (context.getRequestUri().endsWith("/") == false) {
+            return new RedirectionRouter(context.getRequestUri() + "/", 302).route(context, pathSuffix);
+        }
+
         File defaultFile = new File(file, manager.getIndexWithSuffix());
         if (defaultFile.exists()) {
             return new DownloadView(defaultFile);
