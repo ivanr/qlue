@@ -50,7 +50,7 @@ public class HtmlEncoder implements QlueVelocityTool {
             return null;
         }
 
-        StringBuffer sb = new StringBuffer(input.length() * 2);
+        StringBuilder sb = new StringBuilder(input.length() * 2);
         HtmlEncoder.html(input, sb);
 
         return sb.toString();
@@ -62,7 +62,7 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    public static void html(String input, StringBuffer sb) {
+    public static void html(String input, StringBuilder sb) {
         if (input == null) {
             return;
         }
@@ -72,7 +72,7 @@ public class HtmlEncoder implements QlueVelocityTool {
         }
     }
 
-    public static void html(int c, StringBuffer sb) {
+    public static void html(int c, StringBuilder sb) {
         switch (c) {
             // A few explicit conversions first
             case '<':
@@ -129,7 +129,7 @@ public class HtmlEncoder implements QlueVelocityTool {
             return null;
         }
 
-        StringBuffer sb = new StringBuffer(input.length() * 2);
+        StringBuilder sb = new StringBuilder(input.length() * 2);
         HtmlEncoder.js(input, sb);
 
         return sb.toString();
@@ -141,7 +141,7 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    public static void js(String input, StringBuffer sb) {
+    public static void js(String input, StringBuilder sb) {
         if (input == null) {
             return;
         }
@@ -177,7 +177,7 @@ public class HtmlEncoder implements QlueVelocityTool {
             return null;
         }
 
-        StringBuffer sb = new StringBuffer(input.length() * 2);
+        StringBuilder sb = new StringBuilder(input.length() * 2);
 
         Matcher m = uriPattern.matcher(input);
         if (m.matches()) {
@@ -198,7 +198,7 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    private static void url(String input, StringBuffer sb) {
+    private static void url(String input, StringBuilder sb) {
         if (input == null) {
             return;
         }
@@ -235,7 +235,7 @@ public class HtmlEncoder implements QlueVelocityTool {
             return null;
         }
 
-        StringBuffer sb = new StringBuffer(input.length() * 2);
+        StringBuilder sb = new StringBuilder(input.length() * 2);
         HtmlEncoder.css(input, sb);
 
         return sb.toString();
@@ -247,7 +247,7 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    private static void css(String input, StringBuffer sb) {
+    private static void css(String input, StringBuilder sb) {
         if (input == null) {
             return;
         }
@@ -283,7 +283,7 @@ public class HtmlEncoder implements QlueVelocityTool {
             return null;
         }
 
-        StringBuffer sb = new StringBuffer(input.length() * 2);
+        StringBuilder sb = new StringBuilder(input.length() * 2);
         HtmlEncoder.htmlWhite(input, sb);
 
         return sb.toString();
@@ -295,7 +295,7 @@ public class HtmlEncoder implements QlueVelocityTool {
      * @param input
      * @param sb
      */
-    public static void htmlWhite(String input, StringBuffer sb) {
+    public static void htmlWhite(String input, StringBuilder sb) {
         if (input == null) {
             return;
         }
@@ -305,7 +305,7 @@ public class HtmlEncoder implements QlueVelocityTool {
         }
     }
 
-    public static void htmlWhite(int c, StringBuffer sb) {
+    public static void htmlWhite(int c, StringBuilder sb) {
         switch (c) {
             // A few explicit conversions first
             case '<':
@@ -355,7 +355,7 @@ public class HtmlEncoder implements QlueVelocityTool {
         }
     }
 
-    public static void hex(int c, StringBuffer sb) {
+    public static void hex(int c, StringBuilder sb) {
         sb.append(hexDigits[(c >> 4) & 0x0f]);
         sb.append(hexDigits[c & 0x0f]);
     }

@@ -20,7 +20,7 @@ public class VariableExpander {
 			return null;
 		}
 		
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		String haystack = input;
 		Matcher m = propertyPattern.matcher(haystack);
 		while ((m != null) && (m.find())) {					

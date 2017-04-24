@@ -167,7 +167,7 @@ public class TransactionContext {
                 // If there's more than one IP address provided, combine them
                 // in order to produce the effective X-Forwarded-For header value.
                 if (sx.length > 1) {
-                    StringBuffer sb = new StringBuffer();
+                    StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < sx.length - 1; i++) {
                         if (TextUtil.isEmpty(sx[i]) == false) {
                             if (i != 0) {

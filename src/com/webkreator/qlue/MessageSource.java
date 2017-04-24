@@ -55,7 +55,7 @@ public class MessageSource {
 	 * Resolve a message code using the given parameters.k
 	 */
 	public String get(String code, Object... params) {					
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		Formatter formatter = new Formatter(sb, locale);
 		formatter.format(get(code), params);
 		return sb.toString();

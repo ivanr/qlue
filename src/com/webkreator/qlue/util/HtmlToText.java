@@ -1,20 +1,19 @@
 package com.webkreator.qlue.util;
 
+import javax.swing.text.html.HTMLEditorKit;
+import javax.swing.text.html.parser.ParserDelegator;
 import java.io.IOException;
 import java.io.Reader;
 
-import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.html.parser.ParserDelegator;
-
 public class HtmlToText extends HTMLEditorKit.ParserCallback {
 	
-	private StringBuffer sb;
+	private StringBuilder sb;
 
 	public HtmlToText() {
 	}
 
 	public void parse(Reader in) throws IOException {
-		sb = new StringBuffer();
+		sb = new StringBuilder();
 		ParserDelegator delegator = new ParserDelegator();		
 		delegator.parse(in, this, Boolean.TRUE);
 	}

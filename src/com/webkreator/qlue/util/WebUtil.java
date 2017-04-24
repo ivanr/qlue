@@ -46,7 +46,7 @@ public class WebUtil {
         }
 
         // Remove consecutive forward slash characters
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
 
         boolean seenSlash = false;
         for (int i = 0; i < uri.length(); i++) {
