@@ -68,9 +68,18 @@ public class StaticFileRouter implements Router {
         // The request is for a directory; ask the manager for
         // the default file and attempt to serve that.
 
-        file = new File(file, manager.getIndexWithSuffix());
-        if (file.exists()) {
-            return new DownloadView(file);
+        File defaultFile = new File(file, manager.getIndexWithSuffix());
+        if (defaultFile.exists()) {
+            return new DownloadView(defaultFile);
+        }
+
+        // This router delivers static files so we'll also allow
+        // "index.html" as the default file, which is potentially
+        // different from what is configured in the manager for
+        // pages, etc.
+        defaultFile = new File(file, "index.html");
+        if (defaultFile.exists()) {
+            return new DownloadView(defaultFile);
         } else {
             return new StatusCodeView(403);
         }
