@@ -161,7 +161,7 @@ public class UriBuilder {
      */
     public String getUri() {
         try {
-            StringBuilder sb = new StringBuilder();
+            StringBuffer sb = new StringBuffer();
 
             // Start with the prefix (protocol, domain name)
             if (prefix != null) {
@@ -195,6 +195,19 @@ public class UriBuilder {
             if (fragment != null) {
                 sb.append('#');
                 sb.append(URLEncoder.encode(fragment, "UTF-8"));
+            }
+
+            String uriBeforeEncoding = sb.toString();
+            sb = new StringBuffer();
+            byte[] bytes = uriBeforeEncoding.getBytes("UTF-8");
+            for (byte b : bytes) {
+                int i = b & 0xff;
+                if (i <= 0x7f) {
+                    sb.appendCodePoint(i);
+                } else {
+                    sb.append('%');
+                    HtmlEncoder.hex(i, sb);
+                }
             }
 
             return sb.toString();

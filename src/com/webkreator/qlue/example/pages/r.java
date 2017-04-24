@@ -8,6 +8,6 @@ public class r extends Page {
 
     @Override
     public View onGet() throws Exception {
-        return new RedirectView("/#123");
+        return new RedirectView("/report/\uD83D\uDC7D\uD83D\uDC45.ws#123");
     }
 }
