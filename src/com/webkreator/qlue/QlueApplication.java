@@ -925,8 +925,13 @@ public class QlueApplication {
         page.writeDevelopmentInformation(out);
         out.println("");
         out.println("<b>Session</b>\n");
-        page.getQlueSession().writeDevelopmentInformation(out);
-        out.println("");
+
+        QlueSession qlueSession = page.getQlueSession();
+        if (qlueSession != null) {
+            page.getQlueSession().writeDevelopmentInformation(out);
+            out.println("");
+        }
+
         out.println("<b>Application</b>\n");
         this.writeDevelopmentInformation(out);
         out.println("</pre></div>");
@@ -1531,7 +1536,7 @@ public class QlueApplication {
      * Check if the current transaction comes from an IP address that is allowed
      * to use development mode.
      */
-    public boolean isDeveloperRequest(TransactionContext context) {
+    public boolean isDeveloperRequestIpAddress(TransactionContext context) {
         if (developmentSubnets == null) {
             return false;
         }
@@ -1557,18 +1562,22 @@ public class QlueApplication {
      * Check if the current transaction comes from a developer.
      */
     public boolean isDevelopmentMode(TransactionContext context) {
-        // Check IP address first
-        if (isDeveloperRequest(context) == false) {
+        if (isDeveloperRequestIpAddress(context) == false) {
+            return false;
+        }
+
+        QlueSession qlueSession = getQlueSession(context.getRequest());
+        if (qlueSession == null) {
             return false;
         }
 
         // Check session development mode (explicitly enabled)
-        if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
+        if (qlueSession.getDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
             return true;
         }
 
         // Check session development mode (explicitly disabled)
-        if (getQlueSession(context.getRequest()).getDevelopmentMode() == QlueConstants.DEVMODE_DISABLED) {
+        if (qlueSession.getDevelopmentMode() == QlueConstants.DEVMODE_DISABLED) {
             return false;
         }
 

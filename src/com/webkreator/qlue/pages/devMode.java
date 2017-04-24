@@ -37,7 +37,7 @@ public class devMode extends Page {
     @Override
     public View onGet() throws Exception {
         // Check that the IP address is in range
-        if (getApp().isDeveloperRequest(context) == false) {
+        if (getApp().isDeveloperRequestIpAddress(context) == false) {
             throw new AccessForbiddenException();
         }
 
@@ -124,7 +124,7 @@ public class devMode extends Page {
     @Override
     public View onPost() throws Exception {
         // Check that the IP address is in range
-        if (getApp().isDeveloperRequest(context) == false) {
+        if (getApp().isDeveloperRequestIpAddress(context) == false) {
             throw new AccessForbiddenException();
         }
 

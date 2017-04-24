@@ -44,4 +44,9 @@ public class formTest extends Page {
 
         return new RedirectView(this);
     }
+
+    @Override
+    public void commit() {
+        getContext().getSession().invalidate();
+    }
 }
