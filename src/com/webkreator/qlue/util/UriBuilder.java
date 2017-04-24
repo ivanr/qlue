@@ -26,181 +26,181 @@ import java.util.regex.Pattern;
 
 public class UriBuilder {
 
-	private String prefix;
+    private String prefix;
 
-	private String path;
+    private String path;
 
-	private String fragment;
+    private String fragment;
 
-	private List<UriBuilderParam> params = new ArrayList<UriBuilderParam>();
+    private List<UriBuilderParam> params = new ArrayList<UriBuilderParam>();
 
-	private Pattern uriPattern = Pattern.compile("^(https?://[^/]+)(/.*)?$");
+    private Pattern uriPattern = Pattern.compile("^(https?://[^/]+)(/.*)?$");
 
-	/**
-	 * Instances of this class represent individual URI parameters (key-value
-	 * pairs).
-	 */
-	class UriBuilderParam {
+    /**
+     * Instances of this class represent individual URI parameters (key-value
+     * pairs).
+     */
+    class UriBuilderParam {
 
-		String name;
+        String name;
 
-		String value;
+        String value;
 
-		UriBuilderParam(String name, String value) {
-			this.name = name;
-			this.value = value;
-		}
-	}
+        UriBuilderParam(String name, String value) {
+            this.name = name;
+            this.value = value;
+        }
+    }
 
-	/**
-	 * Create new instance of the URI builder, starting with the given base URI
-	 * (which may contain parameters).
-	 * 
-	 * @param uri
-	 */
-	public UriBuilder(String uri) {
-		setUri(uri);
-	}
+    /**
+     * Create new instance of the URI builder, starting with the given base URI
+     * (which may contain parameters).
+     *
+     * @param uri
+     */
+    public UriBuilder(String uri) {
+        setUri(uri);
+    }
 
-	/**
-	 * Add parameter to URI.
-	 * 
-	 * @param name
-	 * @param value
-	 */
-	public void addParam(String name, int value) {
-		params.add(new UriBuilderParam(name, Integer.toString(value)));
-	}
+    /**
+     * Add parameter to URI.
+     *
+     * @param name
+     * @param value
+     */
+    public void addParam(String name, int value) {
+        params.add(new UriBuilderParam(name, Integer.toString(value)));
+    }
 
-	/**
-	 * Add parameter to URI.
-	 * 
-	 * @param name
-	 * @param value
-	 */
-	public void addParam(String name, Integer value) {
-		if (value == null) {
-			params.add(new UriBuilderParam(name, ""));
-		} else {
-			params.add(new UriBuilderParam(name, value.toString()));
-		}
-	}
+    /**
+     * Add parameter to URI.
+     *
+     * @param name
+     * @param value
+     */
+    public void addParam(String name, Integer value) {
+        if (value == null) {
+            params.add(new UriBuilderParam(name, ""));
+        } else {
+            params.add(new UriBuilderParam(name, value.toString()));
+        }
+    }
 
-	/**
-	 * Add parameter to URI.
-	 * 
-	 * @param name
-	 * @param value
-	 */
-	public void addParam(String name, String value) {
-		params.add(new UriBuilderParam(name, value));
-	}
+    /**
+     * Add parameter to URI.
+     *
+     * @param name
+     * @param value
+     */
+    public void addParam(String name, String value) {
+        params.add(new UriBuilderParam(name, value));
+    }
 
-	/**
-	 * Clear all parameters.
-	 */
-	public void clearParams() {
-		params.clear();
-	}
+    /**
+     * Clear all parameters.
+     */
+    public void clearParams() {
+        params.clear();
+    }
 
-	/**
-	 * Initialize builder using the given URI.
-	 * 
-	 * @param uri
-	 */
-	protected void setUri(String uri) {
-		// Check if the URI is absolute, because
-		// we only need to work with the path part,
-		// not the protocol or the domain name
-		Matcher m = uriPattern.matcher(uri);
-		if (m.matches()) {
-			prefix = m.group(1);
-			uri = m.group(2);
-		}
+    /**
+     * Initialize builder using the given URI.
+     *
+     * @param uri
+     */
+    protected void setUri(String uri) {
+        // Check if the URI is absolute, because
+        // we only need to work with the path part,
+        // not the protocol or the domain name
+        Matcher m = uriPattern.matcher(uri);
+        if (m.matches()) {
+            prefix = m.group(1);
+            uri = m.group(2);
+        }
 
-		// Look for parameters
-		if (uri != null) {
-			int j = uri.indexOf('#');
-			if (j != -1) {
-				fragment = uri.substring(j + 1);
-				uri = uri.substring(0, j);
-			}
+        // Look for parameters
+        if (uri != null) {
+            int j = uri.indexOf('#');
+            if (j != -1) {
+                fragment = uri.substring(j + 1);
+                uri = uri.substring(0, j);
+            }
 
-			int i = uri.indexOf('?');
-			if (i == -1) {
-				// No parameters, just store the normalized path
-				this.path = WebUtil.normaliseUri(uri);
-			} else {
-				// Extract parameters into individual objects
-				this.path = WebUtil.normaliseUri(uri.substring(0, i));
-				String qs = uri.substring(i + 1);
-				String[] pairs = qs.split("&");
-				
-				try {
-					for (String p : pairs) {
-						i = p.indexOf('=');
-						if (i == -1) {
-							addParam(URLDecoder.decode(p, "UTF-8"), "");
-						} else {
-							addParam(URLDecoder.decode(p.substring(0, i),
-									"UTF-8"), URLDecoder.decode(
-									p.substring(i + 1), "UTF-8"));
-						}
-					}
-				} catch (UnsupportedEncodingException une) {
-					// Should never happen
-				}
-			}
-		}
-	}
+            int i = uri.indexOf('?');
+            if (i == -1) {
+                // No parameters, just store the normalized path
+                this.path = WebUtil.normaliseUri(uri);
+            } else {
+                // Extract parameters into individual objects
+                this.path = WebUtil.normaliseUri(uri.substring(0, i));
+                String qs = uri.substring(i + 1);
+                String[] pairs = qs.split("&");
 
-	/**
-	 * Construct URI as string.
-	 * 
-	 * @return
-	 */
-	public String getUri() {
-		StringBuilder sb = new StringBuilder();
+                try {
+                    for (String p : pairs) {
+                        i = p.indexOf('=');
+                        if (i == -1) {
+                            addParam(URLDecoder.decode(p, "UTF-8"), "");
+                        } else {
+                            addParam(URLDecoder.decode(p.substring(0, i),
+                                    "UTF-8"), URLDecoder.decode(
+                                    p.substring(i + 1), "UTF-8"));
+                        }
+                    }
+                } catch (UnsupportedEncodingException une) {
+                    // Should never happen
+                }
+            }
+        }
+    }
 
-		// Start with the prefix (protocol, domain name)
-		if (prefix != null) {
-			sb.append(prefix);
-		}
-		
-		// Append base URI
-		if (path != null) {
-			sb.append(path);
-		}
+    /**
+     * Construct URI as string.
+     *
+     * @return
+     */
+    public String getUri() {
+        try {
+            StringBuilder sb = new StringBuilder();
 
-		// Parameters
-		if (params.size() != 0) {
-			try {
-				sb.append("?");
+            // Start with the prefix (protocol, domain name)
+            if (prefix != null) {
+                sb.append(prefix);
+            }
 
-				// Iterate through the list of parameters and
-				// add them to the URI, properly transforming them
-				// in the process.
-				for (int i = 0, n = params.size(); i < n; i++) {
-					if (i != 0) {
-						sb.append('&');
-					}
+            // Append base URI
+            if (path != null) {
+                sb.append(path);
+            }
 
-					UriBuilderParam param = params.get(i);
-					sb.append(URLEncoder.encode(param.name, "UTF-8"));
-					sb.append("=");
-					sb.append(URLEncoder.encode(param.value, "UTF-8"));
-				}
-			} catch (UnsupportedEncodingException uee) {
-				// Should never happen, as we know that UTF-8 is supported
-				uee.printStackTrace(System.err);
-			}
-		}
+            // Parameters
+            if (params.size() != 0) {
+                sb.append("?");
 
-		if (fragment != null) {
-			sb.append('#');
-			sb.append(fragment);
-		}
+                // Iterate through the list of parameters and
+                // add them to the URI, properly transforming them
+                // in the process.
+                for (int i = 0, n = params.size(); i < n; i++) {
+                    if (i != 0) {
+                        sb.append('&');
+                    }
 
-		return sb.toString();
-	}
+                    UriBuilderParam param = params.get(i);
+                    sb.append(URLEncoder.encode(param.name, "UTF-8"));
+                    sb.append("=");
+                    sb.append(URLEncoder.encode(param.value, "UTF-8"));
+                }
+            }
+
+            if (fragment != null) {
+                sb.append('#');
+                sb.append(URLEncoder.encode(fragment, "UTF-8"));
+            }
+
+            return sb.toString();
+        } catch (UnsupportedEncodingException uee) {
+            // Should never happen, as we know that UTF-8 is supported
+            throw new RuntimeException(uee);
+        }
+    }
 }
