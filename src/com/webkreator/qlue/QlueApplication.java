@@ -24,6 +24,8 @@ import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
 import com.webkreator.qlue.view.velocity.DefaultVelocityTool;
+import it.sauronsoftware.cron4j.InvalidPatternException;
+import it.sauronsoftware.cron4j.Scheduler;
 import org.apache.commons.mail.Email;
 import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.SimpleEmail;
@@ -36,6 +38,7 @@ import javax.servlet.http.*;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -133,6 +136,8 @@ public class QlueApplication {
 
     private String priorityTemplatePath;
 
+    private Scheduler scheduler;
+
     /**
      * This is the default constructor. The idea is that a subclass will
      * override it and supplement with its own configuration.
@@ -194,6 +199,8 @@ public class QlueApplication {
         nextHour.set(Calendar.SECOND, 0);
 
         scheduleTask(new SendUrgentRemindersTask(), nextHour.getTime(), 60 * 60 * 1000);
+
+        scheduleApplicationJobs();
     }
 
     protected void initRouteManagers() throws Exception {
@@ -1847,6 +1854,32 @@ public class QlueApplication {
             // that matches the name when ignoring case differences.
             // We do not care about that.
             return null;
+        }
+    }
+
+    private void scheduleApplicationJobs() {
+        // Create scheduler
+        scheduler = new Scheduler();
+        scheduler.setDaemon(true);
+        scheduler.start();
+
+        // Enumerate all application methods and look
+        // for the QlueSchedule annotation
+        Method[] methods = this.getClass().getMethods();
+        for (Method m : methods) {
+            if (m.isAnnotationPresent(QlueSchedule.class)) {
+                if (Modifier.isPublic(m.getModifiers()) || (Modifier.isProtected(m.getModifiers()))) {
+                    QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
+                    try {
+                        scheduler.schedule(qs.value(), new QlueScheduleMethodTaskWrapper(this, this, m));
+                        log.info("Scheduled method: " + m.getName());
+                    } catch (InvalidPatternException ipe) {
+                        log.error("QlueSchedule: Invalid schedule pattern: " + qs.value());
+                    }
+                } else {
+                    log.error("QlueSchedule: Scheduled methods must be public or protected: " + m.getName());
+                }
+            }
         }
     }
 }
