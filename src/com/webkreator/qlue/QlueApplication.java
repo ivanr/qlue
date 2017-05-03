@@ -175,6 +175,12 @@ public class QlueApplication {
      * servlets to delegate both initialization and request processing.
      */
     public void init(HttpServlet servlet) throws Exception {
+        qlueInit(servlet);
+        appInit(servlet);
+        qluePostInit();
+    }
+
+    protected void qlueInit(HttpServlet servlet) throws Exception {
         this.servlet = servlet;
 
         determineConfigPath();
@@ -192,12 +198,17 @@ public class QlueApplication {
         }
 
         viewFactory.init(this);
+    }
 
+    protected void appInit(HttpServlet servlet) throws Exception {
+        // Left for applications to override.
+    }
+
+    protected void qluePostInit() throws Exception {
         Calendar nextHour = Calendar.getInstance();
         nextHour.set(Calendar.HOUR_OF_DAY, nextHour.get(Calendar.HOUR_OF_DAY) + 1);
         nextHour.set(Calendar.MINUTE, 0);
         nextHour.set(Calendar.SECOND, 0);
-
         scheduleTask(new SendUrgentRemindersTask(), nextHour.getTime(), 60 * 60 * 1000);
 
         scheduleApplicationJobs();
