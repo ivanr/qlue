@@ -1,5 +1,7 @@
 package com.webkreator.qlue.router;
 
+import java.util.Properties;
+
 /**
  * This interface enables router implementations to retrieve the information about the default (index) file and dynamic
  * file suffixes from the supervising class, without tying them to a concrete implementation.
@@ -35,4 +37,6 @@ public interface RouteManager {
     void setConcertDashesToUnderscores(boolean b);
 
 	String getPriorityTemplatePath();
+
+	Properties getProperties();
 }

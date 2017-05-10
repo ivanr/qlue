@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 
 public class HeaderConfigRouter implements Router {
 
-    private Logger log = LoggerFactory.getLogger(HeaderConfigRouter.class);
+    private static Logger log = LoggerFactory.getLogger(HeaderConfigRouter.class);
 
     private static final Pattern configPattern = Pattern.compile("^([a-zA-Z0-9_-]+)\\s+(.*)$");
 

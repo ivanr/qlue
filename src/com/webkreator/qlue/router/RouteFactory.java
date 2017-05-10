@@ -156,11 +156,18 @@ public class RouteFactory {
         String configDirective = m.group(1);
         String configText = m.group(2);
 
-        if (configDirective.equals("header")) {
-            return new Route(null, HeaderConfigRouter.fromString(manager, configText));
-        } else {
-            throw new RuntimeException("Qlue: Unknown configuration directive");
-        }
+        switch(configDirective) {
+			case "header":
+				return new Route(null, HeaderConfigRouter.fromString(manager, configText));
+			case "define":
+				DefineConfigRouter.updateProperties(manager, configText);
+				return null;
+			case "print":
+				System.out.println(manager.getProperties().getProperty(configText));
+				return null;
+			default:
+				throw new RuntimeException("Qlue: Unknown configuration directive: " + configDirective);
+		}
     }
 
     /**

@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * Implements the default routing functionality, which accepts
@@ -83,6 +84,10 @@ public class QlueRouteManager implements RouteManager {
 	 * Adds a new route.
 	 */
 	public void add(Route route) {
+		if (route == null) {
+			return;
+		}
+
 		routes.add(route);
 	}
 
@@ -117,7 +122,11 @@ public class QlueRouteManager implements RouteManager {
 	 */
 	String expandProperties(String input) {
 		return VariableExpander.expand(input, app.getProperties());		
-	}	
+	}
+
+	public Properties getProperties() {
+		return app.getProperties();
+	}
 	
 	@Override
 	public String getIndex() {
