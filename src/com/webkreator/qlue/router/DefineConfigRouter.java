@@ -19,13 +19,15 @@ public class DefineConfigRouter implements Router {
     public static void updateProperties(RouteManager manager, String text) {
         Matcher m = configPattern.matcher(text);
         if (m.matches() == false) {
-            throw new RuntimeException("Qlue: Invalid @define route directive: " + text);
+            throw new RuntimeException("Qlue: Invalid @define directive: " + text);
         }
 
         String name = m.group(1);
         String value = m.group(2);
 
-        log.debug("Setting property: " + name + "=" + value);
+        if (log.isInfoEnabled()) {
+            log.info("HTTP request routing: @define: name=" + name + "; value=" + value);
+        }
 
         manager.getProperties().setProperty(name, value);
     }

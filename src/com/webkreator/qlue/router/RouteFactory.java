@@ -162,9 +162,6 @@ public class RouteFactory {
 			case "define":
 				DefineConfigRouter.updateProperties(manager, configText);
 				return null;
-			case "print":
-				System.out.println(manager.getProperties().getProperty(configText));
-				return null;
 			default:
 				throw new RuntimeException("Qlue: Unknown configuration directive: " + configDirective);
 		}

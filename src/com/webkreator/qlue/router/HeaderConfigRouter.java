@@ -11,7 +11,7 @@ public class HeaderConfigRouter implements Router {
 
     private static Logger log = LoggerFactory.getLogger(HeaderConfigRouter.class);
 
-    private static final Pattern configPattern = Pattern.compile("^([a-zA-Z0-9_-]+)\\s+(.*)$");
+    private static final Pattern configPattern = Pattern.compile("^([a-zA-Z0-9_-]+)(\\s+(.+))?$");
 
     private String name;
 
@@ -25,10 +25,20 @@ public class HeaderConfigRouter implements Router {
     public static HeaderConfigRouter fromString(RouteManager manager, String text) {
         Matcher m = configPattern.matcher(text);
         if (m.matches() == false) {
-            throw new RuntimeException("Qlue: Invalid header route: " + text);
+            throw new RuntimeException("Qlue: Invalid @header directive: " + text);
         }
 
-        return new HeaderConfigRouter(m.group(1), m.group(2));
+        String name = m.group(1);
+        String value = null;
+        if (m.groupCount() > 1) {
+            value = m.group(3);
+        }
+
+        if (log.isInfoEnabled()) {
+            log.info("HTTP request routing: @header: name=" + name + "; value=" + value);
+        }
+
+        return new HeaderConfigRouter(name, value);
     }
 
     @Override
