@@ -12,7 +12,7 @@ public class EnumEditor implements PropertyEditor {
     @Override
     public Enum fromText(Field field, String text, Object currentValue) {
         if (text == null) {
-            return null;
+            return (Enum)currentValue;
         }
 
         if (!field.getType().isEnum()) {
