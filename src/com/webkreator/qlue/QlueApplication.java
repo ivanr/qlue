@@ -665,32 +665,34 @@ public class QlueApplication {
         // Record message to the activity log
         log.error("Qlue: Unhandled application exception", t);
 
-        // Send email notification
-        try {
-            Email email = new SimpleEmail();
-            email.setCharset("UTF-8");
+        if (adminEmail != null) {
+            // Send email notification
+            try {
+                Email email = new SimpleEmail();
+                email.setCharset("UTF-8");
 
-            if (t.getMessage() != null) {
-                email.setSubject("Application Exception: " + t.getMessage());
-            } else {
-                email.setSubject("Application Exception");
+                if (t.getMessage() != null) {
+                    email.setSubject("Application Exception: " + t.getMessage());
+                } else {
+                    email.setSubject("Application Exception");
+                }
+
+                StringWriter msgBody = new StringWriter();
+                PrintWriter pw = new PrintWriter(msgBody);
+
+                t.printStackTrace(pw);
+                pw.println();
+
+                if (debugInfo != null) {
+                    pw.print(debugInfo);
+                }
+
+                email.setMsg(msgBody.toString());
+
+                sendAdminEmail(email, true /* fatalError */);
+            } catch (Exception e) {
+                log.error("Failed sending admin email: ", e);
             }
-
-            StringWriter msgBody = new StringWriter();
-            PrintWriter pw = new PrintWriter(msgBody);
-
-            t.printStackTrace(pw);
-            pw.println();
-
-            if (debugInfo != null) {
-                pw.print(debugInfo);
-            }
-
-            email.setMsg(msgBody.toString());
-
-            sendAdminEmail(email, true /* fatalError */);
-        } catch (Exception e) {
-            log.error("Failed sending admin email: ", e);
         }
     }
 
@@ -833,7 +835,7 @@ public class QlueApplication {
 
     private void createShadowInputArrayParam(Page page, Field f, boolean fromRequest) throws Exception {
         // Find the property editor
-        PropertyEditor pe = editors.get(f.getType().getComponentType());
+        PropertyEditor pe = findPropertyEditor(f.getType().getComponentType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType().getComponentType());
         }
@@ -860,8 +862,7 @@ public class QlueApplication {
     }
 
     private void createShadowInputNonArrayParam(Page page, Field f, boolean fromRequest) throws Exception {
-        // Find the property editor
-        PropertyEditor pe = editors.get(f.getType());
+        PropertyEditor pe = findPropertyEditor(f.getType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
@@ -1085,7 +1086,7 @@ public class QlueApplication {
 
         // Look for a property editor, which will know how
         // to convert text into a proper native type
-        PropertyEditor pe = editors.get(f.getType().getComponentType());
+        PropertyEditor pe = findPropertyEditor(f.getType().getComponentType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType().getComponentType());
         }
@@ -1201,7 +1202,7 @@ public class QlueApplication {
 
         // Look for a property editor, which will know how
         // to convert text into a native type
-        PropertyEditor pe = editors.get(f.getType());
+        PropertyEditor pe = findPropertyEditor(f.getType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
@@ -1226,6 +1227,14 @@ public class QlueApplication {
         }
     }
 
+    private PropertyEditor findPropertyEditor(Class<?> c) {
+        if (c.isEnum()) {
+            return editors.get(Enum.class);
+        } else {
+            return editors.get(c);
+        }
+    }
+
     private void bindParameterFromString(Object commandObject, Field f, Page page, String value) throws Exception {
         // Get the annotation
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
@@ -1237,7 +1246,7 @@ public class QlueApplication {
 
         // Look for a property editor, which will know how
         // to convert text into a native type
-        PropertyEditor pe = editors.get(f.getType());
+        PropertyEditor pe = findPropertyEditor(f.getType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
@@ -1316,6 +1325,7 @@ public class QlueApplication {
         registerPropertyEditor(new StringEditor());
         registerPropertyEditor(new BooleanEditor());
         registerPropertyEditor(new DateEditor());
+        registerPropertyEditor(new EnumEditor());
     }
 
     /**
