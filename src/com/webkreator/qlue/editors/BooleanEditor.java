@@ -26,7 +26,7 @@ public class BooleanEditor implements PropertyEditor {
 	@Override
 	public Boolean fromText(Field field, String text, Object currentValue) {
 		if (text == null) {
-			return Boolean.FALSE;
+			return (Boolean)currentValue;
 		}
 		
 		if ((text.compareToIgnoreCase("on") == 0)
