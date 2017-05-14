@@ -16,7 +16,7 @@ public class EnumEditor implements PropertyEditor {
         }
 
         if (!field.getType().isEnum()) {
-            throw new IllegalArgumentException("field not enum: " + field.getType());
+            throw new IllegalArgumentException("Field not enum: " + field.getType());
         }
 
         return Enum.valueOf((Class<Enum>)field.getType(), text);
@@ -24,6 +24,6 @@ public class EnumEditor implements PropertyEditor {
 
     @Override
     public String toText(Object o) {
-        return ((Enum)o).toString();
+        return o.toString();
     }
 }

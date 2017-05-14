@@ -47,7 +47,7 @@ public class BooleanEditor implements PropertyEditor {
 			return Boolean.FALSE;
 		}
 
-		throw new IllegalArgumentException("qp.validation.boolean.invalid");
+		throw new IllegalArgumentException("Invalid boolean value: " + text);
 	}
 
 	@Override
