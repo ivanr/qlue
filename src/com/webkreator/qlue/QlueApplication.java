@@ -334,6 +334,12 @@ public class QlueApplication {
         }
     }
 
+    public void qlueBeforeDestroy() {
+        if (scheduler != null) {
+            scheduler.stop();
+        }
+    }
+
     /**
      * Destroys the application. Invoked when the backing servlet is destroyed.
      */

@@ -134,6 +134,7 @@ public class QlueServlet extends HttpServlet {
             return;
         }
 
+        qlueApp.qlueBeforeDestroy();
         qlueApp.destroy();
     }
 }
