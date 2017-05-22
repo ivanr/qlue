@@ -1,11 +1,10 @@
 
 apply plugin: 'java'
+// This doesn't work when Qlue is imported as a Gradle subproject.
 //apply plugin: 'idea'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
-
-
 
 compileJava {
     options.compilerArgs += ["-parameters"]
