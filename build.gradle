@@ -1,0 +1,53 @@
+
+apply plugin: 'java'
+//apply plugin: 'idea'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+
+
+compileJava {
+    options.compilerArgs += ["-parameters"]
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.slf4j:slf4j-api:1.7.25'
+    compile 'commons-cli:commons-cli:1.4'
+    compile 'org.apache.commons:commons-email:1.4'
+    compile 'javax.mail:mail:1.4.7'
+    compile group: 'it.sauronsoftware.cron4j', name: 'cron4j', version: '2.2.5'
+
+    compile 'org.apache.velocity:velocity:1.7'
+
+    compile 'org.apache.tomcat.embed:tomcat-embed-core:8.5.15'
+    compile 'org.apache.tomcat:tomcat-jasper:8.5.15'
+    compile 'org.apache.tomcat:tomcat-jasper-el:8.5.15'
+    compile 'org.apache.tomcat:tomcat-jsp-api:8.5.15'
+}
+
+sourceSets {
+    main {
+        resources.srcDirs = ["src/main"]
+    }
+}
+
+jar {
+}
+
+/*
+idea {
+    project {
+        languageLevel = '1.8'
+    }
+
+    module {
+        downloadJavadoc = true
+        downloadSources = true
+    }
+}
+*/
