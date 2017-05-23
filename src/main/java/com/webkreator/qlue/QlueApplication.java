@@ -595,9 +595,8 @@ public class QlueApplication {
             }
 
             log.error("Security exception: " + context.getRequestUriWithQueryString(), se);
-
-            // Respond to security exceptions with a 400 response.
-            context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
+            
+            context.getResponse().sendError(HttpServletResponse.SC_FORBIDDEN);
         } catch (Exception e) {
             if (page != null) {
                 page.rollback();
