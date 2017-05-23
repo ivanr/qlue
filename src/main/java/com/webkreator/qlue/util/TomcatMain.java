@@ -16,6 +16,7 @@
  */
 package com.webkreator.qlue.util;
 
+import org.apache.catalina.core.StandardContext;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.commons.cli.*;
 
@@ -54,7 +55,9 @@ public class TomcatMain {
 			home = commandLine.getOptionValue("home");
 			home = new File(home).getAbsolutePath();
 		}
-		tomcat.addWebapp("", home);
+
+		StandardContext ctx = (StandardContext)tomcat.addWebapp("", home);
+		ctx.addValve(new TomcatErrorPageValve());
 
 		Integer port = 8080;
 		if (commandLine.hasOption("port")) {
@@ -76,7 +79,7 @@ public class TomcatMain {
 			tomcat.getConnector().setProperty("keystoreFile", keystoreFile);
 			tomcat.getConnector().setProperty("keystorePass", keystorePass);
 		}
-		
+
 		tomcat.start();
 		tomcat.getServer().await();		
 	}
