@@ -36,7 +36,6 @@ public class devMode extends Page {
 
     @Override
     public View onGet() throws Exception {
-        // Check that the IP address is in range
         if (getApp().isDeveloperRequestIpAddress(context) == false) {
             throw new AccessForbiddenException();
         }
