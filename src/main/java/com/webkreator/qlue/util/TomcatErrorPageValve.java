@@ -70,7 +70,7 @@ public class TomcatErrorPageValve extends ErrorReportValve {
     }
 
     protected static File findErrorPage(HttpServletRequest request, int statusCode, String errorPagesLocation) {
-        File errorPagesHome = new File(request.getServletContext().getRealPath(errorPagesLocation));
+        File errorPagesHome = new File(errorPagesLocation);
         File f = null;
 
         f = new File(errorPagesHome, "error-" + statusCode + ".html");
