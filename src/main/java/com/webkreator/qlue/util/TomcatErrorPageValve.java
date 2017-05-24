@@ -5,8 +5,6 @@ import org.apache.catalina.connector.Response;
 import org.apache.catalina.valves.ErrorReportValve;
 import org.apache.jasper.runtime.ExceptionUtils;
 
-import java.io.PrintWriter;
-
 public class TomcatErrorPageValve extends ErrorReportValve {
 
     @Override
@@ -17,22 +15,8 @@ public class TomcatErrorPageValve extends ErrorReportValve {
             return;
         }
 
-        String message = WebUtil.getStatusMessage(statusCode);
-        if (message == null) {
-            message = "Unknown Status Code (" + statusCode + ")";
-        }
-
         try {
-            response.setContentType("text/html");
-            PrintWriter out = response.getWriter();
-            out.print("<!DOCTYPE html><html><head><title>");
-            out.print(HtmlEncoder.html(message));
-            out.println("</title></head>");
-            out.print("<body><h1>");
-            out.print(HtmlEncoder.html(message));
-            out.println("</h1>");
-            WebUtil.writePagePaddingforInternetExplorer(out);
-            out.println("</body></html>");
+            QlueErrorPageServlet.outputErrorPage(request, response);
         } catch(Exception e) {
             ExceptionUtils.handleThrowable(e);
         }
