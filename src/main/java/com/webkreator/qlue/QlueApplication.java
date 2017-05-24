@@ -931,8 +931,9 @@ public class QlueApplication {
             }
         }
 
-        // Append output
-        _masterWriteRequestDevelopmentInformation(context, page, context.response.getWriter());
+        if (getBooleanProperty("qlue.devmode.debug", "false")) {
+            _masterWriteRequestDevelopmentInformation(context, page, context.response.getWriter());
+        }
     }
 
     protected void _masterWriteRequestDevelopmentInformation(TransactionContext context, Page page, PrintWriter out) throws IOException {
