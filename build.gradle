@@ -1,6 +1,4 @@
 apply plugin: 'java'
-// This doesn't work when Qlue is imported as a Gradle subproject.
-//apply plugin: 'idea'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -37,17 +35,3 @@ sourceSets {
 
 jar {
 }
-
-/*
-idea {
-    project {
-        languageLevel = '1.8'
-    }
-
-    module {
-        downloadJavadoc = true
-        downloadSources = true
-    }
-}
-
-*/
