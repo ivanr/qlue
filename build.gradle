@@ -35,3 +35,12 @@ sourceSets {
 
 jar {
 }
+
+task errorValveJar(type: Jar, dependsOn: compileJava) {
+    from sourceSets.main.output.classesDir
+    include '**/TomcatErrorPageValve.class'
+    baseName = 'qlue-error-valve'
+    includeEmptyDirs = false
+}
+
+defaultTasks 'build', 'jar', 'errorValveJar'
