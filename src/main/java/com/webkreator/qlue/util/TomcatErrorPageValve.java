@@ -9,14 +9,13 @@ public class TomcatErrorPageValve extends ErrorReportValve {
 
     @Override
     protected void report(Request request, Response response, Throwable throwable) {
-        int statusCode = response.getStatus();
-
-        if ((statusCode < 400) || (response.getContentWritten() > 0) || (!response.setErrorReported())) {
-            return;
-        }
-
         try {
-            QlueErrorPageServlet.outputErrorPage(request, response);
+            String errorPagesLocation = System.getProperties().getProperty("QLUE_ERROR_PAGES");
+            if (errorPagesLocation != null) {
+                QlueErrorPageServlet.outputErrorPage(request, response, errorPagesLocation);
+            } else {
+                QlueErrorPageServlet.outputErrorPage(request, response);
+            }
         } catch(Exception e) {
             ExceptionUtils.handleThrowable(e);
         }
