@@ -44,3 +44,6 @@ task errorValveJar(type: Jar, dependsOn: compileJava) {
 }
 
 defaultTasks 'build', 'jar', 'errorValveJar'
+
+jar.dependsOn errorValveJar
+
