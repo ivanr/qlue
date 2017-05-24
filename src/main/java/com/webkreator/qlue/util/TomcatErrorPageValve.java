@@ -11,24 +11,25 @@ import java.io.*;
 
 public class TomcatErrorPageValve extends ErrorReportValve {
 
-    public static final String ERROR_PAGES_LOCATION = "/WEB-INF/error-pages/";
+    private String errorPagesLocation = null;
+
+    public TomcatErrorPageValve() {
+        super();
+        errorPagesLocation = System.getProperties().getProperty("QLUE_ERROR_PAGES");
+    }
 
     @Override
     protected void report(Request request, Response response, Throwable throwable) {
+        if (errorPagesLocation == null) {
+            super.report(request, response, throwable);
+            return;
+        }
+
         try {
-            String errorPagesLocation = System.getProperties().getProperty("QLUE_ERROR_PAGES");
-            if (errorPagesLocation != null) {
-                outputErrorPage(request, response, errorPagesLocation);
-            } else {
-                outputErrorPage(request, response);
-            }
+            outputErrorPage(request, response, errorPagesLocation);
         } catch(Exception e) {
             ExceptionUtils.handleThrowable(e);
         }
-    }
-
-    public static void outputErrorPage(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        outputErrorPage(request, response, ERROR_PAGES_LOCATION);
     }
 
     public static void outputErrorPage(HttpServletRequest request, HttpServletResponse response, String errorPagesLocation) throws IOException {

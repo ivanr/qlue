@@ -8,8 +8,11 @@ import java.io.*;
 
 public class QlueErrorPageServlet extends HttpServlet {
 
+    private static final String ERROR_PAGES_LOCATION = "/WEB-INF/error-pages/";
+
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        TomcatErrorPageValve.outputErrorPage(request, response);
+        String errorPagesLocation = request.getServletContext().getRealPath(ERROR_PAGES_LOCATION);
+        TomcatErrorPageValve.outputErrorPage(request, response, errorPagesLocation);
     }
 }
