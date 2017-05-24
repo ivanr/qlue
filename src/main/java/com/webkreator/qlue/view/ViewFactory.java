@@ -16,7 +16,6 @@
  */
 package com.webkreator.qlue.view;
 
-import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 
 /**
@@ -26,26 +25,7 @@ import com.webkreator.qlue.QlueApplication;
  */
 public interface ViewFactory {
 
-	/**
-	 * Initialize factory.
-	 * 
-	 * @param qlueApp
-	 * @throws Exception
-	 */
 	void init(QlueApplication qlueApp) throws Exception;
-
-	/**
-	 * Find or construct a view from the given page and view name. View names
-	 * that begin with / are considered to be absolute (within application URI
-	 * space, not filesystem). Views that are not absolute are relative, and
-	 * their full path will be resolved by looking at the path of the page.
-	 * 
-	 * @param page
-	 * @param viewName
-	 * @return
-	 * @throws Exception
-	 */
-	View constructView(Page page, String viewName) throws Exception;
 
 	View constructView(String viewName) throws Exception;
 }

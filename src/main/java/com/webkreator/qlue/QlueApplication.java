@@ -778,9 +778,9 @@ public class QlueApplication {
         // we have to replace them with a real view, using
         // the name of the page in the view resolution process.
         if (view instanceof DefaultView) {
-            view = viewFactory.constructView(page, page.getViewName());
+            view = viewFactory.constructView(View.getViewName(page));
         } else if (view instanceof NamedView) {
-            view = viewFactory.constructView(page, ((NamedView) view).getViewName());
+            view = viewFactory.constructView(View.getViewName(page));
         } else if (view instanceof ClasspathView) {
             view = viewFactory.constructView(((ClasspathView) view).getViewName());
         } else if (view instanceof FinalRedirectView) {
@@ -1633,6 +1633,14 @@ public class QlueApplication {
         }
 
         // Check application development mode
+        if (getApplicationDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean isDevelopmentMode() {
         if (getApplicationDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
             return true;
         }

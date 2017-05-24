@@ -16,16 +16,13 @@
  */
 package com.webkreator.qlue.view.velocity;
 
-import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.view.View;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 
-import java.io.File;
 import java.util.Properties;
-import java.util.StringTokenizer;
 
 /**
  * This variant of VelocityViewFactory expects templates to be stored on the
@@ -63,37 +60,9 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
         }
     }
 
-    /**
-     * Create a view instance, given page and view name. We use page class name
-     * to create a folder hierarchy, finishing with the view name and the
-     * suffix.
-     */
     @Override
-    public View constructView(Page page, String viewName) throws Exception {
-        StringBuilder sb = new StringBuilder();
-
-        StringTokenizer st = new StringTokenizer(page.getClass().getName(), ".");
-        String lastToken = null;
-
-        while (st.hasMoreTokens()) {
-            if (lastToken != null) {
-                sb.append('/');
-                sb.append(lastToken);
-            }
-
-            lastToken = st.nextToken();
-        }
-
-        sb.append('/');
-        sb.append(new File(viewName).getName());
-        sb.append(suffix);
-
-        return new VelocityView(this, velocityEngine.getTemplate(sb.toString(), inputEncoding));
-    }
-
-    @Override
-    public View constructView(String classpathName) throws Exception {
-        return new VelocityView(this, velocityEngine.getTemplate(classpathName, inputEncoding));
+    public View constructView(String viewName) throws Exception {
+        return new VelocityView(this, velocityEngine.getTemplate(viewName + suffix, inputEncoding));
     }
 
     @Override

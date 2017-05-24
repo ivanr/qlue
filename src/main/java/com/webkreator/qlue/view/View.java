@@ -19,6 +19,9 @@ package com.webkreator.qlue.view;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 
+import java.io.File;
+import java.util.StringTokenizer;
+
 /**
  * In the Qlue framework, a View instance is responsible for rendering output.
  * We do not want to tie ourselves to a particular technology, working with this
@@ -32,5 +35,26 @@ public interface View {
 	 * @param page
 	 * @throws Exception
 	 */
-	public abstract void render(TransactionContext tx, Page page) throws Exception;
+	void render(TransactionContext tx, Page page) throws Exception;
+
+	static String getViewName(Page page) {
+		StringBuilder sb = new StringBuilder();
+
+		StringTokenizer st = new StringTokenizer(page.getClass().getName(), ".");
+		String lastToken = null;
+
+		while (st.hasMoreTokens()) {
+			if (lastToken != null) {
+				sb.append('/');
+				sb.append(lastToken);
+			}
+
+			lastToken = st.nextToken();
+		}
+
+		sb.append('/');
+		sb.append(new File(page.getViewName()).getName());
+
+		return sb.toString();
+	}
 }

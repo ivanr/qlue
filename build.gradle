@@ -19,6 +19,7 @@ dependencies {
     compile group: 'it.sauronsoftware.cron4j', name: 'cron4j', version: '2.2.5'
 
     compile 'org.apache.velocity:velocity:1.7'
+    compile group: 'com.google.template', name: 'soy', version: '2017-04-23'
 
     compile 'org.apache.tomcat.embed:tomcat-embed-core:8.5.15'
     compile 'org.apache.tomcat:tomcat-jasper:8.5.15'
