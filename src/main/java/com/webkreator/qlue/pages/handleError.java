@@ -16,6 +16,7 @@
  */
 package com.webkreator.qlue.pages;
 
+import com.google.template.soy.error.SoyCompilationException;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.exceptions.AccessForbiddenException;
 import com.webkreator.qlue.exceptions.PersistentPageNotFoundException;
@@ -39,7 +40,7 @@ public class handleError extends Page {
     public View service() throws Exception {
         Integer statusCode = (Integer) context.request.getAttribute("javax.servlet.error.status_code");
         if (statusCode == null) {
-            throw new Exception("handleThrowable: direct access not allowed");
+            throw new Exception("Direct access to this error page is not allowed");
         }
 
         Throwable t = (Throwable) context.request.getAttribute("javax.servlet.error.exception");
@@ -50,6 +51,8 @@ public class handleError extends Page {
                 return _handlePersistentPageNotFoundException((PersistentPageNotFoundException) t);
             } else if (t instanceof ParseErrorException) {
                 return _handleVelocityParseError((ParseErrorException) t);
+            } else if (t instanceof SoyCompilationException) {
+                return _handleSoyCompilationError((SoyCompilationException) t);
             } else if (t instanceof AccessForbiddenException) {
                 return _handleAccessForbiddenException((AccessForbiddenException) t);
             } else {
@@ -83,6 +86,25 @@ public class handleError extends Page {
     }
 
     private View _handleVelocityParseError(ParseErrorException t) throws Exception {
+        if (!isDevelopmentMode()) {
+            return _handleGenericThrowable(t);
+        }
+
+        context.response.setContentType("text/html");
+        PrintWriter out = context.response.getWriter();
+        out.println("<html>");
+        out.println("<head><title>Template Parse Error</title></head>");
+        out.println("<body><h1>Template Parse Error</h1>");
+        out.println("<pre>");
+        out.println(HtmlEncoder.htmlWhite(t.getMessage()));
+        out.println("</pre>");
+        WebUtil.writePagePaddingforInternetExplorer(out);
+        out.println("</body></html>");
+
+        return null;
+    }
+
+    private View _handleSoyCompilationError(SoyCompilationException t) throws Exception {
         if (!isDevelopmentMode()) {
             return _handleGenericThrowable(t);
         }

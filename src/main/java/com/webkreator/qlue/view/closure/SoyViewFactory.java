@@ -20,13 +20,18 @@ public class SoyViewFactory implements ViewFactory {
 
     @Override
     public void init(QlueApplication qlueApp) throws Exception {
+        priorityTemplatePath = qlueApp.getProperty("qlue.soy.priorityTemplatePath");
+
         if (qlueApp.isDevelopmentMode()) {
+            // In development mode we compile templates on the fly.
             devMode = true;
+            return;
         }
+
+        // When not in development mode, we find and compile all templates at startup.
 
         SoyFileSet.Builder builder = SoyFileSet.builder();
 
-        priorityTemplatePath = qlueApp.getProperty("qlue.soy.priorityTemplatePath");
         if (priorityTemplatePath != null) {
             searchDir(builder, new File(priorityTemplatePath));
         }
@@ -62,7 +67,7 @@ public class SoyViewFactory implements ViewFactory {
     }
 
     @Override
-    public View constructView(String viewName) throws Exception {
+    public View constructView(String viewName) {
         SoyTofu myTofu = tofu;
 
         if (devMode) {
@@ -79,11 +84,10 @@ public class SoyViewFactory implements ViewFactory {
                 }
             }
 
-            myTofu = SoyFileSet
-                    .builder()
-                    .add(f)
-                    .build()
-                    .compileToTofu();
+            SoyFileSet.Builder builder = SoyFileSet.builder().add(f);
+            // SoyCompilationException, a runtime exception, will be
+            // thrown from here if we're unable to compile the template.
+            myTofu = builder.build().compileToTofu();
         }
 
         SoyTofu.Renderer renderer = myTofu.newRenderer(convertViewName(viewName));

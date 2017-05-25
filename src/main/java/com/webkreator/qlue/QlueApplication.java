@@ -614,14 +614,11 @@ public class QlueApplication {
                 // data and, optionally, notify the administrator via email.
                 handleApplicationException(context, page, e);
 
-                // We do not wish to propagate the exception further, but, if it's not too late
-                // (the response not committed), we should use a meaningful status code.
-                if (context.getResponse().isCommitted() == false) {
-                    if (e instanceof ServiceUnavailableException) {
-                        context.getResponse().sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-                    } else {
-                        context.getResponse().sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    }
+                // We let the exception propagate further, which will make it available to the error page.
+                if (e instanceof RuntimeException) {
+                    throw ((RuntimeException)e);
+                } else {
+                    throw new RuntimeException(e);
                 }
             }
         } finally {
@@ -1576,10 +1573,18 @@ public class QlueApplication {
                 s = s + "/32";
             }
 
+            if (!s.contains("/")) {
+                if (!s.contains(":")) {
+                    s = s + "/32";
+                } else {
+                    s = s + "/128";
+                }
+            }
+
             try {
                 developmentSubnets.add(new CIDRUtils(s));
             } catch (IllegalArgumentException iae) {
-                throw new RuntimeException("Qlue: Invalid development subnet: " + s);
+                throw new RuntimeException("Qlue: Invalid development subnet (" + s + ") - " + iae.getMessage());
             }
         }
     }
