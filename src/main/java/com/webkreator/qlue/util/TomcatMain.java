@@ -29,6 +29,8 @@ import java.io.File;
 public class TomcatMain {
 
 	public static void main(String args[]) throws Exception {
+		System.setProperty("java.awt.headless", "true");
+
 		// Disable JAR scanning to improve startup performance.
 		System.setProperty("tomcat.util.scan.StandardJarScanFilter.jarsToSkip", "*");
 
