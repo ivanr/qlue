@@ -20,11 +20,6 @@ public class TomcatErrorPageValve extends ErrorReportValve {
 
     @Override
     protected void report(Request request, Response response, Throwable throwable) {
-        if (errorPagesLocation == null) {
-            super.report(request, response, throwable);
-            return;
-        }
-
         try {
             outputErrorPage(request, response, errorPagesLocation);
         } catch(Exception e) {
@@ -40,6 +35,7 @@ public class TomcatErrorPageValve extends ErrorReportValve {
         // - javax.servlet.error.status_code
         // - javax.servlet.error.servlet_name
         // - javax.servlet.error.request_uri
+
         Exception exception = (Exception)request.getAttribute("javax.servlet.error.exception");
         if (exception != null) {
             statusCode = 500;
@@ -70,6 +66,10 @@ public class TomcatErrorPageValve extends ErrorReportValve {
     }
 
     protected static File findErrorPage(HttpServletRequest request, int statusCode, String errorPagesLocation) {
+        if (errorPagesLocation == null) {
+            return null;
+        }
+
         File errorPagesHome = new File(errorPagesLocation);
         File f = null;
 
