@@ -56,12 +56,9 @@ public class TomcatMain {
 			home = new File(home).getAbsolutePath();
 		}
 
+		tomcat.getHost().getPipeline().addValve(new TomcatErrorPageValve());
+
 		StandardContext ctx = (StandardContext)tomcat.addWebapp("", home);
-		// TODO This error valve overrides per-application error pages. Need to find a way
-		//      to avoid that. The valve works as expected when used in a standalone Tomcat.
-		//      Also, I think this valve will only work with this application if installed
-		//      correctly.
-		ctx.addValve(new TomcatErrorPageValve());
 
 		Integer port = 8080;
 		if (commandLine.hasOption("port")) {
