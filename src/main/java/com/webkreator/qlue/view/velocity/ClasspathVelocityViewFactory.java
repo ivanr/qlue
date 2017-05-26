@@ -62,7 +62,11 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 
     @Override
     public View constructView(String viewName) throws Exception {
-        return new VelocityView(this, velocityEngine.getTemplate(viewName + suffix, inputEncoding));
+        if (!viewName.endsWith(suffix)) {
+            viewName = viewName + suffix;
+        }
+
+        return new VelocityView(this, velocityEngine.getTemplate(viewName, inputEncoding));
     }
 
     @Override
