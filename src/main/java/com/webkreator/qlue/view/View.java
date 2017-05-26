@@ -29,32 +29,37 @@ import java.util.StringTokenizer;
  */
 public interface View {
 
-	/**
-	 * This method is invoked by the framework to render page output.
-	 * 
-	 * @param page
-	 * @throws Exception
-	 */
-	void render(TransactionContext tx, Page page) throws Exception;
+    /**
+     * This method is invoked by the framework to render page output.
+     *
+     * @param page
+     * @throws Exception
+     */
+    void render(TransactionContext tx, Page page) throws Exception;
 
-	static String getViewName(Page page) {
-		StringBuilder sb = new StringBuilder();
+    static String getViewName(Page page, String viewName) {
+        StringBuilder sb = new StringBuilder();
 
-		StringTokenizer st = new StringTokenizer(page.getClass().getName(), ".");
-		String lastToken = null;
+        StringTokenizer st = new StringTokenizer(page.getClass().getName(), ".");
+        String lastToken = null;
 
-		while (st.hasMoreTokens()) {
-			if (lastToken != null) {
-				sb.append('/');
-				sb.append(lastToken);
-			}
+        while (st.hasMoreTokens()) {
+            if (lastToken != null) {
+                sb.append('/');
+                sb.append(lastToken);
+            }
 
-			lastToken = st.nextToken();
-		}
+            lastToken = st.nextToken();
+        }
 
-		sb.append('/');
-		sb.append(new File(page.getViewName()).getName());
+        sb.append('/');
 
-		return sb.toString();
-	}
+        if (viewName == null) {
+            sb.append(new File(page.getViewName()).getName());
+        } else {
+            sb.append(new File(viewName).getName());
+        }
+
+        return sb.toString();
+    }
 }

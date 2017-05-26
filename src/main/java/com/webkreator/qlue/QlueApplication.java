@@ -595,7 +595,7 @@ public class QlueApplication {
             }
 
             log.error("Security exception: " + context.getRequestUriWithQueryString(), se);
-            
+
             context.getResponse().sendError(HttpServletResponse.SC_FORBIDDEN);
         } catch (Exception e) {
             if (page != null) {
@@ -616,7 +616,7 @@ public class QlueApplication {
 
                 // We let the exception propagate further, which will make it available to the error page.
                 if (e instanceof RuntimeException) {
-                    throw ((RuntimeException)e);
+                    throw ((RuntimeException) e);
                 } else {
                     throw new RuntimeException(e);
                 }
@@ -775,9 +775,9 @@ public class QlueApplication {
         // we have to replace them with a real view, using
         // the name of the page in the view resolution process.
         if (view instanceof DefaultView) {
-            view = viewFactory.constructView(View.getViewName(page));
+            view = viewFactory.constructView(View.getViewName(page, null));
         } else if (view instanceof NamedView) {
-            view = viewFactory.constructView(View.getViewName(page));
+            view = viewFactory.constructView(View.getViewName(page, ((NamedView) view).getViewName()));
         } else if (view instanceof ClasspathView) {
             view = viewFactory.constructView(((ClasspathView) view).getViewName());
         } else if (view instanceof FinalRedirectView) {
