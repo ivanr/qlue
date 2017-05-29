@@ -462,6 +462,7 @@ public class QlueApplication {
         try {
             // First check if this is a request for a persistent page. We can
             // honour such requests only when we're not handling errors.
+            Page persistentPage = null;
 
             if (context.isErrorHandler() == false) {
                 // Persistent pages are identified via the "_pid" parameter. If we have
@@ -487,26 +488,33 @@ public class QlueApplication {
                     }
 
                     // Otherwise, let's use this page.
-                    page = pageRecord.getPage();
-                    if (page == null) {
+                    persistentPage = pageRecord.getPage();
+                    if (persistentPage == null) {
                         throw new RuntimeException("Page record doesn't contain page");
                     }
                 }
             }
 
-            // If we don't have a persistent page we'll create a new one by routing this request.
+            // Use routing to find the correct page to process the current request with. We
+            // do this even with persistent pages so that we would be able to extract the
+            // page's desired URL parameters.
 
-            if (page == null) {
-                Object routeObject = route(context);
-                if (routeObject == null) {
-                    throw new PageNotFoundException();
-                } else if (routeObject instanceof View) {
-                    page = new DirectViewPage((View) routeObject);
-                } else if (routeObject instanceof Page) {
-                    page = (Page) routeObject;
-                } else {
-                    throw new RuntimeException("Qlue: Unexpected router response: " + routeObject);
-                }
+            Page routedPage = null;
+            Object routeObject = route(context);
+            if (routeObject == null) {
+                throw new PageNotFoundException();
+            } else if (routeObject instanceof View) {
+                routedPage = new DirectViewPage((View) routeObject);
+            } else if (routeObject instanceof Page) {
+                routedPage = (Page) routeObject;
+            } else {
+                throw new RuntimeException("Qlue: Unexpected router response: " + routeObject);
+            }
+
+            if (persistentPage != null) {
+                page = persistentPage;
+            } else {
+                page = routedPage;
             }
 
             // Run the page. Access to the page is synchronised, which means that only one
@@ -1193,17 +1201,15 @@ public class QlueApplication {
      * Bind a parameter that is not an array.
      */
     private void bindNonArrayParameter(Object commandObject, Field f, Page page) throws Exception {
-        // Get the annotation
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
-        // First check if the parameter is a file
+        // First check if the parameter is a file.
         if (QlueFile.class.isAssignableFrom(f.getType())) {
             bindFileParameter(commandObject, f, page);
             return;
         }
 
-        // Look for a property editor, which will know how
-        // to convert text into a native type
+        // Look for a property editor, which will know how to convert text into a native type.
         PropertyEditor pe = findPropertyEditor(f.getType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
@@ -1238,23 +1244,20 @@ public class QlueApplication {
     }
 
     private void bindParameterFromString(Object commandObject, Field f, Page page, String value) throws Exception {
-        // Get the annotation
         QlueParameter qp = f.getAnnotation(QlueParameter.class);
 
-        // First check if the parameter is a file
+        // First check if the parameter is a file.
         if (QlueFile.class.isAssignableFrom(f.getType())) {
             throw new RuntimeException("Qlue: Unable to bind a string to file parameter");
         }
 
-        // Look for a property editor, which will know how
-        // to convert text into a native type
+        // Look for a property editor, which will know how to convert text into a native type.
         PropertyEditor pe = findPropertyEditor(f.getType());
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
-
-        // If the parameter is present in request, validate it
-        // and set on the command object
+        
+        // If the parameter is present in request, validate it and set on the command object.
         if (value != null) {
             String newValue = validateParameter(page, f, qp, value);
             if (newValue != null) {
