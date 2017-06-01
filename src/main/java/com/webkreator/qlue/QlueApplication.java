@@ -497,7 +497,8 @@ public class QlueApplication {
 
             // Use routing to find the correct page to process the current request with. We
             // do this even with persistent pages so that we would be able to extract the
-            // page's desired URL parameters.
+            // page's desired URL parameters. Additionally, the routing process will set the
+            // response headers configured in the routes file.
 
             Page routedPage = null;
             Object routeObject = route(context);
