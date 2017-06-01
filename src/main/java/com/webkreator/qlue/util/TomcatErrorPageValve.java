@@ -20,6 +20,14 @@ public class TomcatErrorPageValve extends ErrorReportValve {
 
     @Override
     protected void report(Request request, Response response, Throwable throwable) {
+        // Do nothing on a 1xx, 2xx and 3xx status
+        // Do nothing if anything has been written already
+        // Do nothing if the response hasn't been explicitly marked as in error
+        //    and that error has not been reported.
+        if (response.getStatus() < 400 || response.getContentWritten() > 0 || !response.setErrorReported()) {
+            return;
+        }
+
         try {
             outputErrorPage(request, response, errorPagesLocation);
         } catch(Exception e) {

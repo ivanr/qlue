@@ -22,6 +22,7 @@ import com.webkreator.qlue.router.QlueRouteManager;
 import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
+import com.webkreator.qlue.view.closure.SoyViewFactory;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
 import com.webkreator.qlue.view.velocity.DefaultVelocityTool;
 import it.sauronsoftware.cron4j.InvalidPatternException;
@@ -102,7 +103,7 @@ public class QlueApplication {
 
     private ViewResolver viewResolver = new ViewResolver();
 
-    private ViewFactory viewFactory = new ClasspathVelocityViewFactory();
+    private List<ViewFactory> viewFactories = new ArrayList<>();
 
     private HashMap<Class, PropertyEditor> editors = new HashMap<>();
 
@@ -144,6 +145,8 @@ public class QlueApplication {
      */
     protected QlueApplication() {
         initPropertyEditors();
+        viewFactories.add(new SoyViewFactory());
+        viewFactories.add(new ClasspathVelocityViewFactory());
     }
 
     /**
@@ -193,11 +196,13 @@ public class QlueApplication {
             throw new Exception("View resolver not configured");
         }
 
-        if (viewFactory == null) {
-            throw new Exception("View factory not configured");
+        if (viewFactories.size() == 0) {
+            throw new Exception("No View factories configured");
         }
 
-        viewFactory.init(this);
+        for (ViewFactory vf : viewFactories) {
+            vf.init(this);
+        }
     }
 
     protected void appInit(HttpServlet servlet) throws Exception {
@@ -609,6 +614,7 @@ public class QlueApplication {
 
             context.getResponse().sendError(HttpServletResponse.SC_FORBIDDEN);
         } catch (Exception e) {
+            System.out.println("#1");
             if (page != null) {
                 page.rollback();
 
@@ -786,11 +792,11 @@ public class QlueApplication {
         // we have to replace them with a real view, using
         // the name of the page in the view resolution process.
         if (view instanceof DefaultView) {
-            view = viewFactory.constructView(View.getViewName(page, null));
+            view = constructView(View.getViewName(page, null));
         } else if (view instanceof NamedView) {
-            view = viewFactory.constructView(View.getViewName(page, ((NamedView) view).getViewName()));
+            view = constructView(View.getViewName(page, ((NamedView) view).getViewName()));
         } else if (view instanceof ClasspathView) {
-            view = viewFactory.constructView(((ClasspathView) view).getViewName());
+            view = constructView(((ClasspathView) view).getViewName());
         } else if (view instanceof FinalRedirectView) {
             page.setState(Page.STATE_FINISHED);
 
@@ -804,6 +810,17 @@ public class QlueApplication {
         }
 
         view.render(tx, page);
+    }
+
+    private View constructView(String viewName) throws Exception {
+        for (ViewFactory vf : viewFactories) {
+            View v = vf.constructView(viewName);
+            if (v != null) {
+                return v;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1348,20 +1365,6 @@ public class QlueApplication {
      */
     protected void setViewResolver(ViewResolver viewResolver) {
         this.viewResolver = viewResolver;
-    }
-
-    /**
-     * Retrieve view factory.
-     */
-    public ViewFactory getViewFactory() {
-        return viewFactory;
-    }
-
-    /**
-     * Set view factory.
-     */
-    protected void setViewFactory(ViewFactory viewFactory) {
-        this.viewFactory = viewFactory;
     }
 
     /**
