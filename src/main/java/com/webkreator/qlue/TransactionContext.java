@@ -72,6 +72,8 @@ public class TransactionContext {
 
     private boolean frontendEncrypted;
 
+    private Map<String, String> responseHeaders = new HashMap<>();
+
     /**
      * Initialise context instance.
      */
@@ -473,5 +475,17 @@ public class TransactionContext {
 
     public Part getPart(String name) throws IOException, ServletException {
         return request.getPart(name);
+    }
+
+    public void setResponseHeader(String name, String value) {
+        if (value != null) {
+            responseHeaders.put(name, value);
+        } else {
+            responseHeaders.remove(name);
+        }
+    }
+
+    public Map<String, String> getResponseHeaders() {
+        return responseHeaders;
     }
 }

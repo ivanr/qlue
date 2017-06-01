@@ -47,7 +47,7 @@ public class HeaderConfigRouter implements Router {
             log.debug("Setting header: name: " + name + "; value:" + value);
         }
 
-        context.response.setHeader(name, value);
+        context.setResponseHeader(name, value);
 
         // Configuration routes can change the context but typically
         // return null, leaving some other route to handle the request.

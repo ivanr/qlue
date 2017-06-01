@@ -396,6 +396,8 @@ public class QlueApplication {
     protected View processPage(Page page) throws Exception {
         View view = null;
 
+        page.setRoutedResponseHeaders();
+
         // Initialize backend. This is a handy place to do things needed for later
         // on, for example, configure database access.
         view = page.initBackend();

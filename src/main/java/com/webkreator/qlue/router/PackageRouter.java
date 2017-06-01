@@ -34,7 +34,7 @@ import java.util.StringTokenizer;
  */
 public class PackageRouter implements Router {
 
-    private Logger log = LoggerFactory.getLogger(ClassRouter.class);
+    private Logger log = LoggerFactory.getLogger(PackageRouter.class);
 
     private String rootPackage;
 

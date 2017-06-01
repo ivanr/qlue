@@ -50,8 +50,6 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
     protected static Logger log = LoggerFactory.getLogger(VelocityViewFactory.class);
 
-    protected String suffix = ".vm";
-
     protected String inputEncoding = "UTF-8";
 
     protected String outputEncoding = "UTF-8";
@@ -264,24 +262,6 @@ public abstract class VelocityViewFactory implements ViewFactory {
      */
     interface FieldCallback {
         void processField(String fieldName, Object fieldValue);
-    }
-
-    /**
-     * Get the current Velocity template suffix.
-     *
-     * @return
-     */
-    public String getSuffix() {
-        return suffix;
-    }
-
-    /**
-     * Set Velocity template suffix.
-     *
-     * @param suffix
-     */
-    public void setSuffix(String suffix) {
-        this.suffix = suffix;
     }
 
     public void setAutoEscaping(boolean b) {

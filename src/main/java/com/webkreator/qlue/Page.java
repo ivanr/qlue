@@ -537,4 +537,10 @@ public abstract class Page {
     public boolean isCleanupInvoked() {
         return cleanupInvoked;
     }
+
+    void setRoutedResponseHeaders() {
+        for (Map.Entry<String, String> me : context.getResponseHeaders().entrySet()) {
+            context.response.setHeader(me.getKey(), me.getValue());
+        }
+    }
 }
