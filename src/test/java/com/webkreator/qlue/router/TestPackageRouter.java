@@ -77,11 +77,28 @@ public class TestPackageRouter {
     }
 
     @Test
-    public void testIndexRedirection() throws Exception {
+    public void testIndexRedirection1() throws Exception {
         Object o = createContextAndRoute("/index");
         Assert.assertTrue(o instanceof RedirectView);
         RedirectView rv = (RedirectView)o;
-        Assert.assertEquals(rv.getUri(), "/");
+        Assert.assertEquals("/", rv.getUri());
+    }
+
+    @Test
+    public void testIndexRedirection2() throws Exception {
+        Object o = createContextAndRoute("/subdir/index");
+        Assert.assertTrue(o instanceof RedirectView);
+        RedirectView rv = (RedirectView)o;
+        Assert.assertEquals("/subdir/", rv.getUri());
+    }
+
+    @Test
+    public void testIndexRedirection3() throws Exception {
+        routeManager.setSuffix(".html");
+        Object o = createContextAndRoute("/index.html");
+        Assert.assertTrue(o instanceof RedirectView);
+        RedirectView rv = (RedirectView)o;
+        Assert.assertEquals("/", rv.getUri());
     }
 
     @Test

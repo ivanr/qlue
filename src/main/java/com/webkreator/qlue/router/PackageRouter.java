@@ -213,6 +213,22 @@ public class PackageRouter implements Router {
             return null;
         }
 
+        System.out.println("# path: " + path + "; class=" + pageClass.getName() + "; lastToken=" + lastToken + "; urlSuffix=" + urlSuffix);
+        if ((lastToken != null)&&(lastToken.equals(manager.getIndex()))) {
+            String newPath = null;
+            if (urlSuffix != null) {
+                newPath = path.substring(0, path.length() - lastToken.length() - urlSuffix.length());
+            } else {
+                newPath = path.substring(0, path.length() - lastToken.length());
+            }
+
+            if (log.isDebugEnabled()) {
+                log.debug("Redirecting to " + newPath);
+            }
+
+            return new RedirectionRouter(newPath, 302).route(tx, newPath);
+        }
+
         try {
             if (log.isDebugEnabled()) {
                 log.debug("Creating new instance of " + pageClass);
