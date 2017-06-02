@@ -49,9 +49,8 @@ public class TestQlueRouter {
 
     public class TestApplication extends QlueApplication {}
 
-    @Test
-    public void testRoot() throws Exception {
-        when(request.getRequestURI()).thenReturn("/");
+    public Object createContextAndRoute(String path) throws Exception {
+        when(request.getRequestURI()).thenReturn(path);
 
         TransactionContext context = new TransactionContext(
                 app,
@@ -60,204 +59,91 @@ public class TestQlueRouter {
                 request,
                 response);
 
-        Object o = routeManager.route(context);
+        return routeManager.route(context);
+    }
 
+    @Test
+    public void testRoot() throws Exception {
+        Object o = createContextAndRoute("/");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.index);
     }
 
     @Test
     public void testSubdir() throws Exception {
-        when(request.getRequestURI()).thenReturn("/subdir/");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/subdir/");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.subdir.index);
     }
 
     @Test
     public void testPageOneMatch() throws Exception {
-        when(request.getRequestURI()).thenReturn("/pageOne");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/pageOne");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.pageOne);
     }
 
     @Test
     public void testPageOneCaseMismatch() throws Exception {
-        when(request.getRequestURI()).thenReturn("/PAGEONE");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/PAGEONE");
         Assert.assertNull(o);
     }
 
     @Test
     public void testPageOneSuffixMismatch() throws Exception {
-        when(request.getRequestURI()).thenReturn("/pageOne.html");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/pageOne.html");
         Assert.assertNull(o);
     }
 
     @Test
     public void testPageTwoMatch() throws Exception {
-        when(request.getRequestURI()).thenReturn("/pageTwo.html");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/pageTwo.html");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.pageTwo);
     }
 
     @Test
     public void testPageTwoSuffixMismatch() throws Exception {
-        when(request.getRequestURI()).thenReturn("/pageTwo");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/pageTwo");
         Assert.assertNull(o);
     }
 
     @Test
     public void testPageThreeMatch() throws Exception {
-        when(request.getRequestURI()).thenReturn("/page_three");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/page_three");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.page_three);
     }
 
     @Test
     public void testPageThreeMismatch() throws Exception {
-        when(request.getRequestURI()).thenReturn("/page-three");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/page-three");
         Assert.assertNull(o);
     }
 
     @Test
     public void testPageMatchConvertedDash() throws Exception {
-        when(request.getRequestURI()).thenReturn("/page-three");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
         routeManager.setConcertDashesToUnderscores(true);
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/page-three");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.page_three);
     }
 
     @Test
     public void testPageFourMismatch1() throws Exception {
-        when(request.getRequestURI()).thenReturn("/$pageFour");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/$pageFour");
         Assert.assertNull(o);
     }
 
     @Test
     public void testPageFourMismatch2() throws Exception {
-        when(request.getRequestURI()).thenReturn("/$pageFour.html");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/$pageFour.html");
         Assert.assertNull(o);
     }
 
     @Test
     public void testPrivateSubdirMismatch1() throws Exception {
-        when(request.getRequestURI()).thenReturn("/$subdir/");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("/$subdir/");
         Assert.assertNull(o);
     }
 
     @Test
     public void testPrivateSubdirMismatch2() throws Exception {
-        when(request.getRequestURI()).thenReturn("/$subdir/index");
-
-        TransactionContext context = new TransactionContext(
-                app,
-                servletConfig,
-                servletContext,
-                request,
-                response);
-
-        Object o = routeManager.route(context);
+        Object o = createContextAndRoute("$subdir/index");
         Assert.assertNull(o);
     }
 }
