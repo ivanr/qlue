@@ -22,7 +22,6 @@ import com.webkreator.qlue.router.QlueRouteManager;
 import com.webkreator.qlue.router.RouteFactory;
 import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
-import com.webkreator.qlue.view.closure.SoyViewFactory;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
 import com.webkreator.qlue.view.velocity.DefaultVelocityTool;
 import com.webkreator.qlue.view.velocity.VelocityViewFactory;
@@ -148,7 +147,6 @@ public class QlueApplication {
      */
     protected QlueApplication() {
         initPropertyEditors();
-        viewFactories.add(new SoyViewFactory());
         velocityViewFactory = new ClasspathVelocityViewFactory();
         viewFactories.add(velocityViewFactory);
     }
