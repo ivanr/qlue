@@ -21,6 +21,9 @@ dependencies {
     compile 'org.apache.velocity:velocity:1.7'
     compile group: 'com.google.template', name: 'soy', version: '2017-04-23'
 
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.mockito:mockito-all:1.10.19'
+
     compile 'org.apache.tomcat.embed:tomcat-embed-core:8.5.15'
     compile 'org.apache.tomcat:tomcat-jasper:8.5.15'
     compile 'org.apache.tomcat:tomcat-jasper-el:8.5.15'
@@ -31,6 +34,10 @@ sourceSets {
     main {
         java.srcDirs = ["src/main/java"]
         resources.srcDirs = ["src/main/resources"]
+    }
+
+    test {
+        java.srcDirs = ["src/test/java"]
     }
 }
 
