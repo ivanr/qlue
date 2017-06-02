@@ -2,6 +2,8 @@ package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.view.ClasspathView;
+import com.webkreator.qlue.view.RedirectView;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -16,7 +18,7 @@ import javax.servlet.http.HttpSession;
 
 import static org.mockito.Mockito.when;
 
-public class TestQlueRouter {
+public class TestPackageRouter {
 
     @Mock
     ServletConfig servletConfig;
@@ -47,7 +49,13 @@ public class TestQlueRouter {
         routeManager.add(RouteFactory.create(routeManager, "/{} package:com.webkreator.qlue.router.testPages"));
     }
 
-    public class TestApplication extends QlueApplication {}
+    public class TestApplication extends QlueApplication {
+
+        @Override
+        public String getPriorityTemplatePath() {
+            return "./src/test/java";
+        }
+    }
 
     public Object createContextAndRoute(String path) throws Exception {
         when(request.getRequestURI()).thenReturn(path);
@@ -69,9 +77,24 @@ public class TestQlueRouter {
     }
 
     @Test
+    public void testIndexRedirection() throws Exception {
+        Object o = createContextAndRoute("/index");
+        Assert.assertTrue(o instanceof RedirectView);
+        RedirectView rv = (RedirectView)o;
+        Assert.assertEquals(rv.getUri(), "/");
+    }
+
+    @Test
     public void testSubdir() throws Exception {
         Object o = createContextAndRoute("/subdir/");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.subdir.index);
+    }
+
+    @Test
+    public void testSubdirRedirection() throws Exception {
+        Object o = createContextAndRoute("/subdir");
+        Assert.assertTrue(o instanceof RedirectView);
+        Assert.assertEquals(((RedirectView)o).getUri(), "/subdir/");
     }
 
     @Test
@@ -90,6 +113,13 @@ public class TestQlueRouter {
     public void testPageOneSuffixMismatch() throws Exception {
         Object o = createContextAndRoute("/pageOne.html");
         Assert.assertNull(o);
+    }
+
+    @Test
+    public void testPageOneMatchSuffix() throws Exception {
+        routeManager.setSuffix(".html");
+        Object o = createContextAndRoute("/pageOne.html");
+        Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.pageOne);
     }
 
     @Test
@@ -145,5 +175,12 @@ public class TestQlueRouter {
     public void testPrivateSubdirMismatch2() throws Exception {
         Object o = createContextAndRoute("$subdir/index");
         Assert.assertNull(o);
+    }
+
+    @Test
+    public void testTemplateDirect() throws Exception {
+        Object o = createContextAndRoute("/direct");
+        Assert.assertTrue(o instanceof ClasspathView);
+        Assert.assertEquals("com/webkreator/qlue/router/testPages/direct.vmx", ((ClasspathView)o).getViewName());
     }
 }

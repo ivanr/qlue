@@ -34,7 +34,7 @@ import java.util.StringTokenizer;
  */
 public class PackageRouter implements Router {
 
-    private Logger log = LoggerFactory.getLogger(PackageRouter.class);
+    private static Logger log = LoggerFactory.getLogger(PackageRouter.class);
 
     private String rootPackage;
 
@@ -141,7 +141,9 @@ public class PackageRouter implements Router {
 
             classpathFilename = classpathBase + ".vmx";
 
-            log.debug("Trying direct view: " + classpathFilename);
+            if (log.isDebugEnabled()) {
+                log.debug("Trying direct view: " + classpathFilename);
+            }
 
             if (getClass().getClassLoader().getResource(classpathFilename) != null) {
                 return new ClasspathView(classpathFilename);
@@ -162,7 +164,11 @@ public class PackageRouter implements Router {
 
             // Check for directory access by looking for an index page.
             pageClass = QlueApplication.classForName(className + "." + manager.getIndex());
-            log.debug("Trying class: " + className + "." + manager.getIndex());
+
+            if (log.isDebugEnabled()) {
+                log.debug("Trying class: " + className + "." + manager.getIndex());
+            }
+
             if (pageClass == null) {
                 // Before we give up, another try with the priority path,
                 // this time looking for "index.vmx".
@@ -172,7 +178,9 @@ public class PackageRouter implements Router {
                     if (f.exists()) {
                         // If there's no terminating slash in directory access, issue a redirection.
                         if (tx.getRequestUri().endsWith("/") == false) {
-                            log.debug("Redirecting to " + tx.getRequestUri() + "/");
+                            if (log.isDebugEnabled()) {
+                                log.debug("Redirecting to " + tx.getRequestUri() + "/");
+                            }
                             return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, path);
                         }
 
@@ -183,11 +191,15 @@ public class PackageRouter implements Router {
                 return null;
             }
 
-            log.debug("Found index page");
+            if (log.isDebugEnabled()) {
+                log.debug("Found index page");
+            }
 
             // If there's no terminating slash in directory access, issue a redirection.
             if (tx.getRequestUri().endsWith("/") == false) {
-                log.debug("Redirecting to " + tx.getRequestUri() + "/");
+                if (log.isDebugEnabled()) {
+                    log.debug("Redirecting to " + tx.getRequestUri() + "/");
+                }
                 return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, path);
             }
         }
@@ -202,7 +214,10 @@ public class PackageRouter implements Router {
         }
 
         try {
-            log.debug("Creating new instance of " + pageClass);
+            if (log.isDebugEnabled()) {
+                log.debug("Creating new instance of " + pageClass);
+            }
+
             return pageClass.newInstance();
         } catch (Exception e) {
             log.error("Error creating page instance: " + e.getMessage(), e);
@@ -219,25 +234,33 @@ public class PackageRouter implements Router {
             }
         }
 
-        log.debug("Suffix check: URL: " + urlSuffix + "; page: " + pageSuffix);
+        if (log.isDebugEnabled()) {
+            log.debug("Suffix check: URL: " + urlSuffix + "; page: " + pageSuffix);
+        }
 
         if (urlSuffix != null) {
             // URL suffix present.
 
             if (pageSuffix == null) {
-                log.debug("Suffix mismatch: URI has suffix but page doesn't");
+                if (log.isDebugEnabled()) {
+                    log.debug("Suffix mismatch: URI has suffix but page doesn't");
+                }
                 return false;
             }
 
             if (!pageSuffix.equals(urlSuffix)) {
-                log.debug("Suffix mismatch: URI: " + urlSuffix + "; page: " + pageSuffix);
+                if (log.isDebugEnabled()) {
+                    log.debug("Suffix mismatch: URI: " + urlSuffix + "; page: " + pageSuffix);
+                }
                 return false;
             }
         } else {
             // URL suffix not present.
 
             if (pageSuffix != null) {
-                log.debug("Suffix mismatch: page has suffix but URI doesn't");
+                if (log.isDebugEnabled()) {
+                    log.debug("Suffix mismatch: page has suffix but URI doesn't");
+                }
                 return false;
             }
         }
