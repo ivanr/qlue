@@ -87,15 +87,22 @@ Here's what you should know about page creation:
  * In this simple example we output directly to a HTTPS response by working directly with an instance of HttpServletResponse.
  * To indicate to the framework that no further response handling is needed, we return an instance of NullView.
 	
-#### Page name mapping
+#### Routing
 
-By default, case-sensitive comparison is done between the last URL segment and the page name. Thus, only "/helloWorld" will map to the above helloWorld class. If you wish you can have your pages use a suffix externally (e.g., ".html"). In that case, in your application class, invoke setSuffix() on the correct RouteManager. It is also possible to configure the suffix on per-page basis using the QlueMapping annotation.
+Qlue provides a routing layer that decides how to process each request. In a simple application the routing layer employs only one instance of PackageRouter, which maps requests onto one Java package.
 
-You can use packages to group pages. For example, if you create a package "books" in your root package, the URL "/books/index" will map to the class com.example.site.pages.books.index.
+* Requests are mapped to page classes that reside in the root package.
+* Comparisons between request URL and class names are case-sensitive.
+* There is a global option to treat underscores in class names as dashes.
+* Pages and packages whose names begin with $ are considered private and are ignored by the router.
+* Subpackages are supported and used to emulate web site subdirectories.
+* By default, suffixes (e.g., .html) are not used, but they can be enabled globally or on per-page basis.
+* If an attempt is made to access a directory, the "index" page will be sought and delivered if present.
+* If directory access comes without a trailing slash, a redirection will be made to the correct URL.
+* Similarly, if the index page is explicitly specified, a redirection will be made to remove it.
+* A 404 response will be delivered if a suitable page can't be found.
+* For convenience, it's possible to deliver a response directly from a template. This is helpful for the responses that are static or nearly static. Such templates identified by different suffixes.
 
-By default, all pages are reachable. By convention, packages whose names begin with the dollar sign ("$") are considered private. Private packages and pages can't be accessed directly (via URL-to-page mapping), but can be used via internal custom routing. This feature is useful for dynamic URL construction.
-
-Because not all characters are allowed in package and class names, you are limited in how you're creating your external URLs. Additionally, Qlue does not allow dots (".") in the URLs (excluding file suffixes). You can work around these limitations using custom routing, which is described later in this guide. Because dashes ("-") are commonly used in URLs, there's a setting that automatically converts dashes to underscores. This setting is disabled by default; to enable it, invoke RouteManager.setConcertDashesToUnderscores().
 
 #### Responding to specific HTTP methods only
 
