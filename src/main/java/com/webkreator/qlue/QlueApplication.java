@@ -614,7 +614,6 @@ public class QlueApplication {
 
             context.getResponse().sendError(HttpServletResponse.SC_FORBIDDEN);
         } catch (Exception e) {
-            System.out.println("#1");
             if (page != null) {
                 page.rollback();
 
