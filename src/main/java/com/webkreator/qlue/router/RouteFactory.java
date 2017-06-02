@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  */
 public class RouteFactory {
 
-    private static final Pattern configRoutePattern = Pattern.compile("^@([a-zA-Z0-9]+)\\s+(.*)$");
+    private static final Pattern metaRoutePattern = Pattern.compile("^@([a-zA-Z0-9]+)\\s+(.*)$");
 
 	/**
 	 * Creates route from its text representation.
@@ -33,39 +33,39 @@ public class RouteFactory {
 		Router router;
 
         if ((route.length() > 0)&&(route.charAt(0) == '@')) {
-            return createConfig(manager, route);
+            return createMetaRoute(manager, route);
         }
 
-		// Split route into tokens
+		// Split the route into tokens.
 		String[] tokens = route.split("\\s+");
 		if (tokens.length < 2) {
 			throw new RuntimeException("Qlue: Invalid route: " + route);
 		}
 
-		// Path
+		// The path is in the first token.
 		String path = tokens[0];			
 		
 		// Remove multiple consecutive forward slashes, which could
-		// have been introduced through variable expansion
+		// have been introduced through variable expansion.
 		path = path.replaceAll("/{2,}", "/");		
 
-		// Action
+		// The action to take is in the second token.
 		String action = tokens[1];
 
-		// Convert path into a pattern
+		// Convert the path into a pattern.
 
-		// Handle action string
+		// Handle the action string.
 		if (action.startsWith("package:")) {
-			// Package name
+			// Package name.
 			String packageName = action.substring(8).trim();
 			router = new PackageRouter(manager, packageName);
 		} else if (action.startsWith("router:")) {
-			// Custom router; instantiate
-			// the named Router instance
+			// Custom router; instantiate the named Router instance.
 			String routerClassName = action.substring(7).trim();
 			router = findRouter(routerClassName);
 		} else if (action.startsWith("redirect:")) {
-			// Redirection
+			// Redirection.
+
 			String uri = action.substring(9).trim();
 
 			// Check for explicit redirection status code
@@ -83,6 +83,8 @@ public class RouteFactory {
 				router = new RedirectionRouter(uri);
 			}
 		} else if (action.startsWith("status:")) {
+		    // Respond with status code.
+
 			String statusCodeString = action.substring(7).trim();
 			int statusCode;
 			
@@ -102,10 +104,10 @@ public class RouteFactory {
 							sb.append(tokens[i]);
 						}
 						
-						// Status code and message
+						// Status code and message.
 						router = new StatusCodeRouter(statusCode, sb.toString());
 					} else {
-						// Status code only
+						// Status code only.
 						router = new StatusCodeRouter(statusCode);
 					}
 				} else {
@@ -115,12 +117,12 @@ public class RouteFactory {
 				throw new RuntimeException("Qlue: Invalid status code in route: " + statusCodeString);
 			}
 		} else if (action.startsWith("static:")) {
-			// Static route
+			// Static route.
+
 			String staticPath = action.substring(7).trim();
 			
 			if (tokens.length > 2) {
-				// Recombine the remaining tokens back
-				// into a single string
+				// Recombine the remaining tokens back into a single string.
 				StringBuilder sb = new StringBuilder();
 				sb.append(staticPath);
 				sb.append(' ');
@@ -133,22 +135,22 @@ public class RouteFactory {
 					sb.append(tokens[i]);
 				}
 				
-				// Status code and message
+				// Status code and message.
 				router = new StaticFileRouter(manager, sb.toString());
 			} else {
-				// Status code only
+				// Status code only.
 				router = new StaticFileRouter(manager, staticPath);
 			}					
 		} else {
-			// Class name
+			// Route directly to a class.
 			router = new ClassRouter(action);
 		}
 
 		return new Route(path, router);
 	}
 
-    private static Route createConfig(RouteManager manager, String route) {
-        Matcher m = configRoutePattern.matcher(route);
+    private static Route createMetaRoute(RouteManager manager, String route) {
+        Matcher m = metaRoutePattern.matcher(route);
         if (!m.matches()) {
             throw new RuntimeException("Qlue: Invalid config route: " + route);
         }
@@ -171,9 +173,8 @@ public class RouteFactory {
 	 * Finds router instance based on class name.
 	 */
 	private static Router findRouter(String className) {
-		Class candidate;
+		Class candidate = null;
 
-		// Look for class
 		try {
 			ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 			candidate = Class.forName(className, true, classLoader);
@@ -181,12 +182,10 @@ public class RouteFactory {
 			throw new RuntimeException("ClassRouter: Unknown class: " + className);
 		}
 
-		// Check class is instance of Page
 		if (!Router.class.isAssignableFrom(candidate)) {
 			throw new RuntimeException("ClassRouter: Class " + className + " is not a subclass of Page.");
 		}
 
-		// Return one instance
 		try {
 			return (Router) candidate.newInstance();
 		} catch (Exception e) {
