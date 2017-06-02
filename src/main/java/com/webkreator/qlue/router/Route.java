@@ -70,7 +70,7 @@ public class Route {
 		// replace them with regular expression captures
 		String haystack = path;
 		boolean terminated = false;
-		Pattern p = Pattern.compile("([^{]*)(\\{[^}]*\\})(.+)?");
+		Pattern p = Pattern.compile("([^{]*)(\\{[^}]*\\}\\??)(.+)?");
 		Matcher m = p.matcher(haystack);
 		while ((m != null) && (m.find())) {
 			// Append the first group, which is static content
@@ -78,7 +78,13 @@ public class Route {
 
 			// Extract parameter name by removing the curly braces
 			String name = m.group(2);
-			name = name.substring(1, name.length() - 1).trim();
+			boolean optional = false;
+			if (name.charAt(name.length() - 1) == '?') {
+				optional = true;
+				name = name.substring(1, name.length() - 2).trim();
+			} else {
+				name = name.substring(1, name.length() - 1).trim();
+			}
 
 			String pattern = "[^/]+";
 
