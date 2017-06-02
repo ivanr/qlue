@@ -213,7 +213,6 @@ public class PackageRouter implements Router {
             return null;
         }
 
-        System.out.println("# path: " + path + "; class=" + pageClass.getName() + "; lastToken=" + lastToken + "; urlSuffix=" + urlSuffix);
         if ((lastToken != null)&&(lastToken.equals(manager.getIndex()))) {
             String newPath = null;
             if (urlSuffix != null) {
