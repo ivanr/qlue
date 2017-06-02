@@ -25,6 +25,7 @@ import com.webkreator.qlue.view.*;
 import com.webkreator.qlue.view.closure.SoyViewFactory;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
 import com.webkreator.qlue.view.velocity.DefaultVelocityTool;
+import com.webkreator.qlue.view.velocity.VelocityViewFactory;
 import it.sauronsoftware.cron4j.InvalidPatternException;
 import it.sauronsoftware.cron4j.Scheduler;
 import org.apache.commons.mail.Email;
@@ -103,6 +104,8 @@ public class QlueApplication {
 
     private ViewResolver viewResolver = new ViewResolver();
 
+    private VelocityViewFactory velocityViewFactory;
+
     private List<ViewFactory> viewFactories = new ArrayList<>();
 
     private HashMap<Class, PropertyEditor> editors = new HashMap<>();
@@ -146,7 +149,12 @@ public class QlueApplication {
     protected QlueApplication() {
         initPropertyEditors();
         viewFactories.add(new SoyViewFactory());
-        viewFactories.add(new ClasspathVelocityViewFactory());
+        velocityViewFactory = new ClasspathVelocityViewFactory();
+        viewFactories.add(velocityViewFactory);
+    }
+
+    public VelocityViewFactory getVelocityViewFactory() {
+        return velocityViewFactory;
     }
 
     /**
@@ -1275,7 +1283,7 @@ public class QlueApplication {
         if (pe == null) {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
-        
+
         // If the parameter is present in request, validate it and set on the command object.
         if (value != null) {
             String newValue = validateParameter(page, f, qp, value);
