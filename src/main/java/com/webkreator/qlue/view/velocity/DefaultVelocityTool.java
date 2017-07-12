@@ -23,20 +23,30 @@ import com.webkreator.qlue.Page;
  */
 public class DefaultVelocityTool implements QlueVelocityTool {
 
-	protected Page page;
+    private String name;
 
-	@Override
-	public void setPage(Page page) {
-		this.page = page;
-	}
+    protected Page page;
 
-	public boolean isNull(Object o) {
-		if (o == null) return true;
-		return false;
-	}
-	
-	public boolean isNotNull(Object o) {
-		if (o != null) return true;
-		return false;
-	}
+    public DefaultVelocityTool(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public void setPage(Page page) {
+        this.page = page;
+    }
+
+    public boolean isNull(Object o) {
+        if (o == null) return true;
+        return false;
+    }
+
+    public boolean isNotNull(Object o) {
+        if (o != null) return true;
+        return false;
+    }
 }

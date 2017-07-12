@@ -22,16 +22,14 @@ import com.webkreator.qlue.util.BearerToken;
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.View;
 import com.webkreator.qlue.view.ViewResolver;
+import com.webkreator.qlue.view.velocity.QlueVelocityTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 /**
  * Represents a single unit of work application will perform. This class handles both non-persistent
@@ -301,8 +299,8 @@ public abstract class Page {
      * Return page's format tool. By default, we respond with application's
      * format tool, but pages (subclasses) can create their own.
      */
-    public Object getVelocityTool() {
-        return getApp().getVelocityTool();
+    public List<QlueVelocityTool> getVelocityTools() {
+        return getApp().getVelocityTools();
     }
 
     /**

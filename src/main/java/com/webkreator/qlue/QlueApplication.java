@@ -24,6 +24,7 @@ import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
 import com.webkreator.qlue.view.velocity.DefaultVelocityTool;
+import com.webkreator.qlue.view.velocity.QlueVelocityTool;
 import com.webkreator.qlue.view.velocity.VelocityViewFactory;
 import it.sauronsoftware.cron4j.InvalidPatternException;
 import it.sauronsoftware.cron4j.Scheduler;
@@ -1398,14 +1399,16 @@ public class QlueApplication {
      * format output (but _not_ for output encoding). By default, that's an
      * instance of DefaultVelocityTool, but subclasses can use something else.
      */
-    public Object getVelocityTool() {
-        return new DefaultVelocityTool();
+    public List<QlueVelocityTool> getVelocityTools() {
+        List<QlueVelocityTool> tools = new ArrayList<>();
+        tools.add(new DefaultVelocityTool("_f"));
+        return tools;
     }
 
     /**
      * Retrieve an encoding tool the application can use to write directly to HTML.
      */
-    public Object getEncodingTool() {
+    public QlueVelocityTool getEncodingTool() {
         return new HtmlEncoder();
     }
 

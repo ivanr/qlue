@@ -149,25 +149,18 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
         // Add common objects to the model
 
-        Object f = page.getVelocityTool();
-        if (f != null) {
-            if (f instanceof QlueVelocityTool) {
-                ((QlueVelocityTool) f).setPage(page);
-            }
-
-            model.put("_f", f);
+        for (QlueVelocityTool tool : page.getVelocityTools()) {
+            tool.setPage(page);
+            model.put(tool.getName(), tool);
         }
 
         // Normally, we don't want templates to be able to output
         // directly (without encoding) to responses, but some
         // pages will need to do that.
         if (page.allowDirectOutput()) {
-            Object h = page.getApp().getEncodingTool();
-            if (h instanceof QlueVelocityTool) {
-                ((QlueVelocityTool) h).setPage(page);
-            }
-
-            model.put(CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME, h);
+            QlueVelocityTool tool = page.getApp().getEncodingTool();
+            tool.setPage(page);
+            model.put(tool.getName(), tool);
         }
 
         model.put("_app", page.getApp());

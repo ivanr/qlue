@@ -17,6 +17,7 @@
 package com.webkreator.qlue.util;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.view.velocity.CanoeReferenceInsertionHandler;
 import com.webkreator.qlue.view.velocity.QlueVelocityTool;
 
 import java.util.regex.Matcher;
@@ -38,6 +39,10 @@ public class HtmlEncoder implements QlueVelocityTool {
     private static Pattern uriPattern = Pattern.compile("^(https?://)([^/]+)(/.*)?$");
 
     private static final char[] hexDigits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
+    public String getName() {
+        return CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME;
+    }
 
     /**
      * Encodes input string for output into HTML.
