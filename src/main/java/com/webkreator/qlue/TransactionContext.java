@@ -133,6 +133,10 @@ public class TransactionContext {
         properties.setProperty("nonce", nonce);
     }
 
+    public String getNonce() {
+        return nonce;
+    }
+
     private void handleFrontendEncryption() {
         setFrontendEncrypted(false);
 
