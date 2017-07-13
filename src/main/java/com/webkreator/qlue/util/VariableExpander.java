@@ -36,6 +36,10 @@ public class VariableExpander {
 				Set<String> nextExpandedNames = new HashSet<String>(expandedNames);
 				nextExpandedNames.add(propertyName);
 				sb.append(VariableExpander.expand(properties.getProperty(propertyName), properties, nextExpandedNames));
+			} else {
+				sb.append("${");
+				sb.append(propertyName);
+				sb.append("}");
 			}
 			
 			haystack = m.group(3);					

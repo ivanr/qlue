@@ -32,9 +32,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
+import java.security.SecureRandom;
+import java.util.*;
 
 /**
  * This class is used mostly to keep all the other stuff (relevant to a single
@@ -43,6 +42,8 @@ import java.util.Map;
 public class TransactionContext {
 
     public String txId;
+
+    public String nonce;
 
     public ServletConfig servletConfig;
 
@@ -55,6 +56,8 @@ public class TransactionContext {
     public HttpSession session;
 
     public QluePageManager qluePageManager;
+
+    public Page page;
 
     public QlueApplication app;
 
@@ -74,6 +77,8 @@ public class TransactionContext {
 
     private Map<String, String> responseHeaders = new HashMap<>();
 
+    private Properties properties = new Properties();
+
     /**
      * Initialise context instance.
      */
@@ -89,6 +94,8 @@ public class TransactionContext {
 
         generateTxId();
 
+        generateNonce();
+
         // Get the QlueSession instance
         synchronized (session) {
             qluePageManager = (QluePageManager) session.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
@@ -103,6 +110,10 @@ public class TransactionContext {
         handleForwardedFor();
     }
 
+    public Properties getProperties() {
+        return properties;
+    }
+
     private void generateTxId() {
         if (app.isTrustedProxyRequest(this)) {
             txId = request.getHeader("X-Transaction-ID");
@@ -112,6 +123,14 @@ public class TransactionContext {
         }
 
         txId = app.generateTransactionId();
+    }
+
+    private void generateNonce() {
+        Random random = new SecureRandom();
+        byte[] nonceBytes = new byte[16];
+        random.nextBytes(nonceBytes);
+        nonce = TextUtil.toHex(nonceBytes);
+        properties.setProperty("nonce", nonce);
     }
 
     private void handleFrontendEncryption() {

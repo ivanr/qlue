@@ -1,6 +1,7 @@
 package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.util.VariableExpander;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,9 +18,14 @@ public class HeaderConfigRouter implements Router {
 
     private String value;
 
+    private boolean containsPageProperties = false;
+
     public HeaderConfigRouter(String name, String value) {
         this.name = name;
         this.value = value;
+        if ((value != null)&&(value.contains("${"))) {
+            containsPageProperties = true;
+        }
     }
 
     public static HeaderConfigRouter fromString(RouteManager manager, String text) {
@@ -47,7 +53,11 @@ public class HeaderConfigRouter implements Router {
             log.debug("Setting header: name: " + name + "; value:" + value);
         }
 
-        context.setResponseHeader(name, value);
+        if (containsPageProperties == false) {
+            context.setResponseHeader(name, value);
+        } else {
+            context.setResponseHeader(name, VariableExpander.expand(value, context.getProperties()));
+        }
 
         // Configuration routes can change the context but typically
         // return null, leaving some other route to handle the request.
