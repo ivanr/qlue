@@ -75,4 +75,11 @@ public @interface QlueParameter {
      * used, irrespective of the source.
      */
     ParamSource source() default ParamSource.GET_POST;
+
+    /**
+     * Sometimes absence of parameter has a meaning. For example,
+     * HTML checkbox fields are not sent when they're disabled. For
+     * us it makes more sense to process such value as "off".
+     */
+    String valueWhenAbsent() default QlueApplication.NULL_SUBSTITUTE;
 }

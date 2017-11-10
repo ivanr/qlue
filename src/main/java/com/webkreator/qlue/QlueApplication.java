@@ -58,6 +58,8 @@ import java.util.regex.PatternSyntaxException;
  */
 public class QlueApplication {
 
+    public static final String NULL_SUBSTITUTE = "QLUE_NULL_SUBSTITUTE";
+
     public static final String PROPERTIES_FILENAME = "qlue.properties";
 
     public static final String ROUTES_FILENAME = "routes.conf";
@@ -1241,9 +1243,16 @@ public class QlueApplication {
             throw new RuntimeException("Qlue: Binding does not know how to handle type: " + f.getType());
         }
 
-        // If the parameter is present in request, validate it and set on the command object
+        // Validate parameter and set it on the command object
 
         String value = page.context.getParameter(f.getName());
+
+        // If the parameter is not present but we have a default value,
+        // behave as if the default value has been supplied.
+        if ((value == null) && (!qp.valueWhenAbsent().equals(QlueApplication.NULL_SUBSTITUTE))) {
+            value = qp.valueWhenAbsent();
+        }
+
         if (value != null) {
             String newValue = validateParameter(page, f, qp, value);
             if (newValue != null) {
