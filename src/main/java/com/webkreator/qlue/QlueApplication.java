@@ -92,6 +92,8 @@ public class QlueApplication {
 
     private static final String PROPERTY_URGENT_EMAIL = "qlue.urgentEmail";
 
+    private static final String PROPERTY_LOG_PROPAGATED_EXCEPTIONS = "qlue.logPropagatedExceptions";
+
     private String messagesFilename = "com/webkreator/qlue/messages";
 
     private Properties properties = new Properties();
@@ -125,6 +127,8 @@ public class QlueApplication {
     private String adminEmail;
 
     private String urgentEmail;
+
+    private boolean logPropagatedExceptions;
 
     private int urgentCounter = -1;
 
@@ -284,9 +288,12 @@ public class QlueApplication {
 
         urgentEmail = getProperty(PROPERTY_URGENT_EMAIL);
 
+        logPropagatedExceptions = getBooleanProperty(PROPERTY_LOG_PROPAGATED_EXCEPTIONS, "false");
+
         // Configure the SMTP email senders
 
         smtpEmailSender = new SmtpEmailSender();
+
 
         if (getBooleanProperty("qlue.smtp.async", "false")) {
             AsyncSmtpEmailSender myAsyncSmtpEmailSender = new AsyncSmtpEmailSender(smtpEmailSender);
@@ -692,11 +699,13 @@ public class QlueApplication {
                 log.error("Error while converting HTML", e);
             }
         }
-
-        if (t instanceof org.apache.velocity.exception.MethodInvocationException) {
-            log.error("Qlue: Unhandled application exception: " + t.getMessage());
-        } else {
-            log.error("Qlue: Unhandled application exception", t);
+        
+        if ((logPropagatedExceptions == true) || (tx.getResponse().isCommitted() == true)) {
+            if (t instanceof org.apache.velocity.exception.MethodInvocationException) {
+                log.error("Qlue: Unhandled application exception: " + t.getMessage());
+            } else {
+                log.error("Qlue: Unhandled application exception", t);
+            }
         }
 
         if (adminEmail != null) {
