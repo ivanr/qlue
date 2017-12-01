@@ -639,11 +639,15 @@ public class QlueApplication {
                 // data and, optionally, notify the administrator via email.
                 handleApplicationException(context, page, e);
 
-                // We let the exception propagate further, which will make it available to the error page.
-                if (e instanceof RuntimeException) {
-                    throw ((RuntimeException) e);
-                } else {
-                    throw new RuntimeException(e);
+                // If it's not too late, we're going to let the container
+                // see our unhandled exception, in the hope that a friendly
+                // error page is configured.
+                if (!context.getResponse().isCommitted()) {
+                    if (e instanceof RuntimeException) {
+                        throw ((RuntimeException) e);
+                    } else {
+                        throw new RuntimeException(e);
+                    }
                 }
             }
         } finally {
