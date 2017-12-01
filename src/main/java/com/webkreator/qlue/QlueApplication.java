@@ -689,8 +689,11 @@ public class QlueApplication {
             }
         }
 
-        // Record message to the activity log
-        log.error("Qlue: Unhandled application exception", t);
+        if (t instanceof org.apache.velocity.exception.MethodInvocationException) {
+            log.error("Qlue: Unhandled application exception: " + t.getMessage());
+        } else {
+            log.error("Qlue: Unhandled application exception", t);
+        }
 
         if (adminEmail != null) {
             // Send email notification
