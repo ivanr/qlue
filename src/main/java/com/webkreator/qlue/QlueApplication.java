@@ -288,7 +288,7 @@ public class QlueApplication {
 
         urgentEmail = getProperty(PROPERTY_URGENT_EMAIL);
 
-        logPropagatedExceptions = getBooleanProperty(PROPERTY_LOG_PROPAGATED_EXCEPTIONS, "false");
+        logPropagatedExceptions = getBooleanProperty(PROPERTY_LOG_PROPAGATED_EXCEPTIONS, "true");
 
         // Configure the SMTP email senders
 
@@ -699,7 +699,7 @@ public class QlueApplication {
                 log.error("Error while converting HTML", e);
             }
         }
-        
+
         if ((logPropagatedExceptions == true) || (tx.getResponse().isCommitted() == true)) {
             if (t instanceof org.apache.velocity.exception.MethodInvocationException) {
                 log.error("Qlue: Unhandled application exception: " + t.getMessage());
