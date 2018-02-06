@@ -70,14 +70,20 @@ public class Route {
 		// replace them with regular expression captures
 		String haystack = path;
 		boolean terminated = false;
-		Pattern p = Pattern.compile("([^{]*)(\\{[^}]*\\}\\??)(.+)?");
-		Matcher m = p.matcher(haystack);
-		while ((m != null) && (m.find())) {
-			// Append the first group, which is static content
-			String prefix = m.group(1);
 
-			// Extract parameter name by removing the curly braces
-			String name = m.group(2);
+		int i;
+		while ((i = haystack.indexOf("{")) != -1) {
+			// The prefix is the bit that came before the starting brace
+			String prefix = haystack.substring(0, i);
+
+			// Extract the parameter by finding the matching ending brace
+			int j = findEndingBrace(haystack, i);
+			String name = haystack.substring(i, j + 1);
+
+			// The remaining part, which is the bit that came after
+			// the parameter, is now the new haystack
+			haystack = haystack.substring(j + 1);
+
 			boolean optional = false;
 			if (name.charAt(name.length() - 1) == '?') {
 				optional = true;
@@ -147,18 +153,10 @@ public class Route {
 				sb.append(')');
 			}
 
-			// The last group, which is the bit that came after
-			// the parameter, is now the haystack
-			haystack = m.group(3);
-
 			if ((haystack != null) && (haystack.length() > 0)) {
 				if (terminated) {
 					throw new RuntimeException("Qlue: Terminating URI parameter must be at the end");
 				}
-
-				m = p.matcher(haystack);
-			} else {
-				m = null;
 			}
 		}
 
@@ -188,6 +186,23 @@ public class Route {
 		} catch (PatternSyntaxException pse) {
 			throw new RuntimeException("Failed to compile route: " + path, pse);
 		}
+	}
+
+	private int findEndingBrace(String haystack, int startingPost) {
+		int depth = 0;
+		for (int i  = startingPost; i < haystack.length(); i++) {
+			if (haystack.charAt(i) == '{') {
+				depth++;
+			}
+			if (haystack.charAt(i) == '}') {
+				depth--;
+				if (depth == 0) {
+					return i;
+				}
+			}
+		}
+
+		throw new RuntimeException("Ending brace not found in haystack: " + haystack);
 	}
 
 	/**
