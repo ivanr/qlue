@@ -39,6 +39,8 @@ public class QlueServlet extends HttpServlet {
 
     private static final String QLUE_PAGES_ROOT_PACKAGE = "QLUE_PAGES_ROOT_PACKAGE";
 
+    private static final String QLUE_SERVLET_INIT_FAILED = "QLUE_SERVLET_INIT_FAILED";
+
     private QlueApplication qlueApp;
 
     /**
@@ -55,7 +57,13 @@ public class QlueServlet extends HttpServlet {
 
             qlueApp.init(this);
         } catch (Exception e) {
-            throw new ServletException(e);
+            getServletContext().setAttribute(QLUE_SERVLET_INIT_FAILED, "true");
+
+            if (e instanceof ServletException) {
+                throw (ServletException)e;
+            } else {
+                throw new ServletException(e);
+            }
         }
     }
 
