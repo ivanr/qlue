@@ -25,10 +25,10 @@ dependencies {
     testCompile 'org.mockito:mockito-all:1.10.19'
     testCompile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
 
-    compile 'org.apache.tomcat.embed:tomcat-embed-core:8.5.15'
-    compile 'org.apache.tomcat:tomcat-jasper:8.5.15'
-    compile 'org.apache.tomcat:tomcat-jasper-el:8.5.15'
-    compile 'org.apache.tomcat:tomcat-jsp-api:8.5.15'
+    compile 'org.apache.tomcat.embed:tomcat-embed-core:8.5.30'
+    compile 'org.apache.tomcat:tomcat-jasper:8.5.30'
+    compile 'org.apache.tomcat:tomcat-jasper-el:8.5.30'
+    compile 'org.apache.tomcat:tomcat-jsp-api:8.5.30'
 }
 
 sourceSets {
