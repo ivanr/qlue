@@ -700,7 +700,12 @@ public class QlueApplication {
             }
         }
 
-        if ((logPropagatedExceptions == true) || (tx.getResponse().isCommitted() == true)) {
+        // We will log this unhandled exception in two cases: 1) by default (i.e., the logging was
+        // not disabled in configuration) or 2) if the response has already been committed. We do
+        // the latter because we don't propagate exceptions in this case, so the servlet container
+        // will not have seen it. This feature is of use only in a development environment, because
+        // otherwise you're getting two stacktraces instead of one.
+        if ((logPropagatedExceptions == true) || ((tx != null) && (tx.getResponse() != null) && (tx.getResponse().isCommitted()))) {
             if (t instanceof org.apache.velocity.exception.MethodInvocationException) {
                 log.error("Qlue: Unhandled application exception: " + t.getMessage());
             } else {
