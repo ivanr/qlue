@@ -41,7 +41,7 @@ public class HeaderConfigRouter implements Router {
         }
 
         if (log.isInfoEnabled()) {
-            log.info("HTTP request routing: @header: name=" + name + "; value=" + value);
+            log.debug("HTTP request routing: @header: name=" + name + "; value=" + value);
         }
 
         return new HeaderConfigRouter(name, value);

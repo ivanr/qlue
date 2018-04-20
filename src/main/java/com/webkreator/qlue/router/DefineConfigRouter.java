@@ -26,7 +26,7 @@ public class DefineConfigRouter implements Router {
         String value = m.group(2);
 
         if (log.isInfoEnabled()) {
-            log.info("HTTP request routing: @define: name=" + name + "; value=" + value);
+            log.debug("HTTP request routing: @define: name=" + name + "; value=" + value);
         }
 
         manager.getProperties().setProperty(name, value);

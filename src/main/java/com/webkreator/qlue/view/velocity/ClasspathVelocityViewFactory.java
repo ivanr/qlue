@@ -36,7 +36,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
     @Override
     public void init(QlueApplication qlueApp) throws Exception {
         Properties properties = buildDefaultVelocityProperties(qlueApp);
-        log.info("Creating VelocityEngine with properties: " + properties);
+        log.debug("Creating VelocityEngine with properties: " + properties);
         velocityEngine = new VelocityEngine(properties);
 
         // There appears to be some sort of problem with Velocity where it loads
