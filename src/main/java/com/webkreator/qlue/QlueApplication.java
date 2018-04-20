@@ -98,6 +98,8 @@ public class QlueApplication {
 
     private Properties properties = new Properties();
 
+    private boolean propertiesAvailable = false;
+
     private String appPrefix = "QlueApp";
 
     private HttpServlet servlet;
@@ -254,7 +256,9 @@ public class QlueApplication {
         }
 
         if (propsFile.exists() == false) {
-            throw new QlueException("Unable to find file: " + propsFile.getAbsolutePath());
+            properties.setProperty("webRoot", servlet.getServletContext().getRealPath("/"));
+            propertiesAvailable = false;
+            return;
         }
 
         properties.load(new FileReader(propsFile));
@@ -293,7 +297,6 @@ public class QlueApplication {
         // Configure the SMTP email senders
 
         smtpEmailSender = new SmtpEmailSender();
-
 
         if (getBooleanProperty("qlue.smtp.async", "false")) {
             AsyncSmtpEmailSender myAsyncSmtpEmailSender = new AsyncSmtpEmailSender(smtpEmailSender);
@@ -339,6 +342,8 @@ public class QlueApplication {
                 throw new QlueException("Priority template path is not a directory: " + priorityTemplatePath);
             }
         }
+
+        propertiesAvailable = true;
     }
 
     private void configureFrontendEncryption(String value) {
@@ -1728,6 +1733,10 @@ public class QlueApplication {
      */
     public Properties getProperties() {
         return properties;
+    }
+
+    public boolean isPropertiesAvailable() {
+        return propertiesAvailable;
     }
 
     /**
