@@ -142,7 +142,7 @@ public class RedirectView implements View {
      */
     @Override
     public void render(TransactionContext context, Page page) throws Exception {
-        if ((page != null) && (page.isDevelopmentMode())) {
+        if ((page != null) && (page.isQlueDevMode())) {
             context.response.setContentType("text/html");
             PrintWriter out = context.response.getWriter();
             out.print("<html><head><title>");

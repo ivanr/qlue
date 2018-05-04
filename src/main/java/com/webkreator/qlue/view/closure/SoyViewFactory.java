@@ -22,7 +22,7 @@ public class SoyViewFactory implements ViewFactory {
     public void init(QlueApplication qlueApp) throws Exception {
         priorityTemplatePath = qlueApp.getProperty("qlue.soy.priorityTemplatePath");
 
-        if (qlueApp.isDevelopmentMode()) {
+        if (qlueApp.isQlueDevMode()) {
             // In development mode we compile templates on the fly.
             devMode = true;
             return;

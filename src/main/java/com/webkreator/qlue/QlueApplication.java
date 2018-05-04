@@ -592,7 +592,7 @@ public class QlueApplication {
             context.getResponse().sendRedirect("/");
         } catch (RequestMethodException rme) {
             if (page != null) {
-                if (page.isDevelopmentMode()) {
+                if (page.isQlueDevMode()) {
                     log.error(rme.getMessage(), rme);
                 }
 
@@ -603,7 +603,7 @@ public class QlueApplication {
             context.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } catch (PageNotFoundException pnfe) {
             if (page != null) {
-                if (page.isDevelopmentMode()) {
+                if (page.isQlueDevMode()) {
                     log.error(pnfe.getMessage(), pnfe);
                 }
 
@@ -613,7 +613,7 @@ public class QlueApplication {
             // Convert PageNotFoundException into a 404 response.
             context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (ValidationException ve) {
-            if (!page.isDevelopmentMode()) {
+            if (!page.isQlueDevMode()) {
                 if (page != null) {
                     page.rollback();
                 }
@@ -955,7 +955,7 @@ public class QlueApplication {
         }
 
         // Check development mode
-        if (page.isDevelopmentMode() == false) {
+        if (page.isQlueDevMode() == false) {
             return;
         }
 
@@ -1670,7 +1670,7 @@ public class QlueApplication {
     /**
      * Check if the current transaction comes from a developer.
      */
-    public boolean isDevelopmentMode(TransactionContext context) {
+    public boolean isQlueDevMode(TransactionContext context) {
         if (isDeveloperRequestIpAddress(context) == false) {
             return false;
         }
@@ -1698,7 +1698,7 @@ public class QlueApplication {
         return false;
     }
 
-    public boolean isDevelopmentMode() {
+    public boolean isQlueDevMode() {
         if (getApplicationDevelopmentMode() == QlueConstants.DEVMODE_ENABLED) {
             return true;
         }

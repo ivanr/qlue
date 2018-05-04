@@ -393,8 +393,8 @@ public abstract class Page {
         return app.allowDirectOutput();
     }
 
-    public boolean isDevelopmentMode() {
-        return app.isDevelopmentMode(context);
+    public boolean isQlueDevMode() {
+        return app.isQlueDevMode(context);
     }
 
     public String getNoParamUri() {

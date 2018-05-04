@@ -71,7 +71,7 @@ public class handleError extends Page {
         out.println("<head><title>Forbidden</title></head>");
         out.println("<body><h1>Forbidden</h1>");
 
-        if (isDevelopmentMode()) {
+        if (isQlueDevMode()) {
             StringWriter sw = new StringWriter();
             t.printStackTrace(new PrintWriter(sw));
             out.println("<pre>");
@@ -86,7 +86,7 @@ public class handleError extends Page {
     }
 
     private View _handleVelocityParseError(ParseErrorException t) throws Exception {
-        if (!isDevelopmentMode()) {
+        if (!isQlueDevMode()) {
             return _handleGenericThrowable(t);
         }
 
@@ -105,7 +105,7 @@ public class handleError extends Page {
     }
 
     private View _handleSoyCompilationError(SoyCompilationException t) throws Exception {
-        if (!isDevelopmentMode()) {
+        if (!isQlueDevMode()) {
             return _handleGenericThrowable(t);
         }
 
@@ -142,7 +142,7 @@ public class handleError extends Page {
         out.println("<head><title>Parameter Validation Failed</title></head>");
         out.println("<body><h1>Parameter Validation Failed</h1>");
 
-        if (isDevelopmentMode()) {
+        if (isQlueDevMode()) {
             out.println(ve.getMessage());
         }
 
@@ -159,7 +159,7 @@ public class handleError extends Page {
         out.println("<head><title>Internal Server Error</title></head>");
         out.println("<body><h1>Internal Server Error</h1>");
 
-        if ((t != null) && (isDevelopmentMode())) {
+        if ((t != null) && (isQlueDevMode())) {
             StringWriter sw = new StringWriter();
             t.printStackTrace(new PrintWriter(sw));
             out.println("<pre>");
