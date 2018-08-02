@@ -216,9 +216,13 @@ public abstract class Page {
             case "GET":
             case "HEAD":
                 return onGet();
+            case "DELETE":
+                return onDelete();
             case "POST":
                 return onPost();
-            default:
+            case "PUT":
+                return onPut();
+                default:
                 throw new RequestMethodException();
         }
     }
@@ -232,10 +236,26 @@ public abstract class Page {
     }
 
     /**
+     * Process a DELETE request. The default implementation does not actually do
+     * anything -- it just throws an exception.
+     */
+    public View onDelete() throws Exception {
+        throw new RequestMethodException();
+    }
+
+    /**
      * Process a POST request. The default implementation does not actually do
      * anything -- it just throws an exception.
      */
     public View onPost() throws Exception {
+        throw new RequestMethodException();
+    }
+
+    /**
+     * Process a PUT request. The default implementation does not actually do
+     * anything -- it just throws an exception.
+     */
+    public View onPut() throws Exception {
         throw new RequestMethodException();
     }
 
