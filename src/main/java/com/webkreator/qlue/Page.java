@@ -57,7 +57,7 @@ public abstract class Page {
 
     private String state = STATE_INIT;
 
-    protected Logger log = LoggerFactory.getLogger(Page.class);
+    protected Logger qlueLog = LoggerFactory.getLogger(Page.class);
 
     private boolean cleanupInvoked;
 
@@ -524,7 +524,7 @@ public abstract class Page {
                             qf.delete();
                         }
                     } catch (Exception e) {
-                        log.error("Qlue: Failed deleting file " + qf, e);
+                        qlueLog.error("Qlue: Failed deleting file " + qf, e);
                     }
                 }
             }
