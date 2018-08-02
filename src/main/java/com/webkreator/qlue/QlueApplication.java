@@ -601,6 +601,12 @@ public class QlueApplication {
 
             // Convert RequestMethodException into a 405 response.
             context.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        } catch(UnauthorizedException ue) {
+            if (page != null) {
+                page.rollback();
+            }
+
+            context.getResponse().sendError(HttpServletResponse.SC_UNAUTHORIZED);
         } catch (PageNotFoundException pnfe) {
             if (page != null) {
                 if (page.isQlueDevMode()) {
