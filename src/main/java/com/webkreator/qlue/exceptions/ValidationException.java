@@ -23,6 +23,10 @@ public class ValidationException extends QlueException {
 
 	private static final long serialVersionUID = 1L;
 
+	public ValidationException() {
+		super();
+	}
+
 	public ValidationException(String string) {
 		super(string);
 	}
