@@ -624,8 +624,25 @@ public class QlueApplication {
                     page.rollback();
                 }
 
-                // Respond to validation errors with a 400 response.
-                context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
+                boolean responded = false;
+                if (page.hasErrors()) {
+                    try {
+                        View view = page.handleValidationError();
+                        if (view != null) {
+                            renderView(view, context, page);
+                            responded = true;
+                        }
+                    } catch(Exception e) {
+                        log.warn("Page throw exception during validation error handling");
+                    }
+                } else {
+
+                }
+
+                if (!responded) {
+                    // Respond to validation errors with a 400 response.
+                    context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
+                }
             } else {
                 // In development mode, we let the exception propagate to that it
                 // can be handled by our generic exception handler, which will show
