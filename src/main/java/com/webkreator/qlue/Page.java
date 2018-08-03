@@ -555,6 +555,10 @@ public abstract class Page {
         throw new ValidationException("Parameter validation failed: " + getErrors().toString());
     }
 
+    protected View handleUnhandledException(Exception e) {
+        return null;
+    }
+
     public boolean isCleanupInvoked() {
         return cleanupInvoked;
     }

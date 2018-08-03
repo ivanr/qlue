@@ -687,14 +687,29 @@ public class QlueApplication {
                 // data and, optionally, notify the administrator via email.
                 handleApplicationException(context, page, e);
 
-                // If it's not too late, we're going to let the container
-                // see our unhandled exception, in the hope that a friendly
-                // error page is configured.
+                // If it's not too late, we're going to try to display an error page.
                 if (!context.getResponse().isCommitted()) {
-                    if (e instanceof RuntimeException) {
-                        throw ((RuntimeException) e);
-                    } else {
-                        throw new RuntimeException(e);
+                    boolean responded = false;
+
+                    try {
+                        if (page != null) {
+                            View view = page.handleUnhandledException(e);
+                            if (view != null) {
+                                renderView(view, context, page);
+                                responded = true;
+                            }
+                        }
+                    } catch (Exception nestedException) {
+                        log.warn("Exception in Page#handleUnhandledException", nestedException);
+                    }
+
+                    if (!responded) {
+                        // Propagate to the container.
+                        if (e instanceof RuntimeException) {
+                            throw ((RuntimeException) e);
+                        } else {
+                            throw new RuntimeException(e);
+                        }
                     }
                 }
             }
