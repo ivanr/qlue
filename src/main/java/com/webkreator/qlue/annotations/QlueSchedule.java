@@ -1,10 +1,10 @@
-package com.webkreator.qlue;
+package com.webkreator.qlue.annotations;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 @Retention(RetentionPolicy.RUNTIME)
-public @interface QlueMapping {
+public @interface QlueSchedule {
 
-    String suffix() default "inheritAppSuffix";
+    String value();
 }

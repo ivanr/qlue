@@ -18,6 +18,8 @@ package com.webkreator.qlue.pages;
 
 import com.webkreator.qlue.Error;
 import com.webkreator.qlue.*;
+import com.webkreator.qlue.annotations.QlueMapping;
+import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.exceptions.AccessForbiddenException;
 import com.webkreator.qlue.exceptions.QlueSecurityException;
 import com.webkreator.qlue.util.HtmlEncoder;

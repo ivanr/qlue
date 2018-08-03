@@ -16,6 +16,8 @@
  */
 package com.webkreator.qlue;
 
+import com.webkreator.qlue.annotations.QlueParameter;
+import com.webkreator.qlue.annotations.QlueSchedule;
 import com.webkreator.qlue.editors.*;
 import com.webkreator.qlue.exceptions.*;
 import com.webkreator.qlue.router.QlueRouteManager;

@@ -18,7 +18,7 @@ package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
-import com.webkreator.qlue.QlueMapping;
+import com.webkreator.qlue.annotations.QlueMapping;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.exceptions.QlueSecurityException;
 import com.webkreator.qlue.view.ClasspathView;
