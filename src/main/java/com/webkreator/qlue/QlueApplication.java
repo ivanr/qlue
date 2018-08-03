@@ -1185,6 +1185,22 @@ public class QlueApplication {
     private void bindBodyParameter(Object commandObject, Field f, Page page) throws Exception {
         QlueBodyParameter qbp = f.getAnnotation(QlueBodyParameter.class);
 
+        switch(qbp.format()) {
+
+            case "identity" :
+                bindIdentityBodyParameter(qbp, commandObject, f, page);
+                break;
+
+            case "json":
+                bindJsonBodyParameter(qbp, commandObject, f, page);
+                break;
+
+            default:
+                throw new RuntimeException("Qlue: Don't know how to handle body parameter format: " + qbp.format());
+        }
+    }
+
+    private void bindIdentityBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
         // Get the body as a string.
 
         StringBuilder sb = new StringBuilder();
@@ -1195,36 +1211,24 @@ public class QlueApplication {
             }
         }
 
-        String body = sb.toString();
+        f.set(commandObject, sb.toString());
+    }
 
-        // Set the parameter according to the configuration.
-
-        switch(qbp.format()) {
-
-            case "identity" :
-                f.set(commandObject, body);
-                break;
-
-            case "json":
-                if (!QlueConstants.JSON_MIME_TYPE.equals(page.context.getRequestContentTypeNoCharset())) {
-                    throw new RuntimeException("Qlue: Unable to bind mime type to body parameter in JSON format: "
-                            + page.context.getRequestContentTypeNoCharset());
-                }
-
-                f.set(commandObject, convertJsonToObject(body, f.getType()));
-                break;
-
-            default:
-                throw new RuntimeException("Qlue: Don't know how to handle body parameter format: " + qbp.format());
+    private void bindJsonBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
+        if (!QlueConstants.JSON_MIME_TYPE.equals(page.context.getRequestContentTypeNoCharset())) {
+            throw new RuntimeException("Qlue: Unable to bind mime type to body parameter in JSON format: "
+                    + page.context.getRequestContentTypeNoCharset());
         }
+
+        f.set(commandObject, convertJsonToObject(page.context.request.getReader(), f.getType()));
     }
 
     protected void prepareBindingGson() {
         bindingGson = new GsonBuilder().setPrettyPrinting().create();
     }
 
-    protected Object convertJsonToObject(String body, Class<?> type) {
-        return bindingGson.fromJson(body, type);
+    protected Object convertJsonToObject(Reader reader, Class<?> type) {
+        return bindingGson.fromJson(reader, type);
     }
 
     /**
