@@ -37,6 +37,9 @@ import org.slf4j.MDC;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.*;
+import javax.validation.ConstraintViolation;
+import javax.validation.Validator;
+import javax.validation.ValidatorFactory;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -446,6 +449,8 @@ public class QlueApplication {
         }
 
         bindParameters(page);
+
+        doBeanValidation(page);
 
         // Custom parameter validation.
         view = page.validateParameters();
@@ -1997,6 +2002,29 @@ public class QlueApplication {
                 } else {
                     log.error("QlueSchedule: Scheduled methods must be public or protected: " + m.getName());
                 }
+            }
+        }
+    }
+
+    protected ValidatorFactory getBeanValidationFactory() {
+        // For now, we don't enable bean validation by default. To use it,
+        // override this method and return a factory instance.
+        return null;
+    }
+
+    private void doBeanValidation(Page page) {
+        ValidatorFactory beanValidationFactory = getBeanValidationFactory();
+        if (beanValidationFactory == null) {
+            return;
+        }
+
+        Validator validator = beanValidationFactory.getValidator();
+        Set<ConstraintViolation<Object>> violations = validator.validate(page.getCommandObject());
+        for (ConstraintViolation<Object> v : violations) {
+            if (v.getPropertyPath() != null) {
+                page.addError(v.getPropertyPath().toString(), v.getMessage());
+            } else {
+                page.addError(v.getMessage());
             }
         }
     }

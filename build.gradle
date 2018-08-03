@@ -32,6 +32,12 @@ dependencies {
     compile 'org.apache.tomcat:tomcat-jasper:8.5.30'
     compile 'org.apache.tomcat:tomcat-jasper-el:8.5.30'
     compile 'org.apache.tomcat:tomcat-jsp-api:8.5.30'
+
+    // https://mvnrepository.com/artifact/org.hibernate.validator/hibernate-validator
+    compile group: 'org.hibernate.validator', name: 'hibernate-validator', version: '6.0.11.Final'
+
+    // https://mvnrepository.com/artifact/org.glassfish/javax.el
+    compile group: 'org.glassfish', name: 'javax.el', version: '3.0.1-b10'
 }
 
 sourceSets {
