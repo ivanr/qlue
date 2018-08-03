@@ -16,6 +16,8 @@
  */
 package com.webkreator.qlue;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.webkreator.qlue.annotations.QlueBodyParameter;
 import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.annotations.QlueSchedule;
@@ -50,8 +52,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.*;
@@ -158,12 +158,15 @@ public class QlueApplication {
 
     private Scheduler scheduler;
 
+    private Gson bindingGson;
+
     /**
      * This is the default constructor. The idea is that a subclass will
      * override it and supplement with its own configuration.
      */
     protected QlueApplication() {
         initPropertyEditors();
+        prepareBindingGson();
         velocityViewFactory = new ClasspathVelocityViewFactory();
         viewFactories.add(velocityViewFactory);
     }
@@ -1197,12 +1200,31 @@ public class QlueApplication {
         // Set the parameter according to the configuration.
 
         switch(qbp.format()) {
+
             case "identity" :
                 f.set(commandObject, body);
                 break;
+
+            case "json":
+                if (!QlueConstants.JSON_MIME_TYPE.equals(page.context.getRequestContentTypeNoCharset())) {
+                    throw new RuntimeException("Qlue: Unable to bind mime type to body parameter in JSON format: "
+                            + page.context.getRequestContentTypeNoCharset());
+                }
+
+                f.set(commandObject, convertJsonToObject(body, f.getType()));
+                break;
+
             default:
                 throw new RuntimeException("Qlue: Don't know how to handle body parameter format: " + qbp.format());
         }
+    }
+
+    protected void prepareBindingGson() {
+        bindingGson = new GsonBuilder().setPrettyPrinting().create();
+    }
+
+    protected Object convertJsonToObject(String body, Class<?> type) {
+        return bindingGson.fromJson(body, type);
     }
 
     /**

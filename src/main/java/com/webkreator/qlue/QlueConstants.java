@@ -16,6 +16,8 @@
  */
 package com.webkreator.qlue;
 
+import java.awt.font.FontRenderContext;
+
 /**
  * A simple class that holds the constants used throughout the framework.
  */
@@ -30,4 +32,6 @@ public class QlueConstants {
 	public static final Integer DEVMODE_ONDEMAND = 1;
 	
 	public static final Integer DEVMODE_ENABLED = 2;
+
+    public static final String JSON_MIME_TYPE = "application/json";
 }

@@ -65,6 +65,8 @@ public class TransactionContext {
 
     public String requestUriWithQueryString;
 
+    private String requestContentTypeNoCharset;
+
     private Map<String, String> urlParams = new HashMap<String, String>();
 
     private Map<String, Object> ctxParams = new HashMap<String, Object>();
@@ -108,6 +110,7 @@ public class TransactionContext {
         initRequestUri();
         handleFrontendEncryption();
         handleForwardedFor();
+        parseContentType();
     }
 
     public Properties getProperties() {
@@ -510,5 +513,25 @@ public class TransactionContext {
 
     public Map<String, String> getResponseHeaders() {
         return responseHeaders;
+    }
+
+    private void parseContentType() {
+        String ct = request.getContentType();
+        if (ct == null) {
+            return;
+        }
+
+        ct = ct.trim();
+
+        int i = ct.indexOf(";");
+        if (i == -1) {
+            return;
+        }
+
+        requestContentTypeNoCharset = ct.substring(0, i).trim();
+    }
+
+    public String getRequestContentTypeNoCharset() {
+        return requestContentTypeNoCharset;
     }
 }

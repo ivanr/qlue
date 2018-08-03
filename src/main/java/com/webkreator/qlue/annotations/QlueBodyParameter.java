@@ -7,6 +7,4 @@ import java.lang.annotation.RetentionPolicy;
 public @interface QlueBodyParameter {
 
     String format() default "identity";
-
-    String mimeType() default "auto";
 }
