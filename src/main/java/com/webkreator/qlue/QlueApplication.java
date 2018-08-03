@@ -16,6 +16,7 @@
  */
 package com.webkreator.qlue;
 
+import com.webkreator.qlue.annotations.QlueBodyParameter;
 import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.annotations.QlueSchedule;
 import com.webkreator.qlue.editors.*;
@@ -49,6 +50,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.*;
@@ -1130,6 +1133,11 @@ public class QlueApplication {
         // parameters. Validate those that are, then bind them.
         Set<Field> fields = getClassPublicFields(commandObject.getClass());
         for (Field f : fields) {
+            if (f.isAnnotationPresent(QlueBodyParameter.class)) {
+                bindBodyParameter(commandObject, f, page);
+                continue;
+            }
+
             // We bind command object fields that have the QlueParameter annotation.
             if (f.isAnnotationPresent(QlueParameter.class) == false) {
                 continue;
@@ -1168,6 +1176,32 @@ public class QlueApplication {
                 // Transform editor exception into a validation error.
                 page.addError(f.getName(), e.getMessage());
             }
+        }
+    }
+
+    private void bindBodyParameter(Object commandObject, Field f, Page page) throws Exception {
+        QlueBodyParameter qbp = f.getAnnotation(QlueBodyParameter.class);
+
+        // Get the body as a string.
+
+        StringBuilder sb = new StringBuilder();
+        try (Reader reader = page.context.getRequest().getReader()) {
+            int c = 0;
+            while ((c = reader.read()) != -1) {
+                sb.append((char) c);
+            }
+        }
+
+        String body = sb.toString();
+
+        // Set the parameter according to the configuration.
+
+        switch(qbp.format()) {
+            case "identity" :
+                f.set(commandObject, body);
+                break;
+            default:
+                throw new RuntimeException("Qlue: Don't know how to handle body parameter format: " + qbp.format());
         }
     }
 
