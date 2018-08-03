@@ -525,10 +525,10 @@ public class TransactionContext {
 
         int i = ct.indexOf(";");
         if (i == -1) {
-            return;
+            requestContentTypeNoCharset = ct;
+        } else {
+            requestContentTypeNoCharset = ct.substring(0, i).trim();
         }
-
-        requestContentTypeNoCharset = ct.substring(0, i).trim();
     }
 
     public String getRequestContentTypeNoCharset() {

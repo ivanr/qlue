@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -614,7 +614,7 @@ public class QlueApplication {
 
             // Convert RequestMethodException into a 405 response.
             context.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        } catch(UnauthorizedException ue) {
+        } catch (UnauthorizedException ue) {
             if (page != null) {
                 page.rollback();
             }
@@ -645,7 +645,7 @@ public class QlueApplication {
                             renderView(view, context, page);
                             responded = true;
                         }
-                    } catch(Exception e) {
+                    } catch (Exception e) {
                         log.warn("Page throw exception during validation error handling");
                     }
                 } else {
@@ -1185,9 +1185,9 @@ public class QlueApplication {
     private void bindBodyParameter(Object commandObject, Field f, Page page) throws Exception {
         QlueBodyParameter qbp = f.getAnnotation(QlueBodyParameter.class);
 
-        switch(qbp.format()) {
+        switch (qbp.format()) {
 
-            case "identity" :
+            case "identity":
                 bindIdentityBodyParameter(qbp, commandObject, f, page);
                 break;
 
@@ -2074,17 +2074,42 @@ public class QlueApplication {
         return null;
     }
 
-    private void doBeanValidation(Page page) {
+    private void doBeanValidation(Page page) throws IllegalAccessException {
         ValidatorFactory beanValidationFactory = getBeanValidationFactory();
         if (beanValidationFactory == null) {
             return;
         }
 
+        // Validate the command object.
+        doBeanValidation(beanValidationFactory, null, page.getCommandObject(), page);
+
+        // Loop through the command object fields in order to determine if any are annotated as
+        // parameters. Validate those that are, then bind them.
+        Set<Field> fields = getClassPublicFields(page.getCommandObject().getClass());
+        for (Field f : fields) {
+            if (f.isAnnotationPresent(QlueBodyParameter.class)) {
+                doBeanValidation(beanValidationFactory, "body", f.get(page.getCommandObject()), page);
+            }
+        }
+    }
+
+    private void doBeanValidation(ValidatorFactory beanValidationFactory, String parent, Object object, Page page) {
         Validator validator = beanValidationFactory.getValidator();
-        Set<ConstraintViolation<Object>> violations = validator.validate(page.getCommandObject());
+        Set<ConstraintViolation<Object>> violations = validator.validate(object);
         for (ConstraintViolation<Object> v : violations) {
-            if (v.getPropertyPath() != null) {
-                page.addError(v.getPropertyPath().toString(), v.getMessage());
+            if ((parent != null) || (v.getPropertyPath() != null)) {
+                String field = null;
+                if (parent != null) {
+                    if (v.getPropertyPath() != null) {
+                        field = parent + "/" + v.getPropertyPath().toString();
+                    } else {
+                        field = parent;
+                    }
+                } else {
+                    field = v.getPropertyPath().toString();
+                }
+
+                page.addError(field, v.getMessage());
             } else {
                 page.addError(v.getMessage());
             }
