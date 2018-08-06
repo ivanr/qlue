@@ -12,7 +12,12 @@ public enum RouteMethod {
 
     public static RouteMethod fromTransaction(TransactionContext tx) {
         try {
-            RouteMethod method = RouteMethod.valueOf(tx.getRequest().getMethod());
+            String httpMethod = tx.getRequest().getMethod();
+            if (httpMethod.equals("HEAD")) {
+                httpMethod = "GET";
+            }
+            
+            RouteMethod method = RouteMethod.valueOf(httpMethod);
             if (method == $OTHER) {
                 throw new IllegalArgumentException("Internal route method names now allowed: "
                         + tx.getRequest().getMethod());
