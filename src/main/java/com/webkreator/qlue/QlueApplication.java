@@ -646,7 +646,7 @@ public class QlueApplication {
                             responded = true;
                         }
                     } catch (Exception e) {
-                        log.warn("Page throw exception during validation error handling");
+                        log.warn("Exception in Page#handleValidationError", e);
                     }
                 } else {
 

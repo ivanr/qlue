@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,6 +33,8 @@ import java.util.regex.PatternSyntaxException;
 public class Route {
 
 	private Logger log = LoggerFactory.getLogger(Route.class);
+
+	private EnumSet<RouteMethod> acceptedMethods;
 
 	private String path;
 
@@ -48,7 +51,8 @@ public class Route {
 	/**
 	 * Creates new route, given path and router instance.
 	 */
-	public Route(String path, Router router) {
+	public Route(EnumSet<RouteMethod> acceptedMethods, String path, Router router) {
+		this.acceptedMethods = acceptedMethods;
 		this.path = path;
 		this.router = router;
 
@@ -210,10 +214,17 @@ public class Route {
 	 * returns the route associated with the route.
 	 */
 	public Object route(TransactionContext tx) {
-        // If the path is null, this route always matches.
+        // If the path is null, that means this is a meta route,
+		// and we always accept transactions.
         if (path == null) {
             return router.route(tx, null);
         }
+
+		// Check if the request method matches.
+		RouteMethod method = RouteMethod.fromTransaction(tx);
+		if (!acceptedMethods.contains(method)) {
+			return null;
+		}
 
 		// Otherwise, attempt to match the request URI to the path we have.
 
@@ -254,5 +265,9 @@ public class Route {
 	 */
 	public String getPath() {
 		return path;
+	}
+
+	public boolean acceptsMethod(RouteMethod method) {
+		return acceptedMethods.contains(method);
 	}
 }

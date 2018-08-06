@@ -16,6 +16,7 @@
  */
 package com.webkreator.qlue.router;
 
+import java.util.EnumSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,20 +38,31 @@ public class RouteFactory {
         }
 
 		// Split the route into tokens.
+		int nextTokenPos = 0;
 		String[] tokens = route.split("\\s+");
 		if (tokens.length < 2) {
 			throw new RuntimeException("Qlue: Invalid route: " + route);
 		}
 
-		// The path is in the first token.
-		String path = tokens[0];			
+		// Parse optional request methods.
+
+		EnumSet<RouteMethod> acceptedMethods = EnumSet.allOf(RouteMethod.class);
+
+		if (tokens[nextTokenPos].charAt(0) != '/') {
+			acceptedMethods = parseAcceptedMethods(tokens[nextTokenPos]);
+			nextTokenPos++;
+		}
+
+		// Parse path.
+
+		String path = tokens[nextTokenPos++];
 		
 		// Remove multiple consecutive forward slashes, which could
 		// have been introduced through variable expansion.
 		path = path.replaceAll("/{2,}", "/");		
 
 		// The action to take is in the second token.
-		String action = tokens[1];
+		String action = tokens[nextTokenPos++];
 
 		// Convert the path into a pattern.
 
@@ -68,14 +80,16 @@ public class RouteFactory {
 
 			String uri = action.substring(9).trim();
 
-			// Check for explicit redirection status code
-			if (tokens.length > 2) {
+			// Check for explicit redirection status code.
+			if (nextTokenPos < tokens.length) {
 				int status;
 
+				String statusToken = tokens[nextTokenPos++];
+
 				try {
-					status = Integer.parseInt(tokens[2]);
+					status = Integer.parseInt(statusToken);
 				} catch (Exception e) {
-					throw new RuntimeException("Qlue: Invalid redirection status in route: " + tokens[2]);
+					throw new RuntimeException("Qlue: Invalid redirection status in route: " + statusToken);
 				}
 				
 				router = new RedirectionRouter(uri, status);
@@ -89,20 +103,21 @@ public class RouteFactory {
 			int statusCode;
 			
 			try {
-				// Parse and validate response status code
+				// Parse and validate response status code.
 				statusCode = Integer.parseInt(statusCodeString);
 				if ((statusCode >= 100) && (statusCode <= 999)) {
-					if (tokens.length > 2) {
+					if (nextTokenPos < tokens.length) {
 						// Recombine the remaining tokens back
-						// into a single string
+						// into a single string.
 						StringBuilder sb = new StringBuilder();
-						for(int i = 2; i <= tokens.length -1; i++) {
-							if (i > 2) {
+						for(int i = nextTokenPos; i <= tokens.length - 1; i++) {
+							if (i > nextTokenPos) {
 								sb.append(' ');
 							}
 							
 							sb.append(tokens[i]);
 						}
+						nextTokenPos++;
 						
 						// Status code and message.
 						router = new StatusCodeRouter(statusCode, sb.toString());
@@ -121,19 +136,20 @@ public class RouteFactory {
 
 			String staticPath = action.substring(7).trim();
 			
-			if (tokens.length > 2) {
+			if (nextTokenPos < tokens.length) {
 				// Recombine the remaining tokens back into a single string.
 				StringBuilder sb = new StringBuilder();
 				sb.append(staticPath);
 				sb.append(' ');
 				
-				for(int i = 2; i <= tokens.length -1; i++) {
-					if (i > 2) {
+				for(int i = nextTokenPos; i <= tokens.length - 1; i++) {
+					if (i > nextTokenPos) {
 						sb.append(' ');
 					}
 					
 					sb.append(tokens[i]);
 				}
+				nextTokenPos++;
 				
 				// Status code and message.
 				router = new StaticFileRouter(manager, sb.toString());
@@ -146,10 +162,21 @@ public class RouteFactory {
 			router = new ClassRouter(action);
 		}
 
-		return new Route(path, router);
+		return new Route(acceptedMethods, path, router);
 	}
 
-    private static Route createMetaRoute(RouteManager manager, String route) {
+	private static EnumSet<RouteMethod> parseAcceptedMethods(String token) {
+		EnumSet<RouteMethod> acceptedMethods = EnumSet.noneOf(RouteMethod.class);
+
+		String[] methods = token.split(",");
+		for (String m : methods) {
+			acceptedMethods.add(RouteMethod.valueOf(m));
+		}
+
+		return acceptedMethods;
+	}
+
+	private static Route createMetaRoute(RouteManager manager, String route) {
         Matcher m = metaRoutePattern.matcher(route);
         if (!m.matches()) {
             throw new RuntimeException("Qlue: Invalid config route: " + route);
@@ -160,7 +187,7 @@ public class RouteFactory {
 
         switch(configDirective) {
 			case "header":
-				return new Route(null, HeaderConfigRouter.fromString(manager, configText));
+				return new Route(null, null, HeaderConfigRouter.fromString(manager, configText));
 			case "define":
 				DefineConfigRouter.updateProperties(manager, configText);
 				return null;
