@@ -709,15 +709,13 @@ public class QlueApplication {
                     } catch (Exception nestedException) {
                         log.warn("Exception in Page#handleUnhandledException", nestedException);
                     }
+                }
 
-                    if (!responded) {
-                        // Propagate to the container.
-                        if (e instanceof RuntimeException) {
-                            throw ((RuntimeException) e);
-                        } else {
-                            throw new RuntimeException(e);
-                        }
-                    }
+                // Propagate to the container.
+                if (e instanceof RuntimeException) {
+                    throw ((RuntimeException) e);
+                } else {
+                    throw new RuntimeException(e);
                 }
             }
         } finally {
