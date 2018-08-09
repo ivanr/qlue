@@ -401,8 +401,8 @@ public abstract class Page {
     /**
      * Adds a field-specific error message.
      */
-    public void addError(String fieldName, String message) {
-        errors.addError(fieldName, message);
+    public void addError(String param, String message) {
+        errors.addError(param, message);
     }
 
     /**
@@ -440,8 +440,8 @@ public abstract class Page {
             out.print("   " + i++ + ". ");
             out.print(HtmlEncoder.html(e.getMessage()));
 
-            if (e.getField() != null) {
-                out.print(" [field " + HtmlEncoder.html(e.getField())
+            if (e.getParam() != null) {
+                out.print(" [field " + HtmlEncoder.html(e.getParam())
                         + "]");
             }
 

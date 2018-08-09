@@ -22,7 +22,7 @@ package com.webkreator.qlue;
  */
 public class Error {
 
-	private String field;
+	private String param;
 
 	private String message;
 
@@ -36,8 +36,8 @@ public class Error {
 	/**
 	 * Create a new error, associated with the given field.
 	 */
-	public Error(String field, String message) {
-		this.field = field;
+	public Error(String param, String message) {
+		this.param = param;
 		this.message = message;
 	}
 	
@@ -45,8 +45,8 @@ public class Error {
 	 * Retrieve field name. If the returned value is null that means
 	 * the error is associated with the entire page.
 	 */
-	public String getField() {
-		return field;
+	public String getParam() {
+		return param;
 	}
 	
 	/**

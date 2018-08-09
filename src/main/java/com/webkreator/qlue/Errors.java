@@ -55,7 +55,7 @@ public class Errors {
 		ArrayList<String> list = new ArrayList<>();
 
 		for (Error error : errors) {
-			if ((error.getField() != null) && (field.equals(error.getField()))) {
+			if ((error.getParam() != null) && (field.equals(error.getParam()))) {
 				list.add(error.getMessage());
 			}
 		}
@@ -71,7 +71,7 @@ public class Errors {
 		ArrayList<String> list = new ArrayList<>();
 
 		for (Error error : errors) {
-			if (error.getField() == null) {
+			if (error.getParam() == null) {
 				list.add(error.getMessage());
 			}
 		}
@@ -106,9 +106,9 @@ public class Errors {
 			
 			sb.append(e.getMessage());
 			
-			if (e.getField() != null) {
+			if (e.getParam() != null) {
 				sb.append(" (");
-				sb.append(e.getField());
+				sb.append(e.getParam());
 				sb.append(")");
 			}
 			
