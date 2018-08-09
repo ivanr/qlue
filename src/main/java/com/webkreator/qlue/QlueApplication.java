@@ -632,28 +632,35 @@ public class QlueApplication {
             // Convert PageNotFoundException into a 404 response.
             context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (ValidationException ve) {
-            if (!page.isQlueDevMode()) {
-                if (page != null) {
-                    page.rollback();
-                }
+            if (page != null) {
+                page.rollback();
 
-                boolean responded = false;
-                if (page.hasErrors()) {
-                    try {
-                        View view = page.handleValidationError();
-                        if (view != null) {
-                            renderView(view, context, page);
-                            responded = true;
-                        }
-                    } catch (Exception e) {
-                        log.warn("Exception in Page#handleValidationError", e);
+                // If there is some error information associated with the
+                // exception, now is a good time to add it to the page.
+                if (ve.getMessage() != null) {
+                    if (ve.getParam() != null) {
+                        page.addError(ve.getParam(), ve.getMessage());
+                    } else {
+                        page.addError(ve.getMessage());
                     }
-                } else {
+                }
+            }
 
+            if (!page.isQlueDevMode()) {
+                boolean responded = false;
+                try {
+                    View view = page.handleValidationError();
+                    if (view != null) {
+                        renderView(view, context, page);
+                        responded = true;
+                    }
+                } catch (Exception e) {
+                    log.warn("Exception in Page#handleValidationError", e);
                 }
 
+                // Unless already handled by the page, respond to
+                // validation errors with a 400 response.
                 if (!responded) {
-                    // Respond to validation errors with a 400 response.
                     context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
                 }
             } else {
