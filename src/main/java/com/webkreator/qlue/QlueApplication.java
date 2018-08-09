@@ -100,8 +100,6 @@ public class QlueApplication {
 
     private static final String PROPERTY_URGENT_EMAIL = "qlue.urgentEmail";
 
-    private static final String PROPERTY_LOG_PROPAGATED_EXCEPTIONS = "qlue.logPropagatedExceptions";
-
     private String messagesFilename = "com/webkreator/qlue/messages";
 
     private Properties properties = new Properties();
@@ -137,8 +135,6 @@ public class QlueApplication {
     private String adminEmail;
 
     private String urgentEmail;
-
-    private boolean logPropagatedExceptions;
 
     private int urgentCounter = -1;
 
@@ -302,8 +298,6 @@ public class QlueApplication {
         adminEmail = getProperty(PROPERTY_ADMIN_EMAIL);
 
         urgentEmail = getProperty(PROPERTY_URGENT_EMAIL);
-
-        logPropagatedExceptions = getBooleanProperty(PROPERTY_LOG_PROPAGATED_EXCEPTIONS, "true");
 
         // Configure the SMTP email senders
 
@@ -694,7 +688,9 @@ public class QlueApplication {
                 // data and, optionally, notify the administrator via email.
                 handleApplicationException(context, page, e);
 
-                // If it's not too late, we're going to try to display an error page.
+                // If it's not too late, we're going to try to put up a brave face,
+                // in the worst case we're going to show an error page. In the best,
+                // the page may have a handler for the problem.
                 if (!context.getResponse().isCommitted()) {
                     boolean responded = false;
 
@@ -709,13 +705,10 @@ public class QlueApplication {
                     } catch (Exception nestedException) {
                         log.warn("Exception in Page#handleUnhandledException", nestedException);
                     }
-                }
 
-                // Propagate to the container.
-                if (e instanceof RuntimeException) {
-                    throw ((RuntimeException) e);
-                } else {
-                    throw new RuntimeException(e);
+                    if (!responded) {
+                        context.getResponse().sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    }
                 }
             }
         } finally {
@@ -761,17 +754,10 @@ public class QlueApplication {
             }
         }
 
-        // We will log this unhandled exception in two cases: 1) by default (i.e., the logging was
-        // not disabled in configuration) or 2) if the response has already been committed. We do
-        // the latter because we don't propagate exceptions in this case, so the servlet container
-        // will not have seen it. This feature is of use only in a development environment, because
-        // otherwise you're getting two stacktraces instead of one.
-        if ((logPropagatedExceptions == true) || ((tx != null) && (tx.getResponse() != null) && (tx.getResponse().isCommitted()))) {
-            if (t instanceof org.apache.velocity.exception.MethodInvocationException) {
-                log.error("Qlue: Unhandled application exception: " + t.getMessage());
-            } else {
-                log.error("Qlue: Unhandled application exception", t);
-            }
+        if (t instanceof org.apache.velocity.exception.MethodInvocationException) {
+            log.error("Qlue: Unhandled exception: " + t.getMessage());
+        } else {
+            log.error("Qlue: Unhandled exception", t);
         }
 
         if (adminEmail != null) {
