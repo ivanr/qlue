@@ -1205,8 +1205,14 @@ public class QlueApplication {
                 throw new RuntimeException("Qlue: Don't know how to handle body parameter format: " + qbp.format());
         }
 
-        if (qbp.mandatory() && (f.get(commandObject) == null)) {
+        Object value = f.get(commandObject);
+
+        if (qbp.mandatory() && (value == null)) {
             page.addError(f.getName(), "qp.mandatory");
+        }
+
+        if (qbp.nonempty() && (value != null) && (value instanceof String) && (((String)value).trim().length() == 0)) {
+            page.addError(f.getName(), "qp.nonempty");
         }
     }
 

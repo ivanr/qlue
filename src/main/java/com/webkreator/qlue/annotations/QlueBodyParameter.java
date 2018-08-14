@@ -8,5 +8,7 @@ public @interface QlueBodyParameter {
 
     boolean mandatory() default true;
 
+    boolean nonempty() default true;
+
     String format() default "identity";
 }
