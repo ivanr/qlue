@@ -289,6 +289,14 @@ public class TransactionContext {
         }
     }
 
+    public boolean isPut() {
+        if (request.getMethod().equals("PUT")) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     /**
      * Find persistent page with the given ID.
      */

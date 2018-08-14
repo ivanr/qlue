@@ -1142,7 +1142,7 @@ public class QlueApplication {
         // parameters. Validate those that are, then bind them.
         Set<Field> fields = getClassPublicFields(commandObject.getClass());
         for (Field f : fields) {
-            if (f.isAnnotationPresent(QlueBodyParameter.class) && page.context.isPost()) {
+            if (f.isAnnotationPresent(QlueBodyParameter.class) && (page.context.isPost() || page.context.isPut())) {
                 bindBodyParameter(commandObject, f, page);
                 continue;
             }
