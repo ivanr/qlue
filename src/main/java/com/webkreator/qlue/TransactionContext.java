@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -518,6 +518,7 @@ public class TransactionContext {
     private void parseContentType() {
         String ct = request.getContentType();
         if (ct == null) {
+            requestContentTypeNoCharset = null;
             return;
         }
 

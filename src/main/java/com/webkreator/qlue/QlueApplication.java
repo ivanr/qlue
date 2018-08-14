@@ -1142,7 +1142,7 @@ public class QlueApplication {
         // parameters. Validate those that are, then bind them.
         Set<Field> fields = getClassPublicFields(commandObject.getClass());
         for (Field f : fields) {
-            if (f.isAnnotationPresent(QlueBodyParameter.class)) {
+            if (f.isAnnotationPresent(QlueBodyParameter.class) && page.context.isPost()) {
                 bindBodyParameter(commandObject, f, page);
                 continue;
             }
@@ -1204,6 +1204,10 @@ public class QlueApplication {
             default:
                 throw new RuntimeException("Qlue: Don't know how to handle body parameter format: " + qbp.format());
         }
+
+        if (qbp.mandatory() && (f.get(commandObject) == null)) {
+            page.addError(f.getName(), "qp.mandatory");
+        }
     }
 
     private void bindIdentityBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
@@ -1221,9 +1225,14 @@ public class QlueApplication {
     }
 
     private void bindJsonBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
+        if (page.context.getRequestContentTypeNoCharset() == null) {
+            page.addError(f.getName(), "Unable to bind JSON body parameter because C-T is not set");
+            return;
+        }
+
         if (!QlueConstants.JSON_MIME_TYPE.equals(page.context.getRequestContentTypeNoCharset())) {
-            throw new RuntimeException("Qlue: Unable to bind mime type to body parameter in JSON format: "
-                    + page.context.getRequestContentTypeNoCharset());
+            page.addError(f.getName(), "Unable to bind JSON body parameter because C-T is incorrect");
+            return;
         }
 
         f.set(commandObject, convertJsonToObject(page.context.request.getReader(), f.getType()));
@@ -2087,14 +2096,19 @@ public class QlueApplication {
         }
 
         // Validate the command object.
-        doBeanValidation(beanValidationFactory, null, page.getCommandObject(), page);
+        if (page.getCommandObject() != null) {
+            doBeanValidation(beanValidationFactory, null, page.getCommandObject(), page);
+        }
 
         // Loop through the command object fields in order to determine if any are annotated as
         // parameters. Validate those that are, then bind them.
         Set<Field> fields = getClassPublicFields(page.getCommandObject().getClass());
         for (Field f : fields) {
             if (f.isAnnotationPresent(QlueBodyParameter.class)) {
-                doBeanValidation(beanValidationFactory, "body", f.get(page.getCommandObject()), page);
+                Object objectToValidatate = f.get(page.getCommandObject());
+                if (objectToValidatate != null) {
+                    doBeanValidation(beanValidationFactory, "body", objectToValidatate, page);
+                }
             }
         }
     }
