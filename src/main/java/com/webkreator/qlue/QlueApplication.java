@@ -2037,7 +2037,7 @@ public class QlueApplication {
                     QlueSchedule qs = m.getAnnotation(QlueSchedule.class);
                     try {
                         scheduler.schedule(qs.value(), new QlueScheduleMethodTaskWrapper(this, this, m));
-                        log.info("Scheduled method: " + m.getName());
+                        log.debug("Scheduled method: " + m.getName());
                     } catch (InvalidPatternException ipe) {
                         log.error("QlueSchedule: Invalid schedule pattern: " + qs.value());
                     }
