@@ -17,13 +17,10 @@
 package com.webkreator.qlue.exceptions;
 
 /**
- * Thrown on a request that uses a method that the page does not support.
+ * Thrown when request processing is interrupted because the
+ * current user is not authorized. 
  */
-public class RequestMethodException extends QlueException {
-	
-	private static final long serialVersionUID = 1L;
+public class ForbiddenException extends QlueException {
 
-	public RequestMethodException() {
-		super();
-	}
+	private static final long serialVersionUID = 1L;
 }

@@ -19,8 +19,8 @@ package com.webkreator.qlue;
 import com.webkreator.qlue.annotations.QlueCommandObject;
 import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.annotations.QluePersistentPage;
-import com.webkreator.qlue.exceptions.RequestMethodException;
-import com.webkreator.qlue.exceptions.ValidationException;
+import com.webkreator.qlue.exceptions.MethodNotAllowedException;
+import com.webkreator.qlue.exceptions.BadRequestException;
 import com.webkreator.qlue.util.BearerToken;
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.View;
@@ -226,7 +226,7 @@ public abstract class Page {
             case "PUT":
                 return onPut();
                 default:
-                throw new RequestMethodException();
+                throw new MethodNotAllowedException();
         }
     }
 
@@ -235,7 +235,7 @@ public abstract class Page {
      * anything -- it just throws an exception.
      */
     public View onGet() throws Exception {
-        throw new RequestMethodException();
+        throw new MethodNotAllowedException();
     }
 
     /**
@@ -243,7 +243,7 @@ public abstract class Page {
      * anything -- it just throws an exception.
      */
     public View onDelete() throws Exception {
-        throw new RequestMethodException();
+        throw new MethodNotAllowedException();
     }
 
     /**
@@ -251,7 +251,7 @@ public abstract class Page {
      * anything -- it just throws an exception.
      */
     public View onPost() throws Exception {
-        throw new RequestMethodException();
+        throw new MethodNotAllowedException();
     }
 
     /**
@@ -259,7 +259,7 @@ public abstract class Page {
      * anything -- it just throws an exception.
      */
     public View onPut() throws Exception {
-        throw new RequestMethodException();
+        throw new MethodNotAllowedException();
     }
 
     /**
@@ -546,16 +546,21 @@ public abstract class Page {
      * default implementation will throw an exception for non-persistent pages,
      * and ignore the problem for persistent pages.
      */
-    public View handleValidationError() throws Exception {
+    public View handleParameterValidationFailure() throws Exception {
         if (isPersistent() == true) {
-            // Let the page handle validation errors.
+            // Persistent pages, by default, have to
+            // explicitly handle their errors.
             return null;
         }
 
-        throw new ValidationException("Parameter validation failed: " + getErrors().toString());
+        // We're going to throw an exception here to interrupt normal
+        // page processing. The errors should already be available in
+        // the page, so there's no need for us to add anything else here.
+        throw new BadRequestException();
     }
 
-    protected View handleUnhandledException(Exception e) {
+    public View handleException(Exception e) {
+        // Do nothing by default, let subclasses handle it.
         return null;
     }
 

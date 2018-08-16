@@ -72,7 +72,7 @@ public class QlueApplication {
 
     public static final String ROUTES_FILENAME = "routes.conf";
 
-    public static final String REQUEST_ACTUAL_PAGE_KEY = "QLUE_ACTUAL_PAGE";
+    public static final String REQUEST_ROOT_CAUSE_PAGE_KEY = "QLUE_ROOT_CAUSE_PAGE";
 
     public static final String PROPERTY_CONF_PATH = "qlue.confPath";
 
@@ -399,9 +399,15 @@ public class QlueApplication {
 
         // Proceed to the second stage of request processing
         try {
-            log.debug("Processing request: " + request.getRequestURI());
+            if (log.isDebugEnabled()) {
+                log.debug("Processing request: " + request.getRequestURI());
+            }
+
             serviceInternal(context);
-            log.debug("Processed request in " + (System.currentTimeMillis() - startTime));
+
+            if (log.isDebugEnabled()) {
+                log.debug("Processed request in " + (System.currentTimeMillis() - startTime));
+            }
         } finally {
             MDC.clear();
         }
@@ -449,7 +455,7 @@ public class QlueApplication {
 
         // Custom error handling.
         if (page.hasErrors()) {
-            view = page.handleValidationError();
+            view = page.handleParameterValidationFailure();
             if (view != null) {
                 return view;
             }
@@ -478,7 +484,7 @@ public class QlueApplication {
     /**
      * Request processing entry point.
      */
-    protected void serviceInternal(TransactionContext context) throws IOException {
+    protected void serviceInternal(TransactionContext context) throws ServletException, IOException {
         Page page = null;
 
         try {
@@ -525,7 +531,7 @@ public class QlueApplication {
             Page routedPage = null;
             Object routeObject = route(context);
             if (routeObject == null) {
-                throw new PageNotFoundException();
+                throw new NotFoundException();
             } else if (routeObject instanceof View) {
                 routedPage = new DirectViewPage((View) routeObject);
             } else if (routeObject instanceof Page) {
@@ -584,119 +590,71 @@ public class QlueApplication {
             // is probably not going to be helpful, and may actually compel the
             // user to go back and try again (and that's not going to work).
             context.getResponse().sendRedirect("/");
-        } catch (RequestMethodException rme) {
-            if (page != null) {
-                if (page.isQlueDevMode()) {
-                    log.error(rme.getMessage(), rme);
-                }
-
-                page.rollback();
-            }
-
-            // Convert RequestMethodException into a 405 response.
-            context.getResponse().sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        } catch (UnauthorizedException ue) {
-            if (page != null) {
-                page.rollback();
-            }
-
-            context.getResponse().sendError(HttpServletResponse.SC_UNAUTHORIZED);
-        } catch (PageNotFoundException pnfe) {
-            if (page != null) {
-                if (page.isQlueDevMode()) {
-                    log.error(pnfe.getMessage(), pnfe);
-                }
-
-                page.rollback();
-            }
-
-            // Convert PageNotFoundException into a 404 response.
-            context.getResponse().sendError(HttpServletResponse.SC_NOT_FOUND);
-        } catch (ValidationException ve) {
-            if (page != null) {
-                page.rollback();
-
-                // If there is some error information associated with the
-                // exception, now is a good time to add it to the page.
-                if (ve.getMessage() != null) {
-                    if (ve.getParam() != null) {
-                        page.addError(ve.getParam(), ve.getMessage());
-                    } else {
-                        page.addError(ve.getMessage());
-                    }
-                }
-            }
-
-            if (!page.isQlueDevMode()) {
-                boolean responded = false;
-                try {
-                    View view = page.handleValidationError();
-                    if (view != null) {
-                        renderView(view, context, page);
-                        responded = true;
-                    }
-                } catch (Exception e) {
-                    log.warn("Exception in Page#handleValidationError", e);
-                }
-
-                // Unless already handled by the page, respond to
-                // validation errors with a 400 response.
-                if (!responded) {
-                    context.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST);
-                }
-            } else {
-                // In development mode, we let the exception propagate to that it
-                // can be handled by our generic exception handler, which will show
-                // the error information on the screen.
-                throw ve;
-            }
-        } catch (QlueSecurityException se) {
-            if (page != null) {
-                page.rollback();
-            }
-
-            log.error("Security exception: " + context.getRequestUriWithQueryString(), se);
-
-            context.getResponse().sendError(HttpServletResponse.SC_FORBIDDEN);
         } catch (Exception e) {
+            boolean responded = false;
+
             if (page != null) {
                 page.rollback();
 
                 // Because we are about to throw an exception, which may cause
                 // another page to handle this request, we need to remember
                 // the current page (which is useful for debugging information, etc).
-                setActualPage(page);
-            }
+                setRootCausePage(page);
 
-            // Don't process the exception further if the problem is caused
-            // by the client going away (e.g., interrupted file download).
-            if (!e.getClass().getName().contains("ClientAbortException")) {
-                // Handle application exception, which will record full context
-                // data and, optionally, notify the administrator via email.
-                handleApplicationException(context, page, e);
-
-                // If it's not too late, we're going to try to put up a brave face,
-                // in the worst case we're going to show an error page. In the best,
-                // the page may have a handler for the problem.
-                if (!context.getResponse().isCommitted()) {
-                    boolean responded = false;
+                // If page processing is interruption with a ValidationException,
+                // there may be an error message in the exception that we need to extract.
+                if (e instanceof BadRequestException) {
+                    BadRequestException ve = (BadRequestException) e;
+                    if (ve.getMessage() != null) {
+                        if (ve.getParam() != null) {
+                            page.addError(ve.getParam(), ve.getMessage());
+                        } else {
+                            page.addError(ve.getMessage());
+                        }
+                    }
 
                     try {
-                        if (page != null) {
-                            View view = page.handleUnhandledException(e);
-                            if (view != null) {
-                                renderView(view, context, page);
-                                responded = true;
-                            }
+                        View view = page.handleParameterValidationFailure();
+                        if (view != null) {
+                            renderView(view, page.getContext(), page);
+                            responded = true;
                         }
-                    } catch (Exception nestedException) {
-                        log.warn("Exception in Page#handleUnhandledException", nestedException);
+                    } catch (Exception nested) {
+                        log.warn("Exception in Page#handleParameterValidationFailure", nested);
                     }
-
-                    if (!responded) {
-                        context.getResponse().sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                } else {
+                    try {
+                        View view = page.handleException(e);
+                        if (view != null) {
+                            renderView(view, page.getContext(), page);
+                            responded = true;
+                        }
+                    } catch (Exception nested) {
+                        log.warn("Exception in Page#handleException", nested);
                     }
                 }
+            }
+
+            if (!page.isQlueDevMode()) {
+                // Production mode.
+
+                Integer statusCode = determineStatusCodeFromException(e);
+                if ((statusCode != null) && (statusCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR)) {
+                    processUnhandledApplicationException(context, page, e);
+                }
+
+                // Send the correct status code to the container, assuming it's not to
+                // late and a response hasn't been sent already.
+                if ((!responded) && (statusCode != null) && !context.getResponse().isCommitted()) {
+                    setRootCausePage(page);
+                    context.getResponse().sendError(statusCode);
+                }
+            } else {
+                // Development mode; we want to show the exception in the browser,
+                // so we just propagate it to the container.
+                processUnhandledApplicationException(context, page, e);
+                setRootCausePage(page);
+                throw new ServletException(e);
             }
         } finally {
             // In development mode, append debugging information to the end of the page.
@@ -714,7 +672,7 @@ public class QlueApplication {
      * application activity log and, if the admin email address is configured,
      * we send the same via email.
      */
-    protected void handleApplicationException(TransactionContext tx, Page page, Throwable t) {
+    protected void processUnhandledApplicationException(TransactionContext tx, Page page, Throwable t) {
         String debugInfo = null;
 
         if (tx != null) {
@@ -990,10 +948,10 @@ public class QlueApplication {
 
         // We might be in an error handler, in which case we want to display
         // the state of the actual (original) page and not this one.
-        Page actualPage = getActualPage(page);
-        if (actualPage != null) {
+        Page beforeError = getRootCausePage(page);
+        if (beforeError != null) {
             // Use the actual page and context
-            page = actualPage;
+            page = beforeError;
             context = page.getContext();
         }
 
@@ -1200,7 +1158,7 @@ public class QlueApplication {
             page.addError(f.getName(), "qp.mandatory");
         }
 
-        if (qbp.nonempty() && (value != null) && (value instanceof String) && (((String)value).trim().length() == 0)) {
+        if (qbp.nonempty() && (value != null) && (value instanceof String) && (((String) value).trim().length() == 0)) {
             page.addError(f.getName(), "qp.nonempty");
         }
     }
@@ -1567,7 +1525,7 @@ public class QlueApplication {
 
         MDC.put("sessionId", httpSession.getId());
 
-        QlueSession qlueSession = (QlueSession)httpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
+        QlueSession qlueSession = (QlueSession) httpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
         if (qlueSession == null) {
             qlueSession = createNewSessionObject();
             httpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
@@ -1783,6 +1741,10 @@ public class QlueApplication {
             return false;
         }
 
+        if (context.request.getSession(false) == null) {
+            return false;
+        }
+
         QlueSession qlueSession = getQlueSession(context.getRequest());
         if (qlueSession == null) {
             return false;
@@ -1933,16 +1895,16 @@ public class QlueApplication {
     /**
      * Remember the current page for later use (e.g., in an error handler).
      */
-    void setActualPage(Page page) {
-        page.context.request.setAttribute(REQUEST_ACTUAL_PAGE_KEY, page);
+    void setRootCausePage(Page page) {
+        page.context.request.setAttribute(REQUEST_ROOT_CAUSE_PAGE_KEY, page);
     }
 
     /**
      * Retrieve the actual page that tried to handle the current transaction and
      * failed.
      */
-    Page getActualPage(Page currentPage) {
-        return (Page) currentPage.context.request.getAttribute(REQUEST_ACTUAL_PAGE_KEY);
+    Page getRootCausePage(Page currentPage) {
+        return (Page) currentPage.context.request.getAttribute(REQUEST_ROOT_CAUSE_PAGE_KEY);
     }
 
     /**
@@ -2136,6 +2098,26 @@ public class QlueApplication {
             } else {
                 page.addError(v.getMessage());
             }
+        }
+    }
+
+    public static Integer determineStatusCodeFromException(Exception e) {
+        if (e instanceof MethodNotAllowedException) {
+            return HttpServletResponse.SC_METHOD_NOT_ALLOWED;
+        } else if (e instanceof ForbiddenException) {
+            return HttpServletResponse.SC_FORBIDDEN;
+        } else if (e instanceof UnauthorizedException) {
+            return HttpServletResponse.SC_UNAUTHORIZED;
+        } else if (e instanceof NotFoundException) {
+            return HttpServletResponse.SC_NOT_FOUND;
+        } else if (e instanceof BadRequestException) {
+            return HttpServletResponse.SC_BAD_REQUEST;
+        } else if (e instanceof IOException) {
+            // Ignoring, as the client probably went away. With Tomcat we see
+            // ClientAbortException, which is a subclass of IOException.
+            return null;
+        } else {
+            return HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
         }
     }
 }

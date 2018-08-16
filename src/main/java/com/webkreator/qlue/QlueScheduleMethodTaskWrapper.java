@@ -40,9 +40,9 @@ public class QlueScheduleMethodTaskWrapper implements Runnable {
             method.invoke(target, args);
         } catch (Throwable t) {
             if (t instanceof InvocationTargetException) {
-                app.handleApplicationException(null, null, t.getCause());
+                app.processUnhandledApplicationException(null, null, t.getCause());
             } else {
-                app.handleApplicationException(null, null, t);
+                app.processUnhandledApplicationException(null, null, t);
             }
         }
     }

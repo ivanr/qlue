@@ -17,13 +17,13 @@
 package com.webkreator.qlue.exceptions;
 
 /**
- * Thrown when the framework fails to map a request to a page.
+ * Thrown on a request that uses a method that the page does not support.
  */
-public class PageNotFoundException extends QlueException {
+public class MethodNotAllowedException extends QlueException {
 	
 	private static final long serialVersionUID = 1L;
 
-	public PageNotFoundException() {
+	public MethodNotAllowedException() {
 		super();
 	}
 }

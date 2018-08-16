@@ -18,9 +18,9 @@ package com.webkreator.qlue.pages;
 
 import com.google.template.soy.error.SoyCompilationException;
 import com.webkreator.qlue.Page;
-import com.webkreator.qlue.exceptions.AccessForbiddenException;
+import com.webkreator.qlue.exceptions.ForbiddenException;
 import com.webkreator.qlue.exceptions.PersistentPageNotFoundException;
-import com.webkreator.qlue.exceptions.ValidationException;
+import com.webkreator.qlue.exceptions.BadRequestException;
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.View;
@@ -45,16 +45,16 @@ public class handleError extends Page {
 
         Throwable t = (Throwable) context.request.getAttribute("javax.servlet.error.exception");
         if (t != null) {
-            if (t instanceof ValidationException) {
-                return _handleValidationException((ValidationException) t);
+            if (t instanceof BadRequestException) {
+                return _handleValidationException((BadRequestException) t);
             } else if (t instanceof PersistentPageNotFoundException) {
                 return _handlePersistentPageNotFoundException((PersistentPageNotFoundException) t);
             } else if (t instanceof ParseErrorException) {
                 return _handleVelocityParseError((ParseErrorException) t);
             } else if (t instanceof SoyCompilationException) {
                 return _handleSoyCompilationError((SoyCompilationException) t);
-            } else if (t instanceof AccessForbiddenException) {
-                return _handleAccessForbiddenException((AccessForbiddenException) t);
+            } else if (t instanceof ForbiddenException) {
+                return _handleAccessForbiddenException((ForbiddenException) t);
             } else {
                 return _handleGenericThrowable(t);
             }
@@ -63,7 +63,7 @@ public class handleError extends Page {
         }
     }
 
-    private View _handleAccessForbiddenException(AccessForbiddenException t) throws IOException {
+    private View _handleAccessForbiddenException(ForbiddenException t) throws IOException {
         context.response.setContentType("text/html");
         context.response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         PrintWriter out = context.response.getWriter();
@@ -135,7 +135,7 @@ public class handleError extends Page {
         return null;
     }
 
-    private View _handleValidationException(ValidationException ve) throws Exception {
+    private View _handleValidationException(BadRequestException ve) throws Exception {
         context.response.setContentType("text/html");
         PrintWriter out = context.response.getWriter();
         out.println("<html>");

@@ -17,10 +17,13 @@
 package com.webkreator.qlue.exceptions;
 
 /**
- * Thrown when request processing is interrupted because the
- * current user is not authorized. 
+ * Thrown when the framework fails to map a request to a page.
  */
-public class AccessForbiddenException extends QlueException {
-
+public class NotFoundException extends QlueException {
+	
 	private static final long serialVersionUID = 1L;
+
+	public NotFoundException() {
+		super();
+	}
 }

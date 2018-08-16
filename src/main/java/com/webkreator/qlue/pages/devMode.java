@@ -20,7 +20,7 @@ import com.webkreator.qlue.Error;
 import com.webkreator.qlue.*;
 import com.webkreator.qlue.annotations.QlueMapping;
 import com.webkreator.qlue.annotations.QlueParameter;
-import com.webkreator.qlue.exceptions.AccessForbiddenException;
+import com.webkreator.qlue.exceptions.ForbiddenException;
 import com.webkreator.qlue.exceptions.QlueSecurityException;
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.FinalRedirectView;
@@ -39,7 +39,7 @@ public class devMode extends Page {
     @Override
     public View onGet() throws Exception {
         if (getApp().isDeveloperRequestIpAddress(context) == false) {
-            throw new AccessForbiddenException();
+            throw new ForbiddenException();
         }
 
         Integer appStatus = getApp().getApplicationDevelopmentMode();
@@ -126,7 +126,7 @@ public class devMode extends Page {
     public View onPost() throws Exception {
         // Check that the IP address is in range
         if (getApp().isDeveloperRequestIpAddress(context) == false) {
-            throw new AccessForbiddenException();
+            throw new ForbiddenException();
         }
 
         Integer appStatus = getApp().getApplicationDevelopmentMode();

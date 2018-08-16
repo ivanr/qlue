@@ -17,7 +17,7 @@
 package com.webkreator.qlue.util;
 
 import com.webkreator.qlue.TransactionContext;
-import com.webkreator.qlue.exceptions.PageNotFoundException;
+import com.webkreator.qlue.exceptions.NotFoundException;
 import com.webkreator.qlue.exceptions.QlueSecurityException;
 
 import javax.servlet.http.HttpServletResponse;
@@ -135,7 +135,7 @@ public class DownloadUtil {
 				os.write(b);
 			}
 		} catch (FileNotFoundException e) {
-			throw new PageNotFoundException();
+			throw new NotFoundException();
 		} finally {
 			if (os != null) {
 				os.close();

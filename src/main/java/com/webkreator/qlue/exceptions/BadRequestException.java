@@ -19,7 +19,7 @@ package com.webkreator.qlue.exceptions;
 /**
  * Thrown when we fail to validate a parameter.
  */
-public class ValidationException extends QlueException {
+public class BadRequestException extends QlueException {
 
 	private String param;
 
@@ -29,7 +29,7 @@ public class ValidationException extends QlueException {
 	 * Use this constructor if validation errors have already been added
 	 * to the page and you just wish to interrupt page processing.
 	 */
-	public ValidationException() {
+	public BadRequestException() {
 		super();
 	}
 
@@ -40,7 +40,7 @@ public class ValidationException extends QlueException {
 	 *
 	 * @param message
 	 */
-	public ValidationException(String message) {
+	public BadRequestException(String message) {
 		super(message);
 	}
 
@@ -53,7 +53,7 @@ public class ValidationException extends QlueException {
 	 * @param param
 	 * @param message
 	 */
-	public ValidationException(String param, String message) {
+	public BadRequestException(String param, String message) {
 		super(message);
 		this.param = param;
 	}
