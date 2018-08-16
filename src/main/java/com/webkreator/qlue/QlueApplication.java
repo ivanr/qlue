@@ -389,14 +389,6 @@ public class QlueApplication {
         request.setCharacterEncoding(characterEncoding);
         response.setCharacterEncoding(characterEncoding);
 
-        // Create a new application session object if one does not exist.
-        HttpSession session = request.getSession(true);
-        synchronized (session) {
-            if (session.getAttribute(QlueConstants.QLUE_SESSION_OBJECT) == null) {
-                session.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, createNewSessionObject());
-            }
-        }
-
         // Create a new context.
         TransactionContext context = new TransactionContext(
                 this,
@@ -404,11 +396,6 @@ public class QlueApplication {
                 servlet.getServletContext(),
                 request,
                 response);
-
-        // Expose transaction information to the logging subsystem.
-        MDC.put("txId", context.getTxId());
-        MDC.put("remoteAddr", context.getEffectiveRemoteAddr());
-        MDC.put("sessionId", context.getSession().getId());
 
         // Proceed to the second stage of request processing
         try {
@@ -1051,10 +1038,12 @@ public class QlueApplication {
         out.println("");
         out.println("<b>Session</b>\n");
 
-        QlueSession qlueSession = page.getQlueSession();
-        if (qlueSession != null) {
-            qlueSession.writeDevelopmentInformation(out);
-            out.println("");
+        if (page.context.request.getSession(false) != null) {
+            QlueSession qlueSession = page.getQlueSession();
+            if (qlueSession != null) {
+                qlueSession.writeDevelopmentInformation(out);
+                out.println("");
+            }
         }
 
         out.println("<b>Application</b>\n");
@@ -1571,12 +1560,20 @@ public class QlueApplication {
      * Returns the session object associated with the current HTTP session.
      */
     public QlueSession getQlueSession(HttpServletRequest request) {
-        HttpSession httpSession = request.getSession(false);
+        HttpSession httpSession = request.getSession(true);
         if (httpSession == null) {
-            return null;
+            throw new RuntimeException("Qlue: Unable to get HTTP session");
         }
 
-        return (QlueSession) request.getSession().getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
+        MDC.put("sessionId", httpSession.getId());
+
+        QlueSession qlueSession = (QlueSession)httpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
+        if (qlueSession == null) {
+            qlueSession = createNewSessionObject();
+            httpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
+        }
+
+        return qlueSession;
     }
 
     /**

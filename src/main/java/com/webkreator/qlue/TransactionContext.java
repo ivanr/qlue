@@ -20,6 +20,7 @@ import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.FinalRedirectView;
+import org.slf4j.MDC;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
@@ -52,10 +53,6 @@ public class TransactionContext {
     public HttpServletRequest request;
 
     public HttpServletResponse response;
-
-    public HttpSession session;
-
-    public QluePageManager qluePageManager;
 
     public Page page;
 
@@ -92,25 +89,18 @@ public class TransactionContext {
         this.servletContext = servletContext;
         this.request = request;
         this.response = response;
-        this.session = request.getSession();
 
         generateTxId();
-
         generateNonce();
-
-        // Get the QlueSession instance
-        synchronized (session) {
-            qluePageManager = (QluePageManager) session.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
-            if (qluePageManager == null) {
-                qluePageManager = new QluePageManager();
-                session.setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER, qluePageManager);
-            }
-        }
 
         initRequestUri();
         handleFrontendEncryption();
         handleForwardedFor();
         parseContentType();
+
+        // Expose transaction information to the logging subsystem.
+        MDC.put("txId", getTxId());
+        MDC.put("remoteAddr", getEffectiveRemoteAddr());
     }
 
     public Properties getProperties() {
@@ -297,18 +287,30 @@ public class TransactionContext {
         }
     }
 
+    public QluePageManager getQluePageManager() {
+        HttpSession httpSession = request.getSession();
+
+        QluePageManager qluePageManager = (QluePageManager) httpSession.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
+        if (qluePageManager == null) {
+            qluePageManager = new QluePageManager();
+            httpSession.setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER, qluePageManager);
+        }
+
+        return qluePageManager;
+    }
+
     /**
      * Find persistent page with the given ID.
      */
     public Page findPersistentPage(String pid) {
-        return qluePageManager.findPage(Integer.parseInt(pid));
+        return getQluePageManager().findPage(Integer.parseInt(pid));
     }
 
     /**
      * Keep the given page in persistent storage.
      */
     public void persistPage(Page page) {
-        qluePageManager.storePage(page);
+        getQluePageManager().storePage(page);
     }
 
     /**
@@ -337,13 +339,6 @@ public class TransactionContext {
      */
     public ServletContext getServletContext() {
         return servletContext;
-    }
-
-    /**
-     * Retrieve the servlet session associated with this transaction.
-     */
-    public HttpSession getSession() {
-        return session;
     }
 
     /**
@@ -385,7 +380,7 @@ public class TransactionContext {
      * Replaces persistent page with a view.
      */
     public void replacePage(Page page, FinalRedirectView view) {
-        qluePageManager.replacePage(page, view);
+        getQluePageManager().replacePage(page, view);
     }
 
     /**
@@ -413,7 +408,7 @@ public class TransactionContext {
      * Retrieves the record of the persistent page with the given ID.
      */
     public PersistentPageRecord findPersistentPageRecord(String pid) {
-        return qluePageManager.findPageRecord(Integer.parseInt(pid));
+        return getQluePageManager().findPageRecord(Integer.parseInt(pid));
     }
 
     /**
@@ -542,5 +537,12 @@ public class TransactionContext {
 
     public String getRequestContentTypeNoCharset() {
         return requestContentTypeNoCharset;
+    }
+
+    public void invalidateHttpSession() {
+        HttpSession httpSession = request.getSession(false);
+        if (httpSession != null) {
+            httpSession.invalidate();
+        }
     }
 }
