@@ -35,6 +35,8 @@ public interface View {
 
     int STATUS_204_NO_CONTENT = 204;
 
+    int STATUS_205_RESET_CONTENT = 205;
+
     int STATUS_400_BAD_REQUEST = 400;
 
     int STATUS_401_UNAUTHORIZED = 401;
