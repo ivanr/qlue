@@ -29,6 +29,26 @@ import java.util.StringTokenizer;
  */
 public interface View {
 
+    int STATUS_200_OK = 200;
+
+    int STATUS_201_CREATED = 201;
+
+    int STATUS_204_NO_CONTENT = 204;
+
+    int STATUS_400_BAD_REQUEST = 400;
+
+    int STATUS_401_UNAUTHORIZED = 401;
+
+    int STATUS_403_FORBIDDEN = 403;
+
+    int STATUS_404_NOT_FOUND = 404;
+
+    int STATUS_405_METHOD_NOT_ALLOWED = 405;
+
+    int STATUS_429_TOO_MANY_REQUESTS = 429;
+
+    int STATUS_500_INTERNAL_SERVER_ERROR = 500;
+
     /**
      * This method is invoked by the framework to render page output.
      *
