@@ -44,7 +44,7 @@ public class StatusCodeView implements View {
 	/**
 	 * Create a view using the provided status code and message.
 	 * 
-	 * @param status
+	 * @param statusCode
 	 * @param message
 	 */
 	public StatusCodeView(int statusCode, String message) {
