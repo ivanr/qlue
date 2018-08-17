@@ -18,6 +18,7 @@ package com.webkreator.qlue;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 import com.webkreator.qlue.annotations.QlueBodyParameter;
 import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.annotations.QlueSchedule;
@@ -1179,16 +1180,20 @@ public class QlueApplication {
 
     private void bindJsonBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
         if (page.context.getRequestContentTypeNoCharset() == null) {
-            page.addError(f.getName(), "Unable to bind JSON body parameter because C-T is not set");
+            page.addError(f.getName(), "Request missing Content-Type");
             return;
         }
 
         if (!QlueConstants.JSON_MIME_TYPE.equals(page.context.getRequestContentTypeNoCharset())) {
-            page.addError(f.getName(), "Unable to bind JSON body parameter because C-T is incorrect");
+            page.addError(f.getName(), "Invalid Content-Type for request body; expected " + QlueConstants.JSON_MIME_TYPE);
             return;
         }
 
-        f.set(commandObject, convertJsonToObject(page.context.request.getReader(), f.getType()));
+        try {
+            f.set(commandObject, convertJsonToObject(page.context.request.getReader(), f.getType()));
+        } catch (JsonSyntaxException e) {
+            page.addError(f.getName(), "Syntax error in JSON payload");
+        }
     }
 
     protected void prepareBindingGson() {
