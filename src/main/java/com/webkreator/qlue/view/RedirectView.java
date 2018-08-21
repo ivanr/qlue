@@ -143,7 +143,7 @@ public class RedirectView implements View {
     @Override
     public void render(TransactionContext context, Page page) throws Exception {
         if ((page != null) && (page.isQlueDevMode())) {
-            context.response.setContentType("text/html");
+            context.response.setContentType(View.CONTENT_TYPE_TEXT_HTML_UTF8);
             PrintWriter out = context.response.getWriter();
             out.print("<html><head><title>");
             out.print("Development Mode Redirection");

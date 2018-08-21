@@ -560,9 +560,6 @@ public class QlueApplication {
                     context.persistPage(page);
                 }
 
-                // Set content type now, before any output happens.
-                context.response.setContentType(page.getContentType());
-
                 View view = processPage(page);
                 if (view != null) {
                     renderView(view, context, page);

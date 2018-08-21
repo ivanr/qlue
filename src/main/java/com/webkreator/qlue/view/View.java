@@ -29,6 +29,8 @@ import java.util.StringTokenizer;
  */
 public interface View {
 
+    String CONTENT_TYPE_TEXT_HTML_UTF8 = "text/html; charset=UTF-8";
+
     int STATUS_200_OK = 200;
 
     int STATUS_201_CREATED = 201;

@@ -72,8 +72,6 @@ public abstract class Page {
 
     protected String viewName;
 
-    protected String contentType = "text/html; charset=UTF-8";
-
     protected Object commandObject;
 
     protected Errors errors = new Errors();
@@ -288,20 +286,6 @@ public abstract class Page {
      */
     public String getViewName() {
         return viewName;
-    }
-
-    /**
-     * Retrieve the response content type associated with this page.
-     */
-    public String getContentType() {
-        return contentType;
-    }
-
-    /**
-     * Set response content type.
-     */
-    public void setContentType(String contentType) {
-        this.contentType = contentType;
     }
 
     /**
