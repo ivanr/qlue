@@ -633,7 +633,8 @@ public class QlueApplication {
                 }
             }
 
-            if (!page.isQlueDevMode()) {
+            if (!isQlueDevMode(context)) {
+
                 // Production mode.
 
                 Integer statusCode = determineStatusCodeFromException(e);
@@ -1898,7 +1899,9 @@ public class QlueApplication {
      * Remember the current page for later use (e.g., in an error handler).
      */
     void setRootCausePage(Page page) {
-        page.context.request.setAttribute(REQUEST_ROOT_CAUSE_PAGE_KEY, page);
+        if (page != null) {
+            page.context.request.setAttribute(REQUEST_ROOT_CAUSE_PAGE_KEY, page);
+        }
     }
 
     /**
