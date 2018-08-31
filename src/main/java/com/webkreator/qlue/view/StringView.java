@@ -13,7 +13,7 @@ public class StringView implements View {
 
 	private String text;
 
-	private String contentType;
+	private String contentType = View.CONTENT_TYPE_TEXT_HTML_UTF8;
 
 	/**
 	 * Create a new view, using the provided text.

@@ -17,6 +17,7 @@
 package com.webkreator.qlue.util;
 
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.view.View;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -95,7 +96,7 @@ public class WebUtil {
 
     public static void writeMessage(TransactionContext context, String title,
                                     String message) throws IOException {
-        context.response.setContentType("text/html");
+        context.response.setContentType(View.CONTENT_TYPE_TEXT_HTML_UTF8);
         PrintWriter out = context.response.getWriter();
         out.print("<html><head><title>");
         out.print(HtmlEncoder.html(title));

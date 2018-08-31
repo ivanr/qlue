@@ -29,11 +29,15 @@ import java.util.StringTokenizer;
  */
 public interface View {
 
+    String CONTENT_TYPE_TEXT_HTML_UTF8 = "text/html; charset=UTF-8";
+
     int STATUS_200_OK = 200;
 
     int STATUS_201_CREATED = 201;
 
     int STATUS_204_NO_CONTENT = 204;
+
+    int STATUS_205_RESET_CONTENT = 205;
 
     int STATUS_400_BAD_REQUEST = 400;
 

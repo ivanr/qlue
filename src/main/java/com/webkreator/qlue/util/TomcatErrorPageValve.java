@@ -1,5 +1,6 @@
 package com.webkreator.qlue.util;
 
+import com.webkreator.qlue.view.View;
 import org.apache.catalina.connector.Request;
 import org.apache.catalina.connector.Response;
 import org.apache.catalina.valves.ErrorReportValve;
@@ -51,7 +52,7 @@ public class TomcatErrorPageValve extends ErrorReportValve {
 
         File errorFile = findErrorPage(request, statusCode, errorPagesLocation);
         if (errorFile != null) {
-            response.setContentType("text/html; charset=utf-8");
+            response.setContentType(View.CONTENT_TYPE_TEXT_HTML_UTF8);
             sendFile(response, errorFile);
         } else {
             // No file, send the hardcoded error response.

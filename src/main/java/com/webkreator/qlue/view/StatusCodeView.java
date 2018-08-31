@@ -66,15 +66,17 @@ public class StatusCodeView implements View {
 	public void render(TransactionContext context, Page page) throws Exception {
 		context.response.setStatus(statusCode);
 
-		String myTitle = title;
-		
-		if (myTitle == null) {
-			myTitle = WebUtil.getStatusMessage(statusCode);
-			if (myTitle == null) {
-				myTitle = "Unknown Status Code";
-			}
-		}
+		if ((statusCode != View.STATUS_204_NO_CONTENT) && (statusCode != View.STATUS_204_NO_CONTENT)){
+			String myTitle = title;
 
-		WebUtil.writeMessage(context, myTitle, message);
+			if (myTitle == null) {
+				myTitle = WebUtil.getStatusMessage(statusCode);
+				if (myTitle == null) {
+					myTitle = "Unknown Status Code";
+				}
+			}
+
+			WebUtil.writeMessage(context, myTitle, message);
+		}
 	}
 }
