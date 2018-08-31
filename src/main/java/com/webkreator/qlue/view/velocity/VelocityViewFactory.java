@@ -180,6 +180,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
             if (qlueSession != null) {
                 model.put("_sess", qlueSession);
                 model.put("_m", page.getApp().getMessageSource(qlueSession.getLocale()));
+                model.put("_secret", qlueSession.getSessionSecret());
             }
         }
 

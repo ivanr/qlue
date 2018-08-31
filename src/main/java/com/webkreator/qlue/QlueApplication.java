@@ -478,6 +478,8 @@ public class QlueApplication {
             return view;
         }
 
+        page.startHttpSessionIfRequired();
+
         // Finally, run the main processing entry point.
         return page.service();
     }
@@ -997,7 +999,7 @@ public class QlueApplication {
         out.println("");
         out.println("<b>Session</b>\n");
 
-        if (page.context.request.getSession(false) != null) {
+        if (page.context.isHttpSessionAvailable()) {
             QlueSession qlueSession = page.getQlueSession();
             if (qlueSession != null) {
                 qlueSession.writeDevelopmentInformation(out);
@@ -1746,7 +1748,7 @@ public class QlueApplication {
             return false;
         }
 
-        if (context.request.getSession(false) == null) {
+        if (!context.isHttpSessionAvailable()) {
             return false;
         }
 

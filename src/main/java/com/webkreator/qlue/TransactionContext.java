@@ -545,4 +545,12 @@ public class TransactionContext {
             httpSession.invalidate();
         }
     }
+    
+    public boolean isHttpSessionAvailable() {
+        if (request.getSession(false) != null) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 }

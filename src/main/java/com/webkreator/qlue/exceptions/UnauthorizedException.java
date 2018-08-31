@@ -5,5 +5,11 @@ package com.webkreator.qlue.exceptions;
  */
 public class UnauthorizedException extends QlueException {
 
-    private static final long serialVersionUID = 1L;
+    public UnauthorizedException() {
+        super();
+    }
+
+    public UnauthorizedException(String message) {
+        super(message);
+    }
 }

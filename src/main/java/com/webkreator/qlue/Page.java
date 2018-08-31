@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -19,8 +19,9 @@ package com.webkreator.qlue;
 import com.webkreator.qlue.annotations.QlueCommandObject;
 import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.annotations.QluePersistentPage;
-import com.webkreator.qlue.exceptions.MethodNotAllowedException;
 import com.webkreator.qlue.exceptions.BadRequestException;
+import com.webkreator.qlue.exceptions.MethodNotAllowedException;
+import com.webkreator.qlue.exceptions.UnauthorizedException;
 import com.webkreator.qlue.util.BearerToken;
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.View;
@@ -225,7 +226,7 @@ public abstract class Page {
                 return onPost();
             case "PUT":
                 return onPut();
-                default:
+            default:
                 throw new MethodNotAllowedException();
         }
     }
@@ -345,28 +346,27 @@ public abstract class Page {
      * will also expose the nonce to the model.
      */
     public View checkAccess() throws Exception {
-        // Retrieve session nonce
-        BearerToken sessionSecret = getQlueSession().getSessionSecret();
-
-        // Verify nonce on every POST
         if (context.isPost() && getClass().isAnnotationPresent(QluePersistentPage.class)) {
-            String suppliedSecret = context.getParameter("_secret");
-            if (suppliedSecret == null) {
-                throw new RuntimeException("Secret missing.");
-            }
-
-            if (sessionSecret.checkMaskedToken(suppliedSecret) == false) {
-                throw new RuntimeException("Nonce mismatch. Expected "
-                        + sessionSecret.getUnmaskedToken() + " but got "
-                        + BearerToken.unmaskTokenAsString(suppliedSecret)
-                        + " (masked " + suppliedSecret + ")");
-            }
+            verifySessionSecret();
         }
 
-        // Add nonce to the model so that it can be used from the templates.
-        model.put("_secret", sessionSecret.getMaskedToken());
-
         return null;
+    }
+
+    protected void verifySessionSecret() throws Exception {
+        BearerToken sessionSecret = getQlueSession().getSessionSecret();
+
+        String suppliedSecret = context.getParameter("_secret");
+        if (suppliedSecret == null) {
+            throw new UnauthorizedException("Secret missing.");
+        }
+
+        if (sessionSecret.checkMaskedToken(suppliedSecret) == false) {
+            throw new RuntimeException("Nonce mismatch. Expected "
+                    + sessionSecret.getUnmaskedToken() + " but got "
+                    + BearerToken.unmaskTokenAsString(suppliedSecret)
+                    + " (masked " + suppliedSecret + ")");
+        }
     }
 
     public View validateParameters() {
@@ -375,6 +375,10 @@ public abstract class Page {
 
     public View prepareForService() {
         return null;
+    }
+
+    public void startHttpSessionIfRequired() {
+        getQlueSession();
     }
 
     /**
@@ -409,6 +413,15 @@ public abstract class Page {
      * Retrieve session associated with this page.
      */
     public QlueSession getQlueSession() {
+        /*
+        // This code used to determine who started the HTTP session.
+        try {
+            throw new RuntimeException();
+        } catch (Exception e) {
+            e.printStackTrace(System.err);
+        }
+        */
+
         return app.getQlueSession(context.getRequest());
     }
 
