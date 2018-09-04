@@ -362,7 +362,7 @@ public abstract class Page {
         }
 
         if (sessionSecret.checkMaskedToken(suppliedSecret) == false) {
-            throw new RuntimeException("Nonce mismatch. Expected "
+            throw new UnauthorizedException("Nonce mismatch. Expected "
                     + sessionSecret.getUnmaskedToken() + " but got "
                     + BearerToken.unmaskTokenAsString(suppliedSecret)
                     + " (masked " + suppliedSecret + ")");
