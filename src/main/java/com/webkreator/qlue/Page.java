@@ -358,11 +358,11 @@ public abstract class Page {
 
         String suppliedSecret = context.getParameter("_secret");
         if (suppliedSecret == null) {
-            throw new UnauthorizedException("Secret missing.");
+            throw new UnauthorizedException("Secret session token hasn't been provided");
         }
 
         if (sessionSecret.checkMaskedToken(suppliedSecret) == false) {
-            throw new UnauthorizedException("Nonce mismatch. Expected "
+            throw new UnauthorizedException("Secret session token mismatch. Expected "
                     + sessionSecret.getUnmaskedToken() + " but got "
                     + BearerToken.unmaskTokenAsString(suppliedSecret)
                     + " (masked " + suppliedSecret + ")");
