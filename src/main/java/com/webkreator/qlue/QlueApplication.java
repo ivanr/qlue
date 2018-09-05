@@ -1158,11 +1158,11 @@ public class QlueApplication {
         Object value = f.get(commandObject);
 
         if (qbp.mandatory() && (value == null)) {
-            page.addError(f.getName(), "qp.mandatory");
+            page.addError("Missing required request body");
         }
 
         if (qbp.nonempty() && (value != null) && (value instanceof String) && (((String) value).trim().length() == 0)) {
-            page.addError(f.getName(), "qp.nonempty");
+            page.addError("The request body must not be empty");
         }
     }
 
@@ -1194,7 +1194,7 @@ public class QlueApplication {
         try {
             f.set(commandObject, convertJsonToObject(page.context.request.getReader(), f.getType()));
         } catch (JsonSyntaxException e) {
-            page.addError(f.getName(), "Syntax error in JSON payload");
+            page.addError(f.getName(), "JSON syntax error");
         }
     }
 
