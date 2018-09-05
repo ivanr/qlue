@@ -268,23 +268,16 @@ public class TransactionContext {
         }
     }
 
-    /**
-     * Does the request associated with this transaction use POST?
-     */
     public boolean isPost() {
-        if (request.getMethod().equals("POST")) {
-            return true;
-        } else {
-            return false;
-        }
+        return request.getMethod().equals("POST");
     }
 
     public boolean isPut() {
-        if (request.getMethod().equals("PUT")) {
-            return true;
-        } else {
-            return false;
-        }
+        return request.getMethod().equals("PUT");
+    }
+
+    public boolean isDelete() {
+        return request.getMethod().equals("DELETE");
     }
 
     public QluePageManager getQluePageManager() {
