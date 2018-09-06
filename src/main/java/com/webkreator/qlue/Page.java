@@ -222,6 +222,8 @@ public abstract class Page {
                 return onGet();
             case "DELETE":
                 return onDelete();
+            case "PATCH":
+                return onPatch();
             case "POST":
                 return onPost();
             case "PUT":
@@ -244,6 +246,10 @@ public abstract class Page {
      * anything -- it just throws an exception.
      */
     public View onDelete() throws Exception {
+        throw new MethodNotAllowedException();
+    }
+
+    public View onPatch() throws Exception {
         throw new MethodNotAllowedException();
     }
 

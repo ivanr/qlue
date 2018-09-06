@@ -1092,7 +1092,10 @@ public class QlueApplication {
         Set<Field> fields = getClassPublicFields(commandObject.getClass());
         for (Field f : fields) {
             if (f.isAnnotationPresent(QlueBodyParameter.class)
-                    && (page.context.isPost() || page.context.isPut() || page.context.isDelete())) {
+                    && (page.context.isDelete()
+                    || page.context.isPatch()
+                    || page.context.isPost()
+                    || page.context.isPut())) {
                 bindBodyParameter(commandObject, f, page);
                 continue;
             }

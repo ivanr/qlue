@@ -268,16 +268,20 @@ public class TransactionContext {
         }
     }
 
+    public boolean isDelete() {
+        return request.getMethod().equals("DELETE");
+    }
+
+    public boolean isPatch() {
+        return request.getMethod().equals("PATCH");
+    }
+
     public boolean isPost() {
         return request.getMethod().equals("POST");
     }
 
     public boolean isPut() {
         return request.getMethod().equals("PUT");
-    }
-
-    public boolean isDelete() {
-        return request.getMethod().equals("DELETE");
     }
 
     public QluePageManager getQluePageManager() {
