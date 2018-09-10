@@ -176,10 +176,10 @@ public class Route {
 				// we add further checks at runtime
 				redirects = true;
 				haystack = haystack.substring(0, haystack.length() - 1);
-				sb.append(haystack);
+				sb.append(Pattern.quote(haystack));
 				sb.append("/?");
 			} else {
-				sb.append(haystack);
+				sb.append(Pattern.quote(haystack));
 			}
 		}
 
