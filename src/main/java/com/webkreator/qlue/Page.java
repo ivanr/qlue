@@ -367,11 +367,12 @@ public abstract class Page {
             throw new UnauthorizedException("Secret session token hasn't been provided");
         }
 
-        if (sessionSecret.checkMaskedToken(suppliedSecret) == false) {
-            throw new UnauthorizedException("Secret session token mismatch. Expected "
-                    + sessionSecret.getUnmaskedToken() + " but got "
-                    + BearerToken.unmaskTokenAsString(suppliedSecret)
-                    + " (masked " + suppliedSecret + ")");
+        try {
+            if (sessionSecret.checkMaskedToken(suppliedSecret) == false) {
+                throw new UnauthorizedException("Secret session token mismatch");
+            }
+        } catch (IllegalArgumentException e) {
+            throw new UnauthorizedException("Invalid secret session token");
         }
     }
 
