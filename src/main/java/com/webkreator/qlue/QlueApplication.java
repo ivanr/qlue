@@ -602,37 +602,22 @@ public class QlueApplication {
                 // the current page (which is useful for debugging information, etc).
                 setRootCausePage(page);
 
-                // If page processing is interruption with a ValidationException,
-                // there may be an error message in the exception that we need to extract.
-                if (e instanceof BadRequestException) {
-                    BadRequestException ve = (BadRequestException) e;
-                    if (ve.getMessage() != null) {
-                        if (ve.getParam() != null) {
-                            page.addError(ve.getParam(), ve.getMessage());
-                        } else {
-                            page.addError(ve.getMessage());
-                        }
+                // See if the page wants to handle the exception.
+                try {
+                    View view = null;
+
+                    if (e instanceof BadRequestException) {
+                        view = page.handleParameterValidationFailure();
+                    } else {
+                        view = page.handleException(e);
                     }
 
-                    try {
-                        View view = page.handleParameterValidationFailure();
-                        if (view != null) {
-                            renderView(view, page.getContext(), page);
-                            responded = true;
-                        }
-                    } catch (Exception nested) {
-                        log.warn("Exception in Page#handleParameterValidationFailure", nested);
+                    if (view != null) {
+                        renderView(view, page.getContext(), page);
+                        responded = true;
                     }
-                } else {
-                    try {
-                        View view = page.handleException(e);
-                        if (view != null) {
-                            renderView(view, page.getContext(), page);
-                            responded = true;
-                        }
-                    } catch (Exception nested) {
-                        log.warn("Exception in Page#handleException", nested);
-                    }
+                } catch (Exception nested) {
+                    log.warn("Exception during page exception handling", nested);
                 }
             }
 

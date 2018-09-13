@@ -21,9 +21,7 @@ package com.webkreator.qlue.exceptions;
  */
 public class BadRequestException extends QlueException {
 
-	private String param;
-
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 3L;
 
 	/**
 	 * Use this constructor if validation errors have already been added
@@ -42,23 +40,5 @@ public class BadRequestException extends QlueException {
 	 */
 	public BadRequestException(String message) {
 		super(message);
-	}
-
-	/**
-	 * Use this constructor if the page has encountered a validation
-	 * error and you wish to interrupt processing immediately. The
-	 * message will be added to the page errors against the specified
-	 * parameter.
-	 *
-	 * @param param
-	 * @param message
-	 */
-	public BadRequestException(String param, String message) {
-		super(message);
-		this.param = param;
-	}
-
-	public String getParam() {
-		return param;
 	}
 }
