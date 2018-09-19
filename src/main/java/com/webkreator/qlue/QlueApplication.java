@@ -479,7 +479,7 @@ public class QlueApplication {
             return view;
         }
 
-        page.startHttpSessionIfRequired();
+        page.startHttpSession();
 
         // Finally, run the main processing entry point.
         return page.service();
@@ -2100,21 +2100,23 @@ public class QlueApplication {
 
     public static Integer determineStatusCodeFromException(Exception e) {
         if (e instanceof MethodNotAllowedException) {
-            return HttpServletResponse.SC_METHOD_NOT_ALLOWED;
+            return View.STATUS_405_METHOD_NOT_ALLOWED;
         } else if (e instanceof ForbiddenException) {
-            return HttpServletResponse.SC_FORBIDDEN;
+            return View.STATUS_403_FORBIDDEN;
         } else if (e instanceof UnauthorizedException) {
-            return HttpServletResponse.SC_UNAUTHORIZED;
+            return View.STATUS_401_UNAUTHORIZED;
         } else if (e instanceof NotFoundException) {
-            return HttpServletResponse.SC_NOT_FOUND;
+            return View.STATUS_404_NOT_FOUND;
         } else if (e instanceof BadRequestException) {
-            return HttpServletResponse.SC_BAD_REQUEST;
+            return View.STATUS_400_BAD_REQUEST;
+        } else if (e instanceof TooManyRequestsException) {
+            return View.STATUS_429_TOO_MANY_REQUESTS;
         } else if (e instanceof ClientAbortException) {
             // Returning null here to indicate
             // that no response should be sent.
             return null;
         } else {
-            return HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+            return View.STATUS_500_INTERNAL_SERVER_ERROR;
         }
     }
 }

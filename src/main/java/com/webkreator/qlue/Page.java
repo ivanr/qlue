@@ -384,7 +384,7 @@ public abstract class Page {
         return null;
     }
 
-    public void startHttpSessionIfRequired() {
+    public void startHttpSession() {
         getQlueSession();
     }
 
