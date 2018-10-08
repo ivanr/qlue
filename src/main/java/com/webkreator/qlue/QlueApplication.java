@@ -19,6 +19,7 @@ package com.webkreator.qlue;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
+import com.google.gwt.editor.client.Editor;
 import com.webkreator.qlue.annotations.QlueBodyParameter;
 import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.annotations.QlueSchedule;
@@ -1444,6 +1445,7 @@ public class QlueApplication {
         registerPropertyEditor(new StringEditor());
         registerPropertyEditor(new BooleanEditor());
         registerPropertyEditor(new DateEditor());
+        registerPropertyEditor(new OffsetDateTimeEditor());
         registerPropertyEditor(new EnumEditor());
     }
 
