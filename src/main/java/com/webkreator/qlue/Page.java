@@ -593,4 +593,12 @@ public abstract class Page {
             context.response.setHeader(me.getKey(), me.getValue());
         }
     }
+
+    protected boolean validateBean(Object object) {
+        return validateBean(object, null);
+    }
+
+    protected boolean validateBean(Object object, String parentPath) {
+        return app.doBeanValidation(object, parentPath, this);
+    }
 }

@@ -2061,7 +2061,7 @@ public class QlueApplication {
 
         // Validate the command object.
         if (page.getCommandObject() != null) {
-            doBeanValidation(beanValidationFactory, null, page.getCommandObject(), page);
+            doBeanValidation(page.getCommandObject(), null, page);
         }
 
         // Loop through the command object fields in order to determine if any are annotated as
@@ -2069,35 +2069,41 @@ public class QlueApplication {
         Set<Field> fields = getClassPublicFields(page.getCommandObject().getClass());
         for (Field f : fields) {
             if (f.isAnnotationPresent(QlueBodyParameter.class)) {
-                Object objectToValidatate = f.get(page.getCommandObject());
-                if (objectToValidatate != null) {
-                    doBeanValidation(beanValidationFactory, "body", objectToValidatate, page);
+                Object objectToValidate = f.get(page.getCommandObject());
+                if (objectToValidate != null) {
+                    doBeanValidation(objectToValidate, "body", page);
                 }
             }
         }
     }
 
-    private void doBeanValidation(ValidatorFactory beanValidationFactory, String parent, Object object, Page page) {
-        Validator validator = beanValidationFactory.getValidator();
+    boolean doBeanValidation(Object object, String parentPath, Page page) {
+        boolean addedErrors = false;
+
+        Validator validator = getBeanValidationFactory().getValidator();
         Set<ConstraintViolation<Object>> violations = validator.validate(object);
         for (ConstraintViolation<Object> v : violations) {
-            if ((parent != null) || (v.getPropertyPath() != null)) {
+            if ((parentPath != null) || (v.getPropertyPath() != null)) {
                 String field = null;
-                if (parent != null) {
+                if (parentPath != null) {
                     if (v.getPropertyPath() != null) {
-                        field = parent + "/" + v.getPropertyPath().toString();
+                        field = parentPath + "/" + v.getPropertyPath().toString();
                     } else {
-                        field = parent;
+                        field = parentPath;
                     }
                 } else {
                     field = v.getPropertyPath().toString();
                 }
 
                 page.addError(field, v.getMessage());
+                addedErrors = true;
             } else {
                 page.addError(v.getMessage());
+                addedErrors = true;
             }
         }
+
+        return addedErrors;
     }
 
     public static Integer determineStatusCodeFromException(Exception e) {
