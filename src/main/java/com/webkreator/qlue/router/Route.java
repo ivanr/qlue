@@ -171,7 +171,14 @@ public class Route {
 		// path parameters left in the haystack; we can append
 		// it to the pattern to finish the process
 		if (haystack != null) {
-			if (haystack.endsWith("/")) {
+			if (haystack.endsWith("/?")) {
+				// Special handling for routes that want to respond
+				// to both "/folder" and "/folder/" without a redirection.
+				redirects = false;
+				haystack = haystack.substring(0, haystack.length() - 2);
+				sb.append(Pattern.quote(haystack));
+				sb.append("/?");
+			} else if (haystack.endsWith("/")) {
 				// Special handling for routes that end with "/" we
 				// want to respond with a redirection when the final /
 				// is not supplied (e.g., /test -> /test/). To achieve
