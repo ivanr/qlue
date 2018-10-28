@@ -36,6 +36,10 @@ public interface RouteManager {
 
     void setConcertDashesToUnderscores(boolean b);
 
+    boolean isRedirectFolderWithoutTrailingSlash();
+
+    void setRedirectFolderWithoutTrailingSlash(boolean b);
+
 	String getPriorityTemplatePath();
 
 	Properties getProperties();

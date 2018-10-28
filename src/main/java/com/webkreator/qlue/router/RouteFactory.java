@@ -162,7 +162,7 @@ public class RouteFactory {
 			router = new ClassRouter(action);
 		}
 
-		return new Route(acceptedMethods, path, router);
+		return new Route(acceptedMethods, path, router, manager);
 	}
 
 	private static EnumSet<RouteMethod> parseAcceptedMethods(String token) {
@@ -187,7 +187,7 @@ public class RouteFactory {
 
         switch(configDirective) {
 			case "header":
-				return new Route(null, null, HeaderConfigRouter.fromString(manager, configText));
+				return new Route(null, null, HeaderConfigRouter.fromString(manager, configText), manager);
 			case "define":
 				DefineConfigRouter.updateProperties(manager, configText);
 				return null;

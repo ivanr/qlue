@@ -47,6 +47,8 @@ public class QlueRouteManager implements RouteManager {
 	private String index = "index";
 
     private boolean convertDashesToUnderscores = false;
+
+	private boolean redirectFolderWithoutTrailingSlash = true;
 	
 	public QlueRouteManager(QlueApplication app) {
 		this.app = app;
@@ -162,6 +164,16 @@ public class QlueRouteManager implements RouteManager {
     public void setConcertDashesToUnderscores(boolean b) {
         convertDashesToUnderscores = b;
     }
+
+	@Override
+	public boolean isRedirectFolderWithoutTrailingSlash() {
+		return redirectFolderWithoutTrailingSlash;
+	}
+
+	@Override
+	public void setRedirectFolderWithoutTrailingSlash(boolean b) {
+        this.redirectFolderWithoutTrailingSlash = b;
+	}
 
 	@Override
 	public String getPriorityTemplatePath() {

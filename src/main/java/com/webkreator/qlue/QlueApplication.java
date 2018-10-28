@@ -115,7 +115,7 @@ public class QlueApplication {
 
     private Logger log = LoggerFactory.getLogger(QlueApplication.class);
 
-    private QlueRouteManager routeManager = new QlueRouteManager(this);
+    protected QlueRouteManager routeManager = new QlueRouteManager(this);
 
     private ViewResolver viewResolver = new ViewResolver();
 

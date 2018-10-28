@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -177,10 +177,11 @@ public class PackageRouter implements Router {
                     File f = new File(priorityPath, classpathFilename);
                     if (f.exists()) {
                         // If there's no terminating slash in directory access, issue a redirection.
-                        if (tx.getRequestUri().endsWith("/") == false) {
+                        if (manager.isRedirectFolderWithoutTrailingSlash() && !tx.getRequestUri().endsWith("/")) {
                             if (log.isDebugEnabled()) {
                                 log.debug("Redirecting to " + tx.getRequestUri() + "/");
                             }
+
                             return new RedirectionRouter(tx.getRequestUri() + "/", 307).route(tx, path);
                         }
 
@@ -196,7 +197,7 @@ public class PackageRouter implements Router {
             }
 
             // If there's no terminating slash in directory access, issue a redirection.
-            if (tx.getRequestUri().endsWith("/") == false) {
+            if (manager.isRedirectFolderWithoutTrailingSlash() && !tx.getRequestUri().endsWith("/")) {
                 if (log.isDebugEnabled()) {
                     log.debug("Redirecting to " + tx.getRequestUri() + "/");
                 }
@@ -214,19 +215,21 @@ public class PackageRouter implements Router {
             return null;
         }
 
-        if ((lastToken != null)&&(lastToken.equals(manager.getIndex()))) {
-            String newPath = null;
-            if (urlSuffix != null) {
-                newPath = path.substring(0, path.length() - lastToken.length() - urlSuffix.length());
-            } else {
-                newPath = path.substring(0, path.length() - lastToken.length());
-            }
+        if (manager.isRedirectFolderWithoutTrailingSlash()) {
+            if ((lastToken != null) && (lastToken.equals(manager.getIndex()))) {
+                String newPath = null;
+                if (urlSuffix != null) {
+                    newPath = path.substring(0, path.length() - lastToken.length() - urlSuffix.length());
+                } else {
+                    newPath = path.substring(0, path.length() - lastToken.length());
+                }
 
-            if (log.isDebugEnabled()) {
-                log.debug("Redirecting to " + newPath);
-            }
+                if (log.isDebugEnabled()) {
+                    log.debug("Redirecting to " + newPath);
+                }
 
-            return new RedirectionRouter(newPath, 307).route(tx, newPath);
+                return new RedirectionRouter(newPath, 307).route(tx, newPath);
+            }
         }
 
         try {

@@ -44,6 +44,8 @@ public class Route {
 
 	private Router router;
 
+	private RouteManager manager;
+
 	private static final Pattern namePattern = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]{0,32}$");
 
 	private boolean redirects = false;
@@ -51,10 +53,11 @@ public class Route {
 	/**
 	 * Creates new route, given path and router instance.
 	 */
-	public Route(EnumSet<RouteMethod> acceptedMethods, String path, Router router) {
+	public Route(EnumSet<RouteMethod> acceptedMethods, String path, Router router, RouteManager manager) {
 		this.acceptedMethods = acceptedMethods;
 		this.path = path;
 		this.router = router;
+		this.manager = manager;
 
         if (path != null) {
             processPath();
@@ -250,10 +253,11 @@ public class Route {
 			}
 		}
 
-		if (redirects && (tx.getRequestUri().endsWith("/") == false)
-				&& ((pathSuffix == null) || (pathSuffix.length() == 0)))
-        {
-			return new RedirectionRouter(tx.getRequestUri() + "/", 307).route(tx, pathSuffix);
+		if (manager.isRedirectFolderWithoutTrailingSlash()) {
+			if (redirects && (tx.getRequestUri().endsWith("/") == false)
+					&& ((pathSuffix == null) || (pathSuffix.length() == 0))) {
+				return new RedirectionRouter(tx.getRequestUri() + "/", 307).route(tx, pathSuffix);
+			}
 		}
 
 		// Return the route
