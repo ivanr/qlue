@@ -253,7 +253,7 @@ public class Route {
 		if (redirects && (tx.getRequestUri().endsWith("/") == false)
 				&& ((pathSuffix == null) || (pathSuffix.length() == 0)))
         {
-			return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, pathSuffix);
+			return new RedirectionRouter(tx.getRequestUri() + "/", 307).route(tx, pathSuffix);
 		}
 
 		// Return the route

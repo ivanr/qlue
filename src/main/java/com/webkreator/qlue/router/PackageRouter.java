@@ -181,7 +181,7 @@ public class PackageRouter implements Router {
                             if (log.isDebugEnabled()) {
                                 log.debug("Redirecting to " + tx.getRequestUri() + "/");
                             }
-                            return new RedirectionRouter(tx.getRequestUri() + "/", 302).route(tx, path);
+                            return new RedirectionRouter(tx.getRequestUri() + "/", 307).route(tx, path);
                         }
 
                         return new ClasspathView(classpathFilename);
@@ -226,7 +226,7 @@ public class PackageRouter implements Router {
                 log.debug("Redirecting to " + newPath);
             }
 
-            return new RedirectionRouter(newPath, 302).route(tx, newPath);
+            return new RedirectionRouter(newPath, 307).route(tx, newPath);
         }
 
         try {
