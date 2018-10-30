@@ -57,7 +57,7 @@ public class RedirectionRouter implements Router {
 	}
 
 	@Override
-	public Object route(TransactionContext context, String pathSuffix) {
+	public Object route(TransactionContext context, Route route, String pathSuffix) {
         return new RedirectView(uri, status);
 	}
 }

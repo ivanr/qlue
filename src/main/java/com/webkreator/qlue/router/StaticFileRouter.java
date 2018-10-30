@@ -42,7 +42,7 @@ public class StaticFileRouter implements Router {
     }
 
     @Override
-    public Object route(TransactionContext context, String pathSuffix) {
+    public Object route(TransactionContext context, Route route, String pathSuffix) {
         if (pathSuffix.contains("/../")) {
             throw new QlueSecurityException("StaticFileRouter: Invalid path: " + pathSuffix);
         }
@@ -70,7 +70,7 @@ public class StaticFileRouter implements Router {
 
         // If there's no terminating slash in directory access, issue a redirection.
         if (manager.isRedirectFolderWithoutTrailingSlash() && !context.getRequestUri().endsWith("/")) {
-            return RedirectionRouter.newAddTrailingSlash(context, 307).route(context, pathSuffix);
+            return RedirectionRouter.newAddTrailingSlash(context, 307).route(context, route, pathSuffix);
         }
 
         File defaultFile = new File(file, manager.getIndexWithSuffix());

@@ -46,6 +46,8 @@ public class TestPackageRouter {
 
         app = new TestApplication();
         routeManager = new QlueRouteManager(app);
+        routeManager.add(RouteFactory.create(routeManager, "/noRedirSubdir/?{} package:com.webkreator.qlue.router.testPages.noRedirSubdir"));
+        routeManager.add(RouteFactory.create(routeManager, "/redirSubdir/{} package:com.webkreator.qlue.router.testPages.redirSubdir"));
         routeManager.add(RouteFactory.create(routeManager, "/{} package:com.webkreator.qlue.router.testPages"));
     }
 
@@ -225,5 +227,19 @@ public class TestPackageRouter {
         Object o = createContextAndRoute("/direct");
         Assert.assertTrue(o instanceof ClasspathView);
         Assert.assertEquals("com/webkreator/qlue/router/testPages/direct.vmx", ((ClasspathView)o).getViewName());
+    }
+
+    @Test
+    public void testRedirSubdir() throws Exception {
+        Object o = createContextAndRoute("/redirSubdir");
+        Assert.assertTrue(o instanceof RedirectView);
+        Assert.assertEquals("/redirSubdir/", ((RedirectView)o).getUri());
+    }
+
+    @Test
+    public void testNoRedirSubdir() throws Exception {
+        Object o = createContextAndRoute("/noRedirSubdir");
+        Assert.assertNotEquals(null, o);
+        Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.noRedirSubdir.index);
     }
 }

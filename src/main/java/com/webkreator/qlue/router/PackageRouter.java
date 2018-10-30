@@ -49,8 +49,8 @@ public class PackageRouter implements Router {
     }
 
     @Override
-    public Object route(TransactionContext tx, String pathSuffix) {
-        return resolveUri(tx, pathSuffix);
+    public Object route(TransactionContext tx, Route route, String pathSuffix) {
+        return resolveUri(tx, route, pathSuffix);
     }
 
     /**
@@ -59,7 +59,7 @@ public class PackageRouter implements Router {
      * @param path
      * @return page instance, or null if page cannot be found
      */
-    public Object resolveUri(TransactionContext tx, String path) {
+    public Object resolveUri(TransactionContext tx, Route route, String path) {
         @SuppressWarnings("rawtypes")
         Class pageClass;
 
@@ -177,8 +177,11 @@ public class PackageRouter implements Router {
                     File f = new File(priorityPath, classpathFilename);
                     if (f.exists()) {
                         // If there's no terminating slash in directory access, issue a redirection.
-                        if (manager.isRedirectFolderWithoutTrailingSlash() && !tx.getRequestUri().endsWith("/")) {
-                            return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, path);
+                        if (manager.isRedirectFolderWithoutTrailingSlash()
+                                && route.isRedirectsWithoutTrailingSlash()
+                                && !tx.getRequestUri().endsWith("/"))
+                        {
+                            return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, route, path);
                         }
 
                         return new ClasspathView(classpathFilename);
@@ -193,8 +196,11 @@ public class PackageRouter implements Router {
             }
 
             // If there's no terminating slash in directory access, issue a redirection.
-            if (manager.isRedirectFolderWithoutTrailingSlash() && !tx.getRequestUri().endsWith("/")) {
-                return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, path);
+            if (manager.isRedirectFolderWithoutTrailingSlash()
+                    && route.isRedirectsWithoutTrailingSlash()
+                    && !tx.getRequestUri().endsWith("/"))
+            {
+                return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, route, path);
             }
         }
 
@@ -207,7 +213,7 @@ public class PackageRouter implements Router {
             return null;
         }
 
-        if (manager.isRedirectFolderWithoutTrailingSlash()) {
+        if (manager.isRedirectFolderWithoutTrailingSlash() && route.isRedirectsWithoutTrailingSlash()) {
             if ((lastToken != null) && (lastToken.equals(manager.getIndex()))) {
                 String newPath = null;
                 if (urlSuffix != null) {
@@ -224,7 +230,7 @@ public class PackageRouter implements Router {
                     log.debug("Redirecting to " + newPath);
                 }
 
-                return new RedirectionRouter(newPath, 307).route(tx, path);
+                return new RedirectionRouter(newPath, 307).route(tx, route, path);
             }
         }
 

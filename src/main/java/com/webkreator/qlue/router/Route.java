@@ -137,22 +137,36 @@ public class Route {
 			// we want to issue a redirection from directory
 			// paths that are not slash-terminated (e.g., if
 			// we get /test we redirect to /test/
-			if ((terminated) && (prefix.endsWith("/"))) {
-				// Remove / from the end of the prefix
-				prefix = prefix.substring(0, prefix.length() - 1);
-				sb.append(Pattern.quote(prefix));
+			if ((terminated) && ( prefix.endsWith("/") || prefix.endsWith("/?") )) {
+				if (prefix.endsWith("/")) {
+					// Remove / from the end of the prefix
+					prefix = prefix.substring(0, prefix.length() - 1);
+					sb.append(Pattern.quote(prefix));
 
-				// Add / to the beginning of the last capture,
-				// but make the capture optional
-				sb.append("(?:/(");
-				sb.append(pattern);
-				sb.append("))?");
+					// Add / to the beginning of the last capture,
+					// but make the capture optional
+					sb.append("(?:/(");
+					sb.append(pattern);
+					sb.append("))?");
 
-				// Indicate that, at runtime, we will need to
-				// detect an empty final capture and issue
-				// a redirection if there's not a terminating
-				// forward slash character at the end of request URI
-				redirects = true;
+					// Indicate that, at runtime, we will need to
+					// detect an empty final capture and issue
+					// a redirection if there's not a terminating
+					// forward slash character at the end of request URI
+					redirects = true;
+				} else {
+					// Remove /? from the end of the prefix
+					prefix = prefix.substring(0, prefix.length() - 2);
+					sb.append(Pattern.quote(prefix));
+
+					// Add / to the beginning of the last capture,
+					// but make the capture optional
+					sb.append("(?:/?(");
+					sb.append(pattern);
+					sb.append("))?");
+
+					redirects = false;
+				}
 			} else {
 				sb.append(Pattern.quote(prefix));
 				sb.append('(');
@@ -227,7 +241,7 @@ public class Route {
         // If the path is null, that means this is a meta route,
 		// and we always accept transactions.
         if (path == null) {
-            return router.route(tx, null);
+            return router.route(tx, this, null);
         }
 
 		// Check if the request method matches.
@@ -263,12 +277,12 @@ public class Route {
 		if (manager.isRedirectFolderWithoutTrailingSlash()) {
 			if (redirects && (tx.getRequestUri().endsWith("/") == false)
 					&& ((pathSuffix == null) || (pathSuffix.length() == 0))) {
-				return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, pathSuffix);
+				return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, this, pathSuffix);
 			}
 		}
 
 		// Return the route
-		return router.route(tx, pathSuffix);
+		return router.route(tx, this, pathSuffix);
 	}
 
 	/**
@@ -280,5 +294,9 @@ public class Route {
 
 	public boolean acceptsMethod(RouteMethod method) {
 		return acceptedMethods.contains(method);
+	}
+
+	public boolean isRedirectsWithoutTrailingSlash() {
+		return redirects;
 	}
 }

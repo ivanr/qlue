@@ -48,7 +48,7 @@ public class HeaderConfigRouter implements Router {
     }
 
     @Override
-    public Object route(TransactionContext context, String pathSuffix) {
+    public Object route(TransactionContext context, Route route, String pathSuffix) {
         if (log.isDebugEnabled()) {
             log.debug("Setting header: name: " + name + "; value:" + value);
         }

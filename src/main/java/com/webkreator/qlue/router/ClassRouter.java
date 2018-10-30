@@ -46,7 +46,7 @@ public class ClassRouter implements Router {
     }
 
     @Override
-    public Object route(TransactionContext context, String pathSuffix) {
+    public Object route(TransactionContext context, Route route, String pathSuffix) {
         try {
             return pageClass.newInstance();
         } catch (Exception e) {

@@ -33,7 +33,7 @@ public class DefineConfigRouter implements Router {
     }
 
     @Override
-    public Object route(TransactionContext context, String pathSuffix) {
+    public Object route(TransactionContext context, Route route, String pathSuffix) {
         throw new IllegalStateException("DefineConfigRouter should not be invoked to route requests");
     }
 }
