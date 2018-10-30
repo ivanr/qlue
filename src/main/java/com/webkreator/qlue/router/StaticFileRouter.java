@@ -70,7 +70,7 @@ public class StaticFileRouter implements Router {
 
         // If there's no terminating slash in directory access, issue a redirection.
         if (manager.isRedirectFolderWithoutTrailingSlash() && !context.getRequestUri().endsWith("/")) {
-            return new RedirectionRouter(context.getRequestUri() + "/", 307).route(context, pathSuffix);
+            return RedirectionRouter.newAddTrailingSlash(context, 307).route(context, pathSuffix);
         }
 
         File defaultFile = new File(file, manager.getIndexWithSuffix());

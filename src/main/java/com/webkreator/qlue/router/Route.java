@@ -263,7 +263,7 @@ public class Route {
 		if (manager.isRedirectFolderWithoutTrailingSlash()) {
 			if (redirects && (tx.getRequestUri().endsWith("/") == false)
 					&& ((pathSuffix == null) || (pathSuffix.length() == 0))) {
-				return new RedirectionRouter(tx.getRequestUri() + "/", 307).route(tx, pathSuffix);
+				return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, pathSuffix);
 			}
 		}
 

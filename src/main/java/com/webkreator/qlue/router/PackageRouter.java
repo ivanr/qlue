@@ -178,11 +178,7 @@ public class PackageRouter implements Router {
                     if (f.exists()) {
                         // If there's no terminating slash in directory access, issue a redirection.
                         if (manager.isRedirectFolderWithoutTrailingSlash() && !tx.getRequestUri().endsWith("/")) {
-                            if (log.isDebugEnabled()) {
-                                log.debug("Redirecting to " + tx.getRequestUri() + "/");
-                            }
-
-                            return new RedirectionRouter(tx.getRequestUri() + "/", 307).route(tx, path);
+                            return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, path);
                         }
 
                         return new ClasspathView(classpathFilename);
@@ -198,11 +194,7 @@ public class PackageRouter implements Router {
 
             // If there's no terminating slash in directory access, issue a redirection.
             if (manager.isRedirectFolderWithoutTrailingSlash() && !tx.getRequestUri().endsWith("/")) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Redirecting to " + tx.getRequestUri() + "/");
-                }
-
-                return new RedirectionRouter(tx.getRequestUri() + "/", 307).route(tx, path);
+                return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, path);
             }
         }
 
@@ -224,11 +216,15 @@ public class PackageRouter implements Router {
                     newPath = path.substring(0, path.length() - lastToken.length());
                 }
 
+                if (tx.request.getQueryString() != null) {
+                    newPath = newPath + "?" + tx.request.getQueryString();
+                }
+
                 if (log.isDebugEnabled()) {
                     log.debug("Redirecting to " + newPath);
                 }
 
-                return new RedirectionRouter(newPath, 307).route(tx, newPath);
+                return new RedirectionRouter(newPath, 307).route(tx, path);
             }
         }
 

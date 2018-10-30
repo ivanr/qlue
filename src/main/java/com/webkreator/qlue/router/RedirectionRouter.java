@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -42,6 +42,18 @@ public class RedirectionRouter implements Router {
 
 		this.uri = uri;
 		this.status = status;
+	}
+
+	public static RedirectionRouter newAddTrailingSlash(TransactionContext tx, int status) {
+		StringBuilder urisb = new StringBuilder();
+		urisb.append(tx.getRequestUri());
+		urisb.append('/');
+		if (tx.request.getQueryString() != null) {
+			urisb.append('?');
+			urisb.append(tx.request.getQueryString());
+		}
+
+		return new RedirectionRouter(urisb.toString(), status);
 	}
 
 	@Override

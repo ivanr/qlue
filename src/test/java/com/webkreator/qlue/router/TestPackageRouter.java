@@ -58,7 +58,12 @@ public class TestPackageRouter {
     }
 
     public Object createContextAndRoute(String path) throws Exception {
+        return createContextAndRoute(path, null);
+    }
+
+    public Object createContextAndRoute(String path, String queryString) throws Exception {
         when(request.getRequestURI()).thenReturn(path);
+        when(request.getQueryString()).thenReturn(queryString);
 
         TransactionContext context = new TransactionContext(
                 app,
@@ -112,6 +117,20 @@ public class TestPackageRouter {
         Object o = createContextAndRoute("/subdir");
         Assert.assertTrue(o instanceof RedirectView);
         Assert.assertEquals(((RedirectView)o).getUri(), "/subdir/");
+    }
+
+    @Test
+    public void testRedirectionQueryStringPreserved1() throws Exception {
+        Object o = createContextAndRoute("/subdir", "x=y");
+        Assert.assertTrue(o instanceof RedirectView);
+        Assert.assertEquals("/subdir/?x=y", ((RedirectView)o).getUri());
+    }
+
+    @Test
+    public void testRedirectionQueryStringPreserved2() throws Exception {
+        Object o = createContextAndRoute("/subdir/index", "x=y");
+        Assert.assertTrue(o instanceof RedirectView);
+        Assert.assertEquals("/subdir/?x=y", ((RedirectView)o).getUri());
     }
 
     @Test
