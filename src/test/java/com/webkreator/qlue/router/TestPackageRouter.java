@@ -134,6 +134,13 @@ public class TestPackageRouter {
     }
 
     @Test
+    public void testRedirectionQueryStringPreserved3() throws Exception {
+        Object o = createContextAndRoute("/subdir", "query");
+        Assert.assertTrue(o instanceof RedirectView);
+        Assert.assertEquals("/subdir/?query", ((RedirectView)o).getUri());
+    }
+
+    @Test
     public void testPageOneMatch() throws Exception {
         Object o = createContextAndRoute("/pageOne");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.pageOne);

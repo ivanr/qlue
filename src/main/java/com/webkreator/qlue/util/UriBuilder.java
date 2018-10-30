@@ -46,6 +46,10 @@ public class UriBuilder {
 
         String value;
 
+        UriBuilderParam(String name) {
+            this.name = name;
+        }
+
         UriBuilderParam(String name, String value) {
             this.name = name;
             this.value = value;
@@ -70,6 +74,10 @@ public class UriBuilder {
      */
     public void addParam(String name, int value) {
         params.add(new UriBuilderParam(name, Integer.toString(value)));
+    }
+
+    public void addParam(String name) {
+        params.add(new UriBuilderParam(name));
     }
 
     /**
@@ -140,7 +148,8 @@ public class UriBuilder {
                     for (String p : pairs) {
                         i = p.indexOf('=');
                         if (i == -1) {
-                            addParam(URLDecoder.decode(p, "UTF-8"), "");
+                            //addParam(URLDecoder.decode(p, "UTF-8"), "");
+                            addParam(URLDecoder.decode(p, "UTF-8"));
                         } else {
                             addParam(URLDecoder.decode(p.substring(0, i),
                                     "UTF-8"), URLDecoder.decode(
@@ -187,8 +196,10 @@ public class UriBuilder {
 
                     UriBuilderParam param = params.get(i);
                     sb.append(URLEncoder.encode(param.name, "UTF-8"));
-                    sb.append("=");
-                    sb.append(URLEncoder.encode(param.value, "UTF-8"));
+                    if (param.value != null) {
+                        sb.append('=');
+                        sb.append(URLEncoder.encode(param.value, "UTF-8"));
+                    }
                 }
             }
 
