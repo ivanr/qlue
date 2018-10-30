@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -35,120 +35,122 @@ import java.util.Properties;
  * per line.
  */
 public class QlueRouteManager implements RouteManager {
-	
-	private Logger log = LoggerFactory.getLogger(QlueRouteManager.class);
-	
-	private QlueApplication app;
 
-	private List<Route> routes = new ArrayList<>();
-	
-	private String suffix;
-	
-	private String index = "index";
+    private Logger log = LoggerFactory.getLogger(QlueRouteManager.class);
+
+    private QlueApplication app;
+
+    private List<Route> routes = new ArrayList<>();
+
+    private String suffix;
+
+    private String index = "index";
 
     private boolean convertDashesToUnderscores = false;
 
-	private boolean redirectFolderWithoutTrailingSlash = true;
-	
-	public QlueRouteManager(QlueApplication app) {
-		this.app = app;
-	}
+    private boolean redirectFolderWithoutTrailingSlash = true;
 
-	/**
-	 * Loads routes from a file.
-	 */
-	public void load(File routesFile) throws Exception {
-		routes.clear();
+    public QlueRouteManager(QlueApplication app) {
+        this.app = app;
+    }
 
-		// Loop through the lines in the configuration file, processing
+    /**
+     * Loads routes from a file.
+     */
+    public void load(File routesFile) throws Exception {
+        routes.clear();
+
+        // Loop through the lines in the configuration file, processing
         // each line as a single routing instruction.
 
-		BufferedReader in = new BufferedReader(new FileReader(routesFile));
-		String line;
+        BufferedReader in = new BufferedReader(new FileReader(routesFile));
+        String line;
 
-		while ((line = in.readLine()) != null) {
-			// Ignore comment lines; those that are empty or on
+        while ((line = in.readLine()) != null) {
+            // Ignore comment lines; those that are empty or on
             // which the first non-whitespace character is #.
-			line = line.trim();
-			if ((line.length() == 0) || (line.charAt(0) == '#')) {
-				continue;
-			}					
+            line = line.trim();
+            if ((line.length() == 0) || (line.charAt(0) == '#')) {
+                continue;
+            }
 
-			line = expandProperties(line);					
+            line = expandProperties(line);
 
-			add(RouteFactory.create(this, line));
-		}
+            add(RouteFactory.create(this, line));
+        }
 
-		in.close();
-	}
+        in.close();
 
-	/**
-	 * Adds a new route.
-	 */
-	public void add(Route route) {
-		if (route == null) {
-			return;
-		}
+        //tuneRoutesForMethodNotFound();
+    }
 
-		routes.add(route);
-	}
+    /**
+     * Adds a new route.
+     */
+    public void add(Route route) {
+        if (route == null) {
+            return;
+        }
 
-	/**
-	 * Routes transaction using previously configured routes.
-	 */
-	public Object route(TransactionContext context) {
-		Object r;
-		
-		if (log.isDebugEnabled()) {
-			log.debug("QlueRouter: Asked to route: " + context.getRequestUri());
-		}
-		
-		// Loop through the configured routes
-		for (Route route : routes) {
-			if (log.isDebugEnabled()) {
-				log.debug("QlueRouter: Trying " + route.getPath());
-			}
-		
-			r = route.route(context);
-			if (r != null) {
-				return r;
-			}
-		}
-		
-		return null;
-	}
-	
-	/**
-	 * Replace variables (in the format "${variableName}") with
-	 * their values from the Qlue properties file.
-	 */
-	String expandProperties(String input) {
-		return VariableExpander.expand(input, app.getProperties());		
-	}
+        routes.add(route);
+    }
 
-	public Properties getProperties() {
-		return app.getProperties();
-	}
-	
-	@Override
-	public String getIndex() {
-		return index;
-	}
+    /**
+     * Routes transaction using previously configured routes.
+     */
+    public Object route(TransactionContext context) {
+        Object r;
+
+        if (log.isDebugEnabled()) {
+            log.debug("QlueRouter: Asked to route: " + context.getRequestUri());
+        }
+
+        // Loop through the configured routes
+        for (Route route : routes) {
+            if (log.isDebugEnabled()) {
+                log.debug("QlueRouter: Trying " + route.getPath());
+            }
+
+            r = route.route(context);
+            if (r != null) {
+                return r;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Replace variables (in the format "${variableName}") with
+     * their values from the Qlue properties file.
+     */
+    String expandProperties(String input) {
+        return VariableExpander.expand(input, app.getProperties());
+    }
+
+    public Properties getProperties() {
+        return app.getProperties();
+    }
 
     @Override
-	public void setIndex(String index) {
-		this.index = index;
-	}
-	
-	@Override
-	public String getSuffix() {
-		return suffix;
-	}
+    public String getIndex() {
+        return index;
+    }
 
     @Override
-	public void setSuffix(String suffix) {
-		this.suffix = suffix;
-	}
+    public void setIndex(String index) {
+        this.index = index;
+    }
+
+    @Override
+    public String getSuffix() {
+        return suffix;
+    }
+
+    @Override
+    public void setSuffix(String suffix) {
+        this.suffix = suffix;
+    }
 
     @Override
     public String getIndexWithSuffix() {
@@ -165,18 +167,38 @@ public class QlueRouteManager implements RouteManager {
         convertDashesToUnderscores = b;
     }
 
-	@Override
-	public boolean isRedirectFolderWithoutTrailingSlash() {
-		return redirectFolderWithoutTrailingSlash;
-	}
+    @Override
+    public boolean isRedirectFolderWithoutTrailingSlash() {
+        return redirectFolderWithoutTrailingSlash;
+    }
 
-	@Override
-	public void setRedirectFolderWithoutTrailingSlash(boolean b) {
+    @Override
+    public void setRedirectFolderWithoutTrailingSlash(boolean b) {
         this.redirectFolderWithoutTrailingSlash = b;
-	}
+    }
 
-	@Override
-	public String getPriorityTemplatePath() {
-		return app.getPriorityTemplatePath();
-	}
+    @Override
+    public String getPriorityTemplatePath() {
+        return app.getPriorityTemplatePath();
+    }
+
+    public void tuneRoutesForMethodNotFound() {
+        Route previousRoute = null;
+        for (Route route : routes) {
+            if (previousRoute != null) {
+                if ((!route.getPath().equals(previousRoute.getPath()))
+                        && (previousRoute.isSelectiveAboutMethods()))
+                {
+                    previousRoute.setForceMethodNotFound(true);
+                }
+            }
+
+            previousRoute = route;
+        }
+
+        // Check the last route.
+        if ((previousRoute != null) && (previousRoute.isSelectiveAboutMethods())) {
+            previousRoute.setForceMethodNotFound(true);
+        }
+    }
 }

@@ -18,7 +18,7 @@ import javax.servlet.http.HttpSession;
 
 import static org.mockito.Mockito.when;
 
-public class TestPackageRouter {
+public class TestRouting {
 
     @Mock
     ServletConfig servletConfig;
@@ -46,9 +46,11 @@ public class TestPackageRouter {
 
         app = new TestApplication();
         routeManager = new QlueRouteManager(app);
+        routeManager.add(RouteFactory.create(routeManager, "POST /api/update com.webkreator.qlue.router.testPages.$api.Update"));
         routeManager.add(RouteFactory.create(routeManager, "/noRedirSubdir/?{} package:com.webkreator.qlue.router.testPages.noRedirSubdir"));
         routeManager.add(RouteFactory.create(routeManager, "/redirSubdir/{} package:com.webkreator.qlue.router.testPages.redirSubdir"));
         routeManager.add(RouteFactory.create(routeManager, "/{} package:com.webkreator.qlue.router.testPages"));
+        routeManager.tuneRoutesForMethodNotFound();
     }
 
     public class TestApplication extends QlueApplication {
@@ -241,5 +243,12 @@ public class TestPackageRouter {
         Object o = createContextAndRoute("/noRedirSubdir");
         Assert.assertNotEquals(null, o);
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.noRedirSubdir.index);
+    }
+
+    @Test
+    public void testRequestMethodNotFound1() throws Exception {
+        Object o = createContextAndRoute("/api/update");
+        Assert.assertNotEquals(null, o);
+        Assert.assertTrue(o instanceof com.webkreator.qlue.router.StatusCodeRouter);
     }
 }

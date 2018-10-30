@@ -17,6 +17,7 @@
 package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.view.View;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +50,8 @@ public class Route {
 	private static final Pattern namePattern = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]{0,32}$");
 
 	private boolean redirects = false;
+
+	private boolean forceMethodNotFound = false;
 
 	/**
 	 * Creates new route, given path and router instance.
@@ -239,22 +242,25 @@ public class Route {
 	 */
 	public Object route(TransactionContext tx) {
         // If the path is null, that means this is a meta route,
-		// and we always accept transactions.
+		// and we always accept the transaction.
         if (path == null) {
             return router.route(tx, this, null);
         }
 
-		// Check if the request method matches.
-		RouteMethod method = RouteMethod.fromTransaction(tx);
-		if (!acceptedMethods.contains(method)) {
-			return null;
-		}
-
-		// Otherwise, attempt to match the request URI to the path we have.
-
+		// Check if the request path matches.
 		Matcher m = pattern.matcher(tx.getRequestUri());
 		if (m.matches() == false) {
 			return null;
+		}
+
+		// Check if the request method matches.
+		RouteMethod method = RouteMethod.fromTransaction(tx);
+		if (!acceptedMethods.contains(method)) {
+			if (forceMethodNotFound) {
+				return new StatusCodeRouter(View.STATUS_405_METHOD_NOT_ALLOWED);
+			} else {
+				return null;
+			}
 		}
 
 		// Extract URL parameters
@@ -298,5 +304,17 @@ public class Route {
 
 	public boolean isRedirectsWithoutTrailingSlash() {
 		return redirects;
+	}
+
+	public boolean isSelectiveAboutMethods() {
+		if (acceptedMethods.size() == RouteMethod.values().length) {
+			return false;
+		} else {
+			return true;
+		}
+	}
+
+	void setForceMethodNotFound(boolean b) {
+		forceMethodNotFound = b;
 	}
 }
