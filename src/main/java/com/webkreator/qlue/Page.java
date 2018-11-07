@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
+import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -600,5 +601,9 @@ public abstract class Page {
 
     protected boolean validateBean(Object object, String parentPath) {
         return app.doBeanValidation(object, parentPath, this);
+    }
+
+    Object convertJsonToObject(Reader reader, Class<?> type) {
+        return app.convertJsonToObject(reader, type);
     }
 }

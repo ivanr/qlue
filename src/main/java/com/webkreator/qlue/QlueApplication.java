@@ -19,7 +19,6 @@ package com.webkreator.qlue;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
-import com.google.gwt.editor.client.Editor;
 import com.webkreator.qlue.annotations.QlueBodyParameter;
 import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.annotations.QlueSchedule;
@@ -157,7 +156,7 @@ public class QlueApplication {
 
     private Scheduler scheduler;
 
-    private Gson bindingGson;
+    protected Gson bindingGson;
 
     /**
      * This is the default constructor. The idea is that a subclass will
@@ -384,7 +383,8 @@ public class QlueApplication {
      * This method is the main entry point for request processing.
      */
     protected void service(HttpServlet servlet, HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+            throws ServletException, IOException
+    {
         // Remember when processing began.
         long startTime = System.currentTimeMillis();
 
@@ -1130,32 +1130,36 @@ public class QlueApplication {
     private void bindBodyParameter(Object commandObject, Field f, Page page) throws Exception {
         QlueBodyParameter qbp = f.getAnnotation(QlueBodyParameter.class);
 
+        boolean valid;
+
         switch (qbp.format()) {
 
             case "identity":
-                bindIdentityBodyParameter(qbp, commandObject, f, page);
+                valid = bindIdentityBodyParameter(qbp, commandObject, f, page);
                 break;
 
             case "json":
-                bindJsonBodyParameter(qbp, commandObject, f, page);
+                valid = bindJsonBodyParameter(qbp, commandObject, f, page);
                 break;
 
             default:
                 throw new RuntimeException("Qlue: Don't know how to handle body parameter format: " + qbp.format());
         }
 
-        Object value = f.get(commandObject);
+        if (valid) {
+            Object value = f.get(commandObject);
 
-        if (qbp.mandatory() && (value == null)) {
-            page.addError("Missing required request body");
-        }
+            if (qbp.mandatory() && (value == null)) {
+                page.addError("Missing required request body");
+            }
 
-        if (qbp.nonempty() && (value != null) && (value instanceof String) && (((String) value).trim().length() == 0)) {
-            page.addError("The request body must not be empty");
+            if (qbp.nonempty() && (value != null) && (value instanceof String) && (((String) value).trim().length() == 0)) {
+                page.addError("The request body must not be empty");
+            }
         }
     }
 
-    private void bindIdentityBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
+    private boolean bindIdentityBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
         // Get the body as a string.
 
         StringBuilder sb = new StringBuilder();
@@ -1167,24 +1171,39 @@ public class QlueApplication {
         }
 
         f.set(commandObject, sb.toString());
+
+        return true;
     }
 
-    private void bindJsonBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
+    private boolean bindJsonBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
         if (page.context.getRequestContentTypeNoCharset() == null) {
             page.addError(f.getName(), "Request missing Content-Type");
-            return;
+            return false;
         }
 
         if (!QlueConstants.JSON_MIME_TYPE.equals(page.context.getRequestContentTypeNoCharset())) {
             page.addError(f.getName(), "Invalid Content-Type for request body; expected " + QlueConstants.JSON_MIME_TYPE);
-            return;
+            return false;
         }
 
         try {
-            f.set(commandObject, convertJsonToObject(page.context.request.getReader(), f.getType()));
+            f.set(commandObject, page.convertJsonToObject(page.context.request.getReader(), f.getType()));
         } catch (JsonSyntaxException e) {
-            page.addError(f.getName(), "JSON syntax error");
+            String message = null;
+
+            if (e.getCause() != null) {
+                message = e.getCause().getMessage();
+            }
+
+            if (message == null) {
+                message = e.getMessage();
+            }
+
+            page.addError(f.getName(), "JSON syntax error: " + message);
+            return false;
         }
+
+        return true;
     }
 
     protected void prepareBindingGson() {
