@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -17,24 +17,60 @@
 package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.exceptions.QlueException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Routes transaction to a single class.
  */
 public class ClassRouter implements Router {
 
+    private Logger log = LoggerFactory.getLogger(ClassRouter.class);
+
     private Class<Page> pageClass;
 
-    public ClassRouter(String className) {
-        Class candidate;
+    public ClassRouter(final RouteManager manager, final String className) {
+        Class candidate = null;
+        String prefixedClassName = null;
 
-        // Look for the desired class.
-        try {
-            candidate = Class.forName(className, true, Thread.currentThread().getContextClassLoader());
-        } catch (Exception e) {
-            throw new RuntimeException("ClassRouter: Unknown class: " + className);
+        // If there is a package root (prefix), use it first to
+        // look for our class. Given that we look only for Page instances,
+        // it's very unlikely that we'll hit something that we're not
+        // supposed to, but this is the approach used in PackageRouter.
+        String packageRoot = manager.getProperties().getProperty(RouteManager.PACKAGE_ROOT);
+        if (packageRoot != null) {
+            prefixedClassName = PackageRouter.addPrefixToName(packageRoot, className);
+
+            try {
+                candidate = Class.forName(prefixedClassName, true, Thread.currentThread().getContextClassLoader());
+            } catch (ClassNotFoundException e) {
+                // Intentionally ignored.
+            } catch (Exception e) {
+                log.error("Qlue: Unexpected exception trying to find page class", e);
+            }
+        }
+
+        // Now try the class name as provided.
+        if (candidate == null) {
+            try {
+                candidate = Class.forName(className, true, Thread.currentThread().getContextClassLoader());
+            } catch (ClassNotFoundException e) {
+                // Intentionally ignored.
+            } catch (Exception e) {
+                log.error("Qlue: Unexpected exception trying to find page class", e);
+            }
+        }
+
+        // We couldn't find the class.
+        if (candidate == null) {
+            if (prefixedClassName == null) {
+                throw new RuntimeException("ClassRouter: Unknown class: " + className);
+            } else {
+                throw new RuntimeException("ClassRouter: Unknown class. Tried " + className + " and " + prefixedClassName);
+            }
         }
 
         // Check that the class is a subclass of Page.

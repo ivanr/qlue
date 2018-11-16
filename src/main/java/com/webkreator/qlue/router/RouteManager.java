@@ -7,6 +7,10 @@ import java.util.Properties;
  * file suffixes from the supervising class, without tying them to a concrete implementation.
  */
 public interface RouteManager {
+
+	public static final String PACKAGE_ROOT = "packageRoot";
+
+	public static final String WEB_ROOT = "webRoot";
 	
 	/**
 	 * Returns the name of the default index name (e.g., "index").

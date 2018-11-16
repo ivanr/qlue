@@ -26,6 +26,7 @@ import com.webkreator.qlue.editors.*;
 import com.webkreator.qlue.exceptions.*;
 import com.webkreator.qlue.router.QlueRouteManager;
 import com.webkreator.qlue.router.RouteFactory;
+import com.webkreator.qlue.router.RouteManager;
 import com.webkreator.qlue.util.*;
 import com.webkreator.qlue.view.*;
 import com.webkreator.qlue.view.velocity.ClasspathVelocityViewFactory;
@@ -265,7 +266,7 @@ public class QlueApplication {
         }
 
         if (propsFile.exists() == false) {
-            properties.setProperty("webRoot", servlet.getServletContext().getRealPath("/"));
+            properties.setProperty(RouteManager.WEB_ROOT, servlet.getServletContext().getRealPath("/"));
             propertiesAvailable = false;
             return;
         }
@@ -273,7 +274,7 @@ public class QlueApplication {
         properties.load(new FileReader(propsFile));
 
         properties.setProperty("confPath", confPath);
-        properties.setProperty("webRoot", servlet.getServletContext().getRealPath("/"));
+        properties.setProperty(RouteManager.WEB_ROOT, servlet.getServletContext().getRealPath("/"));
 
         if (getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
             setCharacterEncoding(getProperty(PROPERTY_CHARACTER_ENCODING));

@@ -159,7 +159,7 @@ public class RouteFactory {
 			}					
 		} else {
 			// Route directly to a class.
-			router = new ClassRouter(action);
+			router = new ClassRouter(manager, action);
 		}
 
 		return new Route(acceptedMethods, path, router, manager);

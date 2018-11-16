@@ -18,14 +18,15 @@ package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
-import com.webkreator.qlue.annotations.QlueMapping;
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.annotations.QlueMapping;
 import com.webkreator.qlue.exceptions.QlueSecurityException;
 import com.webkreator.qlue.view.ClasspathView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.net.URL;
 import java.util.StringTokenizer;
 
 /**
@@ -42,10 +43,36 @@ public class PackageRouter implements Router {
 
     protected RouteManager manager;
 
-    public PackageRouter(RouteManager manager, String packageName) {
+    public PackageRouter(final RouteManager manager, final String packageName) {
         this.manager = manager;
-        this.rootPackage = packageName;
-        this.rootPackageAsPath = packageName.replace('.', '/') + "/";
+
+        // If there is a package root (prefix), use it first to look
+        // for our package. If we attempt to use an abbreviated package
+        // name, we may find one of the standard Java packages (e.g., "org").
+        String prefixedPackageName = null;
+        String packageRoot = manager.getProperties().getProperty(RouteManager.PACKAGE_ROOT);
+        if (packageRoot != null) {
+            prefixedPackageName = addPrefixToName(packageRoot, packageName);
+            rootPackage = prefixedPackageName;
+            rootPackageAsPath = convertPackageNameToPath(rootPackage);
+            if (packagePathExists(rootPackageAsPath)) {
+                return;
+            }
+        }
+
+        // Now try the package name as provided.
+        rootPackage = packageName;
+        rootPackageAsPath = convertPackageNameToPath(rootPackage);
+        if (packagePathExists(rootPackageAsPath)) {
+            return;
+        }
+
+        // We couldn't find the package.
+        if (prefixedPackageName == null) {
+            throw new IllegalArgumentException("Package doesn't exist: " + rootPackage);
+        } else {
+            throw new IllegalArgumentException("Package doesn't exist. Tried " + rootPackage + " and " + prefixedPackageName);
+        }
     }
 
     @Override
@@ -133,7 +160,7 @@ public class PackageRouter implements Router {
 
             // Determine if we need to strip the suffix from the path or leave everything as is.
             String suffix = manager.getSuffix();
-            if ((suffix != null)&&(path.endsWith(suffix))) {
+            if ((suffix != null) && (path.endsWith(suffix))) {
                 classpathBase = rootPackage + path.substring(0, path.length() - suffix.length());
             } else {
                 classpathBase = rootPackageAsPath + path;
@@ -179,8 +206,7 @@ public class PackageRouter implements Router {
                         // If there's no terminating slash in directory access, issue a redirection.
                         if (manager.isRedirectFolderWithoutTrailingSlash()
                                 && route.isRedirectsWithoutTrailingSlash()
-                                && !tx.getRequestUri().endsWith("/"))
-                        {
+                                && !tx.getRequestUri().endsWith("/")) {
                             return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, route, path);
                         }
 
@@ -198,8 +224,7 @@ public class PackageRouter implements Router {
             // If there's no terminating slash in directory access, issue a redirection.
             if (manager.isRedirectFolderWithoutTrailingSlash()
                     && route.isRedirectsWithoutTrailingSlash()
-                    && !tx.getRequestUri().endsWith("/"))
-            {
+                    && !tx.getRequestUri().endsWith("/")) {
                 return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, route, path);
             }
         }
@@ -287,5 +312,30 @@ public class PackageRouter implements Router {
         }
 
         return true;
+    }
+
+    public static String addPrefixToName(String prefix, String name) {
+        if (name.length() != 0) {
+            return prefix + "." + name;
+        } else {
+            return prefix;
+        }
+    }
+
+    private static String convertPackageNameToPath(String packageName) {
+        return packageName.replace('.', '/') + "/";
+    }
+
+    private static boolean packagePathExists(String packagePath) {
+        try {
+            URL u = Thread.currentThread().getContextClassLoader().getResource(packagePath);
+            if (u == null) {
+                return false;
+            } else {
+                return true;
+            }
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
