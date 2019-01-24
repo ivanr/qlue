@@ -1135,11 +1135,11 @@ public class QlueApplication {
 
         switch (qbp.format()) {
 
-            case QlueBodyParameter.FORMAT_IDENTITY:
+            case QlueBodyParameter.IDENTITY:
                 valid = bindIdentityBodyParameter(qbp, commandObject, f, page);
                 break;
 
-            case QlueBodyParameter.FORMAT_JSON:
+            case QlueBodyParameter.JSON:
                 valid = bindJsonBodyParameter(qbp, commandObject, f, page);
                 break;
 
@@ -1161,6 +1161,15 @@ public class QlueApplication {
     }
 
     private boolean bindIdentityBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
+        // Check the MIME type, if requested.
+
+        if (!qbp.mimeType().equals(QlueBodyParameter.NOT_SET)) {
+            if (!validateMimeType(page.context.getRequestContentTypeNoCharset(), qbp.mimeType())) {
+                page.addError("Invalid request Content-Type; expected: " + qbp.mimeType());
+                return false;
+            }
+        }
+
         // Get the body as a string.
 
         StringBuilder sb = new StringBuilder();
@@ -1177,15 +1186,19 @@ public class QlueApplication {
     }
 
     private boolean bindJsonBodyParameter(QlueBodyParameter qbp, Object commandObject, Field f, Page page) throws Exception {
-        if (page.context.getRequestContentTypeNoCharset() == null) {
-            page.addError(f.getName(), "Request missing Content-Type");
+        // Validate the content type.
+
+        String expectedMimeType = QlueConstants.JSON_MIME_TYPE;
+        if (!qbp.mimeType().equals(QlueBodyParameter.NOT_SET)) {
+            expectedMimeType = qbp.mimeType();
+        }
+
+        if (!validateMimeType(page.context.getRequestContentTypeNoCharset(), expectedMimeType)) {
+            page.addError("Invalid request Content-Type; expected: " + expectedMimeType);
             return false;
         }
 
-        if (!QlueConstants.JSON_MIME_TYPE.equals(page.context.getRequestContentTypeNoCharset())) {
-            page.addError(f.getName(), "Invalid Content-Type for request body; expected " + QlueConstants.JSON_MIME_TYPE);
-            return false;
-        }
+        // Parse JSON.
 
         try {
             f.set(commandObject, page.convertJsonToObject(page.context.request.getReader(), f.getType()));
@@ -1202,6 +1215,28 @@ public class QlueApplication {
 
             page.addError(f.getName(), "JSON syntax error: " + message);
             return false;
+        }
+
+        return true;
+    }
+
+    private boolean validateMimeType(String requestMimeType, String expectedMimeType) {
+        if (requestMimeType == null) {
+            return false;
+        }
+
+        if (expectedMimeType.charAt(0) == '^') {
+            // Regular expression.
+            Pattern mimeType = Pattern.compile(expectedMimeType);
+            Matcher m = mimeType.matcher(requestMimeType);
+            if (!m.matches()) {
+                return false;
+            }
+        } else {
+            // Just a string.
+            if (!requestMimeType.equals(expectedMimeType)) {
+                return false;
+            }
         }
 
         return true;
