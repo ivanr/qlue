@@ -580,10 +580,9 @@ public class QlueApplication {
                     // Non-persistent pages automatically transition to FINISHED so that cleanup can be invoked.
                     page.setState(Page.STATE_FINISHED);
                 } else {
-                    // For persistent pages, we change their state only if they're left as NEW
-                    // after execution. We change to POSTED in order to prevent multiple calls to init().
+                    // For persistent pages, we change their state only if they're left as INIT after execution.
                     if (page.getState().equals(Page.STATE_INIT)) {
-                        page.setState(Page.STATE_WORKING);
+                        page.setState(page.getDefaultStateAfterInit());
                     }
                 }
             }
@@ -1035,9 +1034,17 @@ public class QlueApplication {
             return true;
         }
 
-        // Bind if the parameter state matches page state.
+        // Bind if the parameter state matches page state. Persistent
+        // pages do this only for POST requests; non-persistent pages
+        // for all requests.
         if (state.equals(page.getState())) {
-            return true;
+            if (page.isPersistent()) {
+                if (page.context.isPost()) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
         }
 
         // Special state STATE_DEFAULT: if the page is not persistent,

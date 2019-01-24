@@ -44,18 +44,49 @@ import java.util.*;
  */
 public abstract class Page {
 
+    /**
+     * This is a meta-state that's used for parameter binding: matches
+     * on all requests. Page state can't be set to this value.
+     */
     public static final String STATE_ANY = "ANY";
 
+    /**
+     * This is a meta-state that's used for parameter binding: non-persistent
+     * pages bind all STATE_DEFAULT parameters on every request; persistent
+     * pages bind STATE_DEFAULT parameters only on POST requests.
+     */
     public static final String STATE_DEFAULT = "DEFAULT";
 
+    /**
+     * This is a meta-state that's used for parameter binding: matches any
+     * HTTP GET request. Page state can't be set to this value.
+     */
     public static final String STATE_GET = "GET";
 
+    /**
+     * This is a meta-state that's used for parameter binding: matches any
+     * HTTP POST request. Page state can't be set to this value.
+     */
     public static final String STATE_POST = "POST";
 
+    /**
+     * This is the default state of every page, which is used until
+     * it completes its first request.
+     */
     public static final String STATE_INIT = "INIT";
 
-    public static final String STATE_WORKING = "WORKING";
+    /**
+     * This is the default working state, i.e., the state to
+     * which pages transition after STATE_INIT. It's used for
+     * convenience because most persistent pages have only
+     * two states.
+     */
+    public static final String STATE_IN_PROGRESS = "IN_PROGRESS";
 
+    /**
+     * This is the final state for persistent pages; it indicates
+     * that there is no more work to be done.
+     */
     public static final String STATE_FINISHED = "FINISHED";
 
     private Integer id;
@@ -605,5 +636,18 @@ public abstract class Page {
 
     Object convertJsonToObject(Reader reader, Class<?> type) {
         return app.convertJsonToObject(reader, type);
+    }
+
+    /**
+     * Return the default state after INIT. Most persistent pages support
+     * only two states, INIT and IN_PROGRESS, and Qlue will automatically
+     * switch from one to the other unless the page explicitly makes
+     * the transition. Pages can override this method if they wish to
+     * use more meaningful state names.
+     *
+     * @return
+     */
+    public String getDefaultStateAfterInit() {
+        return Page.STATE_IN_PROGRESS;
     }
 }
