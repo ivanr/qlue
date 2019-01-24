@@ -1135,11 +1135,11 @@ public class QlueApplication {
 
         switch (qbp.format()) {
 
-            case "identity":
+            case QlueBodyParameter.FORMAT_IDENTITY:
                 valid = bindIdentityBodyParameter(qbp, commandObject, f, page);
                 break;
 
-            case "json":
+            case QlueBodyParameter.FORMAT_JSON:
                 valid = bindJsonBodyParameter(qbp, commandObject, f, page);
                 break;
 
