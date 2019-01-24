@@ -1034,11 +1034,16 @@ public class QlueApplication {
             return true;
         }
 
-        // Bind if the parameter state matches page state. Persistent
-        // pages do this only for POST requests; non-persistent pages
-        // for all requests.
+        // Bind if the parameter state matches page state, with special
+        // handling for persistent pages: they take STATE_INIT parameters
+        // only on GETs, and everything else only on POSTs.
         if (state.equals(page.getState())) {
             if (page.isPersistent()) {
+
+                if (state.equals(Page.STATE_INIT) && page.context.isGet()) {
+                    return true;
+                }
+
                 if (page.context.isPost()) {
                     return true;
                 }
