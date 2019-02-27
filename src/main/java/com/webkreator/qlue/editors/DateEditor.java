@@ -11,27 +11,31 @@ import java.util.Date;
  */
 public class DateEditor implements PropertyEditor {
 
-	@Override
-	public Class getEditorClass() {
-		return Date.class;
-	}
+    @Override
+    public Class getEditorClass() {
+        return Date.class;
+    }
 
-	@Override
-	public Date fromText(Field field, String text, Object currentValue) {
-		if (text == null) {
-			return (Date)currentValue;
-		}
-		
-		try {
-			return DatatypeConverter.parseDateTime(text).getTime();
-		} catch (IllegalArgumentException iae) {
-			throw new IllegalArgumentException("qp.validation.date.invalid");
-		}		
-	}
+    @Override
+    public Date fromText(Field field, String text, Object currentValue) {
+        if (text == null) {
+            return (Date) currentValue;
+        }
 
-	@Override
-	public String toText(Object o) {		
-		DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mmZ");			
-		return df.format((Date)o);
-	}
+        if (text.length() == 0) {
+            return null;
+        }
+
+        try {
+            return DatatypeConverter.parseDateTime(text).getTime();
+        } catch (IllegalArgumentException iae) {
+            throw new IllegalArgumentException("qp.validation.date.invalid");
+        }
+    }
+
+    @Override
+    public String toText(Object o) {
+        DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mmZ");
+        return df.format((Date) o);
+    }
 }
