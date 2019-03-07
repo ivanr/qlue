@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -294,6 +294,17 @@ public class HtmlEncoder implements QlueVelocityTool {
         return sb.toString();
     }
 
+    public static String htmlWhiteLineBreaks(String input) {
+        if (input == null) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder(input.length() * 2);
+        HtmlEncoder.htmlWhiteLineBreaks(input, sb);
+
+        return sb.toString();
+    }
+
     /**
      * Encodes input for HTML, preserving whitespace.
      *
@@ -307,6 +318,16 @@ public class HtmlEncoder implements QlueVelocityTool {
 
         for (int c : input.codePoints().toArray()) {
             HtmlEncoder.htmlWhite(c, sb);
+        }
+    }
+
+    public static void htmlWhiteLineBreaks(String input, StringBuilder sb) {
+        if (input == null) {
+            return;
+        }
+
+        for (int c : input.codePoints().toArray()) {
+            HtmlEncoder.htmlWhiteLineBreaks(c, sb);
         }
     }
 
@@ -341,6 +362,60 @@ public class HtmlEncoder implements QlueVelocityTool {
                         || ((c >= '0') && (c <= '9'))
                         || (c == CR)
                         || (c == LF)
+                        || (c == ' ')
+                        || (c == HTAB)) {
+                    sb.append((char) c);
+                } else {
+                    // Make control characters visible
+                    if (c < 32) {
+                        sb.append("\\x");
+                        HtmlEncoder.hex(c, sb);
+                    } else {
+                        // Encode everything else
+                        sb.append("&#");
+                        sb.append(Integer.toString(c));
+                        sb.append(';');
+                    }
+                }
+                break;
+        }
+    }
+
+    public static void htmlWhiteLineBreaks(int c, StringBuilder sb) {
+        switch (c) {
+            // A few explicit conversions first
+            case '<':
+                sb.append("&lt;");
+                break;
+            case '>':
+                sb.append("&gt;");
+                break;
+            case '&':
+                sb.append("&amp;");
+                break;
+            case '"':
+                sb.append("&quot;");
+                break;
+            case '\'':
+                sb.append("&#39;");
+                break;
+            case '/':
+                sb.append("&#47;");
+                break;
+            case '=':
+                sb.append("&#61;");
+                break;
+            case '\r':
+                // Ignoring.
+                break;
+            case '\n':
+                sb.append("<br>");
+                break;
+            default:
+                // Ranges a-z, A-Z, and 0-9 are allowed as-is
+                if (((c >= 'a') && (c <= 'z'))
+                        || ((c >= 'A') && (c <= 'Z'))
+                        || ((c >= '0') && (c <= '9'))
                         || (c == ' ')
                         || (c == HTAB)) {
                     sb.append((char) c);
