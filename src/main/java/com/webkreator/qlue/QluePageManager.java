@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -69,6 +69,10 @@ public class QluePageManager {
      * Store persistent page.
      */
     public synchronized void storePage(Page page) {
+        if (page == null) {
+            throw new IllegalArgumentException("page");
+        }
+
         // Generate persistence ID when we're storing the page for the first time.
         if (page.getId() == null) {
             page.setId(generatePageId());
@@ -83,6 +87,8 @@ public class QluePageManager {
 
         // Remove one page if we went over the limit.
         if (pages.size() > MAX_PERSISTENT_PAGES_PER_SESSION) {
+            // Find the old page.
+
             int oldestId = -1;
             long oldestTime = System.currentTimeMillis();
 
@@ -93,17 +99,11 @@ public class QluePageManager {
                 }
             }
 
+            // Remove the oldest page.
+
             if (oldestId != -1) {
                 PersistentPageRecord removedRecord = pages.remove(oldestId);
-
-                if (log.isWarnEnabled()) {
-                    log.warn("Forced removal of page from session storage: "
-                            + oldestId + " (sessionId="
-                            + page.getContext().getRequest().getSession().getId()
-                            + ")");
-                }
-
-                if (removedRecord.getPage() != null) {
+                if ((removedRecord != null) && (removedRecord.getPage() != null)) {
                     try {
                         removedRecord.getPage().cleanup();
                     } catch (Exception e) {
