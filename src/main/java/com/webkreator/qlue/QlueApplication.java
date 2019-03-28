@@ -505,13 +505,20 @@ public class QlueApplication {
                 if ((pids != null) && (pids.length != 0)) {
                     // Only one _pid parameter is allowed.
                     if (pids.length != 1) {
-                        throw new RuntimeException("Request contains multiple _pid parameters");
+                        throw new BadRequestException("Request contains multiple _pid parameters");
+                    }
+
+                    int pid;
+                    try {
+                        pid = Integer.parseInt(pids[0]);
+                    } catch (NumberFormatException e) {
+                        throw new BadRequestException("Invalid _pid format");
                     }
 
                     // Find the page using the requested page ID.
-                    PersistentPageRecord pageRecord = context.findPersistentPageRecord(pids[0]);
+                    PersistentPageRecord pageRecord = context.findPersistentPageRecord(pid);
                     if (pageRecord == null) {
-                        throw new PersistentPageNotFoundException("Persistent page not found: " + pids[0]);
+                        throw new PersistentPageNotFoundException("Persistent page not found: " + pid);
                     }
 
                     // If the replacementUri is set that means that the page no longer
@@ -524,7 +531,7 @@ public class QlueApplication {
                     // Otherwise, let's use this page.
                     persistentPage = pageRecord.getPage();
                     if (persistentPage == null) {
-                        throw new RuntimeException("Page record doesn't contain page");
+                        throw new BadRequestException("Page record doesn't contain page");
                     }
                 }
             }

@@ -83,7 +83,8 @@ public class TransactionContext {
      */
     public TransactionContext(QlueApplication app, ServletConfig servletConfig,
                               ServletContext servletContext, HttpServletRequest request,
-                              HttpServletResponse response) throws ServletException {
+                              HttpServletResponse response) throws ServletException
+    {
         this.app = app;
         this.servletConfig = servletConfig;
         this.servletContext = servletContext;
@@ -404,8 +405,8 @@ public class TransactionContext {
     /**
      * Retrieves the record of the persistent page with the given ID.
      */
-    public PersistentPageRecord findPersistentPageRecord(String pid) {
-        return getQluePageManager().findPageRecord(Integer.parseInt(pid));
+    public PersistentPageRecord findPersistentPageRecord(int pid) {
+        return getQluePageManager().findPageRecord(pid);
     }
 
     /**
@@ -542,7 +543,7 @@ public class TransactionContext {
             httpSession.invalidate();
         }
     }
-    
+
     public boolean isHttpSessionAvailable() {
         if (request.getSession(false) != null) {
             return true;
