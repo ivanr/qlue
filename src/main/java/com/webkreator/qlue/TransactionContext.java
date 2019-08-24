@@ -64,9 +64,9 @@ public class TransactionContext {
 
     private String requestContentTypeNoCharset;
 
-    private Map<String, String> urlParams = new HashMap<String, String>();
+    private Map<String, String> urlParams = new HashMap<>();
 
-    private Map<String, Object> ctxParams = new HashMap<String, Object>();
+    private Map<String, Object> ctxParams = new HashMap<>();
 
     private String effectiveRemoteAddr;
 
@@ -261,8 +261,8 @@ public class TransactionContext {
      * Does the request associated with this transaction use GET or HEAD (the
      * latter has the same semantics as GET)?
      */
-    public boolean isGet() {
-        if (request.getMethod().equals("GET") || request.getMethod().equals("POST")) {
+    public boolean isGetOrHead() {
+        if (request.getMethod().equals("GET") || request.getMethod().equals("HEAD")) {
             return true;
         } else {
             return false;

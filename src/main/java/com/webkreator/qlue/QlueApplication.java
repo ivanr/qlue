@@ -1047,7 +1047,7 @@ public class QlueApplication {
         if (state.equals(page.getState())) {
             if (page.isPersistent()) {
 
-                if (state.equals(Page.STATE_INIT) && page.context.isGet()) {
+                if (state.equals(Page.STATE_INIT) && page.context.isGetOrHead()) {
                     return true;
                 }
 
@@ -1070,7 +1070,7 @@ public class QlueApplication {
         }
 
         // Bind on GET requests.
-        if (state.equals(Page.STATE_GET) && page.context.isGet()) {
+        if (state.equals(Page.STATE_GET) && page.context.isGetOrHead()) {
             return true;
         }
 
@@ -1130,7 +1130,7 @@ public class QlueApplication {
                         bindParameterFromString(commandObject, f, page, page.context.getUrlParameter(f.getName()));
                     } else {
                         if (qp.source().equals(ParamSource.GET_POST)
-                                || (qp.source().equals(ParamSource.GET) && page.context.isGet())
+                                || (qp.source().equals(ParamSource.GET) && page.context.isGetOrHead())
                                 || (qp.source().equals(ParamSource.POST) && page.context.isPost())) {
                             if (f.getType().isArray()) {
                                 bindArrayParameter(commandObject, f, page);
