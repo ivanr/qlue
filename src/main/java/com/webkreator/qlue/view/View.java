@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -65,6 +65,13 @@ public interface View {
 
     static String getViewName(Page page, String viewName) {
         StringBuilder sb = new StringBuilder();
+        
+        if ((viewName != null) && (viewName.length() > 0) && (viewName.charAt(0) == '/')) {
+            // Absolute view.
+            return viewName;
+        }
+
+        // Relative view.
 
         StringTokenizer st = new StringTokenizer(page.getClass().getName(), ".");
         String lastToken = null;
