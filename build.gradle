@@ -39,7 +39,7 @@ dependencies {
     compile group: 'org.hibernate.validator', name: 'hibernate-validator', version: '6.0.11.Final'
 
     // https://mvnrepository.com/artifact/org.glassfish/javax.el
-    compile group: 'org.glassfish', name: 'javax.el', version: '3.0.1-b10'
+    compile group: 'org.glassfish', name: 'javax.el', version: '3.0.1-b11'
 }
 
 sourceSets {
