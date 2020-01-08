@@ -634,7 +634,7 @@ public abstract class Page {
         return app.doBeanValidation(object, parentPath, this);
     }
 
-    Object convertJsonToObject(Reader reader, Class<?> type) {
+    protected Object convertJsonToObject(Reader reader, Class<?> type) {
         return app.convertJsonToObject(reader, type);
     }
 
