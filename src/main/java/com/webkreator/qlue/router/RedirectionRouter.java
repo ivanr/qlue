@@ -46,7 +46,7 @@ public class RedirectionRouter implements Router {
 
 	public static RedirectionRouter newAddTrailingSlash(TransactionContext tx, int status) {
 		StringBuilder urisb = new StringBuilder();
-		urisb.append(tx.getRequestUri());
+		urisb.append(tx.request.getRequestURI());
 		urisb.append('/');
 		if (tx.request.getQueryString() != null) {
 			urisb.append('?');
