@@ -16,7 +16,8 @@
  */
 package com.webkreator.qlue.util;
 
-import javax.xml.bind.DatatypeConverter;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 
 /**
  * This class contains a number of static methods
@@ -61,10 +62,14 @@ public class TextUtil {
     }
 
     public static String toHex(byte[] b) {
-        return DatatypeConverter.printHexBinary(b);
+        return Hex.encodeHexString(b);
     }
 
     public static byte[] fromHex(String s) {
-        return DatatypeConverter.parseHexBinary(s);
+        try {
+            return Hex.decodeHex(s);
+        } catch (DecoderException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

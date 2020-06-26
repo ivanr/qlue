@@ -20,6 +20,7 @@ import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.FinalRedirectView;
+import org.apache.commons.codec.binary.Hex;
 import org.slf4j.MDC;
 
 import javax.servlet.ServletConfig;

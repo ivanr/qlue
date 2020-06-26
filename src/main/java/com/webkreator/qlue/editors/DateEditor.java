@@ -1,9 +1,9 @@
 package com.webkreator.qlue.editors;
 
-import javax.xml.bind.DatatypeConverter;
 import java.lang.reflect.Field;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.OffsetDateTime;
 import java.util.Date;
 
 /**
@@ -27,7 +27,7 @@ public class DateEditor implements PropertyEditor {
         }
 
         try {
-            return DatatypeConverter.parseDateTime(text).getTime();
+            return Date.from(OffsetDateTime.parse(text).toInstant());
         } catch (IllegalArgumentException iae) {
             throw new IllegalArgumentException("qp.validation.date.invalid");
         }
