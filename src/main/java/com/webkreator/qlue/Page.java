@@ -90,13 +90,19 @@ public abstract class Page implements Serializable {
      */
     public static final String STATE_FINISHED = "FINISHED";
 
-    protected static Logger qlueLog = LoggerFactory.getLogger(Page.class);
+    protected static final Logger qlueLog = LoggerFactory.getLogger(Page.class);
+
+
+    // -- Set by framework at the beginning of a transaction.
 
     protected transient QlueApplication app;
 
     protected transient TransactionContext context;
 
     protected transient Map<String, Object> model = new HashMap<String, Object>();
+
+
+    // -- Instance fields.
 
     private Integer id;
 

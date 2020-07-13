@@ -31,7 +31,7 @@ import java.util.Random;
  */
 public class QluePageManager implements Serializable {
 
-    private Logger log = LoggerFactory.getLogger(QluePageManager.class);
+    private static final Logger log = LoggerFactory.getLogger(QluePageManager.class);
 
     private static final int MAX_PERSISTENT_PAGES_PER_SESSION = 32;
 
