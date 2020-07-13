@@ -16,6 +16,7 @@
  */
 package com.webkreator.qlue;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,7 +24,7 @@ import java.util.List;
  * An instance of this class holds all errors that were
  * raised during the execution of one page.
  */
-public class Errors {
+public class Errors implements Serializable {
 
 	private ArrayList<Error> errors = new ArrayList<>();
 

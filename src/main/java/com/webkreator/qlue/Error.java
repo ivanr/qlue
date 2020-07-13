@@ -16,11 +16,13 @@
  */
 package com.webkreator.qlue;
 
+import java.io.Serializable;
+
 /**
  * An instance of this class holds information an error message,
  * which can optionally be associated with a field name. 
  */
-public class Error {
+public class Error implements Serializable {
 
 	private String param;
 

@@ -20,6 +20,7 @@ import com.webkreator.qlue.view.FinalRedirectView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Serializable;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,7 +29,7 @@ import java.util.Random;
 /**
  * Keeps track of all persistent pages.
  */
-public class QluePageManager {
+public class QluePageManager implements Serializable {
 
     private Logger log = LoggerFactory.getLogger(QluePageManager.class);
 

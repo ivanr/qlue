@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.PrintWriter;
 import java.io.Reader;
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -42,7 +43,7 @@ import java.util.*;
  * never really subclass this class directly. Rather, they should create their own base page class. And,
  * because Java doesn't support multiple inheritance, having two Qlue base classes would complicate things.
  */
-public abstract class Page {
+public abstract class Page implements Serializable {
 
     /**
      * This is a meta-state that's used for parameter binding: matches
@@ -89,19 +90,19 @@ public abstract class Page {
      */
     public static final String STATE_FINISHED = "FINISHED";
 
+    protected static Logger qlueLog = LoggerFactory.getLogger(Page.class);
+
+    protected transient QlueApplication app;
+
+    protected transient TransactionContext context;
+
+    protected transient Map<String, Object> model = new HashMap<String, Object>();
+
     private Integer id;
 
     private String state = STATE_INIT;
 
-    protected Logger qlueLog = LoggerFactory.getLogger(Page.class);
-
     private boolean cleanupInvoked;
-
-    protected QlueApplication app;
-
-    protected TransactionContext context;
-
-    protected Map<String, Object> model = new HashMap<String, Object>();
 
     protected String viewName;
 

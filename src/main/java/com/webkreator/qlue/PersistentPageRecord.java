@@ -16,10 +16,12 @@
  */
 package com.webkreator.qlue;
 
+import java.io.Serializable;
+
 /**
  * Keeps track of a persistent page and the related metadata.
  */
-public class PersistentPageRecord {
+public class PersistentPageRecord implements Serializable {
 
     private int pageId;
 

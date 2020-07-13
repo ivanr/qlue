@@ -20,7 +20,6 @@ import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.FinalRedirectView;
-import org.apache.commons.codec.binary.Hex;
 import org.slf4j.MDC;
 
 import javax.servlet.ServletConfig;
@@ -32,6 +31,7 @@ import javax.servlet.http.HttpSession;
 import javax.servlet.http.Part;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
@@ -41,7 +41,7 @@ import java.util.*;
  * This class is used mostly to keep all the other stuff (relevant to a single
  * transaction) in one place.
  */
-public class TransactionContext {
+public class TransactionContext implements Serializable {
 
     public String txId;
 

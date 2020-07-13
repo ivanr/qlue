@@ -16,9 +16,10 @@
  */
 package com.webkreator.qlue;
 
+import java.io.Serializable;
 import java.util.HashMap;
 
-public class ShadowInput {
+public class ShadowInput implements Serializable {
 	
 	private HashMap<String, Object> params = new HashMap<String, Object>();
 
