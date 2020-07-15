@@ -15,13 +15,13 @@ repositories {
 dependencies {
     compile 'org.slf4j:slf4j-api:1.7.25'
     compile 'commons-cli:commons-cli:1.4'
-    compile 'org.apache.commons:commons-email:1.4'
+    compile 'org.apache.commons:commons-email:1.5'
     compile 'javax.mail:mail:1.4.7'
     compile group: 'it.sauronsoftware.cron4j', name: 'cron4j', version: '2.2.5'
 
     compile 'org.apache.velocity:velocity:1.7'
     compile group: 'com.google.template', name: 'soy', version: '2017-04-23'
-    compile group: 'commons-codec', name: 'commons-codec', version: '1.11'
+    compile group: 'commons-codec', name: 'commons-codec', version: '1.14'
 
     testCompile 'junit:junit:4.12'
     testCompile 'org.mockito:mockito-all:1.10.19'
