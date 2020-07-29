@@ -514,23 +514,24 @@ public abstract class Page implements Serializable {
         out.println("<b>Model</b>\n");
 
         Map<String, Object> model = getModel();
+        if (model != null) {
+            TreeMap<String, Object> treeMap = new TreeMap<>();
 
-        TreeMap<String, Object> treeMap = new TreeMap<>();
+            for (Iterator<String> it = model.keySet().iterator(); it.hasNext(); ) {
+                String name = it.next();
+                treeMap.put(name, model.get(name));
+            }
 
-        for (Iterator<String> it = model.keySet().iterator(); it.hasNext(); ) {
-            String name = it.next();
-            treeMap.put(name, model.get(name));
-        }
-
-        Iterator<String> it = treeMap.keySet().iterator();
-        while (it.hasNext()) {
-            String name = it.next();
-            Object o = treeMap.get(name);
-            out.println(" "
-                    + HtmlEncoder.html(name)
-                    + ": "
-                    + ((o != null) ? HtmlEncoder.html(o.toString())
-                    : "null"));
+            Iterator<String> it = treeMap.keySet().iterator();
+            while (it.hasNext()) {
+                String name = it.next();
+                Object o = treeMap.get(name);
+                out.println(" "
+                        + HtmlEncoder.html(name)
+                        + ": "
+                        + ((o != null) ? HtmlEncoder.html(o.toString())
+                        : "null"));
+            }
         }
     }
 
