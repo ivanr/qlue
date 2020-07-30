@@ -16,7 +16,6 @@
  */
 package com.webkreator.qlue.pages;
 
-import com.google.template.soy.error.SoyCompilationException;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.exceptions.ForbiddenException;
 import com.webkreator.qlue.exceptions.PersistentPageNotFoundException;
@@ -51,8 +50,8 @@ public class handleError extends Page {
                 return _handlePersistentPageNotFoundException((PersistentPageNotFoundException) t);
             } else if (t instanceof ParseErrorException) {
                 return _handleVelocityParseError((ParseErrorException) t);
-            } else if (t instanceof SoyCompilationException) {
-                return _handleSoyCompilationError((SoyCompilationException) t);
+            // } else if (t instanceof SoyCompilationException) {
+            //    return _handleSoyCompilationError((SoyCompilationException) t);
             } else if (t instanceof ForbiddenException) {
                 return _handleAccessForbiddenException((ForbiddenException) t);
             } else {
@@ -104,6 +103,7 @@ public class handleError extends Page {
         return null;
     }
 
+    /*
     private View _handleSoyCompilationError(SoyCompilationException t) throws Exception {
         if (!isQlueDevMode()) {
             return _handleGenericThrowable(t);
@@ -121,7 +121,7 @@ public class handleError extends Page {
         out.println("</body></html>");
 
         return null;
-    }
+    }*/
 
     private View _handlePersistentPageNotFoundException(PersistentPageNotFoundException t) throws Exception {
         context.response.setContentType("text/html");

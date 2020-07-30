@@ -20,7 +20,7 @@ dependencies {
     compile group: 'it.sauronsoftware.cron4j', name: 'cron4j', version: '2.2.5'
 
     compile 'org.apache.velocity:velocity:1.7'
-    compile group: 'com.google.template', name: 'soy', version: '2017-04-23'
+    // compile group: 'com.google.template', name: 'soy', version: '2017-04-23'
     compile group: 'commons-codec', name: 'commons-codec', version: '1.14'
 
     testCompile 'junit:junit:4.12'
