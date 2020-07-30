@@ -35,7 +35,6 @@ import com.webkreator.qlue.view.velocity.QlueVelocityTool;
 import com.webkreator.qlue.view.velocity.VelocityViewFactory;
 import it.sauronsoftware.cron4j.InvalidPatternException;
 import it.sauronsoftware.cron4j.Scheduler;
-import org.apache.catalina.connector.ClientAbortException;
 import org.apache.commons.mail.Email;
 import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.SimpleEmail;
@@ -2193,7 +2192,7 @@ public class QlueApplication {
             return View.STATUS_400_BAD_REQUEST;
         } else if (e instanceof TooManyRequestsException) {
             return View.STATUS_429_TOO_MANY_REQUESTS;
-        } else if (e instanceof ClientAbortException) {
+        } else if (e.getClass().getName().contains("ClientAbortException")) {
             // Returning null here to indicate
             // that no response should be sent.
             return null;
