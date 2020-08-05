@@ -1,5 +1,10 @@
-apply plugin: 'java'
-apply plugin: 'war'
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = 'com.webkreator'
+version = '3.1.1'
 
 compileJava {
     options.compilerArgs += ["-parameters"]
@@ -20,11 +25,7 @@ dependencies {
     // compile group: 'com.google.template', name: 'soy', version: '2017-04-23'
     compile group: 'commons-codec', name: 'commons-codec', version: '1.14'
 
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.mockito:mockito-all:1.10.19'
-    testCompile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
-
-    providedCompile group: 'javax.servlet', name: 'javax.servlet-api', version: '3.1.0'
+    compile group: 'javax.servlet', name: 'javax.servlet-api', version: '3.1.0'
 
     compile 'com.google.code.gson:gson:2.8.5'
 
@@ -33,6 +34,10 @@ dependencies {
 
     // https://mvnrepository.com/artifact/org.glassfish/javax.el
     compile group: 'org.glassfish', name: 'javax.el', version: '3.0.1-b11'
+
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.mockito:mockito-all:1.10.19'
+    testCompile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
 }
 
 sourceSets {
@@ -64,4 +69,20 @@ artifacts {
     //archives javadocJar
 }
 
-build.finalizedBy(jar)
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = "https://maven.pkg.github.com/ivanr/qlue"
+            credentials {
+                username = System.getenv("GITHUB_PACKAGES_USERNAME")
+                password = System.getenv("GITHUB_PACKAGES_PASSWORD")
+            }
+        }
+    }
+}
