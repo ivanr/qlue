@@ -1100,7 +1100,8 @@ public class QlueApplication {
                     && (page.context.isDelete()
                     || page.context.isPatch()
                     || page.context.isPost()
-                    || page.context.isPut())) {
+                    || page.context.isPut()))
+            {
                 bindBodyParameter(commandObject, f, page);
                 continue;
             }
@@ -1130,7 +1131,8 @@ public class QlueApplication {
                     } else {
                         if (qp.source().equals(ParamSource.GET_POST)
                                 || (qp.source().equals(ParamSource.GET) && page.context.isGetOrHead())
-                                || (qp.source().equals(ParamSource.POST) && page.context.isPost())) {
+                                || (qp.source().equals(ParamSource.POST) && page.context.isPost()))
+                        {
                             if (f.getType().isArray()) {
                                 bindArrayParameter(commandObject, f, page);
                             } else {
@@ -1613,24 +1615,27 @@ public class QlueApplication {
     public void regenerateSession(HttpServletRequest request) {
         HttpSession existingHttpSession = request.getSession(false);
         if (existingHttpSession == null) {
-            throw new IllegalStateException("Unable to regenerate session: No HTTP session");
+            // No session, so nothing to invalidate.
+            return;
         }
 
-        QlueSession qlueSession = getQlueSession(request);
-        if (qlueSession == null) {
-            throw new IllegalStateException("Unable to regenerate session: No Qlue session");
-        }
-
+        // Get the objects we wish to preserve in the current session.
+        QlueSession qlueSession = (QlueSession) existingHttpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
         QluePageManager pageManager = (QluePageManager) existingHttpSession.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
-        if (pageManager == null) {
-            throw new IllegalStateException("Unable to regenerate session: No page manager");
+
+        // Invalidate the current session and start a fresh one.
+        existingHttpSession.invalidate();
+        HttpSession newHttpSession = request.getSession(true);
+
+        // Inject the objects we wish to preserve into the new session.
+
+        if (qlueSession != null) {
+            newHttpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
         }
 
-        existingHttpSession.invalidate();
-
-        HttpSession newHttpSession = request.getSession(true);
-        newHttpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
-        newHttpSession.setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER, pageManager);
+        if (pageManager != null) {
+            newHttpSession.setAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER, pageManager);
+        }
     }
 
     /**
