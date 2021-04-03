@@ -545,7 +545,7 @@ public class QlueApplication {
             if (routeObject == null) {
                 throw new NotFoundException();
             } else if (routeObject instanceof View) {
-                routedPage = new DirectViewPage((View) routeObject);
+                routedPage = newDirectViewPage((View) routeObject);
             } else if (routeObject instanceof Page) {
                 routedPage = (Page) routeObject;
             } else {
@@ -2204,5 +2204,9 @@ public class QlueApplication {
         } else {
             return View.STATUS_500_INTERNAL_SERVER_ERROR;
         }
+    }
+
+    protected Page newDirectViewPage(View view) {
+        return new DirectViewPage(view);
     }
 }
