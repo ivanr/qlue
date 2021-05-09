@@ -545,7 +545,13 @@ public class QlueApplication {
             if (routeObject == null) {
                 throw new NotFoundException();
             } else if (routeObject instanceof View) {
-                routedPage = newDirectViewPage((View) routeObject);
+                if (routeObject instanceof DownloadView) {
+                    // Static file.
+                    routedPage = new DirectViewPage((View) routeObject);
+                } else {
+                    // Velocity (vmx) template not backed by a page.
+                    routedPage = newDirectViewPage((View) routeObject);
+                }
             } else if (routeObject instanceof Page) {
                 routedPage = (Page) routeObject;
             } else {
