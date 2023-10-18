@@ -223,9 +223,6 @@ public abstract class Page implements Serializable {
      * behavior.
      */
     protected void determineCommandObject() {
-        if (commandObjectDetermined) {
-            throw new IllegalStateException();
-        }
 
         // Look for the command object among the page fields via the @QlueCommandObject annotation.
         try {
