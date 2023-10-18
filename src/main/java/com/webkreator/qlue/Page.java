@@ -45,6 +45,8 @@ import java.util.*;
  */
 public abstract class Page implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * This is a meta-state that's used for parameter binding: matches
      * on all requests. Page state can't be set to this value.
@@ -114,7 +116,9 @@ public abstract class Page implements Serializable {
 
     protected String contentType = "text/html; charset=UTF-8";
 
-    protected Object commandObject;
+    private Object commandObject;
+
+    private boolean commandObjectDetermined;
 
     protected Errors errors = new Errors();
 
@@ -201,11 +205,16 @@ public abstract class Page implements Serializable {
      * be using) to return.
      */
     public final synchronized Object getCommandObject() {
-        if (commandObject == null) {
+        if (!commandObjectDetermined && (commandObject == null)) {
             determineCommandObject();
         }
 
-        return commandObject;
+        if (commandObject != null) {
+            return commandObject;
+        } else {
+            // The page itself is the command object.
+            return this;
+        }
     }
 
     /**
@@ -214,6 +223,10 @@ public abstract class Page implements Serializable {
      * behavior.
      */
     protected void determineCommandObject() {
+        if (commandObjectDetermined) {
+            throw new IllegalStateException();
+        }
+
         // Look for the command object among the page fields via the @QlueCommandObject annotation.
         try {
             Field[] fields = this.getClass().getFields();
@@ -239,12 +252,14 @@ public abstract class Page implements Serializable {
                         }
                     }
 
+                    commandObjectDetermined = true;
                     return;
                 }
             }
 
-            // Use the page itself as the command object.
-            commandObject = this;
+            // Leave null as a signal to use itself as the command object.
+            commandObject = null;
+            commandObjectDetermined = true;
         } catch (IllegalAccessException e) {
             throw new RuntimeException(e);
         }
