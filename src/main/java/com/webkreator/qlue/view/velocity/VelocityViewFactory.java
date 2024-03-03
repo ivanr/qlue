@@ -54,7 +54,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
     protected String outputEncoding = "UTF-8";
 
-    protected String OUTPUT_ENCODING = "input.encoding";
+    protected String OUTPUT_ENCODING = "resource.default_encoding";
 
     protected String logChute = "com.webkreator.qlue.view.velocity.SLF4JLogChute";
 
@@ -75,14 +75,14 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
         properties.setProperty(RuntimeConstants.RESOURCE_LOADER, "class,string");
 
-        properties.setProperty("string.resource.loader.class", "org.apache.velocity.runtime.resource.loader.StringResourceLoader");
-        properties.setProperty("string.resource.loader.repository.name", QLUE_STRING_RESOURCE_LOADER_KEY);
+        properties.setProperty("resource.loader.string.class", "org.apache.velocity.runtime.resource.loader.StringResourceLoader");
+        properties.setProperty("resource.loader.string.repository.name", QLUE_STRING_RESOURCE_LOADER_KEY);
 
         if (qlueApp.getPriorityTemplatePath() != null) {
             properties.setProperty(RuntimeConstants.RESOURCE_LOADER, "file,class,string");
-            properties.setProperty("file.resource.loader.class", "org.apache.velocity.runtime.resource.loader.FileResourceLoader");
-            properties.setProperty("file.resource.loader.cache", "false");
-            properties.setProperty("file.resource.loader.path", qlueApp.getPriorityTemplatePath());
+            properties.setProperty("resource.loader.file.class", "org.apache.velocity.runtime.resource.loader.FileResourceLoader");
+            properties.setProperty("resource.loader.file.cache", "false");
+            properties.setProperty("resource.loader.file.path", qlueApp.getPriorityTemplatePath());
         }
 
         properties.setProperty(RuntimeConstants.VM_LIBRARY, macroPath);
@@ -91,10 +91,10 @@ public abstract class VelocityViewFactory implements ViewFactory {
         properties.setProperty(RuntimeConstants.VM_PERM_ALLOW_INLINE_REPLACE_GLOBAL, "true");
 
         if (qlueApp.getProperty("qlue.velocity.cache") != null) {
-            properties.setProperty("class.resource.loader.cache", qlueApp.getProperty("qlue.velocity.cache"));
-            properties.setProperty("class.resource.loader.modificationCheckInterval", "0");
+            properties.setProperty("resource.loader.class.cache", qlueApp.getProperty("qlue.velocity.cache"));
+            properties.setProperty("resource.loader.class.modificationCheckInterval", "0");
         } else {
-            properties.setProperty("class.resource.loader.cache", "false");
+            properties.setProperty("resource.loader.class.cache", "false");
         }
 
         if (qlueApp.getProperty("qlue.velocity.modificationCheckInterval") != null) {
@@ -104,12 +104,12 @@ public abstract class VelocityViewFactory implements ViewFactory {
         }
 
         properties.setProperty("directive.set.null.allowed", "true");
-        properties.setProperty("resource.manager.logwhenfound", "false");
-        properties.setProperty("velocimacro.permissions.allow.inline.local.scope", "true");
+        properties.setProperty("resource.manager.log_when_found", "false");
+        properties.setProperty("velocimacro.inline.local_scope", "true");
         properties.setProperty("velocimacro.arguments.strict", "true");
-        properties.setProperty("macro.provide.scope.control", "true");
-        properties.setProperty("runtime.references.strict", "true");
-        properties.setProperty("runtime.strict.math", "true");
+        properties.setProperty("context.scope_control.macro", "true");
+        properties.setProperty("runtime.strict_mode.enable", "true");
+        properties.setProperty("runtime.strict_math", "true");
 
         // Pass-through the maxLogLevel setting into Velocity properties, for SLF4JLogChute to consume.
         String maxLogLevel = qlueApp.getProperty(VelocityViewFactory.QLUE_VELOCITY_MAX_LOG_LEVEL);
