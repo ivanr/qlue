@@ -73,7 +73,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
         // properties.setProperty(RuntimeConstants.OUTPUT_ENCODING, outputEncoding);
         properties.setProperty(OUTPUT_ENCODING, outputEncoding);
 
-        properties.setProperty(RuntimeConstants.RESOURCE_LOADER, "class,string");
+        properties.setProperty(RuntimeConstants.RESOURCE_LOADERS, "class,string");
 
         properties.setProperty("resource.loader.string.class", "org.apache.velocity.runtime.resource.loader.StringResourceLoader");
         properties.setProperty("resource.loader.string.repository.name", QLUE_STRING_RESOURCE_LOADER_KEY);
