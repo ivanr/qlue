@@ -39,6 +39,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
         log.debug("Creating VelocityEngine with properties: " + properties);
         velocityEngine = new VelocityEngine(properties);
 
+        /*
         // There appears to be some sort of problem with Velocity where it loads
         // some classes using one classloader and some other classes using a different
         // classloader. Because of that it is unable to match a perfectly valid
@@ -55,7 +56,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
             // This is expected, so ignore.
         } finally {
             thread.setContextClassLoader(loader);
-        }
+        }*/
     }
 
     @Override
