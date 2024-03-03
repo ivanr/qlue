@@ -54,6 +54,8 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
     protected String outputEncoding = "UTF-8";
 
+    protected String OUTPUT_ENCODING = "input.encoding";
+
     protected String logChute = "com.webkreator.qlue.view.velocity.SLF4JLogChute";
 
     protected VelocityEngine velocityEngine;
@@ -66,7 +68,10 @@ public abstract class VelocityViewFactory implements ViewFactory {
         Properties properties = new Properties();
 
         properties.setProperty(RuntimeConstants.INPUT_ENCODING, inputEncoding);
-        properties.setProperty(RuntimeConstants.OUTPUT_ENCODING, outputEncoding);
+
+        // OUTPUT_ENCODING no longer exists in Velocity 2.3?
+        // properties.setProperty(RuntimeConstants.OUTPUT_ENCODING, outputEncoding);
+        properties.setProperty(OUTPUT_ENCODING, outputEncoding);
 
         properties.setProperty(RuntimeConstants.RESOURCE_LOADER, "class,string");
 
@@ -84,8 +89,6 @@ public abstract class VelocityViewFactory implements ViewFactory {
         properties.setProperty(RuntimeConstants.VM_LIBRARY_AUTORELOAD, "true");
         properties.setProperty(RuntimeConstants.VM_PERM_ALLOW_INLINE, "true");
         properties.setProperty(RuntimeConstants.VM_PERM_ALLOW_INLINE_REPLACE_GLOBAL, "true");
-
-        properties.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS, logChute);
 
         if (qlueApp.getProperty("qlue.velocity.cache") != null) {
             properties.setProperty("class.resource.loader.cache", qlueApp.getProperty("qlue.velocity.cache"));

@@ -50,13 +50,11 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
         ClassLoader loader = thread.getContextClassLoader();
         thread.setContextClassLoader(this.getClass().getClassLoader());
         try {
-            SLF4JLogChute.setLoggingEnabled(false);
             velocityEngine.getTemplate("FORCE_CLASSES_BE_LOADED_BY_THE_SAME_CLASSLOADER");
         } catch (ResourceNotFoundException e) {
             // This is expected, so ignore.
         } finally {
             thread.setContextClassLoader(loader);
-            SLF4JLogChute.setLoggingEnabled(true);
         }
     }
 
