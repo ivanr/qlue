@@ -79,7 +79,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
         properties.setProperty("resource.loader.string.repository.name", QLUE_STRING_RESOURCE_LOADER_KEY);
 
         if (qlueApp.getPriorityTemplatePath() != null) {
-            properties.setProperty(RuntimeConstants.RESOURCE_LOADER, "file,class,string");
+            properties.setProperty(RuntimeConstants.RESOURCE_LOADERS, "file,class,string");
             properties.setProperty("resource.loader.file.class", "org.apache.velocity.runtime.resource.loader.FileResourceLoader");
             properties.setProperty("resource.loader.file.cache", "false");
             properties.setProperty("resource.loader.file.path", qlueApp.getPriorityTemplatePath());
