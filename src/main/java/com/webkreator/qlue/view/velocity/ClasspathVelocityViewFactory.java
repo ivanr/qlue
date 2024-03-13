@@ -39,6 +39,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
         log.debug("Creating VelocityEngine with properties: " + properties);
         velocityEngine = new VelocityEngine(properties);
 
+        /*
         // There appears to be some sort of problem with Velocity where it loads
         // some classes using one classloader and some other classes using a different
         // classloader. Because of that it is unable to match a perfectly valid
@@ -50,14 +51,12 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
         ClassLoader loader = thread.getContextClassLoader();
         thread.setContextClassLoader(this.getClass().getClassLoader());
         try {
-            SLF4JLogChute.setLoggingEnabled(false);
             velocityEngine.getTemplate("FORCE_CLASSES_BE_LOADED_BY_THE_SAME_CLASSLOADER");
         } catch (ResourceNotFoundException e) {
             // This is expected, so ignore.
         } finally {
             thread.setContextClassLoader(loader);
-            SLF4JLogChute.setLoggingEnabled(true);
-        }
+        }*/
     }
 
     @Override
@@ -75,9 +74,9 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
 
         String caching = properties.getProperty(RuntimeConstants.FILE_RESOURCE_LOADER_CACHE);
         if ((caching == null) || (!Boolean.valueOf(caching))) {
-            properties.setProperty("class.resource.loader.class", "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");
+            properties.setProperty("resource.loader.class.class", "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");
         } else {
-            properties.setProperty("class.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+            properties.setProperty("resource.loader.class.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
         }
 
         return properties;

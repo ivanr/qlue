@@ -18,6 +18,7 @@ package com.webkreator.qlue.view.velocity;
 
 import com.webkreator.qlue.view.Canoe;
 import org.apache.velocity.app.event.ReferenceInsertionEventHandler;
+import org.apache.velocity.context.Context;
 
 /**
  * This class is a bridge between Canoe and Velocity.
@@ -37,7 +38,7 @@ public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHa
     }
 
     @Override
-    public Object referenceInsert(String arg0, Object arg1) {
+    public Object referenceInsert(Context context, String arg0, Object arg1) {
         // We ignore references that start with the prefix
         // we consider to be safe. This allows developers to
         // bypass the automatic encoding mechanism and prepare
