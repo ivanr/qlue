@@ -111,6 +111,7 @@ publishing {
             name = "GitHubPackages"
             url = "https://maven.pkg.github.com/ivanr/qlue"
             credentials {
+                // Working with the Gradle registry
                 // https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
                 username = System.getenv("GITHUB_PACKAGES_USERNAME")
                 password = System.getenv("GITHUB_PACKAGES_PASSWORD")
