@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -52,12 +52,13 @@ public class MessageSource {
 	}
 
 	/**
-	 * Resolve a message code using the given parameters.k
+	 * Resolve a message code using the given parameters.
 	 */
-	public String get(String code, Object... params) {					
+	public String get(String code, Object... params) {
 		StringBuilder sb = new StringBuilder();
-		Formatter formatter = new Formatter(sb, locale);
-		formatter.format(get(code), params);
-		return sb.toString();
+		try (Formatter formatter = new Formatter(sb, locale)) {
+			formatter.format(get(code), params);
+			return sb.toString();
+		}
 	}
 }
