@@ -270,87 +270,89 @@ public class QlueApplication {
             return;
         }
 
-        properties.load(new FileReader(propsFile));
+        try (FileReader reader = new FileReader(propsFile)) {
+            properties.load(reader);
 
-        properties.setProperty("confPath", confPath);
-        properties.setProperty(RouteManager.WEB_ROOT, servlet.getServletContext().getRealPath("/"));
+            properties.setProperty("confPath", confPath);
+            properties.setProperty(RouteManager.WEB_ROOT, servlet.getServletContext().getRealPath("/"));
 
-        if (getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
-            setCharacterEncoding(getProperty(PROPERTY_CHARACTER_ENCODING));
-        }
-
-        if (getProperty(PROPERTY_DEVMODE_ENABLED) != null) {
-            setApplicationDevelopmentMode(getProperty(PROPERTY_DEVMODE_ENABLED));
-        }
-
-        if (getProperty(PROPERTY_DEVMODE_RANGES) != null) {
-            setDevelopmentSubnets(getProperty(PROPERTY_DEVMODE_RANGES));
-        }
-
-        if (getProperty(PROPERTY_TRUSTED_PROXIES) != null) {
-            setTrustedProxies(getProperty(PROPERTY_TRUSTED_PROXIES));
-        }
-
-        if (getProperty(PROPERTY_FRONTEND_ENCRYPTION) != null) {
-            configureFrontendEncryption(getProperty(PROPERTY_FRONTEND_ENCRYPTION));
-        }
-
-        developmentModePassword = getProperty(PROPERTY_DEVMODE_PASSWORD);
-
-        adminEmail = getProperty(PROPERTY_ADMIN_EMAIL);
-
-        urgentEmail = getProperty(PROPERTY_URGENT_EMAIL);
-
-        // Configure the SMTP email senders
-
-        smtpEmailSender = new SmtpEmailSender();
-
-        if (getBooleanProperty("qlue.smtp.async", "false")) {
-            AsyncSmtpEmailSender myAsyncSmtpEmailSender = new AsyncSmtpEmailSender(smtpEmailSender);
-
-            // Start a new daemon thread to send email in the background.
-            Thread thread = new Thread(myAsyncSmtpEmailSender);
-            thread.setDaemon(true);
-            thread.start();
-
-            asyncSmtpEmailSender = myAsyncSmtpEmailSender;
-        } else {
-            // All email sending is synchronous.
-            asyncSmtpEmailSender = smtpEmailSender;
-        }
-
-        smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
-        if (getProperty("qlue.smtp.port") != null) {
-            smtpEmailSender.setSmtpPort(Integer.valueOf(getProperty("qlue.smtp.port")));
-        }
-
-        if (getProperty("qlue.smtp.protocol") != null) {
-            smtpEmailSender.setSmtpProtocol(getProperty("qlue.smtp.protocol"));
-        }
-
-        if (getProperty("qlue.smtp.username") != null) {
-            smtpEmailSender.setSmtpUsername(getProperty("qlue.smtp.username"));
-            smtpEmailSender.setSmtpPassword(getProperty("qlue.smtp.password"));
-        }
-
-        priorityTemplatePath = getProperty("qlue.velocity.priorityTemplatePath");
-        if (priorityTemplatePath != null) {
-            Path p = FileSystems.getDefault().getPath(priorityTemplatePath);
-            if (!p.isAbsolute()) {
-                priorityTemplatePath = getApplicationRoot() + "/" + priorityTemplatePath;
+            if (getProperty(PROPERTY_CHARACTER_ENCODING) != null) {
+                setCharacterEncoding(getProperty(PROPERTY_CHARACTER_ENCODING));
             }
 
-            File f = new File(priorityTemplatePath);
-            if (!f.exists()) {
-                throw new QlueException("Priority template path doesn't exist: " + priorityTemplatePath);
+            if (getProperty(PROPERTY_DEVMODE_ENABLED) != null) {
+                setApplicationDevelopmentMode(getProperty(PROPERTY_DEVMODE_ENABLED));
             }
 
-            if (!f.isDirectory()) {
-                throw new QlueException("Priority template path is not a directory: " + priorityTemplatePath);
+            if (getProperty(PROPERTY_DEVMODE_RANGES) != null) {
+                setDevelopmentSubnets(getProperty(PROPERTY_DEVMODE_RANGES));
             }
+
+            if (getProperty(PROPERTY_TRUSTED_PROXIES) != null) {
+                setTrustedProxies(getProperty(PROPERTY_TRUSTED_PROXIES));
+            }
+
+            if (getProperty(PROPERTY_FRONTEND_ENCRYPTION) != null) {
+                configureFrontendEncryption(getProperty(PROPERTY_FRONTEND_ENCRYPTION));
+            }
+
+            developmentModePassword = getProperty(PROPERTY_DEVMODE_PASSWORD);
+
+            adminEmail = getProperty(PROPERTY_ADMIN_EMAIL);
+
+            urgentEmail = getProperty(PROPERTY_URGENT_EMAIL);
+
+            // Configure the SMTP email senders
+
+            smtpEmailSender = new SmtpEmailSender();
+
+            if (getBooleanProperty("qlue.smtp.async", "false")) {
+                AsyncSmtpEmailSender myAsyncSmtpEmailSender = new AsyncSmtpEmailSender(smtpEmailSender);
+
+                // Start a new daemon thread to send email in the background.
+                Thread thread = new Thread(myAsyncSmtpEmailSender);
+                thread.setDaemon(true);
+                thread.start();
+
+                asyncSmtpEmailSender = myAsyncSmtpEmailSender;
+            } else {
+                // All email sending is synchronous.
+                asyncSmtpEmailSender = smtpEmailSender;
+            }
+
+            smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
+            if (getProperty("qlue.smtp.port") != null) {
+                smtpEmailSender.setSmtpPort(Integer.valueOf(getProperty("qlue.smtp.port")));
+            }
+
+            if (getProperty("qlue.smtp.protocol") != null) {
+                smtpEmailSender.setSmtpProtocol(getProperty("qlue.smtp.protocol"));
+            }
+
+            if (getProperty("qlue.smtp.username") != null) {
+                smtpEmailSender.setSmtpUsername(getProperty("qlue.smtp.username"));
+                smtpEmailSender.setSmtpPassword(getProperty("qlue.smtp.password"));
+            }
+
+            priorityTemplatePath = getProperty("qlue.velocity.priorityTemplatePath");
+            if (priorityTemplatePath != null) {
+                Path p = FileSystems.getDefault().getPath(priorityTemplatePath);
+                if (!p.isAbsolute()) {
+                    priorityTemplatePath = getApplicationRoot() + "/" + priorityTemplatePath;
+                }
+
+                File f = new File(priorityTemplatePath);
+                if (!f.exists()) {
+                    throw new QlueException("Priority template path doesn't exist: " + priorityTemplatePath);
+                }
+
+                if (!f.isDirectory()) {
+                    throw new QlueException("Priority template path is not a directory: " + priorityTemplatePath);
+                }
+            }
+
+            propertiesAvailable = true;
         }
-
-        propertiesAvailable = true;
     }
 
     private void configureFrontendEncryption(String value) {
