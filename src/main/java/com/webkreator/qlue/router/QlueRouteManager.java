@@ -63,23 +63,22 @@ public class QlueRouteManager implements RouteManager {
         // Loop through the lines in the configuration file, processing
         // each line as a single routing instruction.
 
-        BufferedReader in = new BufferedReader(new FileReader(routesFile));
-        String line;
+        try (BufferedReader in = new BufferedReader(new FileReader(routesFile))) {
+            String line;
 
-        while ((line = in.readLine()) != null) {
-            // Ignore comment lines; those that are empty or on
-            // which the first non-whitespace character is #.
-            line = line.trim();
-            if ((line.length() == 0) || (line.charAt(0) == '#')) {
-                continue;
+            while ((line = in.readLine()) != null) {
+                // Ignore comment lines; those that are empty or on
+                // which the first non-whitespace character is #.
+                line = line.trim();
+                if ((line.length() == 0) || (line.charAt(0) == '#')) {
+                    continue;
+                }
+
+                line = expandProperties(line);
+
+                add(RouteFactory.create(this, line));
             }
-
-            line = expandProperties(line);
-
-            add(RouteFactory.create(this, line));
         }
-
-        in.close();
 
         //tuneRoutesForMethodNotFound();
     }
