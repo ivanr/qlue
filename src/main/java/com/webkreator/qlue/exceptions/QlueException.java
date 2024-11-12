@@ -24,6 +24,8 @@ public class QlueException extends RuntimeException {
 
 	protected static final long serialVersionUID = 1L;
 
+	private boolean security;
+
 	protected QlueException() {
 		super();
 	}
@@ -35,4 +37,9 @@ public class QlueException extends RuntimeException {
     public QlueException(String string, Throwable t) {
         super(string, t);
     }
+
+	public QlueException setSecurityFlag() {
+		this.security = true;
+		return this;
+	}
 }

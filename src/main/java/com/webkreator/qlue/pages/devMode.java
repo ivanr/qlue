@@ -21,7 +21,7 @@ import com.webkreator.qlue.*;
 import com.webkreator.qlue.annotations.QlueMapping;
 import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.exceptions.ForbiddenException;
-import com.webkreator.qlue.exceptions.QlueSecurityException;
+import com.webkreator.qlue.exceptions.QlueException;
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.FinalRedirectView;
 import com.webkreator.qlue.view.RedirectView;
@@ -136,7 +136,8 @@ public class devMode extends Page {
         // manipulation is allowed by configuration
         if ((appStatus != QlueConstants.DEVMODE_ENABLED)
                 && (appStatus != QlueConstants.DEVMODE_ONDEMAND)) {
-            throw new QlueSecurityException("Configuration doesn't allow change of development mode");
+            throw new QlueException("Configuration doesn't allow change of development mode")
+                    .setSecurityFlag();
         }
 
         if (((sessionStatus == null) && (appStatus == QlueConstants.DEVMODE_ENABLED))
