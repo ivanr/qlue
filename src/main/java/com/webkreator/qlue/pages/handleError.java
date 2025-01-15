@@ -25,7 +25,7 @@ import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.View;
 import org.apache.velocity.exception.ParseErrorException;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -37,12 +37,12 @@ public class handleError extends Page {
 
     @Override
     public View service() throws Exception {
-        Integer statusCode = (Integer) context.request.getAttribute("javax.servlet.error.status_code");
+        Integer statusCode = (Integer) context.request.getAttribute("jakarta.servlet.error.status_code");
         if (statusCode == null) {
             throw new Exception("Direct access to this error page is not allowed");
         }
 
-        Throwable t = (Throwable) context.request.getAttribute("javax.servlet.error.exception");
+        Throwable t = (Throwable) context.request.getAttribute("jakarta.servlet.error.exception");
         if (t != null) {
             if (t instanceof BadRequestException) {
                 return _handleValidationException((BadRequestException) t);

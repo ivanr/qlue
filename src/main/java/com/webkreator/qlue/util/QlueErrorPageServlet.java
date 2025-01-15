@@ -2,10 +2,10 @@ package com.webkreator.qlue.util;
 
 import com.webkreator.qlue.view.View;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 
 public class QlueErrorPageServlet extends HttpServlet {
@@ -22,12 +22,12 @@ public class QlueErrorPageServlet extends HttpServlet {
         int statusCode = response.getStatus();
 
         // Servlet error properties of interest:
-        // - javax.servlet.error.exception
-        // - javax.servlet.error.status_code
-        // - javax.servlet.error.servlet_name
-        // - javax.servlet.error.request_uri
+        // - jakarta.servlet.error.exception
+        // - jakarta.servlet.error.status_code
+        // - jakarta.servlet.error.servlet_name
+        // - jakarta.servlet.error.request_uri
 
-        Exception exception = (Exception)request.getAttribute("javax.servlet.error.exception");
+        Exception exception = (Exception)request.getAttribute("jakarta.servlet.error.exception");
         if (exception != null) {
             statusCode = 500;
         }
