@@ -42,8 +42,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.*;
+import javax.servlet.ServletException;
+import javax.servlet.http.*;
 import javax.validation.ConstraintViolation;
 import javax.validation.Validator;
 import javax.validation.ValidatorFactory;

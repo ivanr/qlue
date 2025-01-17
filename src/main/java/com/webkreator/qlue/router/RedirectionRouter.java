@@ -19,7 +19,7 @@ package com.webkreator.qlue.router;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.view.RedirectView;
 
-import jakarta.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * Routes transaction to a redirection.

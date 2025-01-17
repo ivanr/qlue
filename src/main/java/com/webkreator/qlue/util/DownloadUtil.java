@@ -20,7 +20,7 @@ import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.exceptions.NotFoundException;
 import com.webkreator.qlue.exceptions.QlueException;
 
-import jakarta.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

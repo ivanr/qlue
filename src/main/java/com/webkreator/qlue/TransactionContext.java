@@ -22,13 +22,13 @@ import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.FinalRedirectView;
 import org.slf4j.MDC;
 
-import jakarta.servlet.ServletConfig;
-import jakarta.servlet.ServletContext;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-import jakarta.servlet.http.Part;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import javax.servlet.http.Part;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Serializable;
@@ -387,7 +387,7 @@ public class TransactionContext implements Serializable {
      */
     public boolean isErrorHandler() {
         Integer errorStatusCode = (Integer) request
-                .getAttribute("jakarta.servlet.error.status_code");
+                .getAttribute("javax.servlet.error.status_code");
 
         if (errorStatusCode != null) {
             return true;
