@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -60,7 +60,7 @@ public class QlueServlet extends HttpServlet {
             getServletContext().setAttribute(QLUE_SERVLET_INIT_FAILED, "true");
 
             if (e instanceof ServletException) {
-                throw (ServletException)e;
+                throw (ServletException) e;
             } else {
                 throw new ServletException(e);
             }
@@ -104,17 +104,17 @@ public class QlueServlet extends HttpServlet {
     }
 
     /**
-     * Associate Qlue application with this servlet.
-     */
-    protected void setApp(QlueApplication app) {
-        this.qlueApp = app;
-    }
-
-    /**
      * Retrieve the application associated with this servlet.
      */
     protected QlueApplication getApp() {
         return qlueApp;
+    }
+
+    /**
+     * Associate Qlue application with this servlet.
+     */
+    protected void setApp(QlueApplication app) {
+        this.qlueApp = app;
     }
 
     /**
