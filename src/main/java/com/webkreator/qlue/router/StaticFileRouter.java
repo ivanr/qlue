@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -17,7 +17,7 @@
 package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.TransactionContext;
-import com.webkreator.qlue.exceptions.QlueSecurityException;
+import com.webkreator.qlue.exceptions.QlueException;
 import com.webkreator.qlue.view.DownloadView;
 import com.webkreator.qlue.view.StatusCodeView;
 import org.slf4j.Logger;
@@ -44,11 +44,13 @@ public class StaticFileRouter implements Router {
     @Override
     public Object route(TransactionContext context, Route route, String pathSuffix) {
         if (pathSuffix.contains("/../")) {
-            throw new QlueSecurityException("StaticFileRouter: Invalid path: " + pathSuffix);
+            throw new QlueException("StaticFileRouter: Invalid path: " + pathSuffix)
+                    .setSecurityFlag();
         }
 
         if (pathSuffix.toLowerCase().contains("web-inf")) {
-            throw new QlueSecurityException("StaticFileRouter: Invalid path: " + pathSuffix);
+            throw new QlueException("StaticFileRouter: Invalid path: " + pathSuffix)
+                    .setSecurityFlag();
         }
 
         File file = new File(root, pathSuffix);

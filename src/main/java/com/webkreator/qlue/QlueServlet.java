@@ -1,4 +1,4 @@
-/* 
+/*
  * Qlue Web Application Framework
  * Copyright 2009-2012 Ivan Ristic <ivanr@webkreator.com>
  *
@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 package com.webkreator.qlue;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletException;
 import javax.servlet.UnavailableException;
@@ -43,6 +46,8 @@ public class QlueServlet extends HttpServlet {
 
     private QlueApplication qlueApp;
 
+    private static final Logger log = LoggerFactory.getLogger(QlueServlet.class);
+
     /**
      * Retrieve servlet parameters from web.xml and initialize application.
      */
@@ -52,7 +57,7 @@ public class QlueServlet extends HttpServlet {
             createApplicationObject();
 
             if (qlueApp == null) {
-                throw new UnavailableException("QlueServlet: Application not available");
+                throw new UnavailableException("QlueServlet: Application not configured");
             }
 
             qlueApp.init(this);
@@ -60,8 +65,12 @@ public class QlueServlet extends HttpServlet {
             getServletContext().setAttribute(QLUE_SERVLET_INIT_FAILED, "true");
 
             if (e instanceof ServletException) {
-                throw (ServletException)e;
+                // We assume the subclass is throwing exactly what
+                // it wants to communicate back to the servlet container.
+                throw (ServletException) e;
             } else {
+                // Otherwise, we tell the container that the app is unavailable.
+                log.error("Application failed to start", e);
                 throw new ServletException(e);
             }
         }
@@ -104,17 +113,17 @@ public class QlueServlet extends HttpServlet {
     }
 
     /**
-     * Associate Qlue application with this servlet.
-     */
-    protected void setApp(QlueApplication app) {
-        this.qlueApp = app;
-    }
-
-    /**
      * Retrieve the application associated with this servlet.
      */
     protected QlueApplication getApp() {
         return qlueApp;
+    }
+
+    /**
+     * Associate Qlue application with this servlet.
+     */
+    protected void setApp(QlueApplication app) {
+        this.qlueApp = app;
     }
 
     /**
