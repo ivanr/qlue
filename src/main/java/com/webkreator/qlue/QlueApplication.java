@@ -317,6 +317,7 @@ public class QlueApplication {
 
                 // Start a new daemon thread to send email in the background.
                 Thread thread = new Thread(myAsyncSmtpEmailSender);
+                thread.setName("Async SMTP Email Sender");
                 thread.setDaemon(true);
                 thread.start();
 
