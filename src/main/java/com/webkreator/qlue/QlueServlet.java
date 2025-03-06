@@ -70,7 +70,6 @@ public class QlueServlet extends HttpServlet {
                 throw (ServletException) e;
             } else {
                 // Otherwise, we tell the container that the app is unavailable.
-                log.error("Application failed to start", e);
                 throw new ServletException(e);
             }
         }
