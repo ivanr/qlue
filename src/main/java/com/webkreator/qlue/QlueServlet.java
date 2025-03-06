@@ -132,6 +132,13 @@ public class QlueServlet extends HttpServlet {
      */
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        if (!qlueApp.isPropertiesAvailable()) {
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            response.setHeader("Content-Type", "text/plain");
+            response.getOutputStream().println("Application not configured");
+            return;
+        }
+
         try {
             qlueApp.service(this, request, response);
         } catch (SocketException e) {

@@ -203,6 +203,12 @@ public class QlueApplication {
      */
     public void init(HttpServlet servlet) throws Exception {
         qlueInit(servlet);
+
+        if (!propertiesAvailable) {
+            log.warn("Application not configured");
+            return;
+        }
+
         appInit(servlet);
         qluePostInit();
     }
