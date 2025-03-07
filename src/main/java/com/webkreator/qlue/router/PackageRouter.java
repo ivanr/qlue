@@ -93,6 +93,10 @@ public class PackageRouter implements Router {
         }
 
         String classpath = convertUrlPathToClasspath(path); // converts dashes as well
+        if (classpath == null) {
+            return null;
+        }
+
         String normalizedPath = convertDashes(path);
         String filepath = rootPackageAsPath + normalizedPath;
 
@@ -201,7 +205,6 @@ public class PackageRouter implements Router {
     private String convertUrlPathToClasspath(String path) {
         // Start building class name.
         StringBuilder sb = new StringBuilder();
-        String urlSuffix = null;
 
         // Start with the root package.
         sb.append(rootPackage);
