@@ -210,6 +210,7 @@ public class QlueApplication {
         }
 
         appInit(servlet);
+
         qluePostInit();
     }
 
@@ -239,7 +240,9 @@ public class QlueApplication {
         // Left for applications to override.
     }
 
-    protected void qluePostInit() throws Exception {
+    protected void qluePostInit() {
+        configureEmailSenders();
+
         Calendar nextHour = Calendar.getInstance();
         nextHour.set(Calendar.HOUR_OF_DAY, nextHour.get(Calendar.HOUR_OF_DAY) + 1);
         nextHour.set(Calendar.MINUTE, 0);
@@ -308,39 +311,6 @@ public class QlueApplication {
 
             urgentEmail = getProperty(PROPERTY_URGENT_EMAIL);
 
-            // Configure the SMTP email senders
-
-            smtpEmailSender = new SmtpEmailSender();
-
-            if (getBooleanProperty("qlue.smtp.async", "false")) {
-                AsyncSmtpEmailSender myAsyncSmtpEmailSender = new AsyncSmtpEmailSender(smtpEmailSender);
-
-                // Start a new daemon thread to send email in the background.
-                Thread thread = new Thread(myAsyncSmtpEmailSender);
-                thread.setName("Async SMTP Email Sender");
-                thread.setDaemon(true);
-                thread.start();
-
-                asyncSmtpEmailSender = myAsyncSmtpEmailSender;
-            } else {
-                // All email sending is synchronous.
-                asyncSmtpEmailSender = smtpEmailSender;
-            }
-
-            smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
-            if (getProperty("qlue.smtp.port") != null) {
-                smtpEmailSender.setSmtpPort(Integer.valueOf(getProperty("qlue.smtp.port")));
-            }
-
-            if (getProperty("qlue.smtp.protocol") != null) {
-                smtpEmailSender.setSmtpProtocol(getProperty("qlue.smtp.protocol"));
-            }
-
-            if (getProperty("qlue.smtp.username") != null) {
-                smtpEmailSender.setSmtpUsername(getProperty("qlue.smtp.username"));
-                smtpEmailSender.setSmtpPassword(getProperty("qlue.smtp.password"));
-            }
-
             priorityTemplatePath = getProperty("qlue.velocity.priorityTemplatePath");
             if (priorityTemplatePath != null) {
                 Path p = FileSystems.getDefault().getPath(priorityTemplatePath);
@@ -376,9 +346,38 @@ public class QlueApplication {
         }
     }
 
-    public void qlueBeforeDestroy() {
-        if (scheduler != null) {
-            scheduler.stop();
+    protected void configureEmailSenders() {
+        // Configure the SMTP email senders
+
+        smtpEmailSender = new SmtpEmailSender();
+
+        if (getBooleanProperty("qlue.smtp.async", "false")) {
+            AsyncSmtpEmailSender myAsyncSmtpEmailSender = new AsyncSmtpEmailSender(smtpEmailSender);
+
+            // Start a new daemon thread to send email in the background.
+            Thread thread = new Thread(myAsyncSmtpEmailSender);
+            thread.setName("Async SMTP Email Sender");
+            thread.setDaemon(true);
+            thread.start();
+
+            asyncSmtpEmailSender = myAsyncSmtpEmailSender;
+        } else {
+            // All email sending is synchronous.
+            asyncSmtpEmailSender = smtpEmailSender;
+        }
+
+        smtpEmailSender.setSmtpServer(getProperty("qlue.smtp.server"));
+        if (getProperty("qlue.smtp.port") != null) {
+            smtpEmailSender.setSmtpPort(Integer.valueOf(getProperty("qlue.smtp.port")));
+        }
+
+        if (getProperty("qlue.smtp.protocol") != null) {
+            smtpEmailSender.setSmtpProtocol(getProperty("qlue.smtp.protocol"));
+        }
+
+        if (getProperty("qlue.smtp.username") != null) {
+            smtpEmailSender.setSmtpUsername(getProperty("qlue.smtp.username"));
+            smtpEmailSender.setSmtpPassword(getProperty("qlue.smtp.password"));
         }
     }
 
@@ -386,6 +385,13 @@ public class QlueApplication {
      * Destroys the application. Invoked when the backing servlet is destroyed.
      */
     public void destroy() {
+        if (scheduler != null) {
+            scheduler.stop();
+        }
+
+        if (timer != null) {
+            timer.cancel();
+        }
     }
 
     /**
