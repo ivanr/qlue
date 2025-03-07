@@ -56,6 +56,18 @@ public class RedirectionRouter implements Router {
 		return new RedirectionRouter(urisb.toString(), status);
 	}
 
+	public static RedirectionRouter newWithoutSuffix(TransactionContext tx, String suffix, int status) {
+		StringBuilder urisb = new StringBuilder();
+		urisb.append(tx.request.getRequestURI().substring(0, tx.request.getRequestURI().length() - suffix.length()));
+		if (tx.request.getQueryString() != null) {
+			urisb.append('?');
+			urisb.append(tx.request.getQueryString());
+		}
+
+		System.err.println("# redirecting to: " + urisb.toString());
+		return new RedirectionRouter(urisb.toString(), status);
+	}
+
 	@Override
 	public Object route(TransactionContext context, Route route, String pathSuffix) {
         return new RedirectView(uri, status);

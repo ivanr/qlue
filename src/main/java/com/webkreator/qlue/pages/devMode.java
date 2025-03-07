@@ -18,7 +18,6 @@ package com.webkreator.qlue.pages;
 
 import com.webkreator.qlue.Error;
 import com.webkreator.qlue.*;
-import com.webkreator.qlue.annotations.QlueMapping;
 import com.webkreator.qlue.annotations.QlueParameter;
 import com.webkreator.qlue.exceptions.ForbiddenException;
 import com.webkreator.qlue.exceptions.QlueException;
@@ -30,7 +29,6 @@ import com.webkreator.qlue.view.View;
 import java.io.PrintWriter;
 import java.util.List;
 
-@QlueMapping(suffix = ".html")
 public class devMode extends Page {
 
     @QlueParameter(mandatory = true, state = Page.STATE_POST)

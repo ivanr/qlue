@@ -19,13 +19,11 @@ package com.webkreator.qlue.router;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
-import com.webkreator.qlue.annotations.QlueMapping;
 import com.webkreator.qlue.exceptions.QlueException;
 import com.webkreator.qlue.view.ClasspathView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.net.URL;
 import java.util.StringTokenizer;
 
@@ -87,14 +85,120 @@ public class PackageRouter implements Router {
      * @return page instance, or null if page cannot be found
      */
     public Object resolveUri(TransactionContext tx, Route route, String path) {
-        @SuppressWarnings("rawtypes")
-        Class pageClass;
 
-        if (path.indexOf("/../") != -1) {
+        // Refuse directory backreferences.
+        if (path.indexOf("..") != -1) { // not exactly a directory backreference, but it will do
             throw new QlueException("Directory backreferences not allowed in path")
                     .setSecurityFlag();
         }
 
+        String classpath = convertUrlPathToClasspath(path); // converts dashes as well
+        String normalizedPath = convertDashes(path);
+        String filepath = rootPackageAsPath + normalizedPath;
+
+        // Try the class exactly as requested.
+
+        if (log.isDebugEnabled()) {
+            log.debug("Trying class: " + classpath);
+        }
+
+        Class clazz = QlueApplication.classForName(classpath);
+        if (isPage(clazz)) {
+            if (path.endsWith("/" + manager.getIndex())) {
+                // Redirect to canonical.
+                return RedirectionRouter.newWithoutSuffix(tx, manager.getIndex(), 307).
+                        route(tx, route, path);
+            } else {
+                return makePage(clazz);
+            }
+        }
+
+        // Try to see if it's a direct view.
+
+        String viewPath = filepath + ".vmx";
+
+        if (log.isDebugEnabled()) {
+            log.debug("Trying direct view: " + viewPath);
+        }
+
+        if (getClass().getClassLoader().getResource(viewPath) != null) {
+            if (path.endsWith("/" + manager.getIndex())) {
+                // Redirect to canonical.
+                return RedirectionRouter.newWithoutSuffix(tx, manager.getIndex(), 307)
+                        .route(tx, route, path);
+            } else {
+                return new ClasspathView(viewPath);
+            }
+        }
+
+        // Try to see if it's a folder.
+
+        classpath = classpath + "." + manager.getIndex();
+        filepath = filepath + "/" + manager.getIndex();
+
+        if (log.isDebugEnabled()) {
+            log.debug("Trying class: " + classpath);
+        }
+
+        clazz = QlueApplication.classForName(classpath);
+        if (isPage(clazz)) {
+            if ((path.length() == 0) || (path.endsWith("/"))) {
+                return makePage(clazz);
+            } else {
+                // Redirect to canonical.
+                return RedirectionRouter.newAddTrailingSlash(tx, 307)
+                        .route(tx, route, path);
+            }
+        }
+
+        // Try to see if it's a direct folder view.
+
+        viewPath = filepath + ".vmx";
+
+        if (log.isDebugEnabled()) {
+            log.debug("Trying direct view: " + viewPath);
+        }
+
+        if (getClass().getClassLoader().getResource(viewPath) != null) {
+            if ((path.length() == 0) || (path.endsWith("/"))) {
+                return new ClasspathView(viewPath);
+            } else {
+                // Redirect to canonical.
+                return RedirectionRouter.newAddTrailingSlash(tx, 307)
+                        .route(tx, route, path);
+            }
+        }
+
+        // Not found.
+        return null;
+    }
+
+    private String convertDashes(String path) {
+        if (manager.isConvertDashesToUnderscores()) {
+            return path.replaceAll("-", "_");
+        } else {
+            return path;
+        }
+    }
+
+    private boolean isPage(Class pageClass) {
+        if ((pageClass != null) && Page.class.isAssignableFrom(pageClass)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private Page makePage(Class pageClass) {
+        try {
+            return (Page) pageClass.newInstance();
+        } catch (Exception e) {
+            log.error("Failed to instantiate class: ", e);
+            return null;
+        }
+    }
+
+    private String convertUrlPathToClasspath(String path) {
         // Start building class name.
         StringBuilder sb = new StringBuilder();
         String urlSuffix = null;
@@ -135,184 +239,11 @@ public class PackageRouter implements Router {
                 lastToken = lastToken.replace('-', '_');
             }
 
-            // If there's a dot in the last segment, we consider that it
-            // marks the beginning of a file suffix.
-            int i = lastToken.indexOf('.');
-            if (i != -1) {
-                urlSuffix = lastToken.substring(i);
-                lastToken = lastToken.substring(0, i);
-                log.debug("Detected suffix: " + urlSuffix);
-            }
-
             sb.append(".");
             sb.append(lastToken);
         }
 
-        String className = sb.toString();
-
-        log.debug("Trying class: " + className);
-
-        // Look for a class with this name
-        pageClass = QlueApplication.classForName(className);
-        if (pageClass == null) {
-            // Try a direct view.
-            String classpathFilename;
-            String classpathBase;
-
-            // Determine if we need to strip the suffix from the path or leave everything as is.
-            String suffix = manager.getSuffix();
-            if ((suffix != null) && (path.endsWith(suffix))) {
-                classpathBase = rootPackage + path.substring(0, path.length() - suffix.length());
-            } else {
-                classpathBase = rootPackageAsPath + path;
-            }
-
-            classpathFilename = classpathBase + ".vmx";
-
-            if (log.isDebugEnabled()) {
-                log.debug("Trying direct view: " + classpathFilename);
-            }
-
-            if (getClass().getClassLoader().getResource(classpathFilename) != null) {
-                return new ClasspathView(classpathFilename);
-            }
-
-            // Try the priority path. This is a little inefficient, but this
-            // feature is intended for use in development only.
-            String priorityPath = manager.getPriorityTemplatePath();
-            if (priorityPath != null) {
-                // We just need to check if the file exists on the alternative
-                // patch. If it does, the Velocity engine should be able to find it.
-                // So our goal here basically is not to signal "file not found".
-                File f = new File(priorityPath, classpathFilename);
-                if (f.exists()) {
-                    return new ClasspathView(classpathFilename);
-                }
-            }
-
-            // Check for directory access by looking for an index page.
-            pageClass = QlueApplication.classForName(className + "." + manager.getIndex());
-
-            if (log.isDebugEnabled()) {
-                log.debug("Trying class: " + className + "." + manager.getIndex());
-            }
-
-            if (pageClass == null) {
-                // Before we give up, another try with the priority path,
-                // this time looking for "index.vmx".
-                if (priorityPath != null) {
-                    classpathFilename = classpathBase + "/index.vmx";
-                    File f = new File(priorityPath, classpathFilename);
-                    if (f.exists()) {
-                        // If there's no terminating slash in directory access, issue a redirection.
-                        if (manager.isRedirectFolderWithoutTrailingSlash()
-                                && route.isRedirectsWithoutTrailingSlash()
-                                && !tx.getRequestUri().endsWith("/")) {
-                            return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, route, path);
-                        }
-
-                        return new ClasspathView(classpathFilename);
-                    }
-                }
-
-                return null;
-            }
-
-            if (log.isDebugEnabled()) {
-                log.debug("Found index page");
-            }
-
-            // If there's no terminating slash in directory access, issue a redirection.
-            if (manager.isRedirectFolderWithoutTrailingSlash()
-                    && route.isRedirectsWithoutTrailingSlash()
-                    && !tx.getRequestUri().endsWith("/")) {
-                return RedirectionRouter.newAddTrailingSlash(tx, 307).route(tx, route, path);
-            }
-        }
-
-        // Check that class is instance of Page
-        if (!Page.class.isAssignableFrom(pageClass)) {
-            throw new RuntimeException("Class " + className + " is not a subclass of Page");
-        }
-
-        if (!checkSuffixMatch(pageClass, urlSuffix)) {
-            return null;
-        }
-
-        if (manager.isRedirectFolderWithoutTrailingSlash() && route.isRedirectsWithoutTrailingSlash()) {
-            if ((lastToken != null) && (lastToken.equals(manager.getIndex()))) {
-                String newPath = null;
-                if (urlSuffix != null) {
-                    newPath = path.substring(0, path.length() - lastToken.length() - urlSuffix.length());
-                } else {
-                    newPath = path.substring(0, path.length() - lastToken.length());
-                }
-
-                if (tx.request.getQueryString() != null) {
-                    newPath = newPath + "?" + tx.request.getQueryString();
-                }
-
-                if (log.isDebugEnabled()) {
-                    log.debug("Redirecting to " + newPath);
-                }
-
-                return new RedirectionRouter(newPath, 307).route(tx, route, path);
-            }
-        }
-
-        try {
-            if (log.isDebugEnabled()) {
-                log.debug("Creating new instance of " + pageClass);
-            }
-
-            return pageClass.newInstance();
-        } catch (Exception e) {
-            log.error("Error creating page instance: " + e.getMessage(), e);
-            return null;
-        }
-    }
-
-    protected boolean checkSuffixMatch(Class pageClass, String urlSuffix) {
-        String pageSuffix = manager.getSuffix();
-        QlueMapping mapping = (QlueMapping) pageClass.getAnnotation(QlueMapping.class);
-        if (mapping != null) {
-            if (!mapping.suffix().equals("inheritAppSuffix")) {
-                pageSuffix = mapping.suffix();
-            }
-        }
-
-        if (log.isDebugEnabled()) {
-            log.debug("Suffix check: URL: " + urlSuffix + "; page: " + pageSuffix);
-        }
-
-        if (urlSuffix != null) {
-            // URL suffix present.
-
-            if (pageSuffix == null) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Suffix mismatch: URI has suffix but page doesn't");
-                }
-                return false;
-            }
-
-            if (!pageSuffix.equals(urlSuffix)) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Suffix mismatch: URI: " + urlSuffix + "; page: " + pageSuffix);
-                }
-                return false;
-            }
-        } else {
-            // URL suffix not present.
-
-            if (pageSuffix != null) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Suffix mismatch: page has suffix but URI doesn't");
-                }
-                return false;
-            }
-        }
-
-        return true;
+        return sb.toString();
     }
 
     public static String addPrefixToName(String prefix, String name) {
