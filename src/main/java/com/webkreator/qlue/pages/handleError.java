@@ -44,6 +44,7 @@ public class handleError extends Page {
 
         Throwable t = (Throwable) context.request.getAttribute("javax.servlet.error.exception");
         if (t != null) {
+            t.printStackTrace(System.err);
             if (t instanceof BadRequestException) {
                 return _handleValidationException((BadRequestException) t);
             } else if (t instanceof PersistentPageNotFoundException) {
