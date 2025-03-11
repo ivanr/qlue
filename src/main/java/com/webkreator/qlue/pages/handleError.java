@@ -24,6 +24,8 @@ import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.View;
 import org.apache.velocity.exception.ParseErrorException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -35,6 +37,8 @@ import java.io.StringWriter;
  */
 public class handleError extends Page {
 
+    protected static final Logger qlueLog = LoggerFactory.getLogger(Page.class);
+
     @Override
     public View service() throws Exception {
         Integer statusCode = (Integer) context.request.getAttribute("javax.servlet.error.status_code");
@@ -44,7 +48,7 @@ public class handleError extends Page {
 
         Throwable t = (Throwable) context.request.getAttribute("javax.servlet.error.exception");
         if (t != null) {
-            t.printStackTrace(System.err);
+            qlueLog.error("Got throwable", t);
             if (t instanceof BadRequestException) {
                 return _handleValidationException((BadRequestException) t);
             } else if (t instanceof PersistentPageNotFoundException) {
