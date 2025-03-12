@@ -37,8 +37,6 @@ import java.io.StringWriter;
  */
 public class handleError extends Page {
 
-    protected static final Logger qlueLog = LoggerFactory.getLogger(Page.class);
-
     @Override
     public View service() throws Exception {
         Integer statusCode = (Integer) context.request.getAttribute("javax.servlet.error.status_code");
@@ -48,7 +46,6 @@ public class handleError extends Page {
 
         Throwable t = (Throwable) context.request.getAttribute("javax.servlet.error.exception");
         if (t != null) {
-            qlueLog.error("Got throwable", t);
             if (t instanceof BadRequestException) {
                 return _handleValidationException((BadRequestException) t);
             } else if (t instanceof PersistentPageNotFoundException) {

@@ -106,8 +106,7 @@ public class PackageRouter implements Router {
             log.debug("Trying class: " + classpath);
         }
 
-        //Class clazz = QlueApplication.classForName(classpath);
-        Class clazz = classForName(classpath);
+        Class clazz = QlueApplication.classForName(classpath);
         if (isPage(clazz)) {
             if (path.endsWith("/" + manager.getIndex())) {
                 // Redirect to canonical.
@@ -145,8 +144,7 @@ public class PackageRouter implements Router {
             log.debug("Trying class: " + classpath);
         }
 
-        //clazz = QlueApplication.classForName(classpath);
-        clazz = classForName(classpath);
+        clazz = QlueApplication.classForName(classpath);
         if (isPage(clazz)) {
             if ((path.length() == 0) || (path.endsWith("/"))) {
                 return makePage(clazz);
@@ -276,16 +274,4 @@ public class PackageRouter implements Router {
         }
     }
 
-    public Class classForName(String name) {
-        try {
-            return Class.forName(name, true /* initialize */, this.getClass().getClassLoader());
-        } catch (ClassNotFoundException e) {
-            return null;
-        } catch (NoClassDefFoundError e) {
-            // NoClassDefFoundError is thrown when there is a class
-            // that matches the name when ignoring case differences.
-            // We do not care about that.
-            return null;
-        }
-    }
 }
