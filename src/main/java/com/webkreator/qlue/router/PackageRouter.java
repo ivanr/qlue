@@ -125,6 +125,9 @@ public class PackageRouter implements Router {
             log.debug("Trying direct view: " + viewPath);
         }
 
+        // IMPORTANT For the below to work when working with a shadow JAR,
+        //           the path must not contain consecutive slashes.
+
         if (getClass().getClassLoader().getResource(viewPath) != null) {
             if (path.endsWith("/" + manager.getIndex())) {
                 // Redirect to canonical.
@@ -138,7 +141,7 @@ public class PackageRouter implements Router {
         // Try to see if it's a folder.
 
         classpath = classpath + "." + manager.getIndex();
-        filepath = filepath + "/" + manager.getIndex();
+        filepath = filepath + manager.getIndex();
 
         if (log.isDebugEnabled()) {
             log.debug("Trying class: " + classpath);
