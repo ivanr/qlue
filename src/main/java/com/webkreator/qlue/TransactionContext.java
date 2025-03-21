@@ -75,6 +75,12 @@ public class TransactionContext implements Serializable {
 
     private boolean frontendEncrypted;
 
+    // X-Forwarded-Host, per https://httpd.apache.org/docs/2.4/mod/mod_proxy.html#x-headers
+    private String forwardedHost;
+
+    // X-Forwarded-Server, per https://httpd.apache.org/docs/2.4/mod/mod_proxy.html#x-headers
+    private String forwardedServer;
+
     private Map<String, String> responseHeaders = new HashMap<>();
 
     private Properties properties = new Properties();
@@ -98,6 +104,7 @@ public class TransactionContext implements Serializable {
         initRequestUri();
         handleFrontendEncryption();
         handleForwardedFor();
+        handleOtherProxyHeaders();
         parseContentType();
 
         // Expose transaction information to the logging subsystem.
@@ -162,6 +169,15 @@ public class TransactionContext implements Serializable {
             default:
                 throw new RuntimeException("Unknown value for the frontend encryption check: " + app.getFrontendEncryptionCheck());
         }
+    }
+
+    private void handleOtherProxyHeaders() {
+        if (!app.isTrustedProxyRequest(this)) {
+            return;
+        }
+
+        this.forwardedServer = request.getHeader("X-Forwarded-Server");
+        this.forwardedHost = request.getHeader("X-Forwarded-Host");
     }
 
     private void handleForwardedFor() {
@@ -256,6 +272,14 @@ public class TransactionContext implements Serializable {
         }
 
         return request.getRemoteAddr();
+    }
+
+    public String getForwardedHost() {
+        return forwardedHost;
+    }
+
+    public String getForwardedServer() {
+        return forwardedHost;
     }
 
     /**
