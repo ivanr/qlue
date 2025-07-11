@@ -19,7 +19,7 @@ package com.webkreator.qlue.router;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
-import com.webkreator.qlue.exceptions.QlueException;
+import com.webkreator.qlue.exceptions.BadRequestException;
 import com.webkreator.qlue.view.ClasspathView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,7 +88,7 @@ public class PackageRouter implements Router {
 
         // Refuse directory backreferences.
         if (path.indexOf("..") != -1) { // not exactly a directory backreference, but it will do
-            throw new QlueException("Directory backreferences not allowed in path")
+            throw new BadRequestException("Directory backreferences not allowed in path")
                     .setSecurityFlag();
         }
 

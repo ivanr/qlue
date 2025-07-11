@@ -17,6 +17,7 @@
 package com.webkreator.qlue.util;
 
 import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.exceptions.BadRequestException;
 import com.webkreator.qlue.view.View;
 
 import java.io.IOException;
@@ -43,7 +44,7 @@ public class WebUtil {
             URI u = new URI("http://localhost/" + uri);
             uri = u.normalize().getPath();
         } catch (URISyntaxException e) {
-            throw new RuntimeException("Invalid uri", e);
+            throw new BadRequestException("Invalid URI: " + uri);
         }
 
         // Remove consecutive forward slash characters

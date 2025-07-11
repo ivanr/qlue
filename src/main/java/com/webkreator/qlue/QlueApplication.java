@@ -656,10 +656,12 @@ public class QlueApplication {
                 Integer statusCode = determineStatusCodeFromException(e);
                 if ((statusCode != null) && (statusCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR)) {
                     processUnhandledApplicationException(context, page, e);
+                } else {
+                    log.warn("Qlue: Unhandled exception", e);
                 }
 
-                // Send the correct status code to the container, assuming it's not to
-                // late and a response hasn't been sent already.
+                // Send the correct status code to the container, provided it's
+                // not too late and a response hasn't been sent already.
                 if ((!responded) && (statusCode != null) && !context.getResponse().isCommitted()) {
                     setRootCausePage(page);
                     context.getResponse().sendError(statusCode);
