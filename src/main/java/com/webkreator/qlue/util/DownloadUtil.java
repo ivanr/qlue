@@ -108,11 +108,15 @@ public class DownloadUtil {
             }
 
             // Check If-Modified-Since to determine if we can respond with 304
-            long ifModifiedSince = context.request.getDateHeader("If-Modified-Since");
-            if ((ifNoneMatch == null) && ((ifModifiedSince != -1) && (ifModifiedSince + 1000 > lastModified))) {
-                context.response.setHeader("ETag", eTag);
-                context.response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
-                return;
+            try {
+                long ifModifiedSince = context.request.getDateHeader("If-Modified-Since");
+                if ((ifNoneMatch == null) && ((ifModifiedSince != -1) && (ifModifiedSince + 1000 > lastModified))) {
+                    context.response.setHeader("ETag", eTag);
+                    context.response.sendError(HttpServletResponse.SC_NOT_MODIFIED);
+                    return;
+                }
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid If-Modified-Since header.
             }
 
             // Set size
