@@ -398,8 +398,7 @@ public class QlueApplication {
      * This method is the main entry point for request processing.
      */
     protected void service(HttpServlet servlet, HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException
-    {
+            throws ServletException, IOException {
         // Remember when processing began.
         long startTime = System.currentTimeMillis();
 
@@ -657,7 +656,10 @@ public class QlueApplication {
                 if ((statusCode != null) && (statusCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR)) {
                     processUnhandledApplicationException(context, page, e);
                 } else {
-                    log.warn("Qlue: Unhandled exception", e);
+                    // It's expected to see here subclasses of QlueException.
+                    if (!(e instanceof QlueException)) {
+                        log.warn("Qlue: Unhandled exception", e);
+                    }
                 }
 
                 // Send the correct status code to the container, provided it's
@@ -1123,8 +1125,7 @@ public class QlueApplication {
                     && (page.context.isDelete()
                     || page.context.isPatch()
                     || page.context.isPost()
-                    || page.context.isPut()))
-            {
+                    || page.context.isPut())) {
                 bindBodyParameter(commandObject, f, page);
                 continue;
             }
@@ -1154,8 +1155,7 @@ public class QlueApplication {
                     } else {
                         if (qp.source().equals(ParamSource.GET_POST)
                                 || (qp.source().equals(ParamSource.GET) && page.context.isGetOrHead())
-                                || (qp.source().equals(ParamSource.POST) && page.context.isPost()))
-                        {
+                                || (qp.source().equals(ParamSource.POST) && page.context.isPost())) {
                             if (f.getType().isArray()) {
                                 bindArrayParameter(commandObject, f, page);
                             } else {
