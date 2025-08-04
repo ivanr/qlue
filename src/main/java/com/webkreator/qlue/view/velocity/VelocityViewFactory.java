@@ -92,14 +92,14 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
         if (qlueApp.getProperty("qlue.velocity.cache") != null) {
             properties.setProperty("resource.loader.class.cache", qlueApp.getProperty("qlue.velocity.cache"));
-            properties.setProperty("resource.loader.class.modificationCheckInterval", "0");
+            properties.setProperty("resource.loader.class.modification_check_interval", "0");
         } else {
             properties.setProperty("resource.loader.class.cache", "false");
         }
 
         if (qlueApp.getProperty("qlue.velocity.modificationCheckInterval") != null) {
             properties.setProperty(
-                    "class.resource.loader.modificationCheckInterval",
+                    "class.resource.loader.modification_check_interval",
                     qlueApp.getProperty("qlue.velocity.modificationCheckInterval"));
         }
 
