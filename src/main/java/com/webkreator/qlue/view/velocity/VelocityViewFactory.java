@@ -99,7 +99,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
         if (qlueApp.getProperty("qlue.velocity.modificationCheckInterval") != null) {
             properties.setProperty(
-                    "class.resource.loader.modification_check_interval",
+                    "resource.loader.class.modification_check_interval",
                     qlueApp.getProperty("qlue.velocity.modificationCheckInterval"));
         }
 
