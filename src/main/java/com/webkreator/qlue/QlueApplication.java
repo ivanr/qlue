@@ -655,11 +655,6 @@ public class QlueApplication {
                 Integer statusCode = determineStatusCodeFromException(e);
                 if ((statusCode != null) && (statusCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR)) {
                     processUnhandledApplicationException(context, page, e);
-                } else {
-                    // It's expected to see here subclasses of QlueException.
-                    if (!(e instanceof QlueException)) {
-                        log.warn("Qlue: Unhandled exception", e);
-                    }
                 }
 
                 // Send the correct status code to the container, provided it's

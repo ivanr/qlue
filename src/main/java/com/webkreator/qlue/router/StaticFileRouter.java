@@ -17,7 +17,7 @@
 package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.TransactionContext;
-import com.webkreator.qlue.exceptions.QlueException;
+import com.webkreator.qlue.exceptions.BadRequestException;
 import com.webkreator.qlue.view.DownloadView;
 import com.webkreator.qlue.view.StatusCodeView;
 import org.slf4j.Logger;
@@ -44,12 +44,12 @@ public class StaticFileRouter implements Router {
     @Override
     public Object route(TransactionContext context, Route route, String pathSuffix) {
         if (pathSuffix.contains("/../")) {
-            throw new QlueException("StaticFileRouter: Invalid path: " + pathSuffix)
+            throw new BadRequestException("StaticFileRouter: Invalid path: " + pathSuffix)
                     .setSecurityFlag();
         }
 
         if (pathSuffix.toLowerCase().contains("web-inf")) {
-            throw new QlueException("StaticFileRouter: Invalid path: " + pathSuffix)
+            throw new BadRequestException("StaticFileRouter: Invalid path: " + pathSuffix)
                     .setSecurityFlag();
         }
 
