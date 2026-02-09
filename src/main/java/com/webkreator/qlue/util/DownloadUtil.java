@@ -130,7 +130,7 @@ public class DownloadUtil {
             }
 
             context.response.setContentLength((int) length);
-            log.info("File length: " + length);
+            log.info("File length (x2): " + length);
 
             context.response.setDateHeader("Last-Modified", lastModified);
             context.response.setHeader("ETag", eTag);
@@ -138,18 +138,19 @@ public class DownloadUtil {
             // Send data
             os = context.response.getOutputStream();
             bis = new BufferedInputStream(new FileInputStream(f));
-            byte b[] = new byte[1024];
+            byte b[] = new byte[8192];
 
-            int bytesRead = 0;
-            while (bis.read(b) >= 0) {
-                bytesRead += b.length;
-                log.info("Bytes read: " + bytesRead);
-                if (b.length > 0) {
-                    os.write(b);
+            int totalBytesRead = 0;
+            int bytesRead;
+            while ((bytesRead = bis.read(b)) >= 0) {
+                totalBytesRead += bytesRead;
+                log.info("Bytes read: " + totalBytesRead);
+                if (bytesRead > 0) {
+                    os.write(b, 0, bytesRead);
                 }
             }
 
-            log.info("Total bytes: " + bytesRead);
+            log.info("Total bytes: " + totalBytesRead);
         } catch (FileNotFoundException e) {
             throw new NotFoundException();
         } catch (Exception e) {
