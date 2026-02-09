@@ -19,6 +19,8 @@ package com.webkreator.qlue.util;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.exceptions.NotFoundException;
 import com.webkreator.qlue.exceptions.QlueException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
@@ -32,6 +34,8 @@ import java.text.StringCharacterIterator;
  * an attachment.
  */
 public class DownloadUtil {
+
+    private static Logger log = LoggerFactory.getLogger(DownloadUtil.class);
 
     /**
      * Sends file in HTTP response.
@@ -126,6 +130,7 @@ public class DownloadUtil {
             }
 
             context.response.setContentLength((int) length);
+            log.info("File length: " + length);
 
             context.response.setDateHeader("Last-Modified", lastModified);
             context.response.setHeader("ETag", eTag);
@@ -135,11 +140,20 @@ public class DownloadUtil {
             bis = new BufferedInputStream(new FileInputStream(f));
             byte b[] = new byte[1024];
 
-            while (bis.read(b) > 0) {
-                os.write(b);
+            int bytesRead = 0;
+            while (bis.read(b) >= 0) {
+                bytesRead += b.length;
+                log.info("Bytes read: " + bytesRead);
+                if (b.length > 0) {
+                    os.write(b);
+                }
             }
+
+            log.info("Total bytes: " + bytesRead);
         } catch (FileNotFoundException e) {
             throw new NotFoundException();
+        } catch (Exception e) {
+            log.error("Exception while downloading file", e);
         } finally {
             if (os != null) {
                 os.close();
