@@ -633,10 +633,14 @@ public class QlueApplication {
                 try {
                     View view = null;
 
-                    if (e instanceof BadRequestException) {
-                        view = page.handleParameterValidationFailure();
-                    } else {
-                        view = page.handleException(e);
+                    try {
+                        if (e instanceof BadRequestException) {
+                            view = page.handleParameterValidationFailure();
+                        } else {
+                            view = page.handleException(e);
+                        }
+                    } catch (Exception nested) {
+                        // Ignore nested exception during exception handling.
                     }
 
                     if (view != null) {
@@ -644,7 +648,7 @@ public class QlueApplication {
                         responded = true;
                     }
                 } catch (Exception nested) {
-                    log.warn("Exception during page exception handling", nested);
+                    // Ignore nested exception during exception handling.
                 }
             }
 
