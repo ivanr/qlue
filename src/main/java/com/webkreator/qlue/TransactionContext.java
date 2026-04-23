@@ -45,6 +45,8 @@ public class TransactionContext implements Serializable {
 
     public String txId;
 
+    public String userId;
+
     public String nonce;
 
     public ServletConfig servletConfig;
@@ -585,7 +587,7 @@ public class TransactionContext implements Serializable {
 
         MDC.put("sessionId", httpSession.getId());
 
-        properties.setProperty("sessionId", httpSession.getId());
+        properties.setProperty("_qlue_sessionId", httpSession.getId());
 
         QlueSession qlueSession = (QlueSession) httpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
         if (qlueSession == null) {
@@ -594,5 +596,18 @@ public class TransactionContext implements Serializable {
         }
 
         return qlueSession;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+        properties.setProperty("_qlue_userId", userId);
+    }
+
+    public String getUserId() {
+        return this.userId;
+    }
+
+    public void clearUserId() {
+        this.setUserId(null);
     }
 }
