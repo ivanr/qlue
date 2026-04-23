@@ -37,6 +37,8 @@ public class QlueSession implements Serializable {
 
 	private Integer developmentMode = null;
 
+	private String userId = null;
+
 	/**
 	 * Retrieve session development mode.
 	 */
@@ -69,5 +71,13 @@ public class QlueSession implements Serializable {
 	
 	public BearerToken getSessionSecret() {
 		return sessionSecret;
+	}
+
+	public void setUserId(String userId) {
+		this.userId = userId;
+	}
+
+	public String getUserId() {
+		return this.userId;
 	}
 }

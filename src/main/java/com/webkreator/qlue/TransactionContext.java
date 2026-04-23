@@ -104,6 +104,7 @@ public class TransactionContext implements Serializable {
         generateNonce();
 
         startSession();
+        setUserId(getQlueSession().getUserId());
 
         initRequestUri();
         handleFrontendEncryption();
@@ -606,7 +607,12 @@ public class TransactionContext implements Serializable {
 
     public void setUserId(String userId) {
         this.userId = userId;
-        properties.setProperty("_qlue_userId", userId);
+        getQlueSession().setUserId(userId);
+        if (userId != null) {
+            this.properties.setProperty("_qlue_userId", userId);
+        } else {
+            this.properties.remove("_qlue_userId");
+        }
     }
 
     public String getUserId() {
