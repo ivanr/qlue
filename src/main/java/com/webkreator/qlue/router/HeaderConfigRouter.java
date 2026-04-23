@@ -56,7 +56,7 @@ public class HeaderConfigRouter implements Router {
         if (containsPageProperties == false) {
             context.setResponseHeader(name, value);
         } else {
-            context.setResponseHeader(name, VariableExpander.expand(value, context.getProperties()));
+            context.setResponseHeader(name, VariableExpander.expand(value, context.getProperties(), true));
         }
 
         // Configuration routes can change the context but typically

@@ -74,13 +74,11 @@ public class QlueRouteManager implements RouteManager {
                     continue;
                 }
 
-                line = expandProperties(line);
+                line = VariableExpander.expand(line, app.getProperties(), false);
 
                 add(RouteFactory.create(this, line));
             }
         }
-
-        //tuneRoutesForMethodNotFound();
     }
 
     /**
@@ -117,14 +115,6 @@ public class QlueRouteManager implements RouteManager {
         }
 
         return null;
-    }
-
-    /**
-     * Replace variables (in the format "${variableName}") with
-     * their values from the Qlue properties file.
-     */
-    String expandProperties(String input) {
-        return VariableExpander.expand(input, app.getProperties());
     }
 
     public Properties getProperties() {

@@ -1890,7 +1890,7 @@ public class QlueApplication {
      * Retrieve a single named property as text.
      */
     public String getProperty(String key) {
-        return VariableExpander.expand(properties.getProperty(key), properties);
+        return VariableExpander.expand(properties.getProperty(key), properties, true);
     }
 
     /**

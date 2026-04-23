@@ -10,12 +10,12 @@ public class VariableExpander {
 	
 	private static Pattern propertyPattern = Pattern.compile("([^$]*)\\$\\{([^}]*)\\}(.+)?");
 	
-	public static String expand(String input, Properties properties) {
-		Set<String> expandedNames = new HashSet<String>();
-		return expand(input, properties, expandedNames);
+	public static String expand(String input, Properties properties, boolean removeNotFound) {
+		Set<String> expandedNames = new HashSet<>();
+		return expand(input, properties, removeNotFound, expandedNames);
 	}
 	
-	private static String expand(String input, Properties properties, Set<String> expandedNames) {
+	private static String expand(String input, Properties properties, boolean removeNotFound, Set<String> expandedNames) {
 		if (input == null) {
 			return null;
 		}
@@ -35,11 +35,13 @@ public class VariableExpander {
 			if (properties.getProperty(propertyName) != null) {
 				Set<String> nextExpandedNames = new HashSet<String>(expandedNames);
 				nextExpandedNames.add(propertyName);
-				sb.append(VariableExpander.expand(properties.getProperty(propertyName), properties, nextExpandedNames));
+				sb.append(VariableExpander.expand(properties.getProperty(propertyName), properties, removeNotFound, nextExpandedNames));
 			} else {
-				sb.append("${");
-				sb.append(propertyName);
-				sb.append("}");
+				if (!removeNotFound) {
+					sb.append("${");
+					sb.append(propertyName);
+					sb.append("}");
+				}
 			}
 			
 			haystack = m.group(3);					
