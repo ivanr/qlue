@@ -471,16 +471,7 @@ public abstract class Page implements Serializable {
      * Retrieve session associated with this page.
      */
     public QlueSession getQlueSession() {
-        /*
-        // This code used to determine who started the HTTP session.
-        try {
-            throw new RuntimeException();
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-        }
-        */
-
-        return app.getQlueSession(context.getRequest());
+        return context.getQlueSession();
     }
 
     public boolean allowDirectOutput() {

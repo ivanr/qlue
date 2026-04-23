@@ -576,4 +576,23 @@ public class TransactionContext implements Serializable {
             return false;
         }
     }
+
+    public QlueSession getQlueSession() {
+        HttpSession httpSession = request.getSession(true);
+        if (httpSession == null) {
+            throw new RuntimeException("Qlue: Unable to get HTTP session");
+        }
+
+        MDC.put("sessionId", httpSession.getId());
+
+        properties.setProperty("sessionId", httpSession.getId());
+
+        QlueSession qlueSession = (QlueSession) httpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
+        if (qlueSession == null) {
+            qlueSession = app.createNewSessionObject();
+            httpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
+        }
+
+        return qlueSession;
+    }
 }

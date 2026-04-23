@@ -1015,7 +1015,7 @@ public class QlueApplication {
         out.println("<b>Session</b>\n");
 
         if (page.context.isHttpSessionAvailable()) {
-            QlueSession qlueSession = page.getQlueSession();
+            QlueSession qlueSession = context.getQlueSession();
             if (qlueSession != null) {
                 qlueSession.writeDevelopmentInformation(out);
                 out.println("");
@@ -1609,26 +1609,6 @@ public class QlueApplication {
     }
 
     /**
-     * Returns the session object associated with the current HTTP session.
-     */
-    public QlueSession getQlueSession(HttpServletRequest request) {
-        HttpSession httpSession = request.getSession(true);
-        if (httpSession == null) {
-            throw new RuntimeException("Qlue: Unable to get HTTP session");
-        }
-
-        MDC.put("sessionId", httpSession.getId());
-
-        QlueSession qlueSession = (QlueSession) httpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
-        if (qlueSession == null) {
-            qlueSession = createNewSessionObject();
-            httpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
-        }
-
-        return qlueSession;
-    }
-
-    /**
      * Invalidates the existing session and creates a new one, preserving the
      * QlueSession object in the process. This method should be invoked
      * immediately after a user is authenticated to prevent session fixation
@@ -1842,7 +1822,7 @@ public class QlueApplication {
             return false;
         }
 
-        QlueSession qlueSession = getQlueSession(context.getRequest());
+        QlueSession qlueSession = context.getQlueSession();
         if (qlueSession == null) {
             return false;
         }
