@@ -20,6 +20,8 @@ import com.webkreator.qlue.util.BearerToken;
 
 import java.io.PrintWriter;
 import java.io.Serializable;
+import java.security.SecureRandom;
+import java.util.HexFormat;
 import java.util.Locale;
 
 /**
@@ -38,6 +40,19 @@ public class QlueSession implements Serializable {
 	private Integer developmentMode = null;
 
 	private String userId = null;
+
+	private String publicSessionId = makePublicSessionId();
+
+    private String makePublicSessionId() {
+		SecureRandom random = new SecureRandom();
+		byte[] bytes = new byte[16];
+		random.nextBytes(bytes);
+        return HexFormat.of().formatHex(bytes);
+    }
+
+	public String getPublicSessionId() {
+		return publicSessionId;
+	}
 
 	/**
 	 * Retrieve session development mode.

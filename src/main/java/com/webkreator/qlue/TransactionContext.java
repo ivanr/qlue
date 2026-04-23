@@ -92,8 +92,7 @@ public class TransactionContext implements Serializable {
      */
     public TransactionContext(QlueApplication app, ServletConfig servletConfig,
                               ServletContext servletContext, HttpServletRequest request,
-                              HttpServletResponse response) throws ServletException
-    {
+                              HttpServletResponse response) throws ServletException {
         this.app = app;
         this.servletConfig = servletConfig;
         this.servletContext = servletContext;
@@ -592,14 +591,15 @@ public class TransactionContext implements Serializable {
             throw new RuntimeException("Qlue: Unable to get HTTP session");
         }
 
-        MDC.put("sessionId", httpSession.getId());
-
-        properties.setProperty("_qlue_sessionId", httpSession.getId());
-
         QlueSession qlueSession = (QlueSession) httpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
         if (qlueSession == null) {
             qlueSession = app.createNewSessionObject();
             httpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
+        }
+
+        if (qlueSession.getPublicSessionId() != null) {
+            MDC.put("publicSessionId", qlueSession.getPublicSessionId());
+            properties.setProperty("_qlue_publicSessionId", qlueSession.getPublicSessionId());
         }
 
         return qlueSession;
