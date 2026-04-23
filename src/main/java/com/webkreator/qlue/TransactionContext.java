@@ -103,6 +103,8 @@ public class TransactionContext implements Serializable {
         generateTxId();
         generateNonce();
 
+        startSession();
+
         initRequestUri();
         handleFrontendEncryption();
         handleForwardedFor();
@@ -112,6 +114,10 @@ public class TransactionContext implements Serializable {
         // Expose transaction information to the logging subsystem.
         MDC.put("txId", getTxId());
         MDC.put("remoteAddr", getEffectiveRemoteAddr());
+    }
+
+    private void startSession() {
+        getQlueSession();
     }
 
     public Properties getProperties() {
