@@ -177,7 +177,9 @@ public abstract class VelocityViewFactory implements ViewFactory {
             model.put("_ctx", context);
             model.put("_req", context.request);
             model.put("_res", context.response);
-            model.put("_nonce", context.getNonce());
+            model.put("_qlue_nonce", context.getNonce());
+            model.put("_qlue_publicSessionId", context.getProperties().getProperty("_qlue_publicSessionId"));
+            model.put("_qlue_userId", context.getUserId());
 
             QlueSession qlueSession = page.getQlueSession();
             if (qlueSession != null) {
