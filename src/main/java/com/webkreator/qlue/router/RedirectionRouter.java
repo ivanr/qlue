@@ -64,7 +64,6 @@ public class RedirectionRouter implements Router {
 			urisb.append(tx.request.getQueryString());
 		}
 
-		System.err.println("# redirecting to: " + urisb.toString());
 		return new RedirectionRouter(urisb.toString(), status);
 	}
 
