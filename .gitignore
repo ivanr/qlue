@@ -10,3 +10,10 @@ output
 *~
 .gradle
 *.iml
+
+# Eclipse / JDT.LS (jdtls-lsp) metadata
+.settings/
+.project
+.classpath
+.factorypath
+/bin/
