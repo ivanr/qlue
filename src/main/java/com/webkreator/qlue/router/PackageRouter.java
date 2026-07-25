@@ -108,7 +108,7 @@ public class PackageRouter implements Router {
 
         Class clazz = QlueApplication.classForName(classpath);
         if (isPage(clazz)) {
-            if (path.endsWith("/" + manager.getIndex())) {
+            if (path.endsWith("/" + manager.getIndex()) || path.equals(manager.getIndex())) {
                 // Redirect to canonical.
                 return RedirectionRouter.newWithoutSuffix(tx, manager.getIndex(), 307).
                         route(tx, route, path);
@@ -129,7 +129,7 @@ public class PackageRouter implements Router {
         //           the path must not contain consecutive slashes.
 
         if (getClass().getClassLoader().getResource(viewPath) != null) {
-            if (path.endsWith("/" + manager.getIndex())) {
+            if (path.endsWith("/" + manager.getIndex()) || path.equals(manager.getIndex())) {
                 // Redirect to canonical.
                 return RedirectionRouter.newWithoutSuffix(tx, manager.getIndex(), 307)
                         .route(tx, route, path);

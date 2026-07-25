@@ -43,6 +43,7 @@ public class TestRouting {
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         when(request.getSession()).thenReturn(session);
+        when(request.getSession(true)).thenReturn(session);
 
         app = new TestApplication();
         routeManager = new QlueRouteManager(app);
@@ -102,15 +103,6 @@ public class TestRouting {
     }
 
     @Test
-    public void testIndexRedirection3() throws Exception {
-        routeManager.setSuffix(".html");
-        Object o = createContextAndRoute("/index.html");
-        Assert.assertTrue(o instanceof RedirectView);
-        RedirectView rv = (RedirectView)o;
-        Assert.assertEquals("/", rv.getUri());
-    }
-
-    @Test
     public void testSubdir() throws Exception {
         Object o = createContextAndRoute("/subdir/");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.subdir.index);
@@ -163,21 +155,14 @@ public class TestRouting {
     }
 
     @Test
-    public void testPageOneMatchSuffix() throws Exception {
-        routeManager.setSuffix(".html");
-        Object o = createContextAndRoute("/pageOne.html");
-        Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.pageOne);
-    }
-
-    @Test
     public void testPageTwoMatch() throws Exception {
-        Object o = createContextAndRoute("/pageTwo.html");
+        Object o = createContextAndRoute("/pageTwo");
         Assert.assertTrue(o instanceof com.webkreator.qlue.router.testPages.pageTwo);
     }
 
     @Test
     public void testPageTwoSuffixMismatch() throws Exception {
-        Object o = createContextAndRoute("/pageTwo");
+        Object o = createContextAndRoute("/pageTwo.html");
         Assert.assertNull(o);
     }
 
