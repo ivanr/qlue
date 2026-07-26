@@ -2180,22 +2180,23 @@ public final class CanoeCorpus {
                 .payloads(Payloads.family("META_REFRESH"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F3")
-                .note("Re-verdicted by R5+R7, from KNOWN_VULNERABLE. A forced top-level navigation"
-                        + " to an attacker origin, needing no click and no script, reached through"
-                        + " an attribute Canoe had no branch for at all - the second consequence of"
-                        + " F7's copy-paste, with F3's impact. R7 leaves 'content' off the URL list"
-                        + " deliberately: it carries a URL on exactly one element and"
-                        + " attribute-value combination, <meta http-equiv=refresh>. R8 now tracks the"
-                        + " tag name, but R10 has not yet used it to tell that combination from <meta"
-                        + " name=description content=...>, so 'content' stays suppressed. Routing"
-                        + " every content attribute to url() would percent-encode ordinary prose in"
-                        + " every meta description on the page; suppressing is correct and fail-safe"
-                        + " until R10 does the sibling-attribute check. Reviewed against the sink: the"
-                        + " attribute renders empty, so there is no refresh target for the browser"
-                        + " to navigate to - the template's own meta element remains and does"
-                        + " nothing. SUPPRESSED_BY_DESIGN rather than SUPPRESSED_UNINTENDED because"
-                        + " R10 is where the decision gets revisited rather than where a bug gets"
-                        + " fixed; the finding stays cited so the row is traceable to F3.")
+                .note("Re-verdicted by R5+R7, from KNOWN_VULNERABLE; R10 confirmed the suppression"
+                        + " deliberately. A forced top-level navigation to an attacker origin, needing"
+                        + " no click and no script, reached through an attribute Canoe had no branch"
+                        + " for at all - the second consequence of F7's copy-paste, with F3's impact."
+                        + " 'content' is off the URL list deliberately: it carries a URL on exactly one"
+                        + " element and attribute-value combination, <meta http-equiv=refresh"
+                        + " content='N; url=...'>. R10 weighed giving that one combination a URL"
+                        + " context and chose suppression instead, because recognising it needs the"
+                        + " sibling http-equiv='refresh' value (which Canoe never retains, and which"
+                        + " may be scanned after content) and parsing the 'N; url=' prefix out of the"
+                        + " value (which the per-reference encoding model cannot do - the reference is"
+                        + " opaque). Routing every content to url() would percent-encode ordinary prose"
+                        + " in every meta description on the page. Reviewed against the sink: the"
+                        + " attribute renders empty, so there is no refresh target for the browser to"
+                        + " navigate to - the template's own meta element remains and does nothing."
+                        + " SUPPRESSED_BY_DESIGN because suppression is the deliberate final decision,"
+                        + " not a placeholder; the finding stays cited so the row is traceable to F3.")
                 .browserRelevant()
                 .build());
     }

@@ -376,8 +376,8 @@ developers route around) and there is **no test for `content` at all**.
 
 Resolve it explicitly: `data` → `ATTR_URI` (it is `<object data>`, a URL), and `content` → suppressed
 by default. `content` is only a URL on `<meta http-equiv="refresh">`, which needs the tag name and the
-sibling attribute's value to decide — that is R10, and until R10 lands, suppressing is correct and
-fail-safe.
+sibling attribute's value to decide — that is R10, which weighed that machinery and kept the
+suppression deliberately (see R10). Suppressing is correct and fail-safe.
 
 *Done when:* `AttributePrefixTest.theSecondDataBranchIsUnreachable` is retired with its reasoning
 moved; the `refresh.meta-content` corpus row is re-verdicted.
@@ -478,13 +478,56 @@ should keep passing unchanged.
 
 ---
 
-**R10 — Handle `<meta http-equiv="refresh" content="…">`**
+**R10 — Handle `<meta http-equiv="refresh" content="…">`** — ✅ **DONE**
 *Closes:* the refresh row of F3, completes R7. *Depends on:* R8.
+*Landed:* the decision is **suppress**, taken deliberately, and no behaviour changed — `content` was
+already `ATTR_UNKNOWN`/`CTX_SUPPRESS` under R5's fail-closed default (R7 confirmed the pair), and R10
+is the point at which leaving it there is a reviewed decision rather than an R7 placeholder. The
+`refresh.meta-content` ledger row stays `SUPPRESSED_BY_DESIGN` citing F3; its note is rewritten from
+"suppressing is correct and fail-safe **until R10** does the sibling-attribute check" to R10's final
+reasoning. No branch was added and no coverage moved (pure documentation of an existing suppression),
+so `build.gradle`'s floors and dead-branch inventory are untouched. Both suites green; browser tier
+re-verified on Chromium (Firefox and WebKit not installed here) — `SinkSpecificBrowserTest`
+`.metaRefreshNoLongerNavigatesAnywhere` and `DetectorSelfTest`'s meta-refresh detector both green,
+confirming the suppressed `content` reaches no sentinel origin.
 
-`content` carries a URL on exactly one element/attribute-value combination. Either give that
-combination a URI context, or leave `content` suppressed and document it. Suppressing is the smaller
-change and is already the R7 default; this task exists so that the decision is made deliberately
-rather than by omission, since a forced redirect to an attacker origin is the outcome.
+**Why suppress, not a URI context.** `content` carries a URL on exactly one element/attribute-value
+combination, `<meta http-equiv="refresh" content="N; url=...">`. Giving that combination a URI context
+was investigated and rejected as substantial machinery for one attribute, on three counts:
+
+1. **Sibling-attribute-value tracking Canoe does not have.** The URL is only present when a *sibling*
+   attribute `http-equiv` has the value `refresh`. Canoe scans attributes one at a time and never
+   retains a prior attribute's value — after the prefix scan it sets `bufLen = -1` and stops buffering
+   — and the attributes can appear in either order (`content` may be scanned before `http-equiv`). So
+   recognising the combination is not a tag-name check (R8 gives the tag name) but a whole
+   sibling-attribute-value tracking facility, which would mean buffering attribute values and a
+   second pass or deferred decision. The task brief's instruction was explicit: do not half-build
+   sibling tracking. Building it fully is out of proportion to one attribute.
+2. **`N; url=` parsing is incompatible with the per-reference encoding model.** Even with the
+   combination recognised, the value is `<seconds>; url=<URL>` and only the URL portion is a
+   navigation target. Canoe encodes each Velocity reference as an opaque whole against a single
+   context (`CanoeReferenceInsertionHandler.referenceInsert()` → `Canoe.encode(value)`); it never sees
+   where in the attribute value a reference sits relative to the literal `N; url=` prefix. In
+   `content="$data"` the reference is the whole value; in `content="0;url=$data"` it is only the URL —
+   and Canoe cannot tell which. There is no place to cut the prefix out.
+3. **Routing every `content` to `url()` would corrupt ordinary pages.** `content` is prose on
+   `<meta name="description">`, `<meta name="keywords">`, `<meta property="og:*">` and most other
+   metas; `url()` would percent-encode the spaces and punctuation of every one. That is the F11/F7
+   failure mode (silent value corruption) at scale, and it is what pushes a developer to `$_x.asis()`.
+
+Suppression is fail-safe: a suppressed `content` renders empty, so the `<meta>` element remains but
+carries no refresh target and no forced redirect occurs. A meta refresh that legitimately needs a
+dynamic URL is a case for application code (a computed `Location` header, or `$_x.asis()` on a value
+the application has itself validated), not silent interpolation. The reasoning is recorded in
+`Canoe.URL_ATTRIBUTE_NAMES`' javadoc (the `content` bullet) and on the `tagName` field, which notes
+that R10 considered reading it and deliberately did not.
+
+**R28 note.** The refresh row turns on character-reference decoding in a real HTML parser — a browser
+decodes the `content` value's entities before reading `N; url=`, which is exactly the asymmetry F3
+exploited. Because the decision is *suppression*, there is no encoded output for that decoding to act
+on: the value is empty in every engine, so R28's cross-engine concern (which is about how Firefox and
+WebKit decode a *non-empty* encoded value) does not bear on this row. R28 should still keep the
+meta-refresh browser case as a regression witness that the suppressed value stays empty cross-engine.
 
 ---
 

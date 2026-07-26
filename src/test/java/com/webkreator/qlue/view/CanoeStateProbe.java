@@ -109,11 +109,13 @@ public class CanoeStateProbe extends Canoe {
      * The element name R8 tracks for the duration of the tag, in lower case, or null when the
      * parser is not inside a tag whose name has been read.
      *
-     * <p>This is the field R9 and R10 will consult - "is the current element one of
-     * script/iframe/object/embed/link/base", "is this a meta whose http-equiv is refresh" - so what
-     * the tests assert through this accessor is exactly the value those decisions will be made on:
-     * available for every attribute of the tag, lower-cased however the template spelled it,
-     * stripped of an end tag's leading '/', and null again the moment the tag closes.
+     * <p>This is the field R9 consults - "is the current element one of
+     * script/iframe/object/embed/link/base". R10 weighed consulting it for "is this a meta whose
+     * http-equiv is refresh" and deliberately did not, because that decision needs the sibling
+     * http-equiv value as well and R10 left content suppressed. So what the tests assert through this
+     * accessor is exactly the value R9's decision is made on: available for every attribute of the
+     * tag, lower-cased however the template spelled it, stripped of an end tag's leading '/', and null
+     * again the moment the tag closes.
      */
     public String tagName() {
         return tagName;

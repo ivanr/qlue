@@ -387,13 +387,13 @@ public class CanoeStateMachineTest {
         // R7 resolved F7's branch pair. Both branches compared the characters of "data" under
         // comments reading "content" and "data", so "data" reached a suppressing context and
         // "content" had no branch at all; the author's XXX marker sat above the pair. <object data>
-        // is a URL, and "content" is a URL only on <meta http-equiv=refresh>, which needs the tag
-        // name (R10) - so it suppresses, which is where R5's fail-closed default puts it anyway.
+        // is a URL, and "content" is a URL only on <meta http-equiv=refresh>, which R10 deliberately
+        // left suppressed - so it stays where R5's fail-closed default puts it.
         assertEquals(Canoe.ATTR_URI_RESOURCE, attributeContextOf("<object data=\"x"),
                 "R7 made <object data> a URL; R9 narrows it to the resource-loading variant");
         assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("<meta content=\"x"),
-                "R7: content is suppressed by default until R10 can distinguish a refresh from a"
-                        + " description");
+                "R7 default, R10 confirmed: content is suppressed - recognising a refresh from a"
+                        + " description needs sibling-attribute-value tracking Canoe does not have");
 
         // R5's inversion, in the one line that used to read the other way: a name nothing
         // recognises is ATTR_UNKNOWN, not ATTR_HTML.

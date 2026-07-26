@@ -22,12 +22,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code buf} is reused for the attribute name. That blindness is F6's structural cause — {@code src}
  * on {@code <script>} and {@code src} on {@code <img>} were indistinguishable by the time
  * {@link Canoe#setTagAttributeContext()} ran — and it is why {@code content} could not be recognised
- * as a URL on {@code <meta http-equiv="refresh">} (R7's note, R10's task). R8 adds a field,
+ * as a URL on {@code <meta http-equiv="refresh">} (R7's note, weighed by R10). R8 adds a field,
  * {@code tagName}, that holds the element name for the duration of the tag.
  *
  * <p><strong>R8 changed no behaviour on its own</strong> — it added the field and left every verdict
- * where it was. R9 now reads it (see {@link #theTagNameNowDecidesTheSrcEncoder}), and R10 will; these
- * tests are about the field's own correctness, which both of those decisions rest on. What they pin:
+ * where it was. R9 reads it (see {@link #theTagNameNowDecidesTheSrcEncoder}); R10 considered reading
+ * it for {@code <meta http-equiv=refresh content>} and deliberately did not, because the tag name
+ * alone cannot recognise a refresh URL — that needs the sibling {@code http-equiv} value too — and
+ * R10's decision was to leave {@code content} suppressed. These tests are about the field's own
+ * correctness, which R9's decision rests on. What they pin:
  *
  * <ul>
  *   <li><strong>Available at decision time.</strong> The name is set when the tag name completes and
@@ -36,8 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       from inside {@code setTagAttributeContext()} and {@code currentContext()}, both of which run
  *       during attribute parsing.
  *   <li><strong>Normalised.</strong> Lower case however the template spelled it, matching the
- *       convention the attribute-name scan already follows, so R9 and R10 compare against lower-case
- *       literals with no case-insensitivity of their own to get wrong.
+ *       convention the attribute-name scan already follows, so R9 compares against lower-case
+ *       literals with no case-insensitivity of its own to get wrong.
  *   <li><strong>Never stale.</strong> Null before the first tag, null in body text after {@code '>'},
  *       null inside script/style bodies, comments and DOCTYPEs, and replaced — not merely appended
  *       to — when the next tag starts. A stale name is how "is this a script element" would be
@@ -57,7 +60,7 @@ public class TagNameTrackingTest {
 
     /**
      * One row per (template prefix, expected name, expected state): the tag name is present and
-     * correct at the exact parser positions R9 and R10 will consult it from.
+     * correct at the exact parser positions R9 consults it from.
      */
     static Stream<Arguments> attributePositions() {
         return Stream.of(
@@ -66,8 +69,11 @@ public class TagNameTrackingTest {
                 Arguments.of("<script src=\"https://cdn.example/app.js", "script",
                         Canoe.TAG_ATTR_VALUE),
                 Arguments.of("<div id=x", "div", Canoe.TAG_ATTR_VALUE),
-                // The R10 shape: the sibling attribute's value is being parsed and the element
-                // name is still available.
+                // The meta refresh shape R10 weighed: the tag name is available while content's
+                // value is parsed, yet R10 deliberately left content suppressed because the tag
+                // name alone cannot recognise the refresh URL (the sibling http-equiv value is
+                // needed too). The row stays as the record that the name was there and the decision
+                // was suppression regardless.
                 Arguments.of("<meta http-equiv=\"refresh\" content=\"", "meta",
                         Canoe.TAG_ATTR_VALUE),
                 // Mid-attribute-name, between attributes, and awaiting a value.

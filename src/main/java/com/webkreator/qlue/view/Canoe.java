@@ -208,9 +208,23 @@ public class Canoe extends Writer {
      *       Suppression is the honest answer until somebody wants to build double encoding
      *       deliberately (R6, and &sect;6 of the remediation plan).
      *   <li><code>content</code> - a URL on exactly one element/attribute-value combination,
-     *       <code>&lt;meta http-equiv="refresh"&gt;</code>, which needs the tag name and a sibling
-     *       attribute's value to recognise. That is R10; until it lands, suppressing is correct and
-     *       fail-safe (R7).
+     *       <code>&lt;meta http-equiv="refresh" content="N; url=..."&gt;</code>. <strong>R10 decided
+     *       deliberately to leave it suppressed</strong> rather than give that one combination a URL
+     *       context. Recognising the refresh URL would need three things Canoe does not have and would
+     *       be substantial machinery to add for one attribute: (1) the tag name (R8 supplies it), (2)
+     *       the value of the <em>sibling</em> attribute <code>http-equiv="refresh"</code> - and Canoe
+     *       scans attributes one at a time and never retains a prior attribute's value, and
+     *       <code>content</code> may appear before <code>http-equiv</code>, so this is a whole
+     *       sibling-attribute-value tracking facility - and (3) parsing the <code>N; url=</code>
+     *       prefix out of the value so only the URL portion is encoded, which the per-reference
+     *       encoding model cannot do at all: a reference is an opaque value encoded with one context,
+     *       so Canoe never knows whether the literal <code>N; url=</code> prefix is part of the
+     *       reference or of the surrounding template text. Routing every <code>content</code> to
+     *       <code>url()</code> instead would percent-encode the prose in every meta description on the
+     *       page. Suppression is fail-safe: a suppressed <code>content</code> renders empty, so no
+     *       forced redirect occurs, and a meta refresh that legitimately needs a dynamic URL is a case
+     *       for application code, not silent interpolation (F3's refresh row; R7 default, R10
+     *       confirmed).
      *   <li><code>imagesrcset</code>, <code>xml:base</code>, <code>archive</code>,
      *       <code>classid</code>, <code>profile</code> - URL-bearing names that no ordinary template
      *       interpolates into. Suppression is strictly stronger than <code>url()</code>, which is a
@@ -483,9 +497,15 @@ public class Canoe extends Writer {
      * {@link #setTagAttributeContext()} ran, and {@code src} on {@code <script>} was
      * indistinguishable from {@code src} on {@code <img>} — F6's structural cause. This field is the
      * enabler for R9 (an origin policy for {@code src}/{@code href} on the resource-loading elements
-     * {@code script}, {@code iframe}, {@code object}, {@code embed}, {@code link}, {@code base}) and
-     * R10 ({@code <meta http-equiv="refresh" content>}); nothing consumes it for a security decision
-     * until those land.
+     * {@code script}, {@code iframe}, {@code object}, {@code embed}, {@code link}, {@code base}),
+     * which reads it in {@link #isResourceLoadingSink(String)}.
+     *
+     * <p>R10 ({@code <meta http-equiv="refresh" content>}) considered reading it and <strong>decided
+     * not to</strong>: recognising a refresh URL needs the sibling <code>http-equiv="refresh"</code>'s
+     * value as well as the tag name, plus parsing the {@code N; url=} prefix out of the content value,
+     * and the deliberate R10 decision is to leave {@code content} suppressed (see
+     * {@link #URL_ATTRIBUTE_NAMES}). The tag name alone is not enough for that decision, so this field
+     * stays unread on the {@code content} path.
      *
      * <p>Lifecycle, which is the whole of what the field means:
      *

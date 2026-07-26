@@ -768,9 +768,10 @@ public class AttributePrefixTest {
      *
      * <p>R7's answer, asserted below. {@code data} is a URL — it is {@code <object data>} — so it
      * joins the URL name set and reaches {@code url()}. {@code content} is a URL on exactly one
-     * element and attribute-value combination and Canoe cannot see either yet (R8, R10), so it
-     * suppresses, which is also where R5's fail-closed default would have put it. Both branches are
-     * gone; the classification is a set lookup, and a set cannot hold the same name twice.
+     * element and attribute-value combination; R10 deliberately left it suppressed rather than build
+     * the sibling-attribute-value tracking recognising it would need, so it stays where R5's
+     * fail-closed default puts it. Both branches are gone; the classification is a set lookup, and a
+     * set cannot hold the same name twice.
      */
     @Test
     public void theDataBranchPairIsResolved() throws IOException {

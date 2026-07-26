@@ -102,7 +102,7 @@ public class AttributeNameMatrixTest {
         URL_SUPPRESSED,
         /** {@code srcdoc}, parsed as markup in its own right (F3, suppressed by R6). */
         MARKUP,
-        /** {@code content} on {@code <meta http-equiv=refresh>} (F3, F7, suppressed by R7). */
+        /** {@code content} on {@code <meta http-equiv=refresh>} (F3, F7; suppressed by R7, R10 confirmed). */
         REFRESH,
         /** Attributes the browser acts on as a security directive (F20, suppressed by R5). */
         POLICY,
@@ -715,25 +715,28 @@ public class AttributeNameMatrixTest {
      * were byte-identical comparisons of {@code data} under comments reading {@code // content} and
      * {@code // data}, so {@code data} resolved to a suppressing context, {@code content} had no
      * branch at all, and the author's {@code XXX} marker sat above the pair asking which was
-     * correct. The answer R7 recorded: {@code data} is {@code <object data>} and is a URL;
-     * {@code content} is a URL on exactly one element/attribute-value combination and needs the tag
-     * name to recognise, which is R10, so until then it suppresses and fails safe.
+     * correct. The answer R7 recorded, and R10 confirmed: {@code data} is {@code <object data>} and
+     * is a URL; {@code content} is a URL on exactly one element/attribute-value combination, and R10
+     * deliberately left it suppressed because recognising it needs sibling-attribute-value tracking
+     * (the {@code http-equiv="refresh"} value) and {@code N; url=} prefix parsing that the
+     * per-reference encoding model cannot do. Suppression is fail-safe.
      */
     @Test
     public void theDataAndContentPairIsResolved() {
         assertEquals(Canoe.ATTR_URI, attributeContextOf("data"),
                 "R7: <object data> is a URL");
         assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("content"),
-                "R7: and 'content' suppresses until R10 can tell a meta refresh from a meta"
-                        + " description");
+                "R7 default, R10 confirmed: 'content' suppresses - telling a meta refresh from a meta"
+                        + " description needs sibling-attribute tracking Canoe does not have");
 
         String decoded = CanoeTestSupport
                 .render("<meta http-equiv=\"refresh\" content=\"$data\">", Payloads.META_REFRESH.value())
                 .decodedAttr("meta", "content");
         assertEquals("", decoded,
-                "R7: the forced top-level navigation F3 recorded here needed no click and no script."
-                        + " The value is dropped now; R10 decides whether the combination gets a URL"
-                        + " context instead.");
+                "R7 default, R10 confirmed: the forced top-level navigation F3 recorded here needed no"
+                        + " click and no script. The value is dropped, which is the deliberate final"
+                        + " decision - a suppressed content renders empty, so no forced redirect"
+                        + " occurs.");
     }
 
     /**
