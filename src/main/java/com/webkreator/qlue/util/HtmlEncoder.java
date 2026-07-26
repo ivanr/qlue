@@ -182,10 +182,25 @@ public class HtmlEncoder implements QlueVelocityTool {
             } else if (c <= 127) {
                 sb.append("\\x");
                 HtmlEncoder.hex(c, sb);
-            } else {
+            } else if (c <= 0xFFFF) {
                 sb.append("\\u");
                 HtmlEncoder.hex(c >> 8, sb);
                 HtmlEncoder.hex(c, sb);
+            } else {
+                // Astral code point (F16). A single \\uXXXX escape holds only sixteen bits, so
+                // emitting hex(c >> 8) + hex(c) here would keep only the low sixteen bits of a
+                // twenty-one-bit code point - U+10027 would become an apostrophe. Emit the UTF-16
+                // surrogate pair as two \\uXXXX escapes instead: that is what a JavaScript string
+                // literal expects and it is universally safe (no ES6 \\u{...} dependency). Each
+                // surrogate is at most 0xDFFF, so hex(hi >> 8) + hex(hi) is the full four digits.
+                char hi = Character.highSurrogate(c);
+                char lo = Character.lowSurrogate(c);
+                sb.append("\\u");
+                HtmlEncoder.hex(hi >> 8, sb);
+                HtmlEncoder.hex(hi, sb);
+                sb.append("\\u");
+                HtmlEncoder.hex(lo >> 8, sb);
+                HtmlEncoder.hex(lo, sb);
             }
         }
 
@@ -802,16 +817,35 @@ public class HtmlEncoder implements QlueVelocityTool {
                     || (c >= '0' && c <= '9')) {
                 sb.append((char) c);
             } else {
-                if (c <= 255) {
-                    sb.append('\\');
-                    HtmlEncoder.hex(c, sb);
-                } else {
-                    sb.append('?');
-                }
+                // Everything else -> a CSS hex escape written as a backslash and exactly six hex
+                // digits (F16). Six is the maximum a CSS hex escape consumes, so the escape is
+                // self-delimiting: css("'a") is '\000027a', which a CSS tokenizer reads as an
+                // apostrophe followed by 'a' rather than as the single character U+027A the old
+                // unterminated two-digit form produced. Because the code point value is emitted
+                // directly, an astral character needs no surrogate handling - U+1F600 is \\01F600 -
+                // and a non-Latin-1 character is escaped rather than replaced with '?'. The
+                // backslash is itself escaped this way (\\00005C), so no raw backslash is ever
+                // emitted and none can combine with a following character even when a style value
+                // is decoded twice, HTML references then CSS escapes (F23).
+                sb.append('\\');
+                HtmlEncoder.hex6(c, sb);
             }
         }
 
         sb.append('\'');
+    }
+
+    /**
+     * Appends {@code c} as exactly six uppercase hex digits - a full CSS hex escape body. A Unicode
+     * code point is at most {@code 0x10FFFF}, which is six hex digits, so this never truncates.
+     */
+    private static void hex6(int c, StringBuilder sb) {
+        sb.append(hexDigits[(c >> 20) & 0x0f]);
+        sb.append(hexDigits[(c >> 16) & 0x0f]);
+        sb.append(hexDigits[(c >> 12) & 0x0f]);
+        sb.append(hexDigits[(c >> 8) & 0x0f]);
+        sb.append(hexDigits[(c >> 4) & 0x0f]);
+        sb.append(hexDigits[c & 0x0f]);
     }
 
     /**

@@ -906,8 +906,10 @@ public final class CanoeCorpus {
                 .payloads(Payloads.families("QUOTE_BREAKOUT", "UNICODE_EDGE"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .note("CTX_JS maps to the empty string. The commented-out code at Canoe.java:1074-1081"
-                        + " contemplates replacing that with HtmlEncoder.js(), which F16 shows is not"
-                        + " fit for it.")
+                        + " contemplates replacing that with HtmlEncoder.js(). R13 fixed js() (F16), so"
+                        + " the encoder is now correct, but wiring it in is a deliberate design"
+                        + " decision that has not been taken: refusing to interpolate into JavaScript"
+                        + " is the centrepiece of the design, and this row stays suppressed.")
                 .build());
 
         cases.add(XssCase.id("script.body-bare")

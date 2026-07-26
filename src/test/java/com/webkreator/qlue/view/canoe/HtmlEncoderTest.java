@@ -315,13 +315,20 @@ public class HtmlEncoderTest {
     }
 
     /**
-     * Every {@code js()} escape is one of the two fixed-width forms {@code \xNN} and {@code \\uNNNN},
-     * so there is no truncated-escape parsing to exploit — the same property
+     * Every {@code js()} escape is built out of the two fixed-width forms {@code \xNN} and
+     * {@code \\uNNNN}, so there is no truncated-escape parsing to exploit — the same property
      * {@code everyEscapeIsExactlyTwoUppercaseHexDigits} asserts for {@code url()}.
      *
-     * <p>Fixed width is exactly why {@code js()} is not an injection despite F16: a wrong escape is
-     * still a well-formed escape, so it can produce the wrong <em>character</em> but it can never
-     * terminate the string literal.
+     * <p>Fixed width is exactly why {@code js()} is not an injection: a wrong escape is still a
+     * well-formed escape, so it can produce the wrong <em>character</em> but it can never terminate
+     * the string literal.
+     *
+     * <p>Updated for R13. A BMP code point is still one {@code \xNN} (four chars) or {@code \\uNNNN}
+     * (six chars); an astral code point is now the concatenation of two {@code \\uNNNN} escapes (its
+     * UTF-16 surrogate pair, twelve chars). The invariant asserted is therefore "the interior is a
+     * sequence of well-formed fixed-width escapes", which is what keeps it unable to break out of the
+     * literal — a strictly stronger reading than the old single-escape check, which could not have
+     * described a surrogate pair at all.
      */
     @Test
     public void everyJsEscapeIsAFixedWidthHexForm() {
@@ -330,105 +337,183 @@ public class HtmlEncoderTest {
                 continue;
             }
             final String interior = interiorOf(HtmlEncoder.js(new String(Character.toChars(c))));
-            int expectedLength = c <= 127 ? 4 : 6;
-            String expectedPrefix = c <= 127 ? "\\x" : "\\u";
+            final String expected;
+            if (c <= 127) {
+                expected = "\\x" + upperHex2(c);
+            } else if (c <= 0xFFFF) {
+                expected = "\\u" + upperHex4(c);
+            } else {
+                expected = "\\u" + upperHex4(Character.highSurrogate(c))
+                        + "\\u" + upperHex4(Character.lowSurrogate(c));
+            }
+            assertEquals(expected, interior,
+                    () -> "js escape for U+" + Integer.toHexString(c).toUpperCase()
+                            + " is not the expected fixed-width form: "
+                            + CanoeTestSupport.quote(interior));
 
-            assertEquals(expectedLength, interior.length(),
+            // ...and, independently of the exact expectation, the interior is only escapes: an even
+            // split into \xNN and \\uNNNN chunks, every hex digit uppercase, nothing else.
+            assertTrue(interior.matches("(\\\\x[0-9A-F]{2}|\\\\u[0-9A-F]{4})+"),
                     () -> "js escape for U+" + Integer.toHexString(c).toUpperCase()
-                            + " is not fixed width: " + CanoeTestSupport.quote(interior));
-            assertTrue(interior.startsWith(expectedPrefix),
-                    () -> "js escape for U+" + Integer.toHexString(c).toUpperCase()
-                            + " uses the wrong form: " + CanoeTestSupport.quote(interior));
-            assertTrue(interior.substring(2).matches("[0-9A-F]+"),
-                    () -> "js escape for U+" + Integer.toHexString(c).toUpperCase()
-                            + " is not uppercase hex: " + CanoeTestSupport.quote(interior));
+                            + " is not a sequence of fixed-width hex escapes: "
+                            + CanoeTestSupport.quote(interior));
         }
     }
 
+    private static String upperHex2(int value) {
+        String hex = Integer.toHexString(value & 0xFF).toUpperCase();
+        return "00".substring(hex.length()) + hex;
+    }
+
     /**
-     * <strong>F16, first half.</strong> {@code js()} builds its {@code \\u} escape from
-     * {@code hex(c >> 8)} and {@code hex(c)}, and {@code hex()} emits only the low byte of what it is
-     * given. That is four hex digits from the low <em>sixteen</em> bits of the code point, so every
-     * astral code point is silently truncated to a different character.
+     * <strong>F16, first half — fixed by R13.</strong> Formerly
+     * {@code jsTruncatesAstralCodePointsToTheirLowSixteenBits}: {@code js()} built its {@code \\u}
+     * escape from {@code hex(c >> 8)} and {@code hex(c)}, and {@code hex()} emits only the low byte of
+     * what it is given, so an astral code point kept only its low sixteen bits — U+10027 became an
+     * apostrophe, U+1005C a backslash, U+10000 a NUL.
      *
-     * <p>Not an injection: the escape is still well formed and the resulting character is still
-     * inside the string literal. But the value is wrong, and two of the collisions are the kind of
-     * wrong that would matter to anyone reasoning about the output — U+10027 becomes an apostrophe
-     * and U+1005C becomes a backslash, both of which are syntactically significant in JavaScript.
-     * They are harmless <em>here</em> only because they arrive as {@code \\u0027} and {@code \\u005C}
-     * rather than as raw characters, which is a much narrower escape than it looks.
+     * <p>R13 emits the UTF-16 surrogate pair instead: two {@code \\uXXXX} escapes, which is exactly
+     * what a JavaScript string literal expects and is safe in every JavaScript version (no ES6
+     * {@code \\u{...}} dependency). Each half is a well-formed four-digit escape, so the output placed
+     * inside a JS string literal parses back to the original astral code point.
      */
     @Test
-    public void jsTruncatesAstralCodePointsToTheirLowSixteenBits() {
-        // The grinning face becomes a private-use character.
-        assertEquals("'\\uF600'", HtmlEncoder.js(new String(Character.toChars(0x1F600))),
-                "F16: U+1F600 emitted as U+F600 - hex(c >> 8) keeps only the low byte");
+    public void jsEmitsAstralCodePointsAsASurrogatePair() {
+        // The grinning face is its own surrogate pair, not the truncated U+F600.
+        assertEquals("'\\uD83D\\uDE00'", HtmlEncoder.js(new String(Character.toChars(0x1F600))),
+                "R13: U+1F600 -> high surrogate U+D83D, low surrogate U+DE00");
 
-        // And two collisions land on characters JavaScript cares about.
-        assertEquals("'\\u0027'", HtmlEncoder.js(new String(Character.toChars(0x10027))),
-                "F16: U+10027 silently becomes an apostrophe");
-        assertEquals("'\\u005C'", HtmlEncoder.js(new String(Character.toChars(0x1005C))),
-                "F16: U+1005C silently becomes a backslash");
-        assertEquals("'\\u0000'", HtmlEncoder.js(new String(Character.toChars(0x10000))),
-                "F16: U+10000 silently becomes a NUL");
+        // The three collisions the old truncation produced are gone: the pairs decode back to the
+        // astral code points, not to an apostrophe, a backslash or a NUL.
+        assertEquals("'\\uD800\\uDC27'", HtmlEncoder.js(new String(Character.toChars(0x10027))),
+                "R13: U+10027 is a surrogate pair, no longer an apostrophe");
+        assertEquals("'\\uD800\\uDC5C'", HtmlEncoder.js(new String(Character.toChars(0x1005C))),
+                "R13: U+1005C is a surrogate pair, no longer a backslash");
+        assertEquals("'\\uD800\\uDC00'", HtmlEncoder.js(new String(Character.toChars(0x10000))),
+                "R13: U+10000 is a surrogate pair, no longer a NUL");
 
-        // The BMP is encoded correctly, which is why this survived: only astral input is wrong.
+        // The BMP is unchanged - it was always encoded correctly.
         assertEquals("'\\u2028'", HtmlEncoder.js(ch(0x2028)));
         assertEquals("'\\u00FF'", HtmlEncoder.js(ch(0xff)));
         assertEquals("'\\x7F'", HtmlEncoder.js(ch(0x7f)));
 
-        // Stated as a property: every astral code point is emitted as the four hex digits of its low
-        // sixteen bits, which is to say the high bits are simply discarded. Compared against the
-        // escape rather than against js() of the BMP code point, because a truncation landing below
-        // U+0080 takes the two-digit form there and the four-digit one here: different spelling of
-        // the same character, so the two outputs differ even though the code points collide.
+        // Stated as a property over every astral sample: the output is the two surrogate escapes, and
+        // parsing it back as a JavaScript string literal (which is what a surrogate pair means)
+        // reproduces the original code point exactly.
         for (int c : allCodePoints()) {
             if (c <= 0xFFFF) {
                 continue;
             }
-            String expected = "'\\u" + upperHex4(c & 0xFFFF) + "'";
+            String expected = "'\\u" + upperHex4(Character.highSurrogate(c))
+                    + "\\u" + upperHex4(Character.lowSurrogate(c)) + "'";
             assertEquals(expected, HtmlEncoder.js(new String(Character.toChars(c))),
-                    () -> "F16: U+" + Integer.toHexString(c).toUpperCase()
-                            + " must lose everything above its low sixteen bits");
+                    () -> "R13: U+" + Integer.toHexString(c).toUpperCase()
+                            + " must be emitted as its UTF-16 surrogate pair");
+
+            String interior = interiorOf(HtmlEncoder.js(new String(Character.toChars(c))));
+            assertEquals(new String(Character.toChars(c)), unescapeJs(interior),
+                    () -> "R13: the surrogate pair for U+" + Integer.toHexString(c).toUpperCase()
+                            + " must parse back to the original code point");
         }
     }
 
     private static String upperHex4(int value) {
-        String hex = Integer.toHexString(value).toUpperCase();
+        String hex = Integer.toHexString(value & 0xFFFF).toUpperCase();
         return "0000".substring(hex.length()) + hex;
     }
 
     /**
-     * <strong>F16, second half, and the worse one.</strong> {@code css()} escapes a character as a
-     * backslash and two hex digits with no terminator. CSS hex escapes are variable length — up to
-     * six digits, ended by a space or by the first non-hex character — so the escape swallows any hex
-     * digit that follows it.
+     * Interprets the {@code \\xNN} and {@code \\uNNNN} escapes {@code js()} emits, the way a
+     * JavaScript string literal would, so a test can assert the round trip rather than the spelling.
+     */
+    private static String unescapeJs(String interior) {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < interior.length()) {
+            char c = interior.charAt(i);
+            if (c == '\\' && i + 1 < interior.length() && interior.charAt(i + 1) == 'x') {
+                sb.append((char) Integer.parseInt(interior.substring(i + 2, i + 4), 16));
+                i += 4;
+            } else if (c == '\\' && i + 1 < interior.length() && interior.charAt(i + 1) == 'u') {
+                sb.append((char) Integer.parseInt(interior.substring(i + 2, i + 6), 16));
+                i += 6;
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * <strong>F16, second half — fixed by R13.</strong> Formerly
+     * {@code cssHexEscapesAreUnterminatedAndSwallowTheNextCharacter}: {@code css()} emitted a
+     * backslash and two hex digits with no terminator, and a CSS hex escape is variable length (up to
+     * six digits, ended by a space or the first non-hex character), so {@code css("'a")} produced
+     * {@code '\27a'} — the single character U+027A, not an apostrophe followed by {@code a}. It also
+     * replaced every code point above U+00FF with a literal {@code ?}, destroying CJK, Cyrillic,
+     * Greek, Arabic, Hebrew and emoji.
      *
-     * <p>{@code css("'a")} produces {@code '\27a'}, which a CSS parser reads as the single character
-     * U+027A rather than as an apostrophe followed by {@code a}. This is the classic unterminated-
-     * hex-escape bug. It is not an injection as written — the swallowed character makes the value
-     * wrong, not the delimiter reachable — but it is one relaxation away from being one, and it is
-     * why {@code css()} must not be wired up as it stands.
-     *
-     * <p>The fix is to emit six digits, or to append a terminating space.
+     * <p>R13 emits a backslash and exactly six hex digits. Six is the maximum a CSS hex escape
+     * consumes, so the escape is self-delimiting: the character after it is never swallowed, and the
+     * output placed inside a CSS string parses back to the input. The code point value is written
+     * directly, so an astral character is one escape (no surrogates) and a non-Latin-1 character is
+     * escaped rather than replaced. The backslash is itself escaped ({@code \\00005C}), so no raw
+     * backslash is ever emitted (F23).
      */
     @Test
-    public void cssHexEscapesAreUnterminatedAndSwallowTheNextCharacter() {
-        assertEquals("'\\27a'", HtmlEncoder.css("'a"),
-                "F16: CSS reads \\27a as U+027A, not as an apostrophe followed by 'a'");
-        assertEquals("'\\3Ca'", HtmlEncoder.css("<a"),
-                "F16: CSS reads \\3Ca as U+03CA, not as '<' followed by 'a'");
+    public void cssHexEscapesAreSixDigitAndSelfDelimiting() {
+        // The swallow case: '\000027' followed by a raw 'a', which CSS reads as an apostrophe then
+        // 'a' - two characters, not the single U+027A the old '\27a' produced.
+        assertEquals("'\\000027a'", HtmlEncoder.css("'a"),
+                "R13: six-digit escape does not swallow the following 'a'");
+        assertEquals("'\\00003Ca'", HtmlEncoder.css("<a"),
+                "R13: '<' escapes to \\00003C, not \\3C, so the 'a' survives");
 
-        // A following non-hex letter is safe, which is why casual testing does not find this.
-        assertEquals("'\\27z'", HtmlEncoder.css("'z"));
-        // ...and so is a following escape, because the backslash ends the previous one.
-        assertEquals("'\\27\\27'", HtmlEncoder.css("''"));
+        // A following letter and a following escape are both still correct - the point is that they
+        // are correct for the same reason now (fixed six-digit width), not by luck of the next char.
+        assertEquals("'\\000027z'", HtmlEncoder.css("'z"));
+        assertEquals("'\\000027\\000027'", HtmlEncoder.css("''"));
 
-        // Above Latin-1 css() gives up entirely and emits a literal '?'. url() used to do the same
-        // (F15d); R12 UTF-8 percent-encodes instead, so css() is the only encoder left that does it.
-        assertEquals("'?'", HtmlEncoder.css(ch(0x100)));
-        assertEquals("'?'", HtmlEncoder.css(new String(Character.toChars(0x1F600))));
-        assertEquals("'\\FF'", HtmlEncoder.css(ch(0xff)), "Latin-1 is escaped one byte at a time");
+        // Above Latin-1 is escaped as its own six-digit escape, per code point, rather than dropped
+        // to '?'. Astral needs no surrogate pair because the escape carries the code point directly.
+        assertEquals("'\\000100'", HtmlEncoder.css(ch(0x100)));
+        assertEquals("'\\01F600'", HtmlEncoder.css(new String(Character.toChars(0x1F600))),
+                "R13: the grinning face is one six-digit escape, not '?'");
+        assertEquals("'\\004E2D'", HtmlEncoder.css(ch(0x4e2d)),
+                "R13: a CJK character (U+4E2D) is escaped, not replaced");
+        assertEquals("'\\0000FF'", HtmlEncoder.css(ch(0xff)), "Latin-1 takes the same six-digit form");
+
+        // The backslash is escaped, so it cannot introduce an escape of whatever follows it (F23).
+        assertEquals("'\\00005C'", HtmlEncoder.css("\\"),
+                "R13: a raw backslash never survives; it becomes \\00005C");
+
+        // The round trip: the CSS string interior parses back to the input.
+        for (String input : new String[]{"'a", "<a", "\\", ch(0x4e2d), "abc"}) {
+            assertEquals(input, unescapeCss(interiorOf(HtmlEncoder.css(input))),
+                    "R13: css() output must parse back to its input");
+        }
+    }
+
+    /**
+     * Interprets the fixed six-digit {@code \\NNNNNN} escapes {@code css()} emits, the way a CSS
+     * tokenizer would, so a test can assert the round trip.
+     */
+    private static String unescapeCss(String interior) {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < interior.length()) {
+            char c = interior.charAt(i);
+            if (c == '\\') {
+                int cp = Integer.parseInt(interior.substring(i + 1, i + 7), 16);
+                sb.appendCodePoint(cp);
+                i += 7;
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
     }
 
     /**
@@ -452,9 +537,10 @@ public class HtmlEncoderTest {
         assertEquals(expectedJs.append('\'').toString(), HtmlEncoder.js(input));
         assertEquals(expectedCss.append('\'').toString(), HtmlEncoder.css(input));
 
-        // Concretely, and with the wrapper quotes visible.
-        assertEquals("'a\\x3Cb\\u00E9\\x27\\uF600'", HtmlEncoder.js(input));
-        assertEquals("'a\\3Cb\\E9\\27?'", HtmlEncoder.css(input));
+        // Concretely, and with the wrapper quotes visible. The astral grinning face is a surrogate
+        // pair in js() and a single six-digit escape in css().
+        assertEquals("'a\\x3Cb\\u00E9\\x27\\uD83D\\uDE00'", HtmlEncoder.js(input));
+        assertEquals("'a\\00003Cb\\0000E9\\000027\\01F600'", HtmlEncoder.css(input));
     }
 
     /**

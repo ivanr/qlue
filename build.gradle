@@ -330,6 +330,15 @@ jacocoTestReport {
  *   Canoe                             251 / 262 branches   95.80%   (was 265 / 276; R8 then R9)
  *   HtmlEncoder                       315 / 320 branches   98.44%   (was 230 / 232; R9 added
  *                                                                    urlResource() + TrustedOrigin)
+ *
+ * RE-MEASURED after R13 (fix js() and css(), F16). js() gained one branch - the astral case, a fourth
+ * arm below the `c <= 0xFFFF` test that emits a UTF-16 surrogate pair - and css() lost one, the old
+ * `c <= 255` test whose false arm emitted a literal '?'; the new css() escapes every non-alphanumeric
+ * as a six-digit hex escape and has no such split. Net zero, so HtmlEncoder is unchanged at 315/320 =
+ * 98.44% and the 0.98 floor does not move. The five dead outcomes are the same five inventoried above -
+ * js()'s and css()'s new/changed arms are all reached by HtmlEncoderTest (BMP, astral and non-Latin-1
+ * are all swept), the private css(String, StringBuilder) null guard is still the only css dead outcome,
+ * and no finding is in the inventory.
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],

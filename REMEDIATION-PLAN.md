@@ -648,8 +648,51 @@ the test is recording luck.
 
 ---
 
-**R13 — Fix `js()` and `css()`**
+**R13 — Fix `js()` and `css()`** — ✅ **DONE**
 *Closes:* F16. *Depends on:* nothing.
+*Landed:* both defective encoders are corrected in place, and neither is wired into Canoe's automatic
+path (that interplay is R14; the commented-out `Canoe.java:1074-1081` is untouched, `url()` is
+untouched). **`js()`** now emits astral code points as a UTF-16 **surrogate pair** — two `\uXXXX`
+escapes — chosen over the ES6 `\u{…}` form because a surrogate pair is safe in every JavaScript
+version and in every string-literal context: `js(U+10027)` = `'𐀧'` (no longer an
+apostrophe), `js(U+1F600)` = `'😀'`, `js(U+10000)` = `'𐀀'`. BMP output is
+unchanged (`\xNN` below 0x80, `\uNNNN` to 0xFFFF), so every escape is still a fixed-width hex form and
+`js()` still cannot terminate its string literal. **`css()`** now emits a backslash and **exactly six
+hex digits** for every non-alphanumeric — six is the maximum a CSS hex escape consumes, so it is
+self-delimiting and swallows nothing: `css("'a")` = `'\000027a'` (an apostrophe then `a`, not U+027A).
+The code-point value is written directly, so an astral character is one escape with no surrogate
+handling (`css(U+1F600)` = `'\01F600'`) and a non-Latin-1 character is escaped rather than replaced
+with `?` (`css(U+4E2D)` = `'\004E2D'`). The backslash is itself escaped this way (`\` → `\00005C`), so
+no raw backslash is ever emitted and none can combine with a following character even though a `style`
+value is decoded twice, HTML references then CSS escapes (F23). A `hex6()` helper was added; the
+old two-digit `hex()` is unchanged and still used by `js()`, `html()` and `url()`.
+
+*Ledger/F16:* the corpus has **no** `$_x.js()`/`$_x.css()` row — `js()`/`css()` are unreachable from
+`Canoe.encode()` (`CTX_JS`/`CTX_CSS` both suppress), so no verdict changed and no re-verdict was
+needed. F16 stays tracked with reasoning in `MatrixReportTest.FINDINGS_WITHOUT_CASES` (still accurate:
+the encoders are fixed but still not reachable from a corpus payload). One stale note on
+`CanoeCorpus`'s `script.body-string-literal` row — which said "F16 shows `js()` is not fit for it" —
+was rewritten to record that R13 fixed `js()` and that suppression remains a deliberate design choice.
+
+*Tests:* in `HtmlEncoderTest`, `jsTruncatesAstralCodePointsToTheirLowSixteenBits` is inverted to
+`jsEmitsAstralCodePointsAsASurrogatePair` and `cssHexEscapesAreUnterminatedAndSwallowTheNextCharacter`
+to `cssHexEscapesAreSixDigitAndSelfDelimiting` (former names in the javadoc), both asserting byte-exact
+corrected output plus a round-trip (`unescapeJs`/`unescapeCss` parse the output back to the input).
+`everyJsEscapeIsAFixedWidthHexForm` was updated deliberately: a BMP escape is still one fixed-width
+form, an astral one is now two `\uXXXX` escapes, and the invariant is stated as "the interior is a
+sequence of well-formed fixed-width escapes" — strictly stronger than the old single-escape check.
+`jsPassesThroughOnlyAlphanumerics` and `cssPassesThroughOnlyAlphanumerics` pass unchanged (still only
+alphanumerics pass through raw), as does `noEncoderCanEverEmitAMarkupDelimiter`;
+`jsAndCssEscapeMultiCharacterInputCodePointWise`'s two concrete literals were updated.
+
+*Coverage:* `HtmlEncoder` holds at **315/320 = 98.44%** against the 0.98 floor — `js()` gained the
+astral branch, `css()` lost the `c <= 255`/`?` branch, net zero — so no floor moved; the inventory
+comment in `build.gradle` records the re-measure. `./gradlew test` and `canoeCoverageGate` green;
+`browserTest` green on Chromium (Firefox and WebKit are not installed here).
+
+**R14 (settle `CTX_CSS`) is now unblocked** and comes next: its ordering constraint (trap 3 in §1)
+was that a real CSS encoder must exist before `ATTR_CSS` is routed to one, and R13 is that
+precondition. R14's own recommendation is still to keep suppressing and delete the dead `CTX_CSS` arm.
 
 Both are reachable from templates **today** through `$_x.js(…)` and `$_x.css(…)`, because
 `HtmlEncoder implements QlueVelocityTool` and binds itself into every context as `_x`. They corrupt
