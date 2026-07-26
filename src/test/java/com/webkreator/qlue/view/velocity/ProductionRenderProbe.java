@@ -65,13 +65,15 @@ public final class ProductionRenderProbe {
     }
 
     /**
-     * The two production switches that change what {@code render()} does, so that T20 can cover
-     * both settings of each rather than only the defaults.
+     * The production switches that change what {@code render()} does, so that T20 can cover every
+     * setting of each rather than only the defaults. Two of them until R5, which added the
+     * plain-text attribute allowlist.
      */
     public static final class Options {
 
         private boolean autoEscaping = true;
         private boolean directOutput = false;
+        private String[] plainTextAttributes = new String[0];
 
         public static Options defaults() {
             return new Options();
@@ -86,6 +88,21 @@ public final class ProductionRenderProbe {
         /** A page whose application returns true from {@code allowDirectOutput()}, so {@code $_x} is bound. */
         public Options withDirectOutput() {
             this.directOutput = true;
+            return this;
+        }
+
+        /**
+         * {@code VelocityViewFactory.addPlainTextAttributes(...)}: R5's application-level extension
+         * point, exercised on the real render path rather than by constructing a {@link
+         * com.webkreator.qlue.view.Canoe} directly.
+         *
+         * <p>Worth having as a switch here for the same reason the other two are: what the unit
+         * tests can show is that a configured {@link com.webkreator.qlue.view.Canoe} classifies the
+         * name, and what only this path can show is that the factory actually hands its set to the
+         * writer it builds per render.
+         */
+        public Options withPlainTextAttributes(String... names) {
+            this.plainTextAttributes = names;
             return this;
         }
     }
@@ -183,6 +200,49 @@ public final class ProductionRenderProbe {
     }
 
     /**
+     * The plain-text attribute allowlist a factory ends up with when the application declares
+     * {@code qlue.canoe.plainTextAttributes} in its Qlue properties.
+     *
+     * <p>Goes through {@code buildDefaultVelocityProperties()} because that is where every shipped
+     * factory's {@code init()} reads the application's properties, so this exercises the real path
+     * from a property file to a {@link com.webkreator.qlue.view.Canoe} rather than a copy of it.
+     * Exposed here for the same reason {@link #defaultVelocityProperties()} is: the method is
+     * reachable only from this package.
+     *
+     * @param propertyValue the property's value, or null for an application that does not set it
+     */
+    public static java.util.Set<String> plainTextAttributesFromProperty(String propertyValue) {
+        com.webkreator.qlue.QlueApplication app = new CanoeProbePage().getApp();
+        if (propertyValue != null) {
+            app.getProperties().setProperty(
+                    VelocityViewFactory.QLUE_CANOE_PLAIN_TEXT_ATTRIBUTES, propertyValue);
+        }
+
+        VelocityViewFactory factory = new ProbeViewFactory();
+        factory.buildDefaultVelocityProperties(app);
+        return factory.getPlainTextAttributes();
+    }
+
+    /**
+     * A factory of the kind {@code render()} uses, configured with the given plain-text attribute
+     * names, so that a test can hold <em>two of them at once</em> and show that neither can see the
+     * other's allowlist.
+     *
+     * <p>{@link #render(String, Map, Options)} builds and discards a factory per call, which shows
+     * that a configured factory and an unconfigured one behave differently but cannot show that two
+     * live ones are isolated — and "per engine, never static" is the whole claim R5 makes about
+     * where the allowlist lives. Two applications in one JVM widening each other's plain-text set
+     * would be a security control changed by an unrelated deployment.
+     *
+     * @param plainTextAttributes names to widen this factory's allowlist with
+     */
+    public static VelocityViewFactory newFactory(String... plainTextAttributes) {
+        VelocityViewFactory factory = new ProbeViewFactory();
+        factory.addPlainTextAttributes(plainTextAttributes);
+        return factory;
+    }
+
+    /**
      * Renders a {@code .vm} file from the test classpath through the production render path.
      *
      * @param resourceName the template's classpath name, e.g. {@code canoe/templates/body-text.vm}
@@ -247,6 +307,7 @@ public final class ProductionRenderProbe {
     private static Outcome merge(Template template, Map<String, Object> model, Options options) {
         VelocityViewFactory factory = new ProbeViewFactory();
         factory.setAutoEscaping(options.autoEscaping);
+        factory.addPlainTextAttributes(options.plainTextAttributes);
 
         VelocityView view = new VelocityView(factory, template);
 

@@ -79,20 +79,25 @@ public class CanoeCorpusTest {
         assertEquals(Verdict.SAFE, safeReality.verdict());
         assertFalse(safeReality.matches(Verdict.KNOWN_VULNERABLE));
 
-        // xlink:href is vulnerable; claiming it is safe must also be caught. This half used to use
-        // <form onsubmit="v('$data')"> and F1, which R4 closed - the template emits nothing now, so
-        // the oracle would agree with the wrong verdict and the self-test would pass vacuously. F3's
-        // xlink:href is the replacement: the same shape, an attribute Canoe classifies as plain text
-        // whose decoded value a second parser consumes.
+        // An off-origin href is vulnerable; claiming it is safe must also be caught. This half has
+        // now been rewritten twice for the same reason: it used <form onsubmit="v('$data')"> and F1
+        // until R4 closed it, then xlink:href and F3 until R6 routed that name to url(). Each time,
+        // the template stopped emitting anything the oracle would call live, so the oracle would
+        // have agreed with the wrong verdict and the self-test would have passed vacuously. F6 is
+        // the replacement and is the last one available: url() is a scheme filter and not an origin
+        // filter, so a protocol-relative URL reaches the sink byte for byte on the best-protected
+        // attribute in the component. If R9 or R12 ever makes this half pass vacuously too, there is
+        // nothing left in the corpus for a self-test to use - which will be the right problem to
+        // have, and the answer will be a synthetic sink rather than a real one.
         XssCase wronglySafe = XssCase.id("oracle-selftest-safe")
                 .section("self-test")
-                .template("<svg><a xlink:href=\"$data\"><text>go</text></a></svg>")
-                .sink(SinkKind.URL, "a", "xlink:href")
-                .payloads(Payloads.JS_URL)
+                .template("<a href=\"$data\">go</a>")
+                .sink(SinkKind.URL, "a", "href")
+                .payloads(Payloads.PROTOCOL_RELATIVE)
                 .verdict(Verdict.SAFE)
                 .build();
         VerdictEvaluator.Observation vulnerableReality =
-                VerdictEvaluator.observe(wronglySafe, Payloads.JS_URL);
+                VerdictEvaluator.observe(wronglySafe, Payloads.PROTOCOL_RELATIVE);
         assertEquals(Verdict.KNOWN_VULNERABLE, vulnerableReality.verdict());
         assertFalse(vulnerableReality.matches(Verdict.SAFE));
 
@@ -554,15 +559,29 @@ public class CanoeCorpusTest {
      * {@link Verdict#KNOWN_VULNERABLE} pairing — a safe control is expected to trip nothing anyway,
      * so flagging one says nothing and hides the intent — and it may only be set on a case the
      * browser tier will actually load, since a flag on a case no browser sees is decoration.
+     *
+     * <p><strong>No row uses it any more, and that is the state Phase A left the corpus in.</strong>
+     * The axis carried about twenty invocations at its peak: {@code srcset} never running a
+     * {@code javascript:} URL, {@code vbscript:} and {@code expression()} having no engine left, a
+     * {@code data:} URL in a background attribute loading no document, {@code onvisibilitychange}
+     * having no element that hosts it, and the CSP nonce having no policy to be admitted by. Every
+     * one of those rows has since been re-verdicted to a suppression by R2, R3, R4, R5, R6 or R7, and
+     * the corpus only permits the flag on a {@code KNOWN_VULNERABLE} row — so the flags went with the
+     * verdicts they qualified, and each one's reasoning was moved into the note it belonged to rather
+     * than deleted. What is left {@code KNOWN_VULNERABLE} is F6's off-origin rows, and a browser
+     * confirms every one of them.
+     *
+     * <p>The count assertion was therefore inverted rather than dropped. It used to be
+     * {@code flagged > 0} — "the axis exists and nothing uses it" was the merge accident it guarded
+     * against — and the guard is now on the <em>machinery</em> instead, exercised against a synthetic
+     * case, so that losing the axis still fails here while an empty axis does not.
      */
     @Test
     public void browserObservabilityIsOnlyClaimedWhereItChangesAnExpectation() {
-        int flagged = 0;
         for (XssCase.Invocation invocation : CanoeCorpus.allInvocations()) {
             if (invocation.isBrowserObservable()) {
                 continue;
             }
-            flagged++;
             assertEquals(Verdict.KNOWN_VULNERABLE, invocation.verdict(),
                     () -> invocation + " is flagged not-browser-observable but is not"
                             + " KNOWN_VULNERABLE. The flag only means something for a row that claims"
@@ -573,8 +592,24 @@ public class CanoeCorpusTest {
                             + " browser-relevant, so no browser will ever load it and the flag is"
                             + " decoration. Say it in the note instead.");
         }
-        assertTrue(flagged > 0, "no invocation is flagged not-browser-observable, which would mean"
-                + " the axis exists and nothing uses it - check it was not lost in a merge");
+
+        // The machinery, exercised on a case built here rather than taken from the corpus, so that
+        // the axis cannot be quietly removed while no real row is using it.
+        XssCase synthetic = XssCase.id("observability-selftest")
+                .section("self-test")
+                .template("<a href=\"$data\">go</a>")
+                .sink(SinkKind.URL, "a", "href")
+                .payloads(Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS)
+                .verdict(Verdict.KNOWN_VULNERABLE)
+                .finding("none - self test")
+                .notBrowserObservable(Payloads.PROTOCOL_RELATIVE)
+                .browserRelevant()
+                .build();
+        assertFalse(synthetic.isBrowserObservable(Payloads.PROTOCOL_RELATIVE),
+                "the flag must still take effect, or the browser tier has lost the only way it has"
+                        + " of expecting a detector miss without a ledger divergence");
+        assertTrue(synthetic.isBrowserObservable(Payloads.ABSOLUTE_OFFSITE_HTTPS),
+                "...and must not spill onto the payloads it was not set for");
     }
 
     @Test

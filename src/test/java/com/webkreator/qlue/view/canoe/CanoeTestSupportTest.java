@@ -25,30 +25,37 @@ public class CanoeTestSupportTest {
     }
 
     /**
-     * Reproduces F3: {@code xlink:href} is not one of the names Canoe classifies as a URL — {@code
-     * isTagNameChar()} accepts {@code ':'}, so it scans as one attribute name and simply does not
-     * match {@code href} — so the payload arrives html-encoded and the parser decodes it back before
-     * handing it to the URL parser.
+     * The one fact the whole suite rests on: {@code html()}'s output is <em>reversible</em>, so an
+     * assertion about Canoe's bytes and an assertion about what a parser hands the next consumer are
+     * different assertions.
      *
-     * <p>Note the two assertions. The raw output does not contain the payload, which is exactly why
-     * a string-level assertion would have called this safe. The decoded attribute does.
+     * <p>The raw output does not contain the payload, which is exactly why a string-level assertion
+     * would have called it neutralised. The decoded attribute contains it character for character.
+     * On {@code title} that is harmless and correct — a title is text, and getting the value back is
+     * what the developer asked for — and it is the same mechanism that made F1, F2, F3 and F20
+     * exploitable, because those sinks handed the decoded value to a second parser or to a browser
+     * algorithm.
      *
-     * <p>The template used to be {@code <form onsubmit="v('$data')">}, reproducing F1 by the
-     * identical mechanism. R4 suppresses every {@code on*} value, so that template no longer emits
-     * anything for the harness to decode; the sink moved rather than the test, because what is being
-     * demonstrated is {@code decodedAttr}'s reason for existing and not any particular finding.
+     * <p>The sink has moved twice, which is worth recording rather than hiding. It was
+     * {@code <form onsubmit="v('$data')">}, reproducing F1; R4 suppressed every {@code on*} value,
+     * so it moved to {@code xlink:href}, reproducing F3; R6 routed {@code xlink:href} to
+     * {@code url()}, so it moved again. Each move is Phase A closing the sink the demonstration was
+     * using, and the demonstration itself — {@code decodedAttr}'s reason for existing — is what has
+     * to survive them. That there is no longer a <em>dangerous</em> sink to demonstrate it on is the
+     * point of Phase A.
      */
     @Test
     public void decodedAttrExposesWhatAStringAssertionWouldMiss() {
-        CanoeTestSupport.RenderResult result = CanoeTestSupport.render(
-                "<svg><a xlink:href=\"$data\"><text>go</text></a></svg>",
-                "javascript:alert(1)");
+        CanoeTestSupport.RenderResult result =
+                CanoeTestSupport.render("<a title=\"$data\">go</a>", "javascript:alert(1)");
 
         assertFalse(result.output().contains("javascript:alert(1)"),
-                "Canoe emits the payload entity-encoded");
-        assertEquals("javascript:alert(1)",
-                result.decodedAttr("a", "xlink:href"),
-                "the HTML parser decodes it straight back into an executable URL");
+                "Canoe emits the payload with its colon and parentheses as character references");
+        assertEquals("javascript:alert(1)", result.decodedAttr("a", "title"),
+                "...and the HTML parser decodes every one of them back before anything downstream"
+                        + " sees the value. Harmless in a title; the identical mechanism is what"
+                        + " made every attribute finding in the review exploitable, and it is why"
+                        + " the ledger judges sinks on the decoded value rather than on the bytes.");
     }
 
     @Test

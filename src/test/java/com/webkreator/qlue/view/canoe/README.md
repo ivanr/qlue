@@ -75,9 +75,9 @@ indistinguishable from "the oracle notices any change at all". Examples:
 // Wrong: asserts on Canoe's bytes.
 assertFalse(rendered.contains("javascript:"));
 
-// Right: asserts on what the URL parser receives.
-String value = result.decodedAttr("a", "xlink:href");
-assertFalse(value.contains("javascript:"));
+// Right: asserts on what the parser hands the next consumer.
+String value = result.decodedAttr("a", "title");
+assertEquals("javascript:alert(1)", value);
 ```
 
 `html()` turns `javascript:alert(1)` into `javascript&#58;alert&#40;1&#41;`, which a naive string
@@ -85,10 +85,13 @@ assertion calls safe. The HTML parser decodes it back before the value is used. 
 is what the whole review is about; `RenderResult.decodedAttr()` and `decodedText()` exist so tests get
 it right by default.
 
-The example used to be `decodedAttr("form", "onsubmit")` against `');alert(1)`, which was F1 and is
-the sharper illustration — an event handler value is *compiled*. R4 suppresses every `on*` value, so
-that example no longer renders anything to decode. `xlink:href` is the same asymmetry at a sink R5
-and R6 still own.
+The example has moved twice, and where it ended up is the point of Phase A. It was
+`decodedAttr("form", "onsubmit")` against `');alert(1)`, which was F1 and is the sharper illustration
+— an event handler value is *compiled*; R4 suppresses every `on*` value, so that template renders
+nothing to decode. It then became `xlink:href`, which was F3; R6 routes that name to `url()`. The
+example above is a `title`, where the decode is harmless and the asymmetry is identical — and there
+is no longer a *dangerous* sink in the component to illustrate it with, which is what R5, R6 and R7
+were for.
 
 ### Pure ASCII in source
 

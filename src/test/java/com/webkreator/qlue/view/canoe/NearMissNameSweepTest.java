@@ -97,24 +97,45 @@ public class NearMissNameSweepTest {
      * to {@link #handlerNameNearMisses}, which asserts the opposite outcome. What is left here is
      * the seven names that are still matched whole.
      *
-     * <p>{@code data} yields {@code ATTR_CONTENT} because the branch commented {@code // content}
-     * compares the characters of {@code data}; that is F7 and it is asserted in
-     * {@code AttributeNameMatrixTest.theSourceDeclaresExactlyTheNonHandlerBranchesTheMatrixExpects}.
+     * <p>{@code data} used to yield {@code ATTR_CONTENT}, because the branch commented
+     * {@code // content} compared the characters of {@code data} — F7. R7 resolved the pair and
+     * {@code <object data>} is a URL now; {@code AttributeNameMatrixTest} owns the record of what
+     * the two branches were.
+     *
+     * <p>The list is the seventeen URL names, {@code style}, and three representatives of the
+     * plain-text allowlist. The plain-text names are here for the first time and they are the ones
+     * the sweep has most to say about since R5: a near miss of {@code title} used to land on the
+     * same {@code ATTR_HTML} as {@code title} itself, so the sweep could not distinguish "matched"
+     * from "fell through", and now it can — the fall-through is {@code ATTR_UNKNOWN}.
      *
      * <p>The exact names and their expected contexts are asserted elsewhere — this map is used for
      * its <em>keys</em>, and the values are carried so that a near miss can be checked against the
-     * classification it must not receive rather than against a bare {@code ATTR_HTML}.
+     * classification it must not receive.
      */
     private static Map<String, Integer> recognisedAttributeNames() {
         Map<String, Integer> names = new LinkedHashMap<>();
 
         names.put("background", Canoe.ATTR_URI);
-        names.put("data", Canoe.ATTR_CONTENT);
+        names.put("data", Canoe.ATTR_URI);
         names.put("dynsrc", Canoe.ATTR_URI);
         names.put("lowsrc", Canoe.ATTR_URI);
         names.put("href", Canoe.ATTR_URI);
         names.put("src", Canoe.ATTR_URI);
+        names.put("action", Canoe.ATTR_URI);
+        names.put("formaction", Canoe.ATTR_URI);
+        names.put("poster", Canoe.ATTR_URI);
+        names.put("cite", Canoe.ATTR_URI);
+        names.put("usemap", Canoe.ATTR_URI);
+        names.put("longdesc", Canoe.ATTR_URI);
+        names.put("codebase", Canoe.ATTR_URI);
+        names.put("manifest", Canoe.ATTR_URI);
+        names.put("ping", Canoe.ATTR_URI);
+        names.put("srcset", Canoe.ATTR_URI);
+        names.put("xlink:href", Canoe.ATTR_URI);
         names.put("style", Canoe.ATTR_CSS);
+        names.put("title", Canoe.ATTR_HTML);
+        names.put("value", Canoe.ATTR_HTML);
+        names.put("placeholder", Canoe.ATTR_HTML);
 
         return names;
     }
@@ -200,19 +221,25 @@ public class NearMissNameSweepTest {
      * declared, with the classification the prefix rule gives it.
      *
      * <p>The expectation is computed from the near miss itself rather than tabled, and that is the
-     * assertion: {@code ATTR_JS} when the first two characters survive the divergence,
-     * {@code ATTR_HTML} when they do not. Truncating {@code onclick} at index 0 or 1 gives {@code q}
-     * and {@code oq}, which are not handler names and must not be treated as any; every other row —
-     * {@code onq}, {@code onclicq}, {@code onclickq} — is a handler as far as Canoe is concerned and
-     * must suppress. Those are the rows that used to fail, one per name per index, and they are F2
-     * in miniature.
+     * assertion: {@code ATTR_JS} when the first two characters survive the divergence, and R5's
+     * fail-closed {@code ATTR_UNKNOWN} when they do not. Truncating {@code onclick} at index 0 or 1
+     * gives {@code q} and {@code oq}, which are not handler names and must not be treated as any;
+     * every other row — {@code onq}, {@code onclicq}, {@code onclickq} — is a handler as far as
+     * Canoe is concerned and must suppress. Those are the rows that used to fail, one per name per
+     * index, and they are F2 in miniature.
+     *
+     * <p>Both halves suppress since R5, which is worth saying plainly rather than leaving as a
+     * coincidence a reader has to notice: {@code q} used to be html-encoded and is now dropped, so
+     * the two arms of this expectation differ in the constant and no longer in the outcome. The
+     * constant is still asserted because the two mean different things — one is "this is script",
+     * the other is "nobody has classified this" — and R14 and R19 both turn on that distinction.
      */
     public static Stream<Arguments> handlerNameNearMisses() {
         Set<String> handlers = handlerNames();
         List<Arguments> rows = new ArrayList<>();
         for (String name : handlers) {
             for (String nearMiss : nearMissesOf(name, handlers)) {
-                int expected = nearMiss.startsWith("on") ? Canoe.ATTR_JS : Canoe.ATTR_HTML;
+                int expected = nearMiss.startsWith("on") ? Canoe.ATTR_JS : Canoe.ATTR_UNKNOWN;
                 rows.add(Arguments.of(name, nearMiss, expected));
             }
         }
@@ -247,16 +274,26 @@ public class NearMissNameSweepTest {
     // ------------------------------------------------------------------
 
     /**
-     * A near miss of a recognised attribute name gets the {@code ATTR_HTML} default.
+     * A near miss of a listed attribute name is suppressed. <strong>Inverted by R5.</strong>
      *
-     * <p>{@code ATTR_HTML} is the right expectation today and it is also the finding: fail-open on
-     * an unknown name is F3, and R5 inverts it. If that lands, this sweep flips wholesale to
-     * {@code CTX_SUPPRESS}, which is a loud and correct failure.
+     * <p>The sweep used to require {@code ATTR_HTML} here, and said so in its own javadoc: "the
+     * right expectation today and also the finding — fail-open on an unknown name is F3, and R5
+     * inverts it. If that lands, this sweep flips wholesale to {@code CTX_SUPPRESS}, which is a loud
+     * and correct failure." It landed and it flipped, and every one of these ~130 rows is now an
+     * assertion that a name one character away from a URL attribute is dropped rather than handed to
+     * the HTML parser to decode.
+     *
+     * <p>The first assertion is the one that has not changed and it is the more general of the two:
+     * a comparison written for {@code href} must not also match {@code hrefq}, which is the F1/F19
+     * defect shape in the opposite direction. It reads differently now that both answers suppress —
+     * {@code srcq} being {@code ATTR_UNKNOWN} rather than {@code ATTR_URI} makes no difference to
+     * the output — and it is kept because a classifier that matches names it was not written for is
+     * wrong whichever way its mistakes happen to fall.
      */
     @ParameterizedTest(name = "{1} is not {0}")
     @MethodSource("attributeNameNearMisses")
-    public void aNearMissOfAnAttributeNameIsNotClassifiedAsThatName(String name, String nearMiss,
-                                                                    int nameContext)
+    public void aNearMissOfAnAttributeNameIsSuppressed(String name, String nearMiss,
+                                                       int nameContext)
             throws IOException {
         int observed = new CanoeStateProbe().feed("<img " + nearMiss + "=\"").attributeContext();
 
@@ -265,14 +302,14 @@ public class NearMissNameSweepTest {
                         + ", the context " + name + " gets. The comparison for " + name
                         + " matches a name it was not written for, which is the F1/F19 defect shape"
                         + " in the opposite direction.");
-        assertEquals(Canoe.ATTR_HTML, observed,
-                () -> nearMiss + " must fall through to the ATTR_HTML default, but got "
+        assertEquals(Canoe.ATTR_UNKNOWN, observed,
+                () -> nearMiss + " must reach R5's fail-closed default, but got "
                         + CanoeStateProbe.attributeContextName(observed));
     }
 
     /**
      * Inverted by R4. Was the {@code on*} half of
-     * {@link #aNearMissOfAnAttributeNameIsNotClassifiedAsThatName}, which required {@code onclicq},
+     * {@link #aNearMissOfAnAttributeNameIsSuppressed}, which required {@code onclicq},
      * {@code onmouseoveq} and 170-odd siblings to fall through to {@code ATTR_HTML}.
      *
      * <p>Every one of those rows was F2: a name one character away from a handler is a handler, or
@@ -472,16 +509,28 @@ public class NearMissNameSweepTest {
      * two operands of those two conditions had no input at all, which is a gap in the same place a
      * gap matters — {@code isTagNameChar} is what decides where an attribute name ends, and an
      * attribute name that ends in the wrong place is classified against the wrong buffer contents.
+     *
+     * <p>The expectation moved from {@code ATTR_HTML} to {@code ATTR_UNKNOWN} with R5 and the point
+     * of the test is unchanged, because the point was never the classification: it is that each of
+     * these is <em>one</em> attribute name. A name that ended early would leave the parser
+     * classifying the remainder as a second attribute, and the observable difference is the context,
+     * not the constant.
      */
     @ParameterizedTest(name = "<x {0}=\"\">")
     @MethodSource("unusualButLegalAttributeNames")
-    public void theRemainingLegalNameCharactersAreAcceptedAsPlainText(String name)
+    public void theRemainingLegalNameCharactersAreAcceptedAsOneName(String name)
             throws IOException {
         CanoeStateProbe probe = new CanoeStateProbe().feed("<x " + name + "=\"");
-        assertEquals(Canoe.ATTR_HTML, probe.attributeContext(),
-                () -> name + " is not a recognised name and must get the plain-text default");
-        assertEquals(Canoe.CTX_HTML_ATTR, probe.currentContext(),
+        assertEquals(Canoe.ATTR_UNKNOWN, probe.attributeContext(),
+                () -> name + " is on none of the lists and must get R5's fail-closed default");
+        assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext(),
                 () -> name + " must be a single attribute name, not two");
+
+        // ...and the same characters in a name that IS listed still scan as one name, which is what
+        // separates "the name ended where it should" from "the name was not recognised".
+        assertEquals(Canoe.ATTR_HTML,
+                new CanoeStateProbe().feed("<x data-" + name + "=\"").attributeContext(),
+                () -> "data-" + name + " must scan as one name and reach the data- family");
     }
 
     public static Stream<Arguments> unusualButLegalAttributeNames() {

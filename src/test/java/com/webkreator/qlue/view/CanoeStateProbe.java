@@ -30,8 +30,24 @@ public class CanoeStateProbe extends Canoe {
         this(new StringWriter());
     }
 
+    /**
+     * A probe whose plain-text allowlist carries the application's own additions, for the tests of
+     * R5's extension point. Pass names through
+     * {@link Canoe#normalisePlainTextAttributeNames(java.util.Collection)} first, exactly as
+     * {@code VelocityViewFactory} does, so that the probe cannot be given a set production could
+     * never hold.
+     */
+    public CanoeStateProbe(java.util.Set<String> extraPlainTextAttributeNames) {
+        this(new StringWriter(), extraPlainTextAttributeNames);
+    }
+
     private CanoeStateProbe(StringWriter sink) {
         super(sink);
+        this.sink = sink;
+    }
+
+    private CanoeStateProbe(StringWriter sink, java.util.Set<String> extraPlainTextAttributeNames) {
+        super(sink, extraPlainTextAttributeNames);
         this.sink = sink;
     }
 
@@ -74,6 +90,19 @@ public class CanoeStateProbe extends Canoe {
     /** The context derived from the current attribute's name, or its value prefix. */
     public int attributeContext() {
         return attributeContext;
+    }
+
+    /**
+     * The attribute name R5's unknown-name rule captured for its diagnostic, or null when the
+     * current attribute name was recognised.
+     *
+     * <p>The diagnostic itself is an slf4j debug call, which no test can observe without installing
+     * a backend; what a test can observe is that the field the message interpolates holds the name
+     * of the attribute the reference is actually in. A diagnostic naming the wrong attribute is
+     * worse than none, because the developer it exists for would go and look at the wrong element.
+     */
+    public String unknownAttributeName() {
+        return unknownAttributeName;
     }
 
     /** Which quote style, if any, delimits the attribute value being parsed. */
@@ -144,7 +173,7 @@ public class CanoeStateProbe extends Canoe {
             case ATTR_JS: return "ATTR_JS";
             case ATTR_URI: return "ATTR_URI";
             case ATTR_DATA: return "ATTR_DATA";
-            case ATTR_CONTENT: return "ATTR_CONTENT";
+            case ATTR_UNKNOWN: return "ATTR_UNKNOWN";
             case ATTR_ACTIONSCRIPT: return "ATTR_ACTIONSCRIPT";
             default: return "UNKNOWN(" + context + ")";
         }

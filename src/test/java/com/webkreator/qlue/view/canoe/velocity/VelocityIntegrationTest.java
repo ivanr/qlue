@@ -481,22 +481,32 @@ public class VelocityIntegrationTest {
      * Routing the same value through an interpolated {@code #set} first encoded it twice, so the one
      * decode left the literal text {@code &#39;} and the string literal was never closed.
      *
-     * <p>R4 suppresses every {@code on*} value, so the handler half of the template is inert by
-     * design on both paths and the accident has nothing left to neutralise there. The first
-     * assertion below is inverted to say exactly that. <strong>Trap 2 in the plan's &sect;1 is not
-     * closed by it</strong>: the same accident still covers F3's unrecognised URL-bearing names,
-     * which is R5 and R6's territory, so the sink moves to {@code formaction} and the warning stands
-     * unchanged — a fix to F12 before those land turns this template from safe to injectable with no
-     * other change.
+     * <p>R4 suppressed every {@code on*} value, so the handler half of the template became inert by
+     * design on both paths and the accident had nothing left to neutralise there. The sink then
+     * moved to {@code formaction}, which was F3's territory and R5 and R6's to close — and they have
+     * closed it. <strong>Trap 2 in the plan's &sect;1 is discharged</strong>: no class of
+     * <em>missing classification</em> is being covered by the double encoding any more, because
+     * there is no longer a sink where {@code html()} output is decoded once into a second parser.
+     * R24 is unblocked with respect to R4 and R5.
      *
-     * <p>This is not a reason to keep F12. It is here because a suite that only recorded F12 as
-     * double encoding would let that land unremarked.
+     * <p>What honestly remains is narrower and is asserted rather than assumed: F12 still masks
+     * <strong>F6</strong>. An off-origin URL survives {@code url()} byte for byte on the direct path
+     * and is mangled on the {@code #set} path, so fixing F12 before R9 and R12 would turn an
+     * interpolated {@code #set} into a live off-origin vector on a sink where the direct form
+     * already is one. That is a smaller and better-understood statement than the one this test was
+     * written for — the class it now covers is already {@code KNOWN_VULNERABLE} in the ledger by its
+     * direct route, so R24 would expose nothing the ledger does not already record.
+     *
+     * <p>Renamed from {@code doubleEncodingAccidentallyNeutralisesAnUnrecognisedUrlAttribute}, and
+     * before that from {@code …AnUnrecognisedHandler}. Kept rather than retired because a suite that
+     * only recorded F12 as double encoding would let R24 land without anybody re-deriving which
+     * findings the accident was standing in front of.
      */
     @Test
-    public void doubleEncodingAccidentallyNeutralisesAnUnrecognisedUrlAttribute() {
+    public void doubleEncodingNoLongerCoversAnyClassOfMissingClassification() {
         String payload = Payloads.QUOTE_SINGLE_BREAKOUT.value();
 
-        // R4: the handler this test used to be about is suppressed on both paths now, so the
+        // R4: the handler this test was originally about is suppressed on both paths now, so the
         // double encoding neither helps nor is needed.
         CanoeTestSupport.RenderResult handlerDirect = CanoeTestSupport.render(
                 "<div onmouseenter=\"v('$data')\">x</div>", payload);
@@ -504,24 +514,39 @@ public class VelocityIntegrationTest {
                 "R4: onmouseenter is classified by the on-prefix rule, so nothing is emitted and"
                         + " there is no payload for F12's double encoding to neutralise");
 
-        // ...and the class the accident still covers, which is why trap 2 stands until R5 and R6.
+        // R5+R6: and neither is the URL attribute the sink moved to. url() escapes the colon, so
+        // the direct path is inert without any help from F12.
         String urlPayload = Payloads.JS_URL.value();
         CanoeTestSupport.RenderResult direct = CanoeTestSupport.render(
                 "<button formaction=\"$data\">go</button>", urlPayload);
-        assertEquals(urlPayload, direct.decodedAttr("button", "formaction"),
-                () -> "F3: formaction is not a name Canoe recognises, so html() applies and the"
-                        + " parser decodes the attacker's URL straight back. Decoded: "
+        assertFalse(direct.decodedAttr("button", "formaction").contains("javascript:"),
+                () -> "R6: formaction is a URL name now, so url() percent-escapes the scheme colon"
+                        + " on the direct path. Decoded: "
                         + direct.decodedAttr("button", "formaction"));
 
-        CanoeTestSupport.RenderResult viaSet = CanoeTestSupport.render(
-                "#set($v = \"$data\")<button formaction=\"$v\">go</button>", urlPayload);
-        assertFalse(viaSet.decodedAttr("button", "formaction").contains("javascript:"),
-                () -> "F12's double encoding survives the parser's single decode, so the same"
-                        + " payload arrives with no scheme colon at all. Decoded: "
-                        + viaSet.decodedAttr("button", "formaction"));
-        assertTrue(viaSet.decodedAttr("button", "formaction").contains("&#58;"),
-                "the decoded value still carries a character reference where the colon was, which"
-                        + " is what inert looks like here");
+        // What remains, stated precisely rather than left as "the accident still helps somewhere".
+        // An off-origin URL is F6's live vector on the direct path, and the double encoding mangles
+        // it on the #set path - so F12 still masks F6 here, and only here.
+        String offOrigin = Payloads.PROTOCOL_RELATIVE.value();
+        CanoeTestSupport.RenderResult offOriginDirect = CanoeTestSupport.render(
+                "<button formaction=\"$data\">go</button>", offOrigin);
+        assertEquals(offOrigin, offOriginDirect.decodedAttr("button", "formaction"),
+                "F6: every character of a protocol-relative URL is on url()'s allowlist, so the"
+                        + " direct path is live and the ledger records this sink as F6");
+
+        CanoeTestSupport.RenderResult offOriginViaSet = CanoeTestSupport.render(
+                "#set($v = \"$data\")<button formaction=\"$v\">go</button>", offOrigin);
+        assertNotEquals(offOrigin, offOriginViaSet.decodedAttr("button", "formaction"),
+                () -> "F12: the #set encoded for body context first, so url() then escaped the"
+                        + " character references' own ampersands and the authority never survives."
+                        + " Decoded: " + offOriginViaSet.decodedAttr("button", "formaction"));
+        // ...asserted as the mechanism and not only as a difference, so that this half cannot pass
+        // for some later reason - a suppression, say - while F12 is quietly fixed underneath it.
+        assertTrue(offOriginViaSet.decodedAttr("button", "formaction").startsWith("%26#47%3B"),
+                () -> "the value must be url() applied to html()'s output: '/' arrives as the"
+                        + " percent-escaped form of the character reference &#47;, which is what"
+                        + " double encoding looks like at a URL sink. Decoded: "
+                        + offOriginViaSet.decodedAttr("button", "formaction"));
     }
 
     // ------------------------------------------------------------------

@@ -38,10 +38,17 @@ public enum SinkKind {
      * nonce}.
      *
      * <p>A fifth category the review's "JavaScript, CSS, a URL, or markup" framing does not cover, and
-     * the one Canoe's {@code html()} default is least able to help with: policy tokens are letters,
+     * the one Canoe's {@code html()} default was least able to help with: policy tokens are letters,
      * digits, hyphens and spaces, every one of which either passes {@code html()} naked or round-trips
      * through the parser's character-reference decoding. There is no encoding that makes
      * {@code allow-same-origin} mean something else. Recorded as F20.
+     *
+     * <p><strong>R5 suppresses all four names</strong>, which is the only fix this category ever
+     * admitted: none of them is on the plain-text allowlist, and
+     * {@code Canoe.NAMES_THAT_MAY_NOT_BE_ADDED} refuses them from application configuration too. The
+     * category is kept — with its criteria, which are what decided which names went on the allowlist
+     * and which did not — because it is the question a new attribute has to be asked, and because a
+     * suppressed sink still needs a declared kind for the oracle to judge it by.
      *
      * <h2>The exclusion criterion, stated so the boundary is checkable</h2>
      *

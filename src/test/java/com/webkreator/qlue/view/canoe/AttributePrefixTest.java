@@ -23,6 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * F4 (the value scan discards what the name established), F5 (the value scan reads buffer indices
  * nothing in the value ever wrote), and F7 (a branch that can never be taken).
  *
+ * <p><strong>R5, R6 and R7 have landed, and F7 is closed.</strong> The identical {@code data}
+ * branch pair is gone: {@code <object data>} is a URL and {@code content} suppresses. The
+ * expectations in this file that read {@code ATTR_HTML} now read {@code ATTR_UNKNOWN} wherever the
+ * probe's attribute name is one nobody classified, because R5 inverted that default; where the
+ * assertion was about the prefix scan rather than about the name, the observation is unchanged and
+ * only the constant moved.
+ *
  * <p><strong>R2 has landed, and F4/F17 are closed.</strong> {@code detectAttributePrefix()} no
  * longer opens with {@code attributeContext = ATTR_HTML}; it starts from the name-derived context
  * and only ever narrows it. Everything in this file that used to assert the reset now asserts its
@@ -38,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>These assert on {@code attributeContext} — the {@code ATTR_*} value — rather than only on the
  * {@code CTX_*} it produces. That is the level the two functions actually work at, and it separates
  * facts that {@link Canoe#currentContext()} merges: {@code ATTR_CSS}, {@code ATTR_DATA},
- * {@code ATTR_CONTENT} and {@code ATTR_ACTIONSCRIPT} all collapse to {@code CTX_SUPPRESS}, so a
+ * {@code ATTR_UNKNOWN} and {@code ATTR_ACTIONSCRIPT} all collapse to {@code CTX_SUPPRESS}, so a
  * context-only assertion cannot tell "the style attribute is being suppressed" from "the value began
  * {@code asfunction:}". {@code CanoeStateMachineTest} owns the context-level statements; this file
  * owns the mechanism.
@@ -63,9 +70,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * every F5 table below is a corollary of it — inverted, and kept because the corollaries are exactly
  * where a regression would show first.
  *
- * <p>The first two bullets are still true and still load-bearing: {@code setTagAttributeContext()}
- * is still written as fixed-index comparisons, and R4 owns replacing them. What has changed is that
- * they now run over a buffer nothing else has written to, which is
+ * <p>The first two bullets are still true and no longer load-bearing: R4 replaced the name-side
+ * comparisons with a prefix rule and bounded string compares, and R5 replaced those with lookups of
+ * the buffered name in declared sets, so no classification in the class reads a fixed buffer index
+ * any more. What is left of the paragraph above is history, and the buffer it describes is cleared
+ * on every reuse, which is
  * {@code BufferResidueTest.theBufferHoldsNothingTheCurrentNameOrValueWrote}.
  */
 public class AttributePrefixTest {
@@ -380,35 +389,41 @@ public class AttributePrefixTest {
 
                 // Near-misses. Three different mechanisms reject these; see
                 // nearMissesAreRejectedByThreeDifferentMechanisms for which is which.
-                prefix("javascripx", Canoe.ATTR_HTML),
-                prefix("javascrip", Canoe.ATTR_HTML),
-                prefix("javascriptx", Canoe.ATTR_HTML),
-                prefix("livescripx", Canoe.ATTR_HTML),
-                prefix("livescriptx", Canoe.ATTR_HTML),
-                prefix("asfunctioo", Canoe.ATTR_HTML),
-                prefix("asfunctionx", Canoe.ATTR_HTML),
-                prefix("datax", Canoe.ATTR_HTML),
-                prefix("dat", Canoe.ATTR_HTML),
-                prefix("mochax", Canoe.ATTR_HTML),
-                prefix("moch", Canoe.ATTR_HTML),
+                prefix("javascripx", Canoe.ATTR_UNKNOWN),
+                prefix("javascrip", Canoe.ATTR_UNKNOWN),
+                prefix("javascriptx", Canoe.ATTR_UNKNOWN),
+                prefix("livescripx", Canoe.ATTR_UNKNOWN),
+                prefix("livescriptx", Canoe.ATTR_UNKNOWN),
+                prefix("asfunctioo", Canoe.ATTR_UNKNOWN),
+                prefix("asfunctionx", Canoe.ATTR_UNKNOWN),
+                prefix("datax", Canoe.ATTR_UNKNOWN),
+                prefix("dat", Canoe.ATTR_UNKNOWN),
+                prefix("mochax", Canoe.ATTR_UNKNOWN),
+                prefix("moch", Canoe.ATTR_UNKNOWN),
 
                 // Schemes the function has never heard of, including the ones that still execute in
                 // some engines. Nothing here is a prefix match; url() is the only thing standing
-                // between these and the sink, and only when the name resolved to ATTR_URI.
-                prefix("vbscript", Canoe.ATTR_HTML),
-                prefix("view-source", Canoe.ATTR_HTML),
-                prefix("blob", Canoe.ATTR_HTML),
-                prefix("file", Canoe.ATTR_HTML),
-                prefix("http", Canoe.ATTR_HTML),
-                prefix("https", Canoe.ATTR_HTML),
+                // between these and the sink, and only when the name resolved to ATTR_URI. The
+                // expectation reads ATTR_UNKNOWN rather than ATTR_HTML since R5, and the constant is
+                // the NAME's answer rather than the scan's: the probe's attribute is called "p",
+                // which is on none of Canoe's lists, so "no prefix matched" leaves the fail-closed
+                // default where it used to leave the plain-text one. The rows still say what they
+                // always said - that none of these schemes is detected - and what changed is that a
+                // missed scheme in an unclassified attribute is now dropped rather than encoded.
+                prefix("vbscript", Canoe.ATTR_UNKNOWN),
+                prefix("view-source", Canoe.ATTR_UNKNOWN),
+                prefix("blob", Canoe.ATTR_UNKNOWN),
+                prefix("file", Canoe.ATTR_UNKNOWN),
+                prefix("http", Canoe.ATTR_UNKNOWN),
+                prefix("https", Canoe.ATTR_UNKNOWN),
 
                 // An empty value - "<a p=\":". This row used to document F5 rather than the prefix
                 // table: the value contributed no characters at all, so every index the checks read
                 // still held the attribute name's residue ('p' at buf[0], its terminator at
-                // buf[1]), and ATTR_HTML meant "buf[0] is not a, d, j, l or m" - a fact about the
+                // buf[1]), and the fall-through meant "buf[0] is not a, d, j, l or m" - a fact about the
                 // name "p" rather than about the value. Since R3 it is an ordinary row: bufLen is 0,
                 // which is not the length of any of the five prefixes.
-                prefix("", Canoe.ATTR_HTML));
+                prefix("", Canoe.ATTR_UNKNOWN));
     }
 
     private static Arguments prefix(String value, int expected) {
@@ -469,16 +484,17 @@ public class AttributePrefixTest {
     public void nearMissesAreRejectedByThreeDifferentMechanisms() throws IOException {
         // 1. A character disagrees: the scan ran, and the comparison failed.
         CanoeStateProbe compared = new CanoeStateProbe().feed("<a p=\"javascripx:");
-        assertEquals(Canoe.ATTR_HTML, compared.attributeContext(),
-                "the name 'p' is unrecognised, so ATTR_HTML here is the name's answer and not the"
-                        + " prefix scan's");
+        assertEquals(Canoe.ATTR_UNKNOWN, compared.attributeContext(),
+                "the name 'p' is on none of the lists, so ATTR_UNKNOWN here is the name's answer and"
+                        + " not the prefix scan's - it was ATTR_HTML until R5 inverted the default,"
+                        + " and the observation this line makes is the same either way");
         assertEquals(-1, compared.bufLen(), "the scan ran and then switched itself off");
         assertEquals('x', compared.bufferAt(9),
                 "buf[9] is the character the javascript comparison disagreed on");
 
         // 2. The length disagrees.
         CanoeStateProbe terminated = new CanoeStateProbe().feed("<a p=\"datax:");
-        assertEquals(Canoe.ATTR_HTML, terminated.attributeContext());
+        assertEquals(Canoe.ATTR_UNKNOWN, terminated.attributeContext());
         assertEquals('x', terminated.bufferAt(4),
                 "R3: five characters were buffered where 'data' needs exactly four. Before R3 this"
                         + " was read as \"buf[4] is not a NUL\", which is the same answer for a"
@@ -554,9 +570,10 @@ public class AttributePrefixTest {
 
     /**
      * The complementary fact: a name of length L writes its terminator at {@code buf[L]}. This is the
-     * rule that made every F5 table predictable rather than folklore, and it is still the rule the
-     * name-side comparisons in {@code setTagAttributeContext()} rely on — R4 owns replacing those, so
-     * it stays measured until then.
+     * rule that made every F5 table predictable rather than folklore. Nothing classifies by fixed
+     * index any more — R4 replaced the name-side comparisons and R5 replaced those with set lookups
+     * of the buffered name — but the terminator is still what {@code bufLen} counts and therefore
+     * still what decides where the name the lookup reads ends, so it stays measured.
      *
      * <p>Probed at the {@code =} rather than after the whole element since R3: the buffer is cleared
      * when the attribute's value starts, so a probe that fed the closing quote would be reading a
@@ -730,64 +747,87 @@ public class AttributePrefixTest {
     }
 
     // ------------------------------------------------------------------
-    // F7 - the branch that can never be taken
+    // F7 - the branch pair, resolved by R7
     // ------------------------------------------------------------------
 
     /**
-     * F7's second half, which the finding states but does not assert: the {@code ATTR_URI} branch at
-     * {@code Canoe.java:304-308} is unreachable.
+     * <strong>Retired and inverted by R7.</strong> Was {@code theSecondDataBranchIsUnreachable}, and
+     * what it asserted was F7's second half, which the finding states but never proved: the
+     * {@code ATTR_URI} branch at {@code Canoe.java:304-308} could not be taken.
      *
-     * <p>Its guard is character-for-character identical to the branch above it — both test
-     * {@code buf[0..3] == "data"} and {@code buf[4] == '\0'} — and the branch above returns. So any
-     * input that could satisfy the second has already left the function via the first, and
-     * {@code setTagAttributeContext()} can never produce {@code ATTR_URI} from a name beginning with
-     * {@code d} unless that name is {@code dynsrc}.
+     * <p>The reasoning, kept because it is what the fix had to answer. The two branches' guards were
+     * character-for-character identical — both tested {@code buf[0..3] == "data"} and
+     * {@code buf[4] == '\0'} — and the first one returned, so any input that could satisfy the
+     * second had already left the method through it. The author's own {@code XXX} marker sat above
+     * the pair asking which was correct, and the comments answered differently from the code: the
+     * first was commented {@code // content} and compared {@code data}. Two consequences, and
+     * neither was visible from the branch that ran: {@code <object data>} silently dropped its
+     * value, which is a functional bug a developer routes around with {@code $_x.asis()}, and there
+     * was no test for {@code content} anywhere in the class, which is the {@code <meta
+     * http-equiv=refresh>} row of F3.
      *
-     * <p>Asserted by exhaustion over the inputs that can reach the guard at all. The guard reads five
-     * fixed indices, so exactly one attribute name satisfies it — {@code data}, in any case, since
-     * names are lower-cased on the way into the buffer — and every case variant of it resolves to
-     * {@code ATTR_CONTENT}.
-     *
-     * <p>{@code CanoeStateMachineTest.derivesAttributeContextFromTheName} already records the
-     * resulting contexts; this records why the second branch cannot change them.
+     * <p>R7's answer, asserted below. {@code data} is a URL — it is {@code <object data>} — so it
+     * joins the URL name set and reaches {@code url()}. {@code content} is a URL on exactly one
+     * element and attribute-value combination and Canoe cannot see either yet (R8, R10), so it
+     * suppresses, which is also where R5's fail-closed default would have put it. Both branches are
+     * gone; the classification is a set lookup, and a set cannot hold the same name twice.
      */
     @Test
-    public void theSecondDataBranchIsUnreachable() throws IOException {
+    public void theDataBranchPairIsResolved() throws IOException {
         for (String name : List.of("data", "DATA", "Data", "dAtA", "dATa")) {
-            assertEquals(Canoe.ATTR_CONTENT, attributeContextOf("<object " + name + "=\"x"),
-                    "the branch commented \"content\" claims every spelling of data");
+            assertEquals(Canoe.ATTR_URI, attributeContextOf("<object " + name + "=\"x"),
+                    "R7: <object data> is a URL, in every spelling the name scan lower-cases");
         }
 
-        // The only name beginning with 'd' that does reach ATTR_URI, so the dead branch is not
-        // masking a case that some other input covers.
+        assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("<meta content=\"x"),
+                "R7: and 'content' suppresses rather than having no classification at all");
+
+        // The name that always reached ATTR_URI, so the pair was never masking it.
         assertEquals(Canoe.ATTR_URI, attributeContextOf("<img dynsrc=\"x"));
-        for (String name : List.of("dat", "datum", "database", "data-id", "dataset")) {
-            assertEquals(Canoe.ATTR_HTML, attributeContextOf("<p " + name + "=\"x"),
-                    name + " does not reach either branch");
+
+        // The neighbours, which reach neither and are now dropped rather than html-encoded (R5) -
+        // except data-id, which is in the data- plain-text family and is text by construction.
+        for (String name : List.of("dat", "datum", "database", "dataset")) {
+            assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("<p " + name + "=\"x"),
+                    name + " is on none of the lists");
         }
+        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<p data-id=\"x"),
+                "data-id is in the data-* family, which the HTML Standard reserves for the page's"
+                        + " own use and gives no browser semantics at all");
     }
 
     /**
      * The two {@code data} spellings do not collide, which is worth pinning because the names
-     * suggest they should. {@code setTagAttributeContext()} answers {@code ATTR_CONTENT} for the
-     * attribute <em>named</em> {@code data}; {@code detectAttributePrefix()} answers
-     * {@code ATTR_DATA} for a value <em>beginning</em> {@code data:}. They are different constants
-     * set by different functions, and {@code currentContext()} maps both to {@code CTX_SUPPRESS} —
-     * so the distinction is invisible downstream today, and would stop being invisible the moment
-     * either constant is given a real encoder.
+     * suggest they should — and since R7 the pinning has teeth it did not have before.
+     *
+     * <p>{@code setTagAttributeContext()} answers {@code ATTR_URI} for the attribute <em>named</em>
+     * {@code data}; {@code detectAttributePrefix()} answers {@code ATTR_DATA} for a value
+     * <em>beginning</em> {@code data:}. Until R7 the name's answer was {@code ATTR_CONTENT} and both
+     * constants mapped to {@code CTX_SUPPRESS}, so the distinction was invisible downstream and this
+     * test could not have caught a collision. Now they produce different encoders — {@code url()}
+     * and the empty string — and the two halves of the assertion are genuinely different
+     * observations.
+     *
+     * <p>The pair also states R7's answer in its most compact form: {@code <object data="data:...">}
+     * is a URL attribute holding a {@code data:} URL, and it suppresses because the <em>value</em>
+     * prefix narrows the name's {@code ATTR_URI} the way any of the five prefixes would.
      */
     @Test
     public void theDataAttributeAndTheDataUrlPrefixAreDifferentConstants() throws IOException {
-        assertEquals(Canoe.ATTR_CONTENT, attributeContextOf("<object data=\"x"));
+        assertEquals(Canoe.ATTR_URI, attributeContextOf("<object data=\"x"));
         assertEquals(Canoe.ATTR_DATA, attributeContextOf("<a href=\"data:"));
-        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<object data=\"x"));
+        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<object data=\"x"));
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<a href=\"data:"));
 
+        // Name and prefix together: the value prefix narrows, exactly as it does on href.
+        assertEquals(Canoe.ATTR_DATA, attributeContextOf("<object data=\"data:"));
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<object data=\"data:"));
+
         // The F4 reset used to apply here too: an attribute named data whose value carried any other
-        // colon lost its ATTR_CONTENT and became html-encoded. R2 removed that, so the suppression
-        // of data= no longer depends on what the value contains.
-        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<object data=\"http://x/"),
-                "R2: the suppression of data= no longer ends at the first colon in the value");
+        // colon lost its name-derived context and became html-encoded. R2 removed that, so what the
+        // value contains decides nothing unless it is one of the five prefixes.
+        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<object data=\"http://x/"),
+                "R2: the classification of data= no longer changes at the first colon in the value");
     }
 
     /**
@@ -803,8 +843,9 @@ public class AttributePrefixTest {
     public void asfunctionIsTheOnlyProducerOfTheActionscriptContext() throws IOException {
         assertEquals(Canoe.ATTR_ACTIONSCRIPT, attributeContextOf("<a href=\"asfunction:"));
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<a href=\"asfunction:"));
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<a asfunction=\"x"),
-                "there is no attribute name that produces it");
+        assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("<a asfunction=\"x"),
+                "there is no attribute name that produces it - and since R5 a name nobody"
+                        + " classified is ATTR_UNKNOWN rather than ATTR_HTML");
     }
 
     // ------------------------------------------------------------------

@@ -94,7 +94,10 @@ public class CanoeStateMachineTest {
                 row("closed style", "<style>a{}</style>", Canoe.HTML, Canoe.CTX_HTML),
 
                 // --- attribute values, by attribute name ---
-                row("unrecognised attribute", "<p class=\"",
+                // Was "unrecognised attribute" until R5, when an unrecognised name stopped being
+                // html-encoded: `class` reaches CTX_HTML_ATTR because it is on the plain-text
+                // allowlist now, not because nothing recognised it.
+                row("plain-text attribute", "<p class=\"",
                         Canoe.TAG_ATTR_VALUE, Canoe.CTX_HTML_ATTR),
                 row("title attribute", "<a title=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_HTML_ATTR),
                 row("href", "<a href=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_URI),
@@ -104,7 +107,15 @@ public class CanoeStateMachineTest {
                 row("lowsrc", "<img lowsrc=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_URI),
                 row("style", "<div style=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_SUPPRESS),
                 row("onclick", "<a onclick=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_JS),
-                row("data", "<object data=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_SUPPRESS),
+                // R7: <object data> is a URL. It was CTX_SUPPRESS here while the two identical
+                // `data` branches stood, one of them commented "content" (F7), and the suppression
+                // was a functional bug rather than a defence - the value simply vanished.
+                row("data", "<object data=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_URI),
+                // R5: a name on none of the lists suppresses. This row is the fail-closed default in
+                // the same table as the names that have a classification, which is where the two are
+                // easiest to compare.
+                row("unlisted attribute (R5)", "<div my-widget-config=\"",
+                        Canoe.TAG_ATTR_VALUE, Canoe.CTX_SUPPRESS),
                 row("uppercase attribute name", "<a HREF=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_URI),
 
                 // --- value termination, by quoting style ---
@@ -371,11 +382,19 @@ public class CanoeStateMachineTest {
         assertEquals(Canoe.ATTR_JS, attributeContextOf("<a onclick=\"x"));
         assertEquals(Canoe.ATTR_HTML, attributeContextOf("<a title=\"x"));
 
-        // F7: the branch commented "content" tests for "data", so data= resolves to ATTR_CONTENT and
-        // the ATTR_URI branch below it is unreachable. There is no check for "content" at all.
-        assertEquals(Canoe.ATTR_CONTENT, attributeContextOf("<object data=\"x"));
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<meta content=\"x"),
-                "F7: content is not recognised, so it gets the ATTR_HTML default");
+        // R7 resolved F7's branch pair. Both branches compared the characters of "data" under
+        // comments reading "content" and "data", so "data" reached a suppressing context and
+        // "content" had no branch at all; the author's XXX marker sat above the pair. <object data>
+        // is a URL, and "content" is a URL only on <meta http-equiv=refresh>, which needs the tag
+        // name (R10) - so it suppresses, which is where R5's fail-closed default puts it anyway.
+        assertEquals(Canoe.ATTR_URI, attributeContextOf("<object data=\"x"));
+        assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("<meta content=\"x"),
+                "R7: content is suppressed by default until R10 can distinguish a refresh from a"
+                        + " description");
+
+        // R5's inversion, in the one line that used to read the other way: a name nothing
+        // recognises is ATTR_UNKNOWN, not ATTR_HTML.
+        assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("<div my-widget-config=\"x"));
     }
 
     // ------------------------------------------------------------------
@@ -549,9 +568,10 @@ public class CanoeStateMachineTest {
                     () -> name + " must be suppressed, benign or not");
         }
 
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<div o=\""),
-                "a name that does not begin 'on' must fall through to the ATTR_HTML default (R5's"
-                        + " to invert); the rule reads two characters, not one");
+        assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("<div o=\""),
+                "a name that does not begin 'on' must fall through to R5's fail-closed default"
+                        + " rather than being classified as script; the rule reads two characters,"
+                        + " not one");
     }
 
     /**
@@ -639,8 +659,11 @@ public class CanoeStateMachineTest {
     public void theLastAttributeNameDeterminesTheContext() {
         assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a title=\"t\" href=\""));
         assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<a href=\"h\" title=\""));
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<a href=\"h\" href2=\""),
-                "a near-miss on a recognised name gets the ATTR_HTML default");
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<a href=\"h\" href2=\""),
+                "R5: a near miss on a listed name gets the fail-closed default. It was"
+                        + " CTX_HTML_ATTR until R5 inverted it, and the observation the row makes -"
+                        + " that the second name and not the first decides - is the same either"
+                        + " way, because href2 is not href.");
     }
 
     // ------------------------------------------------------------------

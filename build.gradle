@@ -180,24 +180,44 @@ jacocoTestReport {
  * deleted. setTagAttributeContext() went from 392 branch outcomes to 18: eight hand-unrolled chains
  * plus a 24-branch handler table became nine calls to two bounded string comparisons. The missed
  * count is 12, and it no longer includes a single findings-related outcome except F7's.
- * R27 still owns the final reconciliation, after R5.
+ * RE-MEASURED after R5, R6 and R7, which land together and which R4's note warned would move this
+ * method substantially. They did: setTagAttributeContext() is 8 outcomes rather than 18, because the
+ * name comparisons became lookups in two declared sets, and it is fully covered - F7's dead `data`
+ * comparison, the last findings-related exclusion, is gone with the branch pair R7 resolved. The
+ * class total rose because the tasks added code that is *all* reachable: the fail-closed default, the
+ * plain-text prefix families, the application allowlist and its validation. The missed count is 11,
+ * and for the first time since this comment was written none of the eleven is a finding.
+ * R27 still owns the final reconciliation; there is materially less left for it to do.
  *
- *   Canoe                        247 / 259 branches   95.37%   (was 588 / 625, 94.08%)
- *     setTagAttributeContext()    17 /  18            94.44%   (was 366 / 392, 93.37%)
- *     reallyProcessChar()        173 / 178            97.19%
- *     detectAttributePrefix()     10 /  10           100.00%
- *     bufferedValueIs()            6 /   6           100.00%
- *     bufferedNameIs()             2 /   2           100.00%   (new in R4)
- *     bufferedNameStartsWith()     6 /   6           100.00%   (new in R4)
- *     currentContext()             9 /  11            81.82%
- *     inBuf()                      0 /   4             0.00%
- *   HtmlEncoder                  171 / 172 branches   99.42%
+ *   Canoe                             265 / 276 branches   96.01%   (was 247 / 259, 95.37%)
+ *     setTagAttributeContext()          8 /   8           100.00%   (was 17 / 18, 94.44%)
+ *     normalisePlainTextAttributeNames 20 /  20           100.00%   (new in R5)
+ *     isPlainTextAttributeName()        6 /   6           100.00%   (new in R5)
+ *     isNameChar()                     14 /  14           100.00%   (new in R5; isTagNameChar()
+ *                                                                    delegates to it)
+ *     reallyProcessChar()             173 / 178            97.19%
+ *     detectAttributePrefix()          10 /  10           100.00%
+ *     bufferedValueIs()                 6 /   6           100.00%
+ *     bufferedNameStartsWith()          6 /   6           100.00%
+ *     Canoe(Writer, Set)                2 /   2           100.00%   (new in R5)
+ *     currentContext()                 10 /  12            83.33%   (was 9 / 11; the ATTR_UNKNOWN
+ *                                                                    arm is reached)
+ *     inBuf()                           0 /   4             0.00%
+ *   HtmlEncoder                       171 / 172 branches   99.42%
+ *
+ * bufferedNameIs() is gone: R5 replaced the exact-name comparisons with set lookups of the buffered
+ * name, which reads exactly the characters the current name wrote and is bounded in the same sense.
  *
  * The floors move with the measurements, and each is set just below its measured value so that one
- * further missed outcome fails the gate. The Canoe class is at 95.37% against a floor of 0.95, and
- * losing one branch would be 94.98%; setTagAttributeContext() is at 94.44% against a floor of 0.94,
- * and losing one branch would be 88.89% - the method is small enough now that a single unreached
- * outcome is a five-point drop.
+ * further missed outcome fails the gate. The Canoe class is at 96.01% against a floor of 0.96, and
+ * losing one branch would be 95.65%; setTagAttributeContext() and
+ * normalisePlainTextAttributeNames() are fully covered against floors of 0.99, and losing one branch
+ * would be 87.50% and 95.00% respectively.
+ *
+ * normalisePlainTextAttributeNames() is gated individually, and it is the one addition to this list
+ * that is a security decision rather than a measurement: it is the guard that stops an application
+ * putting `sandbox`, `nonce` or `srcdoc` back on the plain-text allowlist through configuration. An
+ * unreached branch in it is a refusal nobody tested.
  *
  * The plan (T30) asked for ~95% on the two named methods. Both reach it now. Counting only branches
  * an input can reach, both named methods and both classes are at 100% - except for two outcomes
@@ -205,10 +225,13 @@ jacocoTestReport {
  *
  * EXCLUDED, with the test that proves each one dead:
  *
- *   setTagAttributeContext(), 1 outcome
- *      1  the `data` -> ATTR_URI comparison (Canoe.java:359-362) is identical to the `content`
- *         comparison above it, which returns first, so it can never test true. F7.
- *         -> AttributeNameMatrixTest.theSourceDeclaresExactlyTheNonHandlerBranchesTheMatrixExpects
+ *   The single setTagAttributeContext() exclusion that used to head this list is gone. It was the
+ *   `data` -> ATTR_URI comparison, identical to the `content` comparison above it and therefore
+ *   unreachable (F7); R7 resolved the pair - `data` is a URL and `content` suppresses - and the
+ *   classification is a set lookup, which cannot hold the same name twice.
+ *   -> AttributeNameMatrixTest.theSourceDeclaresTheTwoNameListsTheMatrixExpects asserts the
+ *      ATTR_CONTENT constant and the author's XXX marker are both gone, and
+ *      AttributePrefixTest.theDataBranchPairIsResolved keeps F7's reasoning where the branches were.
  *
  *   The 25 outcomes of the onselect/onsubmit block that used to be listed here are gone with the
  *   block. R4 deleted the whole on* table - 24 comparison chains of which 3 were silently dead, F1
@@ -219,18 +242,18 @@ jacocoTestReport {
  *      keeps this entry from coming back.
  *
  *   reallyProcessChar(), 5 outcomes
- *      1  the default arm of switch(state) (Canoe.java:470). Nineteen states have a case; the two
+ *      1  the default arm of switch(state) (Canoe.java:840). Nineteen states have a case; the two
  *         that do not are URL, which nothing ever assigns, and INVALID, which is only ever assigned
  *         immediately before raiseError() throws.
  *         -> AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss (URL is dead),
  *            CanoeRobustnessTest (every raiseError message, each of which escapes)
- *      1  the default arm of switch(attrQuotes) (Canoe.java:763). attrQuotes is assigned exactly
- *         one of QUOTE_NONE/QUOTE_SINGLE/QUOTE_DOUBLE at Canoe.java:742-756 and nowhere else.
- *      1  "Internal error #1001" (the bufLen == buf.length test at Canoe.java:803). Value scanning
+ *      1  the default arm of switch(attrQuotes) (Canoe.java:1133). attrQuotes is assigned exactly
+ *         one of QUOTE_NONE/QUOTE_SINGLE/QUOTE_DOUBLE at Canoe.java:1118-1124 and nowhere else.
+ *      1  "Internal error #1001" (the bufLen == buf.length test at Canoe.java:1173). Value scanning
  *         gives up at bufLen == 10, so bufLen can never equal buf.length.
  *         -> CanoeRobustnessTest.everyRaiseErrorMessageIsReached lists the twelve that are.
- *      2  UNMEASURABLE rather than unreached: Canoe.java:495 (COMMENT_OPEN_OR_DOCTYPE's else) and
- *         Canoe.java:520 (COMMENT_OPEN_2's else), whose failing outcome enters a block that calls
+ *      2  UNMEASURABLE rather than unreached: Canoe.java:873 (COMMENT_OPEN_OR_DOCTYPE's else) and
+ *         Canoe.java:893 (COMMENT_OPEN_2's else), whose failing outcome enters a block that calls
  *         raiseError() and then falls through to `break` with no `return`. raiseError() always
  *         throws, so no JaCoCo probe downstream of those blocks is ever executed and the outcome
  *         is reported missed. Both are exercised:
@@ -241,21 +264,24 @@ jacocoTestReport {
  *
  *   currentContext(), 2 outcomes  (not gated individually; part of the class figure)
  *      1  `case URL` - the URL state is declared and never assigned.
- *      1  the inner `default:` - all seven ATTR_* constants have a case above it. F21.
+ *      1  the inner `default:` - all seven ATTR_* constants have a case above it, ATTR_UNKNOWN
+ *         included since R5. F21.
  *
  *   inBuf(), 4 outcomes  (not gated individually; part of the class figure)
- *      4  the method is called only from commented-out debug statements (Canoe.java:587, 686).
+ *      4  the method is called only from commented-out debug statements (Canoe.java:957, 1056).
  *
  *   HtmlEncoder, 1 outcome
- *      1  the null guard of the private css(String, StringBuilder) (HtmlEncoder.java:257). The
+ *      1  the null guard of the private css(String, StringBuilder) (HtmlEncoder.java:256-258). The
  *         public css(String) returns null before calling it and nothing else calls it.
  *         -> HtmlEncoderTest.theAppendingOverloadsAppendNothingForNull says so in its javadoc.
  */
 ext.canoeCoverageFloors = [
-        [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],
+        [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.96],
         [kind: 'class',  target: 'com/webkreator/qlue/util/HtmlEncoder', floor: 0.99],
-        [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#setTagAttributeContext', floor: 0.94],
+        [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#setTagAttributeContext', floor: 0.99],
         [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#reallyProcessChar',      floor: 0.97],
+        [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#normalisePlainTextAttributeNames',
+         floor: 0.99],
 ]
 
 tasks.register('canoeCoverageGate') {

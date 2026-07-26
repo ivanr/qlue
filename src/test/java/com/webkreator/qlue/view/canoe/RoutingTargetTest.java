@@ -36,11 +36,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * highest-impact task of the phase — is precisely the claim that a colon in the value must stop
  * changing the answers this table records.
  *
- * <p><strong>Landed so far:</strong> R2 and R4. R2's two rows — the recognised handler with a colon
- * in its body, and {@code style} after a property name — and R4's row for a handler the old
- * {@code on*} table did not list have had their current column moved onto their target and their
- * {@code flippedBy} cleared, so they are now rows no later task may change. Two rows remain to
- * flip: R5's policy attribute and R5+R6's unrecognised URL attribute.
+ * <p><strong>Phase A is complete.</strong> R2's two rows — the recognised handler with a colon in
+ * its body, and {@code style} after a property name — R4's row for a handler the old {@code on*}
+ * table did not list, R5's policy attribute and R5+R6's unrecognised URL attribute have all had
+ * their current column moved onto their target and their {@code flippedBy} cleared. No row names a
+ * task any more, so {@link #theTableRecordsWhichRowsPhaseAChanges} has degenerated to "nothing left
+ * to flip" exactly as this file's procedure said it would, and the class is a plain pin of the
+ * routing table from here on.
+ *
+ * <p>One row was <em>added</em> rather than flipped, which the procedure did not anticipate and
+ * which is worth stating: R5 created a category the table had no cell for. Before it, an attribute
+ * name nobody had classified was indistinguishable from a plain-text one — that is the whole of F3's
+ * markup and policy half — so "unlisted attribute" could not have been a row. It is one now, and it
+ * sits next to the plain-text row it used to be identical to.
  *
  * <p>Rows are asserted at the {@code CTX_*} level rather than the {@code ATTR_*} level, because the
  * context is what picks the encoder and the encoder is what Phase A is really about;
@@ -111,13 +119,16 @@ public class RoutingTargetTest {
                 new Row("recognised URL attribute",
                         "<a href=\"", Canoe.CTX_URI, Canoe.CTX_URI, null),
 
-                // A URL attribute Canoe does not know (the URL half of F3). formaction submits the
-                // form wherever its value points, and today it is html()-encoded like a title. R5
-                // stops unknown names reaching ATTR_HTML and R6 puts formaction on the URL-bearing
-                // name list; they land together, so the end state is CTX_URI, not the suppression
-                // R5 alone would give it.
+                // A URL attribute Canoe did not know (the URL half of F3). formaction submits the
+                // form wherever its value points, and it was html()-encoded like a title. R5
+                // stopped unknown names reaching ATTR_HTML and R6 put formaction on the URL-bearing
+                // name list; they landed together, so this row reached CTX_URI rather than the
+                // suppression R5 alone would have given it, and no later Phase A task may move it.
+                // What url() then does to the value is Phase C's problem and F6's: the name is
+                // routed correctly and off-origin URLs still pass, which the ledger records on this
+                // sink as F6 rather than F3.
                 new Row("unrecognised URL attribute (F3)",
-                        "<button formaction=\"", Canoe.CTX_HTML_ATTR, Canoe.CTX_URI, "R5+R6"),
+                        "<button formaction=\"", Canoe.CTX_URI, Canoe.CTX_URI, null),
 
                 // style, before any colon. The name resolves to ATTR_CSS, which suppresses - Canoe
                 // refuses to interpolate into CSS, and R14 records that as the settled decision
@@ -132,16 +143,27 @@ public class RoutingTargetTest {
                         "<div style=\"color:", Canoe.CTX_SUPPRESS, Canoe.CTX_SUPPRESS, null),
 
                 // A policy-bearing attribute (F20). The HTML parser consumes sandbox's decoded
-                // value as a directive, so no encoding helps and html() is meaningless here; R5's
-                // fail-closed default must suppress it, and its name must stay off the plain-text
-                // allowlist along with rel, integrity and nonce.
+                // value as a directive, so no encoding helps and html() was meaningless here; R5's
+                // fail-closed default suppresses it, and its name is off the plain-text allowlist
+                // along with rel, integrity and nonce - both in the list itself and in
+                // Canoe.NAMES_THAT_MAY_NOT_BE_ADDED, which refuses to let an application put it
+                // back through configuration.
                 new Row("policy attribute (F20)",
-                        "<iframe sandbox=\"", Canoe.CTX_HTML_ATTR, Canoe.CTX_SUPPRESS, "R5"),
+                        "<iframe sandbox=\"", Canoe.CTX_SUPPRESS, Canoe.CTX_SUPPRESS, null),
+
+                // R5's own row, which the table had no cell for while ATTR_HTML was the default:
+                // an attribute name nobody has classified. It was indistinguishable from the
+                // plain-text row below - that was the whole of the finding - and it is the one place
+                // in this table where the current column moved without any name being added to a
+                // list.
+                new Row("unlisted attribute (R5)",
+                        "<div my-widget-config=\"", Canoe.CTX_SUPPRESS, Canoe.CTX_SUPPRESS, null),
 
                 // A plain-text attribute. title is a genuine text sink and html() is the right
-                // encoder; it goes on R5's allowlist, so the routing must not change when the
-                // ATTR_HTML default inverts. This is the row that keeps R5 honest about being an
-                // allowlist rather than a blanket suppression.
+                // encoder; it is on R5's allowlist, so the routing did not change when the
+                // ATTR_HTML default inverted underneath it. This is the row that keeps R5 honest
+                // about being an allowlist rather than a blanket suppression, and it is the one
+                // that would have failed if the fail-closed default had been shipped without one.
                 new Row("plain-text attribute",
                         "<p title=\"", Canoe.CTX_HTML_ATTR, Canoe.CTX_HTML_ATTR, null));
     }

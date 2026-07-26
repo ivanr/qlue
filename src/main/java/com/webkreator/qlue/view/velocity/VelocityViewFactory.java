@@ -32,9 +32,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Writer;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Enumeration;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * Base class for the view implementation that uses Velocity. Needs subclassing
@@ -47,6 +54,21 @@ public abstract class VelocityViewFactory implements ViewFactory {
     public static final String QLUE_RAW_VELOCITY_CONFIG_PREFIX = "qlue.velocity.raw.";
 
     public static final String QLUE_VELOCITY_MAX_LOG_LEVEL = "qlue.velocity.maxLogLevel";
+
+    /**
+     * Qlue property naming additional attributes whose values Canoe should treat as plain text,
+     * separated by commas or whitespace, e.g.
+     * {@code qlue.canoe.plainTextAttributes = my-widget-config, hx-target}.
+     *
+     * <p>Canoe suppresses a reference in any attribute name it does not recognise (R5), which is
+     * fail-closed and is right; without a way to widen the allowlist it is also how a security
+     * control gets switched off in production, because the developer's remaining option is
+     * {@code $_x.asis()} and that disables Canoe for the value entirely. Names are validated by
+     * {@link Canoe#normalisePlainTextAttributeNames(java.util.Collection)}, which refuses anything
+     * whose suppression is the fix for a finding, so the property can widen the plain-text set and
+     * cannot re-open F3 or F20.
+     */
+    public static final String QLUE_CANOE_PLAIN_TEXT_ATTRIBUTES = "qlue.canoe.plainTextAttributes";
 
     protected static Logger log = LoggerFactory.getLogger(VelocityViewFactory.class);
 
@@ -63,6 +85,16 @@ public abstract class VelocityViewFactory implements ViewFactory {
     protected boolean useAutoEscaping = true;
 
     protected String macroPath = "";
+
+    /**
+     * The application's additions to Canoe's plain-text attribute allowlist.
+     *
+     * <p>Held per factory, and therefore per engine, rather than in a static on {@link Canoe}: two
+     * applications in one JVM must not be able to widen each other's allowlist, and nothing should
+     * be able to widen anybody's after the pages have started rendering. The set is handed to every
+     * {@link Canoe} the factory constructs, which is one per render.
+     */
+    protected Set<String> plainTextAttributes = Collections.emptySet();
 
     protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
         Properties properties = new Properties();
@@ -116,6 +148,11 @@ public abstract class VelocityViewFactory implements ViewFactory {
         if (maxLogLevel != null) {
             properties.setProperty(VelocityViewFactory.QLUE_VELOCITY_MAX_LOG_LEVEL, maxLogLevel);
         }
+
+        // Widen Canoe's plain-text attribute allowlist, if the application asked for it. Read here
+        // because this is the one method every shipped factory's init() calls with the application
+        // in hand; a bad name throws from init() rather than dropping values at request time.
+        addPlainTextAttributesFromProperty(qlueApp.getProperty(QLUE_CANOE_PLAIN_TEXT_ATTRIBUTES));
 
         // Pass raw Velocity configuration from Qlue properties.
         Properties qlueProperties = qlueApp.getProperties();
@@ -201,7 +238,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
         });
 
         try {
-            Canoe qlueWriter = new Canoe(writer);
+            Canoe qlueWriter = new Canoe(writer, plainTextAttributes);
 
             Template template = view.getTemplate();
             VelocityContext velocityContext = new VelocityContext(model);
@@ -266,6 +303,68 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
     public void setAutoEscaping(boolean b) {
         useAutoEscaping = b;
+    }
+
+    /**
+     * Adds attribute names Canoe should treat as plain text, on top of its built-in allowlist.
+     *
+     * <p>The application-level half of R5. Canoe suppresses a reference in any attribute name it
+     * does not recognise, which is the right default and cannot be the whole answer: a page with
+     * {@code <div my-widget-config="$x">} would otherwise lose the value silently, and the
+     * developer's next move is {@code $_x.asis()}, which turns the encoder off for that value
+     * completely. This is the smaller hammer, and it is deliberately narrow — the names are treated
+     * as <em>plain text</em>, so the value still goes through {@code html()} and still cannot leave
+     * the attribute it was written into.
+     *
+     * <p>Call before the first render; the set is copied into every {@link Canoe} the factory
+     * constructs. Names whose suppression is the fix for a finding are refused with an exception
+     * rather than accepted and ignored — see
+     * {@link Canoe#normalisePlainTextAttributeNames(Collection)}.
+     *
+     * @param names attribute names, in any case
+     * @throws IllegalArgumentException if a name is not a legal attribute name, begins {@code on},
+     *                                  or is one Canoe refuses to treat as text
+     */
+    public void addPlainTextAttributes(String... names) {
+        addPlainTextAttributes(Arrays.asList(names));
+    }
+
+    /** The collection form of {@link #addPlainTextAttributes(String...)}. */
+    public void addPlainTextAttributes(Collection<String> names) {
+        Set<String> merged = new LinkedHashSet<>(plainTextAttributes);
+        merged.addAll(Canoe.normalisePlainTextAttributeNames(names));
+        plainTextAttributes = Collections.unmodifiableSet(merged);
+    }
+
+    /**
+     * The property form of {@link #addPlainTextAttributes(String...)}: a comma- or
+     * whitespace-separated list, or null for "the application said nothing".
+     *
+     * <p>Named apart from the varargs overload on purpose. {@code addPlainTextAttributes("x")}
+     * would bind to a {@code (String)} overload rather than to the varargs one, so a caller adding
+     * a single name would silently get the list parser; the two doing the same thing for that one
+     * input is exactly the kind of coincidence that stops holding later.
+     */
+    protected void addPlainTextAttributesFromProperty(String namesFromProperty) {
+        if (namesFromProperty == null) {
+            return;
+        }
+
+        List<String> names = new ArrayList<>();
+        for (String name : namesFromProperty.split("[,\\s]+")) {
+            if (!name.isEmpty()) {
+                names.add(name);
+            }
+        }
+        addPlainTextAttributes(names);
+    }
+
+    /**
+     * The application's additions to Canoe's plain-text attribute allowlist, normalised to lower
+     * case. Never null; empty unless the application asked for something.
+     */
+    public Set<String> getPlainTextAttributes() {
+        return plainTextAttributes;
     }
 
     /**

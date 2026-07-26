@@ -100,6 +100,14 @@ public class MatrixReportTest {
                 + " offset - CanoeWriterContractTest and ChunkInvarianceTest");
         gaps.put("F12", "about Velocity reference forms rather than about a sink -"
                 + " VelocityIntegrationTest");
+        gaps.put("F7", "closed by R7, and the citation left the corpus with the branch pair: the two"
+                + " rows that carried it are re-verdicted under other findings - attr.data-on-object"
+                + " is a URL sink citing F6 and refresh.meta-content is a suppression citing F3 -"
+                + " because a case cites the finding its CURRENT verdict is about. The finding's own"
+                + " evidence is a source-level fact about two identical comparison chains, which is"
+                + " where it always belonged - AttributePrefixTest.theDataBranchPairIsResolved and"
+                + " AttributeNameMatrixTest.theSourceDeclaresTheTwoNameListsTheMatrixExpects, which"
+                + " asserts the ATTR_CONTENT constant and the author's XXX marker are both gone");
         gaps.put("F13", "about what escapes VelocityViewFactory.render(), which the corpus harness"
                 + " deliberately does not model - CanoeRobustnessTest via ProductionRenderProbe");
         gaps.put("F15", "url() corrupting legitimate URLs is an author-data defect with no attacker"

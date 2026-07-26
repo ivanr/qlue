@@ -44,20 +44,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * leave the document shape untouched:
  *
  * <ul>
- *   <li><strong>{@code srcdoc}</strong> (F3) — the payload is markup, but it is markup inside one
- *       attribute of one {@code <iframe>}; the outer document has the same skeleton either way. The
- *       injected document is a different document, and this oracle only parses the outer one.
+ *   <li><strong>Off-origin URLs</strong> (F6, the only one of these still live) —
+ *       {@code <script src="//attacker.invalid/x.js">} is one element with one attribute, and so is
+ *       the benign render. This is what the four proofs below use, because it is what is left.
+ *   <li><strong>{@code srcdoc}</strong> (F3, closed by R6) — the payload is markup, but it is markup
+ *       inside one attribute of one {@code <iframe>}; the outer document has the same skeleton
+ *       either way. The injected document is a different document, and this oracle only parses the
+ *       outer one.
  *   <li><strong>{@code javascript:} URLs</strong> (F5, F17, both since closed) —
  *       {@code <a href="javascript:...">} is one element with one attribute regardless of what the
  *       URL says. The blind spot is a property of the oracle rather than of the finding, so it
  *       outlives both.
- *   <li><strong>CSS</strong> (F4) — a {@code style} attribute carrying a full-viewport overlay and a
- *       beacon is still one attribute on one element.
- *   <li><strong>Event handlers</strong> (F1, F2, F19) — {@code onsubmit="v('');alert(1)//')"} has the
- *       same attribute name as the benign render.
- *   <li><strong>Policy attributes</strong> (F20) — a {@code sandbox} value that removes every
- *       restriction is structurally identical to one that adds them.
+ *   <li><strong>CSS</strong> (F4, closed by R2) — a {@code style} attribute carrying a full-viewport
+ *       overlay and a beacon is still one attribute on one element.
+ *   <li><strong>Event handlers</strong> (F1, F2, F19, closed by R4) —
+ *       {@code onsubmit="v('');alert(1)//')"} has the same attribute name as the benign render.
+ *   <li><strong>Policy attributes</strong> (F20, closed by R5) — a {@code sandbox} value that
+ *       removes every restriction is structurally identical to one that adds them.
  * </ul>
+ *
+ * <p>Every finding in that list but the first is closed, which is worth saying plainly: the oracle's
+ * blindness has not narrowed at all, and the only reason fewer things hide in it is that fewer
+ * things are live. It will be exactly this blind to whatever is found next.
  *
  * <p>So this file proves one thing completely and says nothing about the rest. The rest is covered by
  * the sink-liveness assertions ({@code UrlSinkTest}, {@code EventHandlerMatrixTest},
@@ -205,39 +213,36 @@ public class DomEquivalenceTest {
      */
     @Test
     public void structuralEquivalenceDoesNotMeanSafeAndHereAreFourProofs() {
-        assertBlindTo("markup.srcdoc", Payloads.SRCDOC_MARKUP,
-                "F3: the injected markup lives inside one attribute of one <iframe>; the injected"
-                        + " document is a different document and this oracle parses the outer one");
-        // This row has been replaced twice, for the same reason each time, and the history is worth
-        // keeping because it is what the test measures. It was residue.js-url-armed-buffer /
-        // QUOTE_SINGLE_BREAKOUT - "F5: a javascript: URL whose prefix detection was disarmed by an
-        // 11-character attribute name above it is still one attribute on one element" - until R3
-        // closed F5; then handler.onfocus / QUOTE_SINGLE_BREAKOUT - "F2: onfocus is not in the on*
-        // table, so the payload is html()-encoded into a handler body the HTML parser decodes
-        // before compiling" - until R4 closed F2. Both templates are byte-identical under attack
-        // now and can demonstrate nothing. The row is replaced rather than dropped, because the
-        // count is the point; F3's unrecognised URL-bearing names are the largest remaining class
-        // and have exactly the shape this oracle cannot see.
-        assertBlindTo("url.xlink-href", Payloads.JS_URL,
-                "F3: isTagNameChar accepts ':', so xlink:href scans as one name and does not match"
-                        + " href - the payload is html()-encoded and the parser decodes the"
-                        + " attacker's javascript: URL straight back, and it is still one attribute"
-                        + " on one element");
-        // This row used to be css.style-with-property / CSS_OVERLAY - "F4: a full-viewport overlay
-        // with a beacon in it is one style attribute". R2 closed F4, so that template is now
-        // byte-identical under attack and cannot demonstrate a blind spot at all; the row was
-        // replaced rather than dropped, because the count is the point. F6 is the natural
-        // substitute: an off-origin script source is one src attribute on one <script>, and the
-        // skeleton records the attribute's name and not its value.
+        // Every row here has been replaced at least once, always for the same reason: the task that
+        // closed the finding made the template byte-identical under attack, so it stopped
+        // demonstrating a blind spot at all. The history is kept because the count is the point -
+        // this oracle's blindness is a constant, and what changes is which live findings sit inside
+        // it. Phase A has left exactly one class, so all four rows now cite F6.
+        //
+        // The graveyard, in order: residue.js-url-armed-buffer / QUOTE_SINGLE_BREAKOUT (F5, closed
+        // by R3); handler.onfocus and handler.onsubmit / QUOTE_SINGLE_BREAKOUT (F2 and F1, closed
+        // by R4); css.style-with-property / CSS_OVERLAY (F4, closed by R2); markup.srcdoc /
+        // SRCDOC_MARKUP, url.xlink-href / JS_URL and refresh.meta-content / META_REFRESH (F3,
+        // closed by R5, R6 and R7 - srcdoc and content suppress now, and xlink:href reaches url(),
+        // which escapes the colon of a javascript: URL).
         assertBlindTo("url.script-src-prefix", Payloads.PROTOCOL_RELATIVE,
                 "F6: a protocol-relative script source that loads the attacker's JavaScript with"
                         + " full page privileges is still one src attribute on one <script>");
-        // ...and this row was handler.onsubmit / QUOTE_SINGLE_BREAKOUT - "F1: the attribute name is
-        // unchanged; only the JavaScript inside it is not" - until R4 closed F1 along with F2 and
-        // F19. Replaced with the other half of F3, which is the same statement about a different
-        // attribute: a forced navigation is one content attribute on one <meta>.
-        assertBlindTo("refresh.meta-content", Payloads.META_REFRESH,
-                "F3: the attribute name is unchanged; only the URL the browser navigates to is");
+        assertBlindTo("url.href-full", Payloads.ABSOLUTE_OFFSITE_HTTPS,
+                "F6: url() emits the scheme of an absolute URL verbatim, so an off-origin"
+                        + " navigation target is still one href attribute on one <a>");
+        assertBlindTo("url.base-href", Payloads.BASE_HIJACK,
+                "F6: <base href> retargets every relative URL on the rest of the page, and the"
+                        + " skeleton of the page it retargets is unchanged - the widest blast radius"
+                        + " in the corpus, and completely invisible here");
+        // The new one, and the reason it is worth having: R6 put formaction on the URL list, so this
+        // row moved from F3 to F6 rather than disappearing. A name that used to be html()-encoded
+        // and is now percent-encoded is safer against script schemes and exactly as exposed to
+        // off-origin ones, which is what the ledger records and what this row demonstrates the
+        // oracle cannot see.
+        assertBlindTo("url.formaction", Payloads.PROTOCOL_RELATIVE,
+                "F6: a form that submits its contents - including any CSRF token - to the attacker's"
+                        + " origin is still one formaction attribute on one <button>");
     }
 
     private static void assertBlindTo(String caseId, Payload payload, String why) {

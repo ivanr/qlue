@@ -55,6 +55,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code CanoeCorpusTest.browserObservabilityIsOnlyClaimedWhereItChangesAnExpectation} stops the
  * flag from being used to excuse anything else.
  *
+ * <p><strong>No row carries the flag after Phase A.</strong> Every one of the eighteen that did has
+ * been re-verdicted to a suppression or to SAFE by R2 through R7, and the flag is only permitted on
+ * a {@code KNOWN_VULNERABLE} row. The condition above is therefore equivalent to "is it
+ * {@code KNOWN_VULNERABLE}" today, and it is kept in that form rather than simplified: the reason
+ * the flag existed has not gone anywhere, and the next row that needs it will need it for exactly
+ * the same reason.
+ *
  * <p>Console errors are not exploitation. Several rows put the attacker's characters into a
  * position where they arrive live and produce a {@code SyntaxError} — an object literal that never
  * closes, a scheme no engine implements. Those are real Canoe defects and real browser misses at
@@ -158,10 +165,10 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * renders, and the {@code javascript:} row's double-quote payload cannot close a single-quoted
      * literal. So the tier lost four pages and one must-fire row.
      *
-     * <p>R4 (replace the {@code on*} table with a prefix rule) took it to the numbers below, and it
-     * is the largest move any single task makes: F1, F2 and F19 together were 98 of the ledger's
-     * remaining 233 {@code KNOWN_VULNERABLE} invocations. Eleven browser-relevant handler cases are
-     * involved — {@code handler.onsubmit}, {@code .onselect}, {@code .onfocus},
+     * <p>R4 (replace the {@code on*} table with a prefix rule) took it to 103/18/45/58, and it was
+     * the largest move any single task made until Phase A finished: F1, F2 and F19 together were 98
+     * of the ledger's remaining 233 {@code KNOWN_VULNERABLE} invocations. Eleven browser-relevant
+     * handler cases are involved — {@code handler.onsubmit}, {@code .onselect}, {@code .onfocus},
      * {@code .onreadystatechange}, {@code .ontoggle}, {@code .onmouseenter},
      * {@code .onanimationstart}, {@code .onwebkitanimationstart}, {@code .onvisibilitychange},
      * {@code .onshow} and, unchanged, {@code .onmouseover}. Each drops from one page per payload to
@@ -170,6 +177,28 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * live vector. The must-fire count falls by exactly the handler rows that were live in a
      * browser; the quiet count is unchanged at 58, because every page those cases lose is replaced
      * by the control the case still contributes.
+     *
+     * <p>R5, R6 and R7 (fail closed on unknown names, extend the URL-bearing set, resolve the
+     * {@code content}/{@code data} pair) take it to the numbers below, and two of the three figures
+     * do something no previous task made them do.
+     *
+     * <ul>
+     *   <li>The <strong>unobservable count reaches zero</strong>. It was 18 and every one of those
+     *       rows has been re-verdicted to a suppression: {@code url.action}, {@code url.formaction}
+     *       and {@code url.xlink-href}'s dead-scheme rows are SAFE under {@code url()} now,
+     *       {@code url.srcset}'s six are the same, and {@code policy.nonce}'s three went with F20.
+     *       The corpus only permits the flag on a {@code KNOWN_VULNERABLE} row, so the axis is empty
+     *       — see {@code CanoeCorpusTest.browserObservabilityIsOnlyClaimedWhereItChangesAnExpecta}
+     *       {@code tion}, which now guards the machinery instead of counting users. Every row this
+     *       tier still expects to fire is one a browser really acts on.
+     *   <li>The <strong>must-fire count is F6 and nothing else</strong>. Nineteen rows, all of them
+     *       an off-origin or protocol-relative URL reaching a sink {@code url()} passes through byte
+     *       for byte. That is the whole of what is left in the ledger, and it is the phase boundary
+     *       the plan draws after R7.
+     *   <li>The <strong>total falls to 63</strong>, which is the largest single drop and is
+     *       arithmetic rather than a loss of coverage: eleven cases stop contributing one page per
+     *       payload and contribute one control each instead.
+     * </ul>
      */
     @Test
     public void theBrowserRelevantSubsetIsTheSizeTheCorpusClaims() {
@@ -182,10 +211,10 @@ public class BrowserCorpusTest extends BrowserTestBase {
                 .count();
         long quiet = invocations.size() - mustFire;
 
-        assertEquals(103, invocations.size(), "browser-relevant invocation count");
-        assertEquals(18, unobservable, "invocations flagged as not browser-observable");
-        assertEquals(45, mustFire, "invocations that must trip a detector");
-        assertEquals(58, quiet, "invocations that must trip none");
+        assertEquals(63, invocations.size(), "browser-relevant invocation count");
+        assertEquals(0, unobservable, "invocations flagged as not browser-observable");
+        assertEquals(19, mustFire, "invocations that must trip a detector");
+        assertEquals(44, quiet, "invocations that must trip none");
     }
 
     @AfterAll

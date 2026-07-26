@@ -66,6 +66,10 @@ the locations cited. Three additional observations that are not in the review ar
   inventory of 37 branches proven dead, 26 of which *are* findings. Tasks R4 and R5 delete most of
   them. R27 reconciles the gate; until then, expect `canoeCoverageGate` to need its floors adjusted
   in the same commit as the fix that moved them, with the inventory comment updated to match.
+  **After R5–R7 the inventory is 11 outcomes and none of them is a finding** — the last one, F7's
+  unreachable `data` comparison, went with the branch pair R7 resolved. `setTagAttributeContext()`
+  is 8 branch outcomes and fully covered; `normalisePlainTextAttributeNames()` is gated too, because
+  it is the guard that stops an application putting a suppressed name back on `html()`.
 
 ### Ordering constraints — the four traps
 
@@ -73,12 +77,20 @@ the locations cited. Three additional observations that are not in the review ar
    F17, and F17 makes a *correctly recognised* `onclick` injectable. The `on*` prefix rule (R4) does
    not reach it: under F17 the name is already classified as JavaScript and the value scan throws the
    answer away afterwards.
-2. **R24 (F12, the `#set` double-encoding) must land after R4 and R5.** The double encoding
-   accidentally neutralises the largest vulnerability class in the review — a value routed through an
-   interpolated `#set` into an unrecognised event handler arrives as literal `&#39;` and never closes
-   the string literal. Fixing F12 first turns some templates from safe to injectable with no other
-   change. `VelocityIntegrationTest.doubleEncodingAccidentallyNeutralisesAnUnrecognisedHandler` is the
-   test that says so.
+2. **R24 (F12, the `#set` double-encoding) must land after R4 and R5.** — **discharged; R24 is
+   unblocked.** The double encoding accidentally neutralised the largest vulnerability class in the
+   review — a value routed through an interpolated `#set` into an unrecognised event handler arrived
+   as literal `&#39;` and never closed the string literal. Fixing F12 first would have turned some
+   templates from safe to injectable with no other change.
+   `VelocityIntegrationTest.doubleEncodingAccidentallyNeutralisesAnUnrecognisedHandler` was the test
+   that said so; it is now `.doubleEncodingNoLongerCoversAnyClassOfMissingClassification`, and it
+   records what happened. R4 closed the handler half and R5 with R6 closed the URL half, so **no
+   class of missing classification is behind the accident any more**: there is no sink left where
+   `html()` output is decoded once into a second parser. What remains, asserted rather than assumed,
+   is that F12 still masks **F6** — an off-origin URL survives `url()` on the direct path and is
+   mangled on the `#set` path — so R24 exposes nothing the ledger does not already record as
+   `KNOWN_VULNERABLE` by its direct route. Landing R24 before R9/R11/R12 is now a judgement call
+   about F6 rather than an ordering constraint.
 3. **R14 (settle `CTX_CSS`) must not precede R13 (fix `css()`).** Routing `ATTR_CSS` to a real CSS
    encoder before `css()` stops emitting unterminated hex escapes replaces a suppression with a
    defective escaper, which is worse than either. F23 shows a `style` value is decoded *twice*, so the
@@ -86,6 +98,11 @@ the locations cited. Three additional observations that are not in the review ar
 4. **R5 (fail closed on unknown names) must land with R6 and R7**, or ordinary pages lose values with
    no diagnostic — the F11/F7 failure mode, at scale. Fail-closed is right; fail-closed with no
    allowlist and no escape hatch is how a security control gets switched off in production.
+   **Honoured:** the three landed together, with a plain-text allowlist that keeps every ordinary
+   attribute a page uses, an `aria-*`/`data-*` prefix rule, a per-factory extension point reachable
+   from application code or a Qlue property, and a debug diagnostic naming every attribute the rule
+   drops. The cost is still real and is recorded rather than hidden — `AttributeNameMatrixTest`
+   `.everyNameOutsideTheAllowlistsIsSuppressed` is the list of shapes that now render empty.
 
 ---
 
@@ -239,8 +256,36 @@ permanently satisfiable.
 
 ---
 
-**R5 — Make `ATTR_HTML` unreachable for unknown attribute names**
-*Closes:* F20, and the policy/markup half of F3. *Depends on:* R4. *Lands with:* R6, R7.
+**R5 — Make `ATTR_HTML` unreachable for unknown attribute names** — ✅ **DONE**
+*Closes:* F20, and the policy/markup half of F3. *Depends on:* R4. *Landed with:* R6, R7.
+*Landed:* the default is `ATTR_UNKNOWN` → `CTX_SUPPRESS`, and `ATTR_HTML` is reached only through a
+documented allowlist of plain-text names — the ordinary text, form, table, media and link
+attributes, plus the `aria-*` and `data-*` families, each argued in `Canoe.PLAIN_TEXT_ATTRIBUTE_`
+`NAMES`' javadoc. `sandbox`, `rel`, `integrity` and `nonce` are off it (F20), and so are
+`http-equiv`, `charset`, `crossorigin`, `referrerpolicy` and `is`, which are directives by the same
+criteria. `type`, `target` and `formtarget` were re-decided from the other end — "is this a
+plain-text sink we are willing to list" rather than "is this a policy sink" — and all three are
+**on** the allowlist with the reasoning recorded on their corpus rows; `plain.type`,
+`plain.target` and `plain.formtarget` are unchanged, which is the load-bearing half of the trade.
+Two mitigations ship with it: `VelocityViewFactory.addPlainTextAttributes(...)` and the
+`qlue.canoe.plainTextAttributes` property, per factory and never static, validated by
+`Canoe.normalisePlainTextAttributeNames()` which **refuses** any name whose suppression is a
+recorded decision — F3's and F20's names, anything beginning `on`, the URL set, and the five
+URL-bearing names R6 chose to suppress rather than route (`imagesrcset`, `xml:base`, `archive`,
+`classid`, `profile`), because the allowlist grants `html()` and that is *weaker* than the `url()`
+they were denied — loudly at configuration time, from the `Canoe(Writer, Set)` constructor as well
+as from the factory, so the guard does not depend on which door a caller uses; and an slf4j debug
+diagnostic in `currentContext()` naming the attribute whenever a reference is dropped by the
+unknown-name rule. Ledger: KNOWN_VULNERABLE 135→61, SUPPRESSED_BY_DESIGN 224→257,
+SUPPRESSED_UNINTENDED 30→27, SAFE 563→613, REJECTED 44 unchanged; 996→1002 invocations, the six
+being `url.xlink-href` widening from one payload family to three now that it belongs in the URL
+group. Per finding: F3 93→0, F20 5→0, F7's 3 → moved to F6, and F6 37→61 (see R6). Coverage gate:
+Canoe 247/259 → 265/276 (95.37% → 96.01%), `setTagAttributeContext()` 17/18 → 8/8; floors 0.95→0.96
+and 0.94→0.99, a new floor on `normalisePlainTextAttributeNames()`, and the dead-branch inventory
+falls from 12 outcomes to 11 with no finding left in it. Browser tier: the relevant subset moves
+103/18/45/58 → 63/0/19/44 — the not-browser-observable axis is empty for the first time, and every
+row that must fire is F6. Both suites green; browser tier re-verified on Chromium (91 tests, 0
+failures, 2 skipped — Firefox and WebKit are not installed here).
 
 `Canoe.java:283` defaults every unrecognised attribute name to `ATTR_HTML` → `html()`. Invert it:
 add `ATTR_UNKNOWN`, map it to `CTX_SUPPRESS`, and reach `ATTR_HTML` only through a **documented
@@ -270,8 +315,23 @@ F20 — behave as the allowlist decides, and the decision for each is recorded.
 
 ---
 
-**R6 — Extend the URL-bearing name set**
+**R6 — Extend the URL-bearing name set** — ✅ **DONE**
 *Closes:* the URL half of F3. *Depends on:* R5.
+*Landed:* `ATTR_URI` is seventeen names — the original five plus `action`, `formaction`, `poster`,
+`cite`, `usemap`, `longdesc`, `codebase`, `manifest`, `ping`, `srcset`, `xlink:href` and `data`
+(R7). `xlink:href` needed no tokenizer change, as predicted. `srcdoc` **suppresses**, with the
+double-encoding reasoning attached to `markup.srcdoc` and to `URL_ATTRIBUTE_NAMES`' javadoc; so do
+`imagesrcset`, `xml:base`, `archive`, `classid` and `profile`, which R6 deliberately did not list —
+suppression is strictly stronger than `url()` and no ordinary template interpolates into them, and
+the decision is recorded on each row. All five are in `NAMES_THAT_MAY_NOT_BE_ADDED` as well, so the
+stronger answer cannot be swapped for the weaker one through configuration: the plain-text allowlist
+grants `html()`, and `html()` on a URL sink is F3. `srcset`'s list syntax is the one accepted availability cost:
+`url()` percent-encodes the comma and the space, so a multi-candidate value loses its descriptors,
+and the alternative is a feature rather than a default. **The honest half of the result:** every
+name routed to `url()` inherits F6's off-origin passthrough, so the 93 F3 rows become SAFE against
+script schemes and `KNOWN_VULNERABLE` **citing F6** against the two off-origin payloads — F6's count
+rises 37→61 as F3's falls 93→0. The ledger records the routing defect as closed and the encoder
+defect as open, which is what it is; R9, R11 and R12 own the rest.
 
 `ATTR_URI` covers five names: `background`, `dynsrc`, `lowsrc`, `href`, `src`. Add the ones the
 review enumerates and R5 would otherwise merely suppress: `action`, `formaction`, `poster`, `cite`,
@@ -290,8 +350,25 @@ name; `srcdoc` is `SUPPRESSED_BY_DESIGN` with the reasoning attached.
 
 ---
 
-**R7 — Fix the `content` / `data` branch pair**
+**R7 — Fix the `content` / `data` branch pair** — ✅ **DONE**
 *Closes:* F7. *Depends on:* R5, R6.
+*Landed:* both branches are gone with the whole comparison chain — `data` is in the URL name set and
+`content` is on no list, so R5's fail-closed default suppresses it. The `ATTR_CONTENT` constant went
+with them, along with its `currentContext()` arm and the author's `XXX` marker; `ATTR_UNKNOWN`
+occupies its slot. `AttributePrefixTest.theSecondDataBranchIsUnreachable` is retired as
+`.theDataBranchPairIsResolved`, carrying the whole of F7's reasoning in its javadoc — the identical
+guards, the first branch returning, the two consequences — and asserting R7's answer instead;
+`AttributeNameMatrixTest.theSourceDeclaresExactlyTheNonHandlerBranchesTheMatrixExpects`, which parsed
+the branch comments out of the source, is retired as `.theSourceDeclaresTheTwoNameListsTheMatrix`
+`Expects` and now reads the two declared name sets, asserts they match the matrix, and requires the
+`ATTR_CONTENT` constant and the `XXX` marker to stay gone. `attr.data-on-object` moves off
+`SUPPRESSED_UNINTENDED` (F7's availability half) to the URL shape citing F6; `refresh.meta-content`
+moves off `KNOWN_VULNERABLE` (F3's impact) to `SUPPRESSED_BY_DESIGN`, with the reason `content` is
+not on the URL list written out: it is a URL on one element/attribute-value combination, Canoe
+discards the tag name before attribute parsing begins, and routing every `content` attribute to
+`url()` would percent-encode the prose in every meta description on the page. F7 now has no corpus
+case and an entry in `MatrixReportTest.FINDINGS_WITHOUT_CASES` saying which tests carry it and why —
+a case cites the finding its *current* verdict is about.
 
 `Canoe.java:297-308` carries the author's own `XXX` marker: two byte-identical comparison chains both
 testing for `data`, so `data=` always resolves to `ATTR_CONTENT` (suppressed — a functional bug
@@ -743,6 +820,13 @@ a page with an author nonce and a real CSP), and §A.3 of the test plan is missi
 **Three tasks close thirteen findings.** R2 closes F4, F17 and F24's exploitable path on one deleted
 line. R4 closes F1, F2 and F19 by deleting 200. R5 closes F3's policy half and F20 by inverting a
 default. If the work has to stop early, stop after R5.
+
+**Phase A is complete.** Every finding it owned is closed: F1, F2, F3, F4, F5, F7, F17, F19 and F20.
+The ledger's `KNOWN_VULNERABLE` count is **61 invocations across 30 cases, every one of them F6** —
+`url()` is a scheme filter and not an origin filter — so what is left of the exploitable surface is
+one defect in one encoder, owned by R9, R11 and R12. The count rose against F6 while F3's fell to
+zero, because twelve names R6 routed to `url()` inherited its off-origin passthrough; that is the
+honest arithmetic of closing a classification defect before the encoder defect underneath it.
 
 ---
 

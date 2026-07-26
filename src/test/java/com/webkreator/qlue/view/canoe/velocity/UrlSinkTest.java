@@ -31,8 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * URL sinks: the five recognised names, the nine elements that carry them, and the four positions a
- * reference can occupy inside a URL.
+ * URL sinks: the seventeen names Canoe routes to {@code url()}, the elements that carry them, and
+ * the four positions a reference can occupy inside a URL.
+ *
+ * <p>It was five names until R6, and the twelve it added are not a widening of this file's subject
+ * so much as a transfer: they were F3 — {@code html()}-encoded and decoded straight back by the
+ * parser — and they are F6 now, which is what the rest of this file is about. Nothing here asserts
+ * that the new names are <em>safe</em>; it asserts that they behave identically to {@code href},
+ * including in the way {@code href} is defective.
  *
  * <h2>What this file asserts that {@code CanoeCorpusTest} does not</h2>
  *
@@ -58,10 +64,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       the rule, which is what bounds F6 for anybody auditing templates.
  * </ul>
  *
- * <p>Where the arithmetic of the five recognised names lives: {@code AttributeNameMatrixTest} owns
- * the {@code ATTR_*} partition and asserts that {@code ATTR_URI} is exactly
- * {@code background}, {@code dynsrc}, {@code lowsrc}, {@code href} and {@code src}. This file takes
- * that set as given and asks what happens to a value inside one.
+ * <p>Where the arithmetic of the name set lives: {@code AttributeNameMatrixTest} owns the
+ * {@code ATTR_*} partition and asserts that {@code ATTR_URI} is exactly the seventeen names R6 and
+ * R7 settled. This file takes that set as given and asks what happens to a value inside one.
  */
 public class UrlSinkTest {
 
@@ -69,12 +74,20 @@ public class UrlSinkTest {
     private static final String SECTION = "A.2 attribute names";
 
     /**
-     * The URL-bearing (element, attribute) pairs the plan names, with what Canoe actually does with
-     * each. Three of the nine are not {@code CTX_URI}, and each is a separate finding rather than an
-     * exception: {@code <object data>} is F7 (the branch commented {@code content} compares
-     * {@code data}, so {@code data} resolves to {@code ATTR_CONTENT} and the value is dropped), and
-     * {@code <form action>} is F3 (no branch at all, so {@code html()} applies and the parser hands
-     * the URL parser the attacker's characters back).
+     * The URL-bearing (element, attribute) pairs the plan names, with what Canoe does with each.
+     *
+     * <p>Two of the nine used not to be {@code CTX_URI}, and each was a separate finding rather than
+     * an exception: {@code <object data>} was F7 — the branch commented {@code content} compared
+     * {@code data}, so the value was dropped — and {@code <form action>} was F3, which had no branch
+     * at all, so {@code html()} applied and the parser handed the URL parser the attacker's
+     * characters back. R6 and R7 closed both, and the table is now uniform: every URL-bearing name
+     * in it reaches {@code url()}.
+     *
+     * <p>The rows R6 added are here too, so that the file's two properties — tag-name blindness and
+     * position — are asserted over the whole URL set rather than over the five names that predate
+     * it. That matters more than it did: {@code formaction} and {@code ping} now inherit F6's
+     * off-origin passthrough, and inheriting it on eleven more names is the cost R6 accepted for
+     * closing F3's URL half before R9 exists.
      */
     static Stream<Arguments> urlBearingElements() {
         return Stream.of(
@@ -85,11 +98,28 @@ public class UrlSinkTest {
                 Arguments.of("embed", "src", Canoe.CTX_URI, null),
                 Arguments.of("link", "href", Canoe.CTX_URI, null),
                 Arguments.of("base", "href", Canoe.CTX_URI, null),
-                Arguments.of("object", "data", Canoe.CTX_SUPPRESS, "F7"),
-                Arguments.of("form", "action", Canoe.CTX_HTML_ATTR, "F3"));
+                Arguments.of("object", "data", Canoe.CTX_URI, "F7"),
+                Arguments.of("form", "action", Canoe.CTX_URI, "F3"),
+                // The rest of R6's names, each on an element that really carries it.
+                Arguments.of("button", "formaction", Canoe.CTX_URI, "F3"),
+                Arguments.of("video", "poster", Canoe.CTX_URI, "F3"),
+                Arguments.of("blockquote", "cite", Canoe.CTX_URI, "F3"),
+                Arguments.of("img", "usemap", Canoe.CTX_URI, "F3"),
+                Arguments.of("img", "longdesc", Canoe.CTX_URI, "F3"),
+                Arguments.of("applet", "codebase", Canoe.CTX_URI, "F3"),
+                Arguments.of("html", "manifest", Canoe.CTX_URI, "F3"),
+                Arguments.of("a", "ping", Canoe.CTX_URI, "F3"),
+                Arguments.of("img", "srcset", Canoe.CTX_URI, "F3"),
+                Arguments.of("a", "xlink:href", Canoe.CTX_URI, "F3"),
+                // ...and the two URL-bearing names R6 deliberately left off the list, which
+                // suppress. Suppression is stronger than url(), so this is not a gap; it is the
+                // fail-closed default doing the work for names no ordinary template writes.
+                Arguments.of("iframe", "srcdoc", Canoe.CTX_SUPPRESS, "F3"),
+                Arguments.of("link", "imagesrcset", Canoe.CTX_SUPPRESS, "F3"),
+                Arguments.of("svg", "xml:base", Canoe.CTX_SUPPRESS, "F3"));
     }
 
-    /** The seven of the nine that reach {@code url()}. */
+    /** The ones that reach {@code url()}, which since R6 and R7 is all but three. */
     static Stream<Arguments> elementsThatReachUrlEncoding() {
         return urlBearingElements().filter(a -> a.get()[2].equals(Canoe.CTX_URI));
     }

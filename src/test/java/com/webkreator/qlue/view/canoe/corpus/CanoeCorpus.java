@@ -167,10 +167,12 @@ public final class CanoeCorpus {
      * A three-payload probe for the long tail of URL-bearing attribute names.
      *
      * <p>The full thirteen would be thirteen renders per name across fifteen names for no extra
-     * information: every one of those names takes the identical {@code ATTR_HTML} fall-through, so the
-     * per-payload distinctions are a property of {@code html()} and of the URL parser, not of the
-     * name. They are pinned once, exhaustively, on the four headline sinks below, and the tail carries
-     * one payload per mechanism — a script scheme, a protocol-relative host, an absolute host.
+     * information: every one of those names reaches the identical classification — the
+     * {@code ATTR_HTML} fall-through before R5 and R6, and either {@code url()} or R5's fail-closed
+     * default after them — so the per-payload distinctions are a property of the encoder and of the
+     * URL parser, not of the name. They are pinned once, exhaustively, on the four headline sinks
+     * below, and the tail carries one payload per mechanism — a script scheme, a protocol-relative
+     * host, an absolute host.
      */
     private static List<Payload> urlProbe() {
         return Arrays.asList(Payloads.JS_URL, Payloads.PROTOCOL_RELATIVE,
@@ -183,9 +185,16 @@ public final class CanoeCorpus {
     }
 
     /**
-     * Why six {@code JS_URL} payloads are safe in an attribute Canoe does <em>not</em> protect. Every
-     * one is an accident of {@code html()}, not a defence, and the reasons are written out in full
-     * wherever they apply so that nobody reads a {@code SAFE} row as evidence the sink is handled.
+     * Why six {@code JS_URL} payloads were safe in an attribute Canoe did <em>not</em> protect. Every
+     * one was an accident of {@code html()}, not a defence, and the reasons were written out in full
+     * wherever they applied so that nobody read a {@code SAFE} row as evidence the sink was handled.
+     *
+     * <p>Retained as history after R5 and R6, and the group's own helper is gone: no sink in the
+     * corpus reaches {@code html()} with a URL payload any more, so there is nothing left to mark
+     * safe by accident. It is kept for the same reason {@link #CSS_BACKSLASH_IS_AN_ESCAPE} is - all
+     * three mechanisms are properties of {@code html()} and of the URL parser rather than of the
+     * routing, they are unchanged, and they are what would decide these payloads again if any name
+     * were moved back onto the plain-text allowlist.
      */
     private static final String C0_CONTROL_ACCIDENT =
             "The six safe entries are neutralised by accident, not design, for three separate"
@@ -199,15 +208,6 @@ public final class CanoeCorpus {
                     + " clearest disproof of a second decode anywhere in the corpus. The"
                     + " percent-encoded prefix is safe because nothing percent-decodes a URL before"
                     + " scheme detection.";
-
-    /**
-     * The {@code JS_URL} payloads {@code html()} neutralises by accident. Applied as a group because
-     * they are all the same kind of luck; see {@link #C0_CONTROL_ACCIDENT} for the three mechanisms.
-     */
-    private static final List<Payload> HTML_ENCODER_ACCIDENTS = Arrays.asList(
-            Payloads.JS_URL_TAB_SPLIT, Payloads.JS_URL_NEWLINE_SPLIT,
-            Payloads.JS_URL_LEADING_CONTROL, Payloads.JS_URL_NUL_SPLIT,
-            Payloads.JS_URL_ENTITY_DECIMAL, Payloads.JS_URL_PERCENT_ENCODED);
 
     /**
      * Why the {@code PROTOCOL_RELATIVE/backslash} row inside a CSS {@code url()} was correctly
@@ -333,41 +333,77 @@ public final class CanoeCorpus {
                     + " is the scheme a denylist of eight names forgets. Measured in Chromium by"
                     + " BrowserCorpusTest.";
 
-    /** The shape shared by every URL-bearing name that falls through to {@code ATTR_HTML} (F3). */
-    private static XssCase.Builder unrecognisedUrlAttribute(String id, String template,
-                                                            String selector, String attribute,
-                                                            List<Payload> payloads) {
+    /**
+     * The shape shared by every URL-bearing name R6 added to {@code ATTR_URI}.
+     *
+     * <p>It used to be {@link Verdict#KNOWN_VULNERABLE} against F3 for every payload: the name fell
+     * through to {@code ATTR_HTML}, and the HTML parser decodes {@code html()}'s references before
+     * the URL parser runs, so the attacker recovered every character of the URL. R6 routes these
+     * names to {@code url()} and the shape becomes {@link #recognisedUriAttribute}'s, byte for byte
+     * and verdict for verdict — which is the honest statement of what R6 bought and what it did not.
+     *
+     * <p><strong>The default is SAFE and the two off-origin payloads are KNOWN_VULNERABLE citing
+     * F6</strong>, not F3. Every script-bearing scheme is genuinely neutralised, because {@code
+     * url()} percent-escapes the colon and what is left is a relative path. A protocol-relative or
+     * absolute URL is not neutralised at all: every character of it is on {@code url()}'s allowlist,
+     * so it arrives byte for byte. A URL attribute routed to {@code url()} inherits {@code url()}'s
+     * defects, and the ledger records that rather than reading the routing fix as a fix for the
+     * sink. R9, R11 and R12 are what close these rows.
+     */
+    private static XssCase.Builder urlAttributeAddedByR6(String id, String template,
+                                                         String selector, String attribute,
+                                                         List<Payload> payloads) {
         return XssCase.id(id)
                 .section(A2)
                 .template(template)
                 .sink(SinkKind.URL, selector, attribute)
                 .payloads(payloads)
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SAFE)
+                .finding("F6")
+                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
+                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, Verdict.KNOWN_VULNERABLE);
+    }
+
+    /**
+     * The tail form of {@link #urlAttributeAddedByR6}: three payloads, one per mechanism. The
+     * per-payload distinctions are pinned exhaustively on the four headline sinks, which carry all
+     * thirteen.
+     */
+    private static XssCase.Builder urlAttributeAddedByR6(String id, String template,
+                                                         String selector, String attribute) {
+        return urlAttributeAddedByR6(id, template, selector, attribute, urlProbe());
+    }
+
+    /**
+     * The shape shared by the URL-bearing names R6 deliberately left off the URL list, which R5's
+     * fail-closed default therefore suppresses.
+     *
+     * <p>These were F3 rows too, and the reasoning for treating them differently from the names
+     * above is worth having in one place. {@code url()} is a scheme filter and not an origin filter,
+     * so routing a name to it closes the script-scheme half of F3 and opens F6 on that name.
+     * Suppression closes both and costs availability instead: nothing renders. R6's list is the set
+     * of names an ordinary template interpolates into, where losing the value is not acceptable;
+     * everything else — {@code imagesrcset}, {@code xml:base}, {@code archive}, {@code classid},
+     * {@code profile} — takes the stronger answer, and an application that genuinely needs one has
+     * {@code $_x.asis()} and the knowledge that it is choosing to.
+     */
+    private static XssCase.Builder urlAttributeSuppressedByR5(String id, String template,
+                                                              String selector, String attribute) {
+        return XssCase.id(id)
+                .section(A2)
+                .template(template)
+                .sink(SinkKind.URL, selector, attribute)
+                .payloads(urlProbe())
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F3");
     }
 
     /**
-     * The tail form of {@link #unrecognisedUrlAttribute}: three payloads, one per mechanism. The
-     * per-payload distinctions are pinned exhaustively on the four headline sinks, which carry all
-     * thirteen.
+     * The shape shared by the five names {@code setTagAttributeContext()} has always mapped to
+     * {@code ATTR_URI}. R6's twelve additions take {@link #urlAttributeAddedByR6}, which is the same
+     * shape with a different history attached; the two are kept apart so that a reader can still see
+     * which rows were F3 and which never were.
      */
-    private static XssCase.Builder unrecognisedUrlAttribute(String id, String template,
-                                                            String selector, String attribute) {
-        return unrecognisedUrlAttribute(id, template, selector, attribute, urlProbe());
-    }
-
-    /**
-     * The {@code JS_URL} payloads {@code html()} neutralises by accident, marked safe; see
-     * {@link #C0_CONTROL_ACCIDENT}.
-     */
-    private static XssCase.Builder withC0ControlAccidents(XssCase.Builder builder) {
-        for (Payload payload : HTML_ENCODER_ACCIDENTS) {
-            builder.override(payload, Verdict.SAFE);
-        }
-        return builder;
-    }
-
-    /** The shape shared by the five names {@code setTagAttributeContext()} maps to {@code ATTR_URI}. */
     private static XssCase.Builder recognisedUriAttribute(String id, String template,
                                                           String selector, String attribute) {
         return XssCase.id(id)
@@ -396,15 +432,19 @@ public final class CanoeCorpus {
     /**
      * The shape shared by every policy-bearing attribute (F20).
      *
-     * <p>The default is {@link Verdict#SAFE} and each case names the payloads that are actually
-     * <em>live</em> in its attribute. That is the opposite of how this group was first written, and
-     * the change matters: the cross-product handed all three policy tokens to all six attributes and
-     * recorded {@code KNOWN_VULNERABLE} for every one, which is a claim &sect;2.1 does not support.
+     * <p>The default is {@link Verdict#SUPPRESSED_BY_DESIGN} since R5, and every row in the group
+     * takes it: the names are off the plain-text allowlist, so nothing is emitted.
+     *
+     * <p>It was {@link Verdict#SAFE} with each case naming the payloads that were actually
+     * <em>live</em> in its attribute, and that per-payload precision is worth keeping in the notes
+     * even though the verdicts no longer differ. It was the opposite of how the group was first
+     * written: the cross-product handed all three policy tokens to all six attributes and recorded
+     * {@code KNOWN_VULNERABLE} for every one, which is a claim &sect;2.1 does not support.
      * {@code sandbox="opener"} is an unknown sandbox token, so the sandbox stays maximally
-     * restrictive; {@code rel="_blank"} is not a link type. The bytes arrive, but nothing acts on
+     * restrictive; {@code rel="_blank"} is not a link type. The bytes arrived, but nothing acted on
      * them, and "attacker data reaches the sink <em>live</em>" is the definition. The oracle could not
-     * see the difference — it asks only whether the bytes survived — so this was a wrong verdict that
-     * no test could have caught, which is exactly the class the ledger exists to make visible.
+     * see the difference — it asks only whether the bytes survived — so that was a wrong verdict no
+     * test could have caught, which is exactly the class the ledger exists to make visible.
      */
     private static XssCase.Builder policyAttribute(String id, String template,
                                                    String selector, String attribute) {
@@ -413,9 +453,31 @@ public final class CanoeCorpus {
                 .template(template)
                 .sink(SinkKind.POLICY, selector, attribute)
                 .payloads(Payloads.family("POLICY_OVERRIDE"))
-                .verdict(Verdict.SAFE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F20");
     }
+
+    /**
+     * Why every row in the policy group is a suppression since R5, and why that is the only fix that
+     * was ever available for it.
+     *
+     * <p>Written once and attached to each row, because the argument is the same one four times and
+     * it is the argument a reader has to accept before the group makes sense.
+     */
+    private static final String A_DIRECTIVE_CANNOT_BE_ENCODED =
+            "Re-verdicted by R5. A policy token is letters, digits, hyphens, underscores and spaces;"
+                    + " html() passes the letters and digits naked and turns the rest into character"
+                    + " references the HTML parser puts straight back, so the value arrived byte for"
+                    + " byte and no change to the encoder could ever have altered that. Encoding was"
+                    + " not insufficient here, it was inapplicable - the browser consumes the decoded"
+                    + " value as a DIRECTIVE rather than handing it to a parser - so recognising the"
+                    + " name and refusing to interpolate was not the preferred fix but the only one."
+                    + " R5's plain-text allowlist is what implements it: the name is not on the list,"
+                    + " so the fail-closed default drops the value. Reviewed against the sink: the"
+                    + " attribute renders empty for every payload, byte-identical to a render with an"
+                    + " empty value. The finding stays cited so the row remains traceable to F20, and"
+                    + " Canoe.NAMES_THAT_MAY_NOT_BE_ADDED refuses the same name from application"
+                    + " configuration, so the allowlist cannot be widened back onto it.";
 
     /**
      * The shape shared by every template Canoe refuses outright. Two payloads, not one: the inert
@@ -1414,13 +1476,18 @@ public final class CanoeCorpus {
     // ------------------------------------------------------------------
 
     /**
-     * The five names {@code setTagAttributeContext()} maps to {@code ATTR_URI}, so the value goes
-     * through {@code HtmlEncoder.url()}.
+     * The five names {@code setTagAttributeContext()} has always mapped to {@code ATTR_URI}, so the
+     * value goes through {@code HtmlEncoder.url()}.
      *
      * <p>All five behave identically, and identically wrongly, because {@code url()} is a scheme
      * filter rather than an origin filter (F6). Every {@code javascript:}-style scheme is genuinely
      * neutralised — the colon becomes {@code %3A} and what is left is a relative path — and the origin
      * is what survives.
+     *
+     * <p>Since R6 there are seventeen names in the group rather than five, and the twelve additions
+     * are in {@link #unrecognisedUrlAttributes} with the F3 history that brought them here. Their
+     * verdicts are these verdicts: that is what "routed to url()" means, and it is why the ledger's
+     * F6 count went up when F3's went to zero.
      */
     private static void recognisedUriAttributes(List<XssCase> cases) {
 
@@ -1562,18 +1629,24 @@ public final class CanoeCorpus {
                 .browserRelevant()
                 .build());
 
-        // F7: the branch that was meant to test for 'content' tests for 'data' instead, so 'data'
-        // resolves to ATTR_CONTENT and the value is dropped. Fail-safe, and a functional bug
-        // developers will route around with $_x.asis().
-        cases.add(XssCase.id("attr.data-on-object")
-                .section(A2)
-                .template("<object data=\"$data\"></object>")
-                .sink(SinkKind.URL, "object", "data")
-                .payloads(urlProbe())
-                .verdict(Verdict.SUPPRESSED_UNINTENDED)
-                .finding("F7")
-                .note("Two consequences of one copy-paste: <object data> silently drops its value,"
-                        + " and there is no check for 'content' at all - see refresh.meta-content.")
+        // F7, closed by R7. The branch that was meant to test for 'content' tested for 'data'
+        // instead, so 'data' resolved to ATTR_CONTENT and the value was dropped - fail-safe, and a
+        // functional bug developers route around with $_x.asis() - while 'content' had no test at
+        // all. R7 resolved the pair: <object data> is a URL.
+        cases.add(urlAttributeAddedByR6("attr.data-on-object",
+                "<object data=\"$data\"></object>", "object", "data")
+                .note("Re-verdicted by R7, from SUPPRESSED_UNINTENDED/F7. Two consequences of one"
+                        + " copy-paste, and this is the availability one: <object data> silently"
+                        + " dropped its value because the branch above it, commented 'content',"
+                        + " compared the characters of 'data' and returned first. The security"
+                        + " consequence was the other half - there was no check for 'content' at all"
+                        + " - and refresh.meta-content records it. Reviewed against the sink: the"
+                        + " value is percent-encoded by url() now, so a data: or javascript: URL"
+                        + " arrives with its colon escaped and an off-origin URL arrives byte for"
+                        + " byte, which is F6 on this name as it is on href. The finding citation"
+                        + " moves from F7, which is closed, to F6, which is not."
+                        + " AttributePrefixTest.theDataBranchPairIsResolved is the mechanism side of"
+                        + " this row, and it keeps F7's reasoning where the branches used to be.")
                 .build());
     }
 
@@ -1626,9 +1699,20 @@ public final class CanoeCorpus {
         // The three names F20's table lists and SinkKind.POLICY's criteria exclude. They live here
         // rather than being deleted, because "we thought about this one and it does not qualify" is
         // information, and because the next reader will otherwise re-derive the same argument.
+        //
+        // R5 had to decide each of them again, from the other end: the question stopped being "is
+        // this a policy sink" and became "is this a plain-text sink we are willing to put on an
+        // allowlist". All three answers came out the same way and all three are ON the allowlist, so
+        // these rows are unchanged - which is the useful thing about them, since a fail-closed
+        // default that suppressed them would have been the availability failure trap 4 warns about,
+        // and a denylist that admitted sandbox would have been the security one. The verdicts below
+        // are therefore load-bearing in both directions.
         cases.add(plainTextAttribute("plain.type", "<script type=\"$data\" src=\"/app.js\"></script>",
                 "script", "type", Payloads.family("POLICY_OVERRIDE"))
-                .note("Considered for SinkKind.POLICY and rejected. type on <script> is a"
+                .note("R5's decision: ON the plain-text allowlist, so html() still applies and the"
+                        + " value still arrives verbatim. Considered for SinkKind.POLICY and"
+                        + " rejected, for the reasons that follow, and considered again for"
+                        + " suppression under R5 and kept. type on <script> is a"
                         + " content-type directive, and the only thing an attacker can do with it is"
                         + " make the browser refuse to run the script - which fails safe. There is no"
                         + " value of type that turns script execution ON where it was off, because"
@@ -1641,19 +1725,30 @@ public final class CanoeCorpus {
 
         cases.add(plainTextAttribute("plain.target", "<a target=\"$data\" href=\"/x\">y</a>",
                 "a", "target", Payloads.family("POLICY_OVERRIDE"))
-                .note("Considered for SinkKind.POLICY and rejected. Retargeting a navigation into a"
+                .note("R5's decision: ON the plain-text allowlist. Considered for SinkKind.POLICY"
+                        + " and rejected, and considered again for suppression under R5 and kept."
+                        + " Retargeting a navigation into a"
                         + " named or new browsing context is behaviour, not a security control being"
                         + " switched off - the closest it comes is that target=_blank implies"
                         + " noopener, and the attribute that undoes THAT is rel, which is why rel is"
-                        + " in the policy group and this is not. Recorded as SAFE with the value"
+                        + " in the policy group and suppressed and this is not. The residual is"
+                        + " stated rather than waved away: an attacker-chosen target opens the"
+                        + " TEMPLATE AUTHOR's URL in a context of the attacker's naming, which is a"
+                        + " UI-redressing nuisance and not a control being turned off, because the"
+                        + " destination is not theirs to choose. Recorded as SAFE with the value"
                         + " arriving verbatim, which is the honest description.")
                 .build());
 
         cases.add(plainTextAttribute("plain.formtarget",
                 "<form action=\"/save\"><button formtarget=\"$data\">go</button></form>",
                 "button", "formtarget", Payloads.family("POLICY_OVERRIDE"))
-                .note("The submit-button analogue of plain.target, and rejected from the policy group"
-                        + " for the same reason.")
+                .note("R5's decision: ON the plain-text allowlist. The submit-button analogue of"
+                        + " plain.target, rejected from the policy group and kept off the"
+                        + " suppression list for the same reason. Worth reading beside url.formaction,"
+                        + " which R6 routed to url(): the two names differ by four characters and"
+                        + " one of them names a window while the other names the place the form's"
+                        + " contents are sent. A single classification for both would have been"
+                        + " wrong whichever one it picked.")
                 .build());
 
         cases.add(plainTextAttribute("plain.lang", "<p lang=\"$data\">x</p>", "p", "lang",
@@ -1703,149 +1798,206 @@ public final class CanoeCorpus {
     }
 
     /**
-     * The URL-bearing names {@code setTagAttributeContext()} has never heard of (F3). Every one falls
-     * through to {@code ATTR_HTML}, and the HTML parser undoes that encoding before handing the value
-     * to the URL parser — so the attacker recovers every character.
+     * The URL-bearing names {@code setTagAttributeContext()} had never heard of (F3), and what R5
+     * and R6 did with them.
      *
-     * <p>The contrast with {@link #recognisedUriAttributes} is the whole finding: {@code href} is
-     * protected by {@code url()} and {@code xlink:href} is not, so the safe-by-analogy assumption a
-     * developer would make is exactly wrong.
+     * <p>Every one of them used to fall through to {@code ATTR_HTML}, and the HTML parser undoes
+     * that encoding before handing the value to the URL parser — so the attacker recovered every
+     * character. The contrast with {@link #recognisedUriAttributes} was the whole finding:
+     * {@code href} was protected by {@code url()} and {@code xlink:href} was not, so the
+     * safe-by-analogy assumption a developer would make was exactly wrong.
+     *
+     * <p>The group splits in two now, and the split is a judgement rather than a mechanism:
+     *
+     * <ul>
+     *   <li><strong>Routed to {@code url()}</strong> — the names R6 lists, which an ordinary
+     *       template interpolates into. Their verdicts become {@link #recognisedUriAttribute}'s,
+     *       because they now <em>are</em> recognised URI attributes: script schemes neutralised,
+     *       off-origin URLs passing byte for byte, and the rows that stay
+     *       {@link Verdict#KNOWN_VULNERABLE} citing <strong>F6</strong> rather than F3. That is the
+     *       honest record of the change: the classification defect is closed and the encoder defect
+     *       underneath it is not.
+     *   <li><strong>Suppressed</strong> — {@code imagesrcset}, {@code xml:base}, {@code archive},
+     *       {@code classid} and {@code profile}, which R5's fail-closed default catches because R6
+     *       deliberately did not list them. Suppression is strictly stronger than {@code url()};
+     *       what it costs is the value.
+     * </ul>
      */
     private static void unrecognisedUrlAttributes(List<XssCase> cases) {
 
+        // Why the C0-control and entity accidents that used to be recorded here are gone with the
+        // classification. They were properties of html(), and html() no longer runs on any of these
+        // names; under url() the same six payloads are safe for one reason instead of three, which
+        // is the colon. C0_CONTROL_ACCIDENT is still carried by the sinks that still reach html().
+        String underUrlEncodingNow =
+                C0_CONTROL_ACCIDENT
+                        + " That paragraph is history: it is why six of these payloads used to be"
+                        + " overridden to SAFE row by row, and none of them needs an override now."
+                        + " Re-verdicted by R5+R6, from KNOWN_VULNERABLE/F3 to SAFE with the two off-origin"
+                        + " payloads KNOWN_VULNERABLE under F6. The name is on the URL list now, so"
+                        + " url() applies where html() used to: reviewed against the sink, every"
+                        + " script-bearing scheme arrives with its colon as %3A, which leaves a"
+                        + " relative path the browser resolves against the page's own origin, and"
+                        + " every off-origin URL arrives byte for byte because every character of"
+                        + " one is on url()'s allowlist. The six payloads that used to be SAFE by"
+                        + " accident of html() - the C0-control splits, the entity-encoded prefix,"
+                        + " the percent-encoded prefix - are safe for the ordinary reason now, so"
+                        + " their overrides and the reasoning behind them have gone with the"
+                        + " encoder that made them special. The finding citation moves with the"
+                        + " defect rather than staying with the row's history: F3 was 'this name is"
+                        + " not classified', which is fixed, and F6 is 'url() is a scheme filter"
+                        + " rather than an origin filter', which is what is left. R9, R11 and R12"
+                        + " close the remainder.";
+
+        String suppressedInstead =
+                "Re-verdicted by R5, from KNOWN_VULNERABLE/F3 to SUPPRESSED_BY_DESIGN. R6 did not"
+                        + " put this name on the URL list, so R5's fail-closed default catches it"
+                        + " and the value is dropped. Reviewed against the sink: the attribute"
+                        + " renders empty for all three payloads, byte-identical to a render with an"
+                        + " empty value. The finding stays cited so the row remains traceable to F3."
+                        + " Suppression rather than url() is deliberate and is the stronger of the"
+                        + " two answers - url() would leave F6's off-origin passthrough open on this"
+                        + " name - and it is affordable precisely because no ordinary template"
+                        + " interpolates into it. If one needs to, that is a later task to route it"
+                        + " to a URL encoder, and NOT a name for the application allowlist:"
+                        + " Canoe.NAMES_THAT_MAY_NOT_BE_ADDED refuses it from configuration, because"
+                        + " the plain-text allowlist grants html(), which is F3 on a URL sink and is"
+                        + " weaker than the url() this name was deliberately denied. The strongest"
+                        + " answer and the weakest one are one property line apart, so the property"
+                        + " line throws.";
+
         // The four headline sinks carry the full thirteen payloads, so the per-payload distinctions
         // are pinned exhaustively somewhere.
-        cases.add(withC0ControlAccidents(unrecognisedUrlAttribute("url.action",
-                "<form action=\"$data\"></form>", "form", "action", allUrlPayloads()))
-                .notBrowserObservable(Payloads.VBSCRIPT_URL, Payloads.DATA_URL_HTML,
-                        Payloads.VIEW_SOURCE_URL)
-                .note("A javascript: URL here runs on submit, and an absolute URL sends the form's"
-                        + " contents - including any CSRF token - to the attacker. "
-                        + C0_CONTROL_ACCIDENT + " " + DEAD_URL_VECTORS
-                        + " " + VIEW_SOURCE_IS_BLOCKED_FROM_CONTENT)
+        cases.add(urlAttributeAddedByR6("url.action",
+                "<form action=\"$data\"></form>", "form", "action", allUrlPayloads())
+                .note("A javascript: URL here used to run on submit; an absolute URL still sends the"
+                        + " form's contents - including any CSRF token - to the attacker, which is"
+                        + " the half R6 does not close. " + underUrlEncodingNow)
                 .browserRelevant()
                 .build());
 
-        cases.add(withC0ControlAccidents(unrecognisedUrlAttribute("url.formaction",
+        cases.add(urlAttributeAddedByR6("url.formaction",
                 "<form action=\"/save\"><button formaction=\"$data\">go</button></form>",
-                "button", "formaction", allUrlPayloads()))
-                .notBrowserObservable(Payloads.VBSCRIPT_URL, Payloads.DATA_URL_HTML,
-                        Payloads.VIEW_SOURCE_URL)
+                "button", "formaction", allUrlPayloads())
                 .note("formaction overrides the form's own action, so a template that carefully sets"
-                        + " action from a constant is still fully controllable. "
-                        + C0_CONTROL_ACCIDENT + " " + DEAD_URL_VECTORS
-                        + " " + VIEW_SOURCE_IS_BLOCKED_FROM_CONTENT)
+                        + " action from a constant is still fully controllable by whoever controls"
+                        + " this value. " + underUrlEncodingNow)
                 .browserRelevant()
                 .build());
 
-        cases.add(withC0ControlAccidents(unrecognisedUrlAttribute("url.srcset",
-                "<img srcset=\"$data\" src=\"/i.png\">", "img", "srcset", allUrlPayloads()))
-                .notBrowserObservable(Payloads.JS_URL, Payloads.JS_URL_MIXED_CASE,
-                        Payloads.JS_URL_LEADING_SPACE, Payloads.VBSCRIPT_URL,
-                        Payloads.DATA_URL_HTML, Payloads.VIEW_SOURCE_URL)
+        cases.add(urlAttributeAddedByR6("url.srcset",
+                "<img srcset=\"$data\" src=\"/i.png\">", "img", "srcset", allUrlPayloads())
                 .note("srcset takes precedence over src where the browser supports it, and it is a"
-                        + " comma-separated list, so one value can name several attacker origins."
-                        + " " + C0_CONTROL_ACCIDENT
-                        + " Every live JS_URL row is flagged not-browser-observable here, which is"
-                        + " a stronger statement than the flags on url.action and url.formaction and"
-                        + " deserves its own sentence: srcset is an image-source list, and an image"
-                        + " source is fetched, never navigated to or executed. No srcset candidate"
-                        + " has ever run a javascript: URL in any engine, so every one of these rows"
-                        + " would be a guaranteed browser-tier failure. The ledger keeps them"
-                        + " KNOWN_VULNERABLE because Canoe emitted the attacker's URL live into a"
-                        + " URL-bearing attribute it does not recognise, which is F3 exactly; the"
-                        + " off-origin rows in this case are the ones a browser will confirm.")
+                        + " comma-and-whitespace separated list of candidates with descriptors."
+                        + " " + underUrlEncodingNow
+                        + " The list syntax is the one place R6 accepted an availability cost with"
+                        + " its eyes open: url() percent-encodes the comma and the space, so an"
+                        + " interpolated multi-candidate value loses its descriptors and becomes one"
+                        + " long URL. Parsing the list and encoding each candidate separately is a"
+                        + " feature to design rather than a default to guess at, and the shape a"
+                        + " template actually writes - srcset=\"$url\" - still yields a usable URL."
+                        + " Recorded here as well as on Canoe.URL_ATTRIBUTE_NAMES because this is"
+                        + " where somebody investigating a broken image will look."
+                        + " The JS_URL rows used to be flagged not-browser-observable here, and the"
+                        + " flag went with the KNOWN_VULNERABLE verdict it qualified: an image source"
+                        + " is fetched, never navigated to or executed, so no srcset candidate has"
+                        + " ever run a javascript: URL in any engine. The off-origin rows are the"
+                        + " ones a browser confirms, and they are the ones still vulnerable.")
                 .browserRelevant()
                 .build());
 
-        cases.add(withC0ControlAccidents(unrecognisedUrlAttribute("url.poster",
-                "<video poster=\"$data\"></video>", "video", "poster", allUrlPayloads()))
-                .note(C0_CONTROL_ACCIDENT)
+        cases.add(urlAttributeAddedByR6("url.poster",
+                "<video poster=\"$data\"></video>", "video", "poster", allUrlPayloads())
+                .note(underUrlEncodingNow)
                 .build());
 
-        // F3: isTagNameChar accepts ':', so xlink:href scans as a single attribute name and simply
-        // does not match href. It gets ATTR_HTML, which the parser undoes.
-        cases.add(withC0ControlAccidents(XssCase.id("url.xlink-href")
-                .section(A2)
-                .template("<svg><a xlink:href=\"$data\"><text>go</text></a></svg>")
-                .sink(SinkKind.URL, "a", "xlink:href")
-                .payloads(Payloads.family("JS_URL"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
-                .finding("F3"))
-                .notBrowserObservable(Payloads.VBSCRIPT_URL, Payloads.DATA_URL_HTML,
-                        Payloads.VIEW_SOURCE_URL)
-                .note(C0_CONTROL_ACCIDENT + " " + DEAD_URL_VECTORS
-                        + " " + VIEW_SOURCE_IS_BLOCKED_FROM_CONTENT + " Plain href IS protected by url(), so"
-                        + " the safe-by-analogy assumption a developer would make is wrong. And"
-                        + " xlink:href is exactly ten characters, so it repairs buf[10] for whatever"
-                        + " follows it - see residue.js-url-repaired-by-a-ten-character-name.")
+        // F3's clearest single row, closed by R6. isTagNameChar accepts ':', so xlink:href always
+        // scanned as a single attribute name; it simply did not match href, and one attribute name
+        // away from the best-protected sink in the component was the worst-protected one.
+        cases.add(urlAttributeAddedByR6("url.xlink-href",
+                "<svg><a xlink:href=\"$data\"><text>go</text></a></svg>", "a", "xlink:href",
+                Payloads.families("JS_URL", "PROTOCOL_RELATIVE", "ABSOLUTE_OFFSITE"))
+                .note(underUrlEncodingNow
+                        + " This is the row the finding was easiest to see in: plain href was"
+                        + " protected by url() and this was not, so the safe-by-analogy assumption a"
+                        + " developer would make was wrong. The two names are one classification"
+                        + " now, which AttributeNameMatrixTest.hrefAndXlinkHrefReachTheSameEncoder"
+                        + " asserts as an equality rather than as two expectations."
+                        + " " + DEAD_URL_VECTORS + " " + VIEW_SOURCE_IS_BLOCKED_FROM_CONTENT)
                 .browserRelevant()
                 .build());
 
         // The tail: one payload per mechanism. Several of these attributes are legacy and no longer
         // honoured by any shipping browser, which does not change the ledger - the ledger is about
-        // what Canoe emitted, not about whether a 2026 engine acts on it.
-        // This note used to say the ledger "records what Canoe emitted", which is a second definition
-        // of KNOWN_VULNERABLE sitting alongside the plan's, and it was doing real work here: it was
-        // the only thing reconciling a vulnerable verdict with a sink no browser dereferences. The
-        // reconciliation belongs on its own axis - see XssCase.isBrowserObservable - so the note now
-        // states the plan's definition and points at the flag rather than bending the verdict.
-        String legacy = "A legacy sink no current browser is known to fetch. Still KNOWN_VULNERABLE"
-                + " under the plan's definition, which is that attacker data reaches the sink live:"
-                + " Canoe classified a URL-bearing attribute as plain text and the attacker's URL"
-                + " arrived at it intact, which is F3 whether or not a 2026 engine acts on it. None"
-                + " of these cases is browser-relevant, so nothing is asked of the browser tier here;"
-                + " where a dead vector DOES sit in a browser-relevant case it is flagged"
-                + " not-browser-observable rather than having its verdict rewritten.";
+        // whether attacker data reaches the sink live, not about whether a 2026 engine acts on it.
+        String legacy = "A legacy sink no current browser is known to fetch. That does not change"
+                + " the verdict under the plan's definition, which is that attacker data reaches"
+                + " the sink live; where a dead vector sits in a browser-relevant case it is"
+                + " flagged not-browser-observable rather than having its verdict rewritten. None"
+                + " of these cases is browser-relevant, so nothing is asked of the browser tier"
+                + " here.";
 
-        cases.add(unrecognisedUrlAttribute("url.cite",
-                "<blockquote cite=\"$data\">x</blockquote>", "blockquote", "cite").build());
+        cases.add(urlAttributeAddedByR6("url.cite",
+                "<blockquote cite=\"$data\">x</blockquote>", "blockquote", "cite")
+                .note(underUrlEncodingNow).build());
 
-        cases.add(unrecognisedUrlAttribute("url.ping",
+        cases.add(urlAttributeAddedByR6("url.ping",
                 "<a ping=\"$data\" href=\"/x\">y</a>", "a", "ping")
                 .note("ping fires a POST to the named URL on click, with no user-visible effect -"
-                        + " the quietest exfiltration channel in this group.")
+                        + " the quietest exfiltration channel in this group, and one R6's routing"
+                        + " does nothing about: an off-origin ping is exactly the payload url()"
+                        + " passes through. " + underUrlEncodingNow)
                 .build());
 
-        cases.add(unrecognisedUrlAttribute("url.imagesrcset",
+        cases.add(urlAttributeSuppressedByR5("url.imagesrcset",
                 "<link rel=\"preload\" as=\"image\" imagesrcset=\"$data\">", "link", "imagesrcset")
+                .note(suppressedInstead
+                        + " The one name in this half that a modern template might plausibly write,"
+                        + " and the reason it is here rather than on the URL list is srcset's own:"
+                        + " it is a candidate list, url() cannot encode one, and preload hints are"
+                        + " not usually built from data.")
                 .build());
 
-        cases.add(unrecognisedUrlAttribute("url.xml-base",
+        cases.add(urlAttributeSuppressedByR5("url.xml-base",
                 "<svg xml:base=\"$data\"><text>x</text></svg>", "svg", "xml:base")
-                .note("The SVG analogue of <base href>: it rebases every relative URL in the subtree."
-                        + " Scans as one attribute name for the same reason xlink:href does.")
+                .note("The SVG analogue of <base href>: it rebases every relative URL in the"
+                        + " subtree, which is the widest blast radius of anything in this group."
+                        + " That is also why it is on the suppressed side - routing it to url()"
+                        + " would leave F6 open on an attribute that retargets a whole subtree."
+                        + " " + suppressedInstead)
                 .build());
 
-        cases.add(unrecognisedUrlAttribute("url.usemap",
+        cases.add(urlAttributeAddedByR6("url.usemap",
                 "<img usemap=\"$data\" src=\"/i.png\">", "img", "usemap")
-                .note(legacy).build());
+                .note(legacy + " " + underUrlEncodingNow).build());
 
-        cases.add(unrecognisedUrlAttribute("url.longdesc",
+        cases.add(urlAttributeAddedByR6("url.longdesc",
                 "<img longdesc=\"$data\" src=\"/i.png\">", "img", "longdesc")
-                .note(legacy + " Also worth noting that longdesc fails 'lowsrc' at buf[2]=='n',"
-                        + " which is the near-miss that makes the hand-unrolled table hard to audit.")
+                .note(legacy + " Also worth noting that longdesc used to fail 'lowsrc' at"
+                        + " buf[2]=='n', which was the near-miss shape that made the hand-unrolled"
+                        + " table hard to audit; the classification is a set lookup now."
+                        + " " + underUrlEncodingNow)
                 .build());
 
-        cases.add(unrecognisedUrlAttribute("url.codebase",
+        cases.add(urlAttributeAddedByR6("url.codebase",
                 "<applet codebase=\"$data\"></applet>", "applet", "codebase")
-                .note(legacy).build());
+                .note(legacy + " " + underUrlEncodingNow).build());
 
-        cases.add(unrecognisedUrlAttribute("url.archive",
+        cases.add(urlAttributeSuppressedByR5("url.archive",
                 "<object archive=\"$data\"></object>", "object", "archive")
-                .note(legacy).build());
+                .note(legacy + " " + suppressedInstead).build());
 
-        cases.add(unrecognisedUrlAttribute("url.classid",
+        cases.add(urlAttributeSuppressedByR5("url.classid",
                 "<object classid=\"$data\"></object>", "object", "classid")
-                .note(legacy).build());
+                .note(legacy + " " + suppressedInstead).build());
 
-        cases.add(unrecognisedUrlAttribute("url.manifest",
+        cases.add(urlAttributeAddedByR6("url.manifest",
                 "<html manifest=\"$data\"><body>x</body></html>", "html", "manifest")
-                .note(legacy).build());
+                .note(legacy + " " + underUrlEncodingNow).build());
 
-        cases.add(unrecognisedUrlAttribute("url.profile",
+        cases.add(urlAttributeSuppressedByR5("url.profile",
                 "<html><head profile=\"$data\"></head><body>x</body></html>", "head", "profile")
-                .note(legacy).build());
+                .note(legacy + " " + suppressedInstead).build());
     }
 
     /**
@@ -1854,16 +2006,31 @@ public final class CanoeCorpus {
      */
     private static void markupAndRefreshSinks(List<XssCase> cases) {
 
-        // F3: srcdoc is parsed as markup in its own right, so it needs double encoding. Canoe applies
-        // single, and the HTML parser undoes it before the iframe document is parsed.
+        String srcdocIsSuppressed =
+                "Re-verdicted by R6, from KNOWN_VULNERABLE. srcdoc's value is parsed as a whole HTML"
+                        + " document, so the correct encoding is a second full HTML encode and the"
+                        + " single encode Canoe applied was same-origin script execution: the HTML"
+                        + " parser decoded the references while building the attribute value, and"
+                        + " the iframe's parser was handed the attacker's raw markup. R6 suppresses"
+                        + " rather than encoding, and the choice is the honest one until somebody"
+                        + " wants to build double encoding deliberately - which is a feature to"
+                        + " design, and which section 6 of the remediation plan records as out of"
+                        + " scope. Reviewed against the sink: the attribute renders as the"
+                        + " template's own text with nothing between the tags, byte-identical to a"
+                        + " render with an empty value, so no attacker character reaches the iframe"
+                        + " document. SUPPRESSED_BY_DESIGN rather than SUPPRESSED_UNINTENDED: the"
+                        + " value is dropped because dropping it is the decision, not because"
+                        + " nobody classified the name. The finding stays cited so the row remains"
+                        + " traceable to F3.";
+
         cases.add(XssCase.id("markup.srcdoc")
                 .section(A2)
                 .template("<iframe srcdoc=\"<p>$data</p>\"></iframe>")
                 .sink(SinkKind.MARKUP, "iframe", "srcdoc")
                 .payloads(Payloads.family("SRCDOC_MARKUP"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F3")
-                .note("Same-origin XSS: the iframe document parses and executes the decoded markup.")
+                .note(srcdocIsSuppressed)
                 .browserRelevant()
                 .build());
 
@@ -1872,25 +2039,41 @@ public final class CanoeCorpus {
                 .template("<iframe srcdoc=\"$data\"></iframe>")
                 .sink(SinkKind.MARKUP, "iframe", "srcdoc")
                 .payloads(Payloads.families("SRCDOC_MARKUP", "TAG_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F3")
-                .note("The whole iframe document, rather than a fragment inside one. Same mechanism;"
-                        + " included because the template shape a developer reaches for first is"
-                        + " srcdoc=\"$html\", not srcdoc=\"<p>$name</p>\".")
+                .note("The whole iframe document, rather than a fragment inside one. Included"
+                        + " because the template shape a developer reaches for first is"
+                        + " srcdoc=\"$html\", not srcdoc=\"<p>$name</p>\" - and it is also the shape"
+                        + " where the suppression costs the most, since the whole document is the"
+                        + " value. " + srcdocIsSuppressed)
                 .browserRelevant()
                 .build());
 
-        // F3's content row, and the other half of F7: there is no check for 'content' at all, because
-        // the branch that should hold it tests for 'data'.
+        // F3's content row, and the other half of F7: there was no check for 'content' at all,
+        // because the branch that should have held it tested for 'data'. R7 resolved the pair.
         cases.add(XssCase.id("refresh.meta-content")
                 .section(A2)
                 .template("<meta http-equiv=\"refresh\" content=\"$data\">")
                 .sink(SinkKind.REFRESH, "meta", "content")
                 .payloads(Payloads.family("META_REFRESH"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F3")
-                .note("A forced top-level navigation, which needs no click and no script. The"
-                        + " missing 'content' branch is F7's second consequence; the impact is F3's.")
+                .note("Re-verdicted by R5+R7, from KNOWN_VULNERABLE. A forced top-level navigation"
+                        + " to an attacker origin, needing no click and no script, reached through"
+                        + " an attribute Canoe had no branch for at all - the second consequence of"
+                        + " F7's copy-paste, with F3's impact. R7 leaves 'content' off the URL list"
+                        + " deliberately: it carries a URL on exactly one element and"
+                        + " attribute-value combination, <meta http-equiv=refresh>, and Canoe"
+                        + " discards the tag name before attribute parsing begins, so it cannot tell"
+                        + " that combination from <meta name=description content=...>. Routing every"
+                        + " content attribute to url() would percent-encode ordinary prose in every"
+                        + " meta description on the page; suppressing is correct and fail-safe until"
+                        + " R8 and R10 give it the tag name. Reviewed against the sink: the"
+                        + " attribute renders empty, so there is no refresh target for the browser"
+                        + " to navigate to - the template's own meta element remains and does"
+                        + " nothing. SUPPRESSED_BY_DESIGN rather than SUPPRESSED_UNINTENDED because"
+                        + " R10 is where the decision gets revisited rather than where a bug gets"
+                        + " fixed; the finding stays cited so the row is traceable to F3.")
                 .browserRelevant()
                 .build());
     }
@@ -1908,50 +2091,57 @@ public final class CanoeCorpus {
      *
      * <p>Four names, not the six F20's table lists. {@code target}, {@code formtarget} and
      * {@code type} were considered and rejected against the criteria in {@link SinkKind#POLICY}; they
-     * are {@code plain.*} cases now, each with the reasoning kept rather than deleted.
+     * are {@code plain.*} cases now, each with the reasoning kept rather than deleted, and R5 made
+     * the same three decisions the same way — they are on the plain-text allowlist and the other
+     * four are not.
      * {@code nonce} was moved <em>in</em>, from the plain-text group — see {@link #policyNonce}.
      */
     private static void policyAttributes(List<XssCase> cases) {
 
         cases.add(policyAttribute("policy.sandbox",
                 "<iframe sandbox=\"$data\" src=\"/user-content\"></iframe>", "iframe", "sandbox")
-                .override(Payloads.POLICY_SANDBOX_ESCAPE, Verdict.KNOWN_VULNERABLE)
-                .note("The one row in this group with a Critical-class outcome: allow-scripts plus"
-                        + " allow-same-origin removes the sandbox entirely, and the framed document is"
-                        + " then same-origin script execution. A template that derives the sandbox"
-                        + " level from data - a permissions setting, a plan tier, a preview mode - is"
-                        + " handing the attacker the sandbox. The other two payloads arrive just as"
-                        + " verbatim and are SAFE, because 'opener' and '_blank' are not sandbox"
-                        + " tokens: an unrecognised token leaves the sandbox maximally restrictive,"
-                        + " which is the opposite of an escape. Recording those as vulnerabilities"
-                        + " because the bytes survived is the mistake a byte-counting oracle makes.")
+                .note("The one row in this group that had a Critical-class outcome: allow-scripts"
+                        + " plus allow-same-origin removes the sandbox entirely, and the framed"
+                        + " document is then same-origin script execution. A template that derives"
+                        + " the sandbox level from data - a permissions setting, a plan tier, a"
+                        + " preview mode - was handing the attacker the sandbox. The other two"
+                        + " payloads arrived just as verbatim and were SAFE, because 'opener' and"
+                        + " '_blank' are not sandbox tokens: an unrecognised token leaves the"
+                        + " sandbox maximally restrictive, which is the opposite of an escape."
+                        + " Recording those as vulnerabilities because the bytes survived is the"
+                        + " mistake a byte-counting oracle makes, and it is worth keeping now that"
+                        + " all three rows read alike for a different reason. "
+                        + A_DIRECTIVE_CANNOT_BE_ENCODED)
                 .browserRelevant()
                 .build());
 
         cases.add(policyAttribute("policy.rel",
                 "<a rel=\"$data\" target=\"_blank\" href=\"/x\">y</a>", "a", "rel")
-                .override(Payloads.POLICY_REL_OPENER, Verdict.KNOWN_VULNERABLE)
                 .note("rel=opener undoes the implicit noopener that target=_blank carries, which"
-                        + " restores window.opener and with it reverse tabnabbing - and it is the"
-                        + " only reason rel is in this group at all, since most link types are"
-                        + " behavioural. The other two payloads are not link types, so they are"
+                        + " restores window.opener and with it reverse tabnabbing - and it was the"
+                        + " only reason rel was in this group at all, since most link types are"
+                        + " behavioural. The other two payloads are not link types, so they were"
                         + " ignored: the link relation list is an allowlist, and an unknown relation"
-                        + " is dropped rather than honoured.")
+                        + " is dropped rather than honoured. Note the asymmetry the group settles:"
+                        + " rel is suppressed and its sibling target is on the plain-text allowlist,"
+                        + " because target names a browsing context and rel is what would undo that"
+                        + " context's implicit noopener. " + A_DIRECTIVE_CANNOT_BE_ENCODED)
                 .build());
 
         cases.add(policyAttribute("policy.integrity",
                 "<script src=\"/app.js\" integrity=\"$data\"></script>", "script", "integrity")
                 .note("Subresource integrity is a security control the template author added"
                         + " deliberately, and an attacker who controls it can set a wrong digest and"
-                        + " block the script. None of these three payloads does that, which is the"
+                        + " block the script. None of these three payloads did that, which was the"
                         + " row worth reading twice: SRI parses the attribute into a set of"
                         + " <algorithm>-<base64> expressions and discards what it cannot parse, and"
                         + " an EMPTY metadata set makes the check pass unconditionally. An"
                         + " unparseable integrity attribute is not a failing digest, it is no digest,"
-                        + " so the resource loads exactly as it would have. All three arrive"
-                        + " verbatim and none of them is live. A payload of the form sha256-<junk>"
-                        + " would flip this case, and there is deliberately no such payload yet -"
-                        + " when one is added, this note is the reviewed reason its verdict differs.")
+                        + " so the resource loaded exactly as it would have. All three arrived"
+                        + " verbatim and none of them was live - which is precisely why the fix had"
+                        + " to be the name rather than the payload set: a sha256-<junk> payload"
+                        + " would have flipped the case, and no encoder would have stopped it."
+                        + " " + A_DIRECTIVE_CANNOT_BE_ENCODED)
                 .build());
 
         policyNonce(cases);
@@ -1984,8 +2174,17 @@ public final class CanoeCorpus {
     private static void policyNonce(List<XssCase> cases) {
         cases.add(policyAttribute("policy.nonce",
                 "<script nonce=\"$data\" src=\"/app.js\"></script>", "script", "nonce")
-                .verdict(Verdict.KNOWN_VULNERABLE)
-                .note("Unlike every other attribute in this group, nonce has no token vocabulary:"
+                .note(A_DIRECTIVE_CANNOT_BE_ENCODED
+                        + " This row is the one the review's own remediation sketch would have got"
+                        + " wrong: it listed nonce among the plain-text names, on the argument that"
+                        + " the value cannot break out of the attribute - which is true, and is the"
+                        + " wrong test. Implementing R5 as written would have left F20's worst row"
+                        + " on html(). Canoe's PLAIN_TEXT_ATTRIBUTE_NAMES javadoc records the"
+                        + " correction, and NAMES_THAT_MAY_NOT_BE_ADDED refuses the name from"
+                        + " configuration as well."
+                        + " The original reasoning, kept because it is what decided the verdict"
+                        + " while the row was live: unlike every other attribute in this group,"
+                        + " nonce has no token vocabulary at all -"
                         + " the whole value is the directive, so every payload that arrives is live"
                         + " by construction and there is no inert combination to record. The"
                         + " POLICY_OVERRIDE payloads are used rather than nonce-shaped strings"
@@ -1993,8 +2192,9 @@ public final class CanoeCorpus {
                         + " digits, hyphens, underscores, a space - is the same set a base64 nonce"
                         + " draws from. Canoe's own part still holds: the value cannot break out of"
                         + " the attribute. It does not have to."
-                        + " All three payloads are flagged not-browser-observable, and the reason is"
-                        + " structural rather than a dead engine: a nonce does nothing at all unless"
+                        + " All three payloads used to be flagged not-browser-observable, and the"
+                        + " reason was structural rather than a dead engine: a nonce does nothing"
+                        + " at all unless"
                         + " the response carries a Content-Security-Policy naming one, and this"
                         + " template has no author nonce for a policy to name. The browser tier"
                         + " serves what Canoe rendered; adding a CSP header would be the tier"
@@ -2003,8 +2203,13 @@ public final class CanoeCorpus {
                         + " a browser needs a different template - an author nonce in the policy and"
                         + " a second, attacker-controlled script element - which the corpus does not"
                         + " have. Recorded here rather than left as a browser-tier failure nobody"
-                        + " could act on. Measured in Chromium by BrowserCorpusTest.")
-                .notBrowserObservableFamily("POLICY_OVERRIDE")
+                        + " could act on. Measured in Chromium by BrowserCorpusTest. The flag is"
+                        + " gone with the KNOWN_VULNERABLE verdict it qualified - a suppressed row"
+                        + " expects browser silence anyway, and the corpus only permits the flag"
+                        + " where it changes an expectation - and R28 still owns building the"
+                        + " template that would demonstrate the finding in a browser, which is worth"
+                        + " doing even now: it is the one row in the review with no browser evidence"
+                        + " either before or after the fix.")
                 .browserRelevant()
                 .build());
     }

@@ -343,6 +343,134 @@ public class ViewFactoryRenderTest {
     }
 
     // ------------------------------------------------------------------
+    // R5's extension point
+    // ------------------------------------------------------------------
+
+    /**
+     * The plain-text attribute allowlist, widened on the factory and observed on the real render
+     * path.
+     *
+     * <p>R5 makes an unrecognised attribute name suppress, which is the right default and cannot be
+     * the whole answer: without a way to widen it, a page with {@code <div my-widget-config="$x">}
+     * loses the value silently and the developer's next move is {@code $_x.asis()}, which turns
+     * Canoe off for that value completely. {@code AttributeNameMatrixTest} owns the classification;
+     * what only this file can show is that the factory hands its set to the {@link Canoe} it builds
+     * per render, which is the half a configuration change actually depends on.
+     *
+     * <p>Both directions are asserted, because "the allowlist works" and "the allowlist is the only
+     * reason it works" are different claims and only the pair distinguishes them.
+     */
+    @Test
+    public void theFactoryHandsItsPlainTextAllowlistToEveryCanoeItBuilds() {
+        Map<String, Object> model = Map.of("data", "widget-42");
+
+        ProductionRenderProbe.Outcome suppressed = ProductionRenderProbe.render(
+                "<div my-widget-config=\"$data\">x</div>", model);
+        assertFalse(suppressed.exceptionEscaped(), () -> "" + suppressed);
+        assertEquals("<div my-widget-config=\"\">x</div>", suppressed.output(),
+                "R5: an unconfigured factory drops the value, and the debug log names the attribute"
+                        + " - which is the whole reason the extension point exists");
+
+        ProductionRenderProbe.Outcome allowed = ProductionRenderProbe.render(
+                "<div my-widget-config=\"$data\">x</div>", model,
+                ProductionRenderProbe.Options.defaults()
+                        .withPlainTextAttributes("my-widget-config"));
+        assertFalse(allowed.exceptionEscaped(), () -> "" + allowed);
+        assertEquals("<div my-widget-config=\"widget&#45;42\">x</div>", allowed.output(),
+                "...and a configured one encodes it as plain text. Note what the grant is: html(),"
+                        + " not a bypass - the hyphen comes back as a character reference and the"
+                        + " parser decodes it into the value the developer asked for.");
+    }
+
+    /**
+     * The same allowlist, configured the way an application actually configures things: a Qlue
+     * property rather than a call.
+     *
+     * <p>{@code buildDefaultVelocityProperties()} is where every shipped factory's {@code init()}
+     * reads the application's properties, so the property is read there and a bad name throws from
+     * {@code init()} rather than dropping values at request time. The separator is deliberately
+     * lenient — commas, whitespace or both — because a list in a property file is written by hand.
+     */
+    @Test
+    public void theAllowlistCanBeConfiguredWithAQlueProperty() {
+        assertEquals(Set.of(),
+                ProductionRenderProbe.plainTextAttributesFromProperty(null),
+                "an application that says nothing gets the built-in allowlist only");
+
+        assertEquals(Set.of("my-widget-config", "hx-target", "x-data"),
+                ProductionRenderProbe.plainTextAttributesFromProperty(
+                        "my-widget-config, HX-Target x-data"),
+                "commas, whitespace or both separate names, and they are lower-cased because the"
+                        + " attribute-name scan lower-cases as it buffers");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> ProductionRenderProbe.plainTextAttributesFromProperty("title, nonce"),
+                "F20: a name whose suppression is the fix must fail at startup, where somebody is"
+                        + " reading the stack trace, rather than silently doing nothing on every"
+                        + " page");
+    }
+
+    /**
+     * Two factories, alive at the same time, with different allowlists and no way to see each
+     * other's.
+     *
+     * <p>This is the claim R5 makes about <em>where</em> the extension point lives, and it is the
+     * one a passing single-factory test says nothing about. The set is a field of the factory rather
+     * than a static on {@link Canoe} precisely so that two applications in one JVM cannot widen each
+     * other's plain-text names — a security control changed by an unrelated deployment, with no
+     * configuration anybody could audit. {@code ConcurrencyTest.everyStaticFieldIsFinalAndImmutable}
+     * guards the other half by requiring every static collection in {@link Canoe} to reject
+     * mutation; this guards the half that is about ownership rather than about mutability.
+     */
+    @Test
+    public void twoFactoriesDoNotShareAnAllowlist() {
+        var first = ProductionRenderProbe.newFactory("my-widget-config");
+        var second = ProductionRenderProbe.newFactory("hx-target");
+
+        assertEquals(Set.of("my-widget-config"), first.getPlainTextAttributes());
+        assertEquals(Set.of("hx-target"), second.getPlainTextAttributes(),
+                "the second factory must not have inherited the first's name; if it did, the"
+                        + " allowlist is shared state and one application is configuring another");
+
+        // ...and widening one after the other exists still does not reach it.
+        second.addPlainTextAttributes("x-data");
+        assertEquals(Set.of("my-widget-config"), first.getPlainTextAttributes(),
+                "a later widening of one factory must not appear in another");
+        assertEquals(Set.of("hx-target", "x-data"), second.getPlainTextAttributes());
+
+        // A factory nobody configured sees neither.
+        assertEquals(Set.of(), ProductionRenderProbe.newFactory().getPlainTextAttributes());
+
+        // The set a caller gets back is a copy in the sense that matters: it cannot be added to.
+        assertThrows(UnsupportedOperationException.class,
+                () -> first.getPlainTextAttributes().add("sandbox"),
+                "an accessor that hands out a mutable allowlist is the same defect as a static one,"
+                        + " reached one method call later");
+    }
+
+    /**
+     * The names the extension point refuses, on the factory rather than on {@link Canoe}.
+     *
+     * <p>The refusal is what stops the allowlist being a way to re-open a finding through
+     * configuration, and it has to happen at configuration time: a factory that accepted
+     * {@code sandbox} and quietly ignored it would look exactly like one that worked.
+     */
+    @Test
+    public void theFactoryRefusesNamesWhoseSuppressionIsTheFix() {
+        assertThrows(IllegalArgumentException.class,
+                () -> ProductionRenderProbe.render("<p>$data</p>", Map.of("data", "x"),
+                        ProductionRenderProbe.Options.defaults()
+                                .withPlainTextAttributes("sandbox")),
+                "F20: sandbox's suppression is the fix, so the factory must refuse to put it back on"
+                        + " html() - loudly, at configuration time");
+        assertThrows(IllegalArgumentException.class,
+                () -> ProductionRenderProbe.render("<p>$data</p>", Map.of("data", "x"),
+                        ProductionRenderProbe.Options.defaults()
+                                .withPlainTextAttributes("onclick")),
+                "...and the on* prefix rule has no configuration exception either");
+    }
+
+    // ------------------------------------------------------------------
     // F13
     // ------------------------------------------------------------------
 

@@ -20,12 +20,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The vectors the review asks to see in a real browser, each with a bespoke assertion (T29).
  *
- * <p>{@link BrowserCorpusTest} asks one question of 128 rows: did any detector fire. That is the
- * right question at that scale and it is a weak one — "something happened" is not "the thing the
- * finding claims happened". Each test below asserts the specific effect instead: <em>which</em>
- * frame the script ran in, <em>which</em> URL the relative resource retargeted to, <em>which</em>
- * request the CSS made. A generic detector cannot tell a {@code srcdoc} breakout from the parent
- * page's own script running, and the difference is the whole of F3.
+ * <p>{@link BrowserCorpusTest} asks one question of every browser-relevant row: did any detector
+ * fire. That is the right question at that scale and it is a weak one — "something happened" is not
+ * "the thing the finding claims happened". Each test below asserts the specific effect instead:
+ * <em>which</em> frame the script ran in, <em>which</em> URL the relative resource retargeted to,
+ * <em>which</em> request the CSS made. A generic detector cannot tell a {@code srcdoc} breakout from
+ * the parent page's own script running, and the difference was the whole of F3.
+ *
+ * <p><strong>Most of this file is inverted now</strong>, by R2 (F4 and F17), R5 (F20) and R6 and R7
+ * (F3's three sinks). The inversions are the reason the file is worth more after a fix than before
+ * it: a generic "no detector fired" result over a suppressed row is green for a dozen reasons, and
+ * only an assertion about the specific effect can tell "suppressed" from "arrived and happened not
+ * to do anything this time". Each test keeps the mechanism that made its finding exploitable in its
+ * javadoc, because that mechanism is a browser behaviour and is unchanged — what changed is that
+ * Canoe no longer feeds it.
  *
  * <p>Every case is taken from the corpus rather than hand-written, so the HTML under test is the
  * HTML the Velocity tier ledgered, byte for byte. The two exceptions are marked and say why.
@@ -37,107 +45,146 @@ public class SinkSpecificBrowserTest extends BrowserTestBase {
     }
 
     /**
-     * F3, {@code srcdoc}: the script runs <em>inside the iframe</em>, and the iframe is same-origin
-     * with the page that framed it.
+     * F3's {@code srcdoc} row, <strong>inverted by R6</strong>. Was
+     * {@code srcdocRunsScriptInsideTheIframeAndSameOrigin}.
      *
-     * <p>Both halves matter and neither is visible to a generic detector. If the sentinel had been
-     * called from the main frame this would be an ordinary body-context injection and not a
-     * {@code srcdoc} one; if the {@code srcdoc} document had an opaque origin the injected script
-     * could not read the framing page and the impact would be a fraction of what F3 claims. A
-     * {@code srcdoc} iframe inherits its parent's origin, so the injected code sits inside the
-     * application's own security context — which is why the finding is Critical and not Medium.
+     * <p>The reasoning it recorded is a browser fact and is unchanged, so it is kept: a
+     * {@code srcdoc} iframe <em>inherits its parent's origin</em>, so the injected code used to sit
+     * inside the application's own security context rather than beside it — which is why the finding
+     * was Critical and not Medium, and it was asserted as a capability rather than as a string, by
+     * reading {@code parent.location.href} from inside the frame. A cross-origin frame would have
+     * thrown a SecurityError there. Neither half was visible to a generic detector: script running
+     * in the main frame would have been an ordinary body-context injection and not a
+     * {@code srcdoc} one.
+     *
+     * <p>R6 leaves the attribute empty, so the iframe still exists and its document is still
+     * same-origin — that has not changed and cannot be encoded away — and there is no attacker
+     * markup in it. The assertions invert to exactly that: the frame is there, the origin is still
+     * inherited, and nothing ran.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    public void srcdocRunsScriptInsideTheIframeAndSameOrigin(BrowserEngine engine) {
+    public void srcdocIsSuppressedSoNothingRunsInsideTheIframe(BrowserEngine engine) {
         Rendered rendered = render("markup.srcdoc-whole-value", Payloads.SRCDOC_MARKUP);
+        assertEquals(Verdict.SUPPRESSED_BY_DESIGN, rendered.verdict);
+        assertFalse(rendered.html.contains("onerror"),
+                "R6: the payload must not appear in the rendered page at all: " + rendered.html);
 
         runCase(engine, "sink.srcdoc", rendered.html, passiveLoad(), (page, verdict) -> {
-            assertTrue(verdict.scriptExecutions().contains("srcdoc"),
-                    "the srcdoc payload did not run:\n" + verdict.describe());
-
-            int index = verdict.scriptExecutions().indexOf("srcdoc");
-            String frameUrl = verdict.scriptExecutionFrames().get(index);
-            assertFalse(frameUrl.equals(verdict.url()),
-                    "the script ran in the main frame, so this is not a srcdoc breakout at all: "
-                            + frameUrl);
+            assertFalse(verdict.scriptExecutions().contains("srcdoc"),
+                    "the srcdoc payload ran, so the value is being encoded rather than suppressed -"
+                            + " and single encoding into srcdoc is same-origin XSS:\n"
+                            + verdict.describe());
 
             assertEquals(2, page.frames().size(),
-                    "expected the page and one srcdoc frame, got "
+                    "the iframe itself must still be there - suppression is about the value, not"
+                            + " about the template's own markup - got "
                             + page.frames().stream().map(f -> f.url()).toList());
 
             // window.origin, not location.origin: a srcdoc document's *URL* is about:srcdoc, whose
             // origin serialises to "null", while the document's own origin is inherited from the
-            // parent. Asserting the first would have failed for a reason that has nothing to do
-            // with the finding.
+            // parent. The inheritance is what made the finding Critical, it is unchanged, and it is
+            // asserted here so that the test still says why suppressing this attribute matters.
             assertEquals(server.origin(), page.frames().get(1).evaluate("window.origin"),
-                    "a srcdoc document inherits the framing page's origin");
-
-            // And the assertion that actually matters, because it is the capability rather than a
-            // string: from inside the frame, the injected script reads the framing page's URL. A
-            // cross-origin frame would throw a SecurityError here. This is what makes F3 Critical —
-            // the attacker's code is inside the application's security context, not beside it.
-            Object parentUrl = page.frames().get(1).evaluate(
-                    "(function(){ try { return String(parent.location.href); }"
-                            + " catch (e) { return 'DENIED: ' + e; } })()");
-            assertEquals(verdict.url(), parentUrl,
-                    "the injected script could not read the framing page, so it is not same-origin"
-                            + " with it and F3 is over-rated.");
+                    "a srcdoc document still inherits the framing page's origin, which is why"
+                            + " anything interpolated into it would still be same-origin script");
         });
     }
 
     /**
-     * F3, {@code xlink:href}: a synthetic click on an SVG link navigates to a {@code javascript:}
-     * URL and runs it.
+     * F3's {@code xlink:href} row, <strong>inverted by R6</strong>. Was
+     * {@code anSvgXlinkHrefClickRunsAJavascriptUrl}.
      *
-     * <p>Written as a click rather than as a load because that is the vector's whole shape: nothing
-     * happens when the page loads, so a passive browser tier would report this Critical finding as
-     * silent. The click is synthetic and untrusted, which is the interesting part — the HTML
-     * Standard runs an element's activation behaviour for a dispatched {@code click} regardless of
-     * {@code isTrusted}, so a page that never sees a user can still be attacked by any script that
-     * calls {@code click()} on a link the attacker supplied the href for.
+     * <p>Still written as a click rather than as a load, because that is the vector's whole shape:
+     * nothing happens when the page loads, so a passive browser tier would have reported this
+     * Critical finding as silent, and would report a regression of it as silent too. The click is
+     * synthetic and untrusted, which is the interesting part — the HTML Standard runs an element's
+     * activation behaviour for a dispatched {@code click} regardless of {@code isTrusted}, so a page
+     * that never sees a user can still be attacked by any script that calls {@code click()} on a
+     * link the attacker supplied the href for.
+     *
+     * <p>R6 puts {@code xlink:href} on the URL list, so {@code url()} percent-escapes the scheme
+     * colon and the click navigates to a relative path on the page's own origin instead of
+     * compiling a script.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    public void anSvgXlinkHrefClickRunsAJavascriptUrl(BrowserEngine engine) {
+    public void anSvgXlinkHrefClickNoLongerRunsAJavascriptUrl(BrowserEngine engine) {
         Rendered rendered = render("url.xlink-href", Payloads.JS_URL);
+        assertEquals(Verdict.SAFE, rendered.verdict);
+        assertFalse(rendered.html.contains("javascript:"),
+                "R6: url() must have escaped the scheme colon: " + rendered.html);
 
         runCase(engine, "sink.xlink-href", rendered.html,
                 page -> page.evaluate(
                         "document.querySelector('svg a').dispatchEvent("
                                 + "new MouseEvent('click', {bubbles:true, cancelable:true,"
                                 + " view:window}))"),
-                (page, verdict) -> assertTrue(verdict.scriptExecutions().contains("u"),
-                        "clicking the SVG link did not run the javascript: URL:\n"
-                                + verdict.describe()));
+                (page, verdict) -> assertFalse(verdict.scriptExecutions().contains("u"),
+                        "clicking the SVG link ran the javascript: URL, so xlink:href is being"
+                                + " html-encoded again:\n" + verdict.describe()));
     }
 
     /**
-     * F3, {@code <meta http-equiv=refresh>}: the <em>top-level</em> document navigates to the
-     * attacker's origin.
+     * F3's {@code <meta http-equiv=refresh>} row, <strong>inverted by R5 and R7</strong>. Was
+     * {@code metaRefreshNavigatesTheTopLevelDocumentOffOrigin}.
      *
-     * <p>Asserted as a main-frame navigation request rather than as "a request to attacker.invalid
-     * happened", because the two are very different outcomes. A subresource fetch to an attacker
-     * origin leaks a referrer and a cookie-less hit; a top-level navigation takes the user's
-     * session away from the application and hands the attacker the whole browsing context.
+     * <p>It was asserted as a main-frame navigation request rather than as "a request to
+     * attacker.invalid happened", because the two are very different outcomes: a subresource fetch
+     * to an attacker origin leaks a referrer and a cookie-less hit, while a top-level navigation
+     * takes the user's session away from the application and hands the attacker the whole browsing
+     * context. That distinction is why the row was worth a bespoke test, and it is why the inverted
+     * form asserts on the request log rather than on a detector — a detector that stayed quiet would
+     * also stay quiet if the navigation had happened and simply not been intercepted.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    public void metaRefreshNavigatesTheTopLevelDocumentOffOrigin(BrowserEngine engine) {
+    public void metaRefreshNoLongerNavigatesAnywhere(BrowserEngine engine) {
         Rendered rendered = render("refresh.meta-content", Payloads.META_REFRESH);
+        assertEquals(Verdict.SUPPRESSED_BY_DESIGN, rendered.verdict);
+        assertFalse(rendered.html.contains(Payloads.SENTINEL_HOST),
+                "R7: the refresh target must not appear in the rendered page at all: "
+                        + rendered.html);
 
         runCase(engine, "sink.meta-refresh", rendered.html, passiveLoad(), (page, verdict) -> {
-            assertTrue(verdict.sentinelRequests().stream()
-                            .anyMatch(u -> u.endsWith("//" + Payloads.SENTINEL_HOST + "/target")),
-                    "the meta refresh did not reach the sentinel origin:\n" + verdict.describe());
-            assertFalse(verdict.abortedSentinelRequests().isEmpty(),
-                    "the navigation should have been aborted at the route:\n" + verdict.describe());
-            // The page never left the sentinel origin only because the interceptor aborted it. That
-            // is the tier protecting the test environment, not the browser protecting the user.
-            assertTrue(page.url().startsWith(server.origin())
-                            || page.url().startsWith("chrome-error:"),
-                    "unexpected final URL " + page.url());
+            assertTrue(verdict.sentinelRequests().isEmpty(),
+                    "the meta refresh reached the sentinel origin, so 'content' is being encoded"
+                            + " rather than suppressed:\n" + verdict.describe());
+            assertTrue(page.url().startsWith(server.origin()),
+                    "and the document must still be the one that was served; it was at "
+                            + page.url());
         });
+    }
+
+    /**
+     * What R6 bought at a URL sink, as an effect: a {@code javascript:} URL in {@code formaction}
+     * no longer runs when the form is submitted.
+     *
+     * <p>New with R5+R6, and it is the browser-side half of the largest routing change in the phase.
+     * {@code formaction} was {@code html()}-encoded, so the HTML parser handed the URL parser the
+     * attacker's characters back and submitting the form ran their script with the page's
+     * privileges; it is {@code url()}-encoded now and the colon arrives as {@code %3A}, which makes
+     * the value a relative path.
+     *
+     * <p>Worth a bespoke test rather than a corpus row because the corpus row is
+     * {@link Verdict#SAFE} and a SAFE row is loaded at most once, as a control, with no assertion
+     * about <em>why</em> it stayed quiet. This asserts the mechanism: the form is actually
+     * submitted, and nothing runs.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    public void aFormactionJavascriptUrlNoLongerRunsOnSubmit(BrowserEngine engine) {
+        Rendered rendered = render("url.formaction", Payloads.JS_URL);
+        assertEquals(Verdict.SAFE, rendered.verdict);
+        assertFalse(rendered.html.contains("javascript:"),
+                "R6: url() must have escaped the scheme colon: " + rendered.html);
+
+        BrowserVerdict verdict = runCase(engine, "sink.formaction", rendered.html,
+                fullInteraction());
+
+        assertFalse(verdict.scriptExecutions().contains("u"),
+                "submitting the form ran the javascript: URL, so formaction is being html-encoded"
+                        + " again:\n" + verdict.describe());
     }
 
     /**
@@ -283,33 +330,43 @@ public class SinkSpecificBrowserTest extends BrowserTestBase {
     }
 
     /**
-     * F20's sandbox row, as an effect rather than as a string comparison.
+     * F20's sandbox row, <strong>inverted by R5</strong>. Was
+     * {@code aSandboxEscapeLetsFramedContentRunScript}.
      *
      * <p>Both payloads of {@code policy.sandbox} frame the same document, whose only script calls
-     * the sentinel. With {@code sandbox="allow-scripts allow-same-origin"} it runs; with
+     * the sentinel. With {@code sandbox="allow-scripts allow-same-origin"} it ran; with
      * {@code sandbox="opener"} — an unrecognised token, which leaves the sandbox maximally
-     * restrictive — it cannot. The pair is the evidence, not either half: a single test showing the
-     * script running proves nothing about the sandbox, because it would also run with no sandbox at
-     * all.
+     * restrictive — it could not. The pair was the evidence and neither half was: a single test
+     * showing the script running proved nothing about the sandbox, because it would also run with no
+     * sandbox at all.
+     *
+     * <p>R5 suppresses the value, so both renders carry {@code sandbox=""} — the empty token list,
+     * which is the <em>most</em> restrictive sandbox there is — and the framed script cannot run in
+     * either. The pair is kept and both halves inverted, because the property worth asserting is
+     * still a comparison: what has to be true is that the attacker's chosen tokens no longer make
+     * any difference, and one render cannot say that.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    public void aSandboxEscapeLetsFramedContentRunScript(BrowserEngine engine) {
+    public void aSandboxBuiltFromDataIsEmptyAndThereforeMaximallyRestrictive(BrowserEngine engine) {
         Rendered escaped = render("policy.sandbox", Payloads.POLICY_SANDBOX_ESCAPE);
         Rendered restrictive = render("policy.sandbox", Payloads.POLICY_REL_OPENER);
-        assertEquals(Verdict.KNOWN_VULNERABLE, escaped.verdict);
-        assertEquals(Verdict.SAFE, restrictive.verdict);
+        assertEquals(Verdict.SUPPRESSED_BY_DESIGN, escaped.verdict);
+        assertEquals(Verdict.SUPPRESSED_BY_DESIGN, restrictive.verdict);
+        assertEquals(escaped.html, restrictive.html,
+                "R5: the two renders must be byte-identical now - the attacker's tokens decide"
+                        + " nothing, which is the only fix available for a directive");
 
         BrowserVerdict withEscape = runCase(engine, "sink.sandbox-escape", escaped.html,
                 passiveLoad());
-        assertTrue(withEscape.scriptExecutions().contains("sandbox-scripts-enabled"),
-                "the framed document's script did not run, so the sandbox was not defeated:\n"
-                        + withEscape.describe());
+        assertFalse(withEscape.scriptExecutions().contains("sandbox-scripts-enabled"),
+                "the framed document's script ran, so allow-scripts allow-same-origin reached the"
+                        + " sandbox attribute and F20 is open again:\n" + withEscape.describe());
 
         BrowserVerdict withoutEscape = runCase(engine, "sink.sandbox-intact", restrictive.html,
                 passiveLoad());
         assertFalse(withoutEscape.scriptExecutions().contains("sandbox-scripts-enabled"),
-                "an unrecognised sandbox token must leave the sandbox maximally restrictive, so the"
+                "an empty sandbox token list is the most restrictive sandbox there is, so the"
                         + " framed script must not run:\n" + withoutEscape.describe());
     }
 

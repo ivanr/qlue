@@ -257,11 +257,13 @@ public class EventHandlerMatrixTest {
         }
 
         // ...and the names the dead branch would have matched, which are not event handlers at all.
-        // R5 owns what an unrecognised name like this should get; R4 must not have moved it.
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("select"),
-                "a bare 'select' attribute is not a handler and must keep the ATTR_HTML default"
-                        + " until R5 inverts it. The prefix rule is a rule about names beginning"
-                        + " 'on', not about the words the dead branch happened to spell.");
+        // R5 has landed and inverted the default this line used to assert: a bare 'select' is on
+        // none of Canoe's lists, so it is dropped rather than html-encoded. What the row is for is
+        // unchanged - the prefix rule is a rule about names beginning "on", not about the words the
+        // dead branch happened to spell - and it must not be classified as script.
+        assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("select"),
+                "a bare 'select' attribute is not a handler and must reach R5's fail-closed default"
+                        + " rather than ATTR_JS");
     }
 
     /**

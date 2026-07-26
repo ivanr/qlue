@@ -14,6 +14,7 @@ import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -256,9 +257,21 @@ public class ConcurrencyTest {
      *       test asserts by checking its contents rather than its modifiers.
      * </ul>
      *
-     * <p>Everything else must be a primitive or {@link String} constant. A new static field that is
-     * neither fails here, which is the point: the failure arrives with the field rather than with
-     * the first production race.
+     * <p>Everything else must be a primitive or {@link String} constant, or — since R5 and R6 — a
+     * collection that <em>rejects mutation at runtime</em>. Those two tasks moved Canoe's attribute
+     * classification from hand-unrolled comparison chains into declared name sets, which is a static
+     * field of a mutable interface type holding an unmodifiable instance. Type alone cannot tell the
+     * two apart, so the check is by behaviour, in the same spirit as the {@code hexDigits} contents
+     * assertion: a static collection is acceptable only if adding to it throws.
+     *
+     * <p>That distinction is worth having rather than exempting the type. A {@code static Set} that
+     * something can add to is exactly the "global mutable allowlist" R5's extension point was
+     * designed not to be: one application widening the plain-text set for every other application in
+     * the JVM, with no configuration anybody could audit. The per-instance set that carries the
+     * application's own additions is an instance field and is not reached by this loop at all.
+     *
+     * <p>A new static field that is none of these fails here, which is the point: the failure
+     * arrives with the field rather than with the first production race.
      */
     @Test
     public void everyStaticFieldIsFinalAndImmutable() {
@@ -280,6 +293,18 @@ public class ConcurrencyTest {
                         || field.getType() == char[].class
                         || org.slf4j.Logger.class.isAssignableFrom(field.getType());
 
+                if (!immutableType && Collection.class.isAssignableFrom(field.getType())) {
+                    String rejection = rejectsMutation(field);
+                    if (rejection == null) {
+                        immutableType = true;
+                    } else {
+                        problems.add(name + " is a static collection that " + rejection
+                                + ". A shared allowlist anything can add to is the global mutable"
+                                + " state R5's per-engine extension point exists to avoid.");
+                        continue;
+                    }
+                }
+
                 if (!immutableType) {
                     problems.add(name + " is static and of mutable type " + field.getType().getName()
                             + ". One Canoe per render only helps if there is nothing behind it.");
@@ -292,6 +317,15 @@ public class ConcurrencyTest {
 
         assertTrue(problems.isEmpty(), () -> String.join("\n  ", problems));
 
+        // The prefix list, asserted by contents as well as by immutability: these two strings decide
+        // which whole families of attribute names are treated as plain text, and "the collection
+        // rejects add()" says nothing about what was put in it at class-initialisation time.
+        assertEquals(List.of("aria-", "data-"),
+                staticValue(Canoe.class, "PLAIN_TEXT_ATTRIBUTE_PREFIXES", List.class),
+                "Canoe.PLAIN_TEXT_ATTRIBUTE_PREFIXES decides which attribute-name families reach"
+                        + " html() by prefix rather than by exact name. A third entry here is a"
+                        + " widening of the allowlist that no individual name would show.");
+
         // The two the brief names, asserted by value rather than by modifier.
         assertEquals("0123456789ABCDEF", new String(hexDigits()),
                 "HtmlEncoder.hexDigits is a static array, so final says nothing about its contents;"
@@ -299,6 +333,46 @@ public class ConcurrencyTest {
         assertEquals("https://app.example/x", HtmlEncoder.url("https://app.example/x"),
                 "uriPattern still matches what F24 and F15 are about, so the exemption above is"
                         + " still describing the field that exists");
+    }
+
+    /**
+     * Why a static collection is acceptable, or the reason it is not: null when adding to it throws,
+     * and a description of what happened otherwise.
+     */
+    @SuppressWarnings("unchecked")
+    private static String rejectsMutation(Field field) {
+        Collection<Object> value;
+        try {
+            field.setAccessible(true);
+            value = (Collection<Object>) field.get(null);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return "could not be read for the mutation check (" + e + ")";
+        }
+
+        if (value == null) {
+            return "is null";
+        }
+
+        try {
+            value.add("canoe-concurrency-probe");
+            return "accepted an addition";
+        } catch (UnsupportedOperationException expected) {
+            return null;
+        } catch (RuntimeException e) {
+            return "rejected an addition with " + e.getClass().getName()
+                    + " rather than UnsupportedOperationException, which is not the same guarantee";
+        }
+    }
+
+    private static <T> T staticValue(Class<?> owner, String fieldName, Class<T> type) {
+        try {
+            Field field = owner.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return type.cast(field.get(null));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(owner.getSimpleName() + "." + fieldName
+                    + " has been renamed or removed", e);
+        }
     }
 
     private static char[] hexDigits() {

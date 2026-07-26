@@ -17,10 +17,17 @@
 package com.webkreator.qlue.view;
 
 import com.webkreator.qlue.util.HtmlEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Canoe is a context-aware output encoder for HTML responses. It parses output
@@ -105,9 +112,19 @@ public class Canoe extends Writer {
 
     public static final int ATTR_DATA = 4;
 
-    public static final int ATTR_CONTENT = 5;
+    /**
+     * An attribute name nothing recognises, which is suppressed.
+     *
+     * <p>This constant occupies the slot the retired ATTR_CONTENT held. ATTR_CONTENT existed for
+     * one branch, that branch compared the characters of "data" rather than of "content" (F7), and
+     * R7 resolved the pair: "data" is a URL and "content" is suppressed like every other name no
+     * list holds. Nothing assigned ATTR_CONTENT after that, so it went with its branch.
+     */
+    public static final int ATTR_UNKNOWN = 5;
 
     public static final int ATTR_ACTIONSCRIPT = 6;
+
+    private static final Logger log = LoggerFactory.getLogger(Canoe.class);
 
     protected boolean closingTag;
 
@@ -140,11 +157,375 @@ public class Canoe extends Writer {
     protected int tagCount;
 
     /**
-     * Create a Canoe instance.
+     * The URL-bearing attribute names, whose values go through {@link HtmlEncoder#url(String)}.
+     *
+     * <p>The set used to be five names - background, dynsrc, lowsrc, href and src - and every other
+     * URL-bearing name in HTML took the ATTR_HTML default, which the HTML parser undoes before the
+     * URL parser runs. That was the URL half of F3: <code>href</code> was percent-encoded and
+     * <code>xlink:href</code>, <code>formaction</code> and <code>action</code> were handed back to
+     * the attacker character for character, so the safe-by-analogy assumption a template author
+     * would make was exactly wrong. R6 adds the twelve names the review enumerates.
+     *
+     * <p><code>data</code> is here because of R7: <code>&lt;object data&gt;</code> is a URL, and the
+     * branch that used to claim the name yielded ATTR_CONTENT because it was a byte-identical copy
+     * of the branch above it (F7).
+     *
+     * <p><code>xlink:href</code> needs no tokenizer change - {@link #isTagNameChar(char, int)}
+     * accepts ':' - so it scans as one name and simply never matched <code>href</code>.
+     *
+     * <p><code>srcset</code> is a comma-and-whitespace separated list of URLs with descriptors, and
+     * <code>url()</code> percent-encodes both separators, so an interpolated candidate list loses
+     * its descriptors and a multi-candidate value is mangled into one long URL. That is an
+     * availability cost and not a security hole: the alternative - parsing the list and encoding
+     * each candidate by itself - is a feature to design rather than a default to guess at, and the
+     * shape a template actually writes, <code>srcset="$url"</code>, still yields a usable URL. The
+     * decision is recorded here rather than left for the next reader to rediscover.
+     *
+     * <p>Deliberately absent, and suppressed by the unknown-name rule instead:
+     *
+     * <ul>
+     *   <li><code>srcdoc</code> - its value is parsed as a whole HTML document, so the correct
+     *       encoding is a second full HTML encode and a single-encoded value is same-origin XSS.
+     *       Suppression is the honest answer until somebody wants to build double encoding
+     *       deliberately (R6, and &sect;6 of the remediation plan).
+     *   <li><code>content</code> - a URL on exactly one element/attribute-value combination,
+     *       <code>&lt;meta http-equiv="refresh"&gt;</code>, which needs the tag name and a sibling
+     *       attribute's value to recognise. That is R10; until it lands, suppressing is correct and
+     *       fail-safe (R7).
+     *   <li><code>imagesrcset</code>, <code>xml:base</code>, <code>archive</code>,
+     *       <code>classid</code>, <code>profile</code> - URL-bearing names that no ordinary template
+     *       interpolates into. Suppression is strictly stronger than <code>url()</code>, which is a
+     *       scheme filter and not an origin filter (F6), so leaving them off this list costs
+     *       security nothing and costs availability only where a template needs them.
+     * </ul>
+     */
+    private static final Set<String> URL_ATTRIBUTE_NAMES = Collections.unmodifiableSet(
+            new LinkedHashSet<>(Arrays.asList(
+                    "action", "background", "cite", "codebase", "data", "dynsrc", "formaction",
+                    "href", "longdesc", "lowsrc", "manifest", "ping", "poster", "src", "srcset",
+                    "usemap", "xlink:href")));
+
+    /**
+     * The attribute names whose value the browser treats as plain text, and which therefore reach
+     * {@link HtmlEncoder#htmlAttr(String)}.
+     *
+     * <p>R5 inverted the default: an attribute name nothing here recognises is ATTR_UNKNOWN and is
+     * suppressed, where it used to be ATTR_HTML. It has to be written as an allowlist of plain-text
+     * names rather than as a denylist of dangerous ones, because a denylist puts every name nobody
+     * thought of on the wrong side of it - which is what F3 and F20 were.
+     *
+     * <p>The membership test for every name below is the same: the browser consumes the decoded
+     * value as <em>text</em> or as an enumerated keyword, hands it to no second parser, resolves no
+     * URL from it, and acts on it as no security directive. <code>html()</code> escapes the space,
+     * both quotes, '&gt;' and '=', so a value cannot leave the attribute it was written into even
+     * unquoted, and that is the whole of what the encoder has to achieve for these names.
+     *
+     * <p>Deliberately absent, each for a stated reason:
+     *
+     * <ul>
+     *   <li><code>sandbox</code>, <code>rel</code>, <code>integrity</code> - F20. The HTML parser
+     *       consumes the decoded value as a <em>directive</em>, so no encoding of
+     *       <code>allow-same-origin</code> means anything other than <code>allow-same-origin</code>.
+     *       Encoding is not insufficient here, it is inapplicable, and suppression is not the
+     *       preferred fix but the only one.
+     *   <li><code>nonce</code> - inert as text, which is true and is the wrong test. An attacker who
+     *       chooses the nonce can author a <code>&lt;script nonce&gt;</code> the content security
+     *       policy then admits, which defeats the control rather than escaping the attribute. The
+     *       review's own remediation sketch listed <code>nonce</code> among the plain-text names;
+     *       implementing it as written would have left F20's worst row on <code>html()</code>.
+     *   <li><code>http-equiv</code>, <code>charset</code> - parser and navigation directives. A
+     *       value of <code>refresh</code> turns a sibling <code>content</code> into a redirect, and
+     *       the document's declared encoding decides how every byte after it is tokenized.
+     *   <li><code>crossorigin</code>, <code>referrerpolicy</code> - credential and referrer policy,
+     *       the same class as <code>rel</code>: an attacker-chosen value weakens a control the
+     *       template author set.
+     *   <li><code>is</code> - selects which custom element definition upgrades the element, which is
+     *       a choice of code rather than a piece of text.
+     *   <li><code>style</code> and every name beginning <code>on</code> - classified above this
+     *       list, as CSS and JavaScript, and suppressed there.
+     * </ul>
+     *
+     * <p>Three names the review's F20 table lists and this allowlist deliberately <em>keeps</em>:
+     *
+     * <ul>
+     *   <li><code>type</code> - the only attacker-reachable effect on
+     *       <code>&lt;script type&gt;</code> is to stop the script running, which fails safe;
+     *       nothing about it turns execution on where it was off, because the element is a
+     *       <code>&lt;script&gt;</code> either way. It is plain text or an enumerated keyword
+     *       everywhere else it appears - <code>&lt;input type&gt;</code>,
+     *       <code>&lt;button type&gt;</code>, <code>&lt;ol type&gt;</code> - and a category widened
+     *       from "security control" to "any behavioural directive" to admit it would admit half this
+     *       list. Three other elements were checked rather than assumed, because
+     *       <code>&lt;script&gt;</code> is not the interesting one:
+     *       <ul>
+     *         <li><code>&lt;object type&gt;</code> - the object element's algorithm takes the
+     *             resource type from the response's <code>Content-Type</code> metadata when there is
+     *             any, and consults the attribute only when there is none. An attacker-chosen
+     *             <code>type</code> therefore cannot make a served resource be interpreted as
+     *             something else, which is the vector worth worrying about (a user-uploaded image
+     *             re-read as same-origin HTML). It could in the plugin era, which is why this entry
+     *             says which rule retired it rather than that the attribute is inert.
+     *         <li><code>&lt;embed type&gt;</code> - the same, and narrower still: shipping engines
+     *             support only images and nested browsing contexts here, and the nested context
+     *             loads the URL and obeys the server.
+     *         <li><code>&lt;input type&gt;</code> - the reachable effects are changing which control
+     *             is drawn and whether it submits (<code>image</code>, <code>submit</code>). Both
+     *             need a URL to be interesting, and both of the attributes that supply one -
+     *             <code>src</code> and <code>formaction</code> - are on the URL list. What is left
+     *             is UI redressing, which this list does not claim to prevent.
+     *       </ul>
+     *   <li><code>target</code> - names a browsing context. Retargeting a navigation the template
+     *       author chose is behaviour, not a security control being switched off: the residual is
+     *       that <code>_blank</code> opens the author's own URL in a new context, and the attribute
+     *       that would undo that context's implicit <code>noopener</code> is <code>rel</code>, which
+     *       is suppressed. Recorded so that the decision is deliberate rather than by omission.
+     *   <li><code>formtarget</code> - the submit-button analogue of <code>target</code>, kept for
+     *       the same reason. Note that its sibling <code>formaction</code> is a URL and is on the
+     *       URL list, which is the distinction worth seeing: one names a window, the other names the
+     *       place the form's contents are sent.
+     * </ul>
+     *
+     * <p>Five more names on this list are not <em>quite</em> "text a browser reads and hands to
+     * nothing". Each was kept, and each is written out so that the next reader does not have to
+     * re-derive the argument - or, better, so that they can disagree with it in one place:
+     *
+     * <ul>
+     *   <li><code>pattern</code> - compiled by the browser as an ECMAScript regular expression, so a
+     *       second parser genuinely does consume it. What that parser can be made to do is bounded:
+     *       it matches, it cannot fetch and it cannot execute, and the worst attacker-reachable
+     *       outcome is catastrophic backtracking, which hangs the tab it is in. That is a
+     *       denial-of-service against the user themselves and not an escape.
+     *   <li><code>media</code>, <code>sizes</code> - a media-query list and a source-size list, both
+     *       consumed by the CSS media-query grammar. Also a second parser, and also a bounded one:
+     *       the grammar carries no URL, no function that fetches and no path to script, and a value
+     *       it cannot parse evaluates to <code>not all</code>, which is the safe direction. A value
+     *       here decides whether a stylesheet or a candidate image applies, never what it is.
+     *   <li><code>accept-charset</code> - decides the encoding a form's contents are submitted in,
+     *       which is why it deserves a sentence next to <code>charset</code>, which is off the list.
+     *       They are not the same class. <code>charset</code> decides how the browser tokenizes the
+     *       rest of <em>this document</em> - the classic UTF-7 injection - so it is a live
+     *       client-side parser directive. <code>accept-charset</code> changes the bytes the
+     *       <em>server</em> receives, and reaching anything with it means finding a server that
+     *       mis-decodes them. That is a real thing to be aware of and it is not something an HTML
+     *       encoder is the right control for.
+     *   <li><code>download</code>, <code>method</code>, <code>formmethod</code>,
+     *       <code>enctype</code>, <code>formenctype</code> - navigation and submission behaviour.
+     *       The strongest of them is worth stating plainly: an attacker-chosen <code>method</code>
+     *       can turn a <code>POST</code> into a <code>GET</code>, which moves the form's fields -
+     *       including any CSRF token - into a URL that reaches history, logs and the referrer. The
+     *       destination is still the template author's, so this is disclosure through a downgrade
+     *       rather than a redirect, and it sits in the same category as <code>target</code>:
+     *       behaviour the author chose being changed, not a control being switched off. Suppressing
+     *       them would cost every ordinary form; the residual is recorded instead.
+     *   <li><code>for</code>, <code>form</code>, <code>headers</code>, <code>list</code>,
+     *       <code>popovertarget</code>, <code>name</code> - identifiers naming other elements in the
+     *       same document. An attacker who chooses one can re-associate a control with a different
+     *       form, or point a label or a popover somewhere else. That is the DOM-clobbering family,
+     *       which &sect;6 of the remediation plan puts out of scope by the review's own criterion -
+     *       a name in the document's namespace is not a directive a browser algorithm consumes - and
+     *       it is named here rather than left implicit, because <code>id</code> being out of scope
+     *       and <code>form</code> being out of scope are the same decision and only one of them is
+     *       obvious.
+     * </ul>
+     */
+    private static final Set<String> PLAIN_TEXT_ATTRIBUTE_NAMES = Collections.unmodifiableSet(
+            new LinkedHashSet<>(Arrays.asList(
+                    // Identity, labelling and the presentation of text.
+                    "accesskey", "alt", "autocapitalize", "class", "contenteditable", "dir",
+                    "draggable", "hidden", "id", "label", "lang", "name", "placeholder", "role",
+                    "slot", "spellcheck", "tabindex", "title", "translate", "value",
+                    // Form controls. Every one is text, a number, or an enumerated keyword.
+                    "accept", "accept-charset", "autocomplete", "autofocus", "checked", "cols",
+                    "dirname", "disabled", "enctype", "for", "form", "formenctype", "formmethod",
+                    "formnovalidate", "inputmode", "list", "max", "maxlength", "method", "min",
+                    "minlength", "multiple", "novalidate", "pattern", "readonly", "required",
+                    "rows", "selected", "size", "step", "wrap",
+                    // Tables.
+                    "abbr", "colspan", "headers", "rowspan", "scope", "span",
+                    // Embedded content, minus every name that resolves a URL.
+                    "autoplay", "controls", "decoding", "default", "height", "kind", "loading",
+                    "loop", "muted", "playsinline", "preload", "sizes", "srclang", "width",
+                    // Links, metadata and the remaining enumerated attributes.
+                    "coords", "datetime", "download", "high", "hreflang", "low", "media", "open",
+                    "optimum", "popovertarget", "popovertargetaction", "reversed", "shape", "start",
+                    "type", "target", "formtarget")));
+
+    /**
+     * The two families of attribute names that are plain text by construction.
+     *
+     * <p><code>aria-*</code> is an accessible name, description or state: text and enumerated
+     * keywords, consumed by the accessibility tree and by nothing that parses. <code>data-*</code>
+     * is reserved by the HTML Standard for the page's own use and has no browser semantics at all -
+     * it is the one namespace where the standard guarantees a directive can never appear.
+     *
+     * <p>Note that the exact name <code>data</code> is a URL and is matched before this prefix runs;
+     * <code>data-</code> requires the hyphen, exactly as the standard does.
+     */
+    private static final List<String> PLAIN_TEXT_ATTRIBUTE_PREFIXES =
+            Collections.unmodifiableList(Arrays.asList("aria-", "data-"));
+
+    /**
+     * The names an application may not add to the plain-text allowlist, whatever it asks for.
+     *
+     * <p>The extension point exists so that a developer with
+     * <code>&lt;div my-widget-config="$x"&gt;</code> has somewhere to go other than
+     * <code>$_x.asis()</code>, which turns Canoe off for that value entirely. It is not a way to put
+     * a policy directive or a markup-bearing attribute back on <code>html()</code>: every name here
+     * is one whose suppression <em>is</em> the fix for a finding, so adding it would re-open F3 or
+     * F20 through configuration, in a place no test in the suite would look.
+     *
+     * <p>Names Canoe classifies before it consults the allowlist at all - the URL set,
+     * <code>style</code> and anything beginning <code>on</code> - are rejected too, so that a
+     * configuration which would have had no effect fails at startup rather than looking as though it
+     * worked.
+     *
+     * <p>The second group is the one that is easiest to leave out and is listed for a reason:
+     * <code>imagesrcset</code>, <code>xml:base</code>, <code>archive</code>, <code>classid</code>
+     * and <code>profile</code> are <em>URL-bearing</em> names that R6 deliberately did not route to
+     * <code>url()</code>, on the argument that suppression is strictly stronger and no ordinary
+     * template interpolates into them. That argument only holds while they stay suppressed. Adding
+     * one to the plain-text allowlist would put a URL sink back on <code>html()</code>, whose output
+     * the HTML parser decodes before the URL parser ever sees it - which is F3 exactly, and is
+     * strictly worse than the <code>url()</code> routing R6 declined to give them. A name here is
+     * therefore a name whose suppression is a recorded decision, whether that decision was recorded
+     * as a finding (F3, F20) or as R6's own.
+     */
+    private static final Set<String> NAMES_THAT_MAY_NOT_BE_ADDED = Collections.unmodifiableSet(
+            new LinkedHashSet<>(Arrays.asList(
+                    "srcdoc", "content", "sandbox", "rel", "integrity", "nonce", "http-equiv",
+                    "charset", "crossorigin", "referrerpolicy", "is", "style",
+                    "imagesrcset", "xml:base", "archive", "classid", "profile")));
+
+    /**
+     * The application's own additions to the plain-text allowlist, per Canoe instance.
+     *
+     * <p>Per instance and never static: the allowlist belongs to the engine that rendered the page,
+     * so two applications in one JVM cannot widen each other's, and nothing can widen anybody's
+     * after startup. {@code VelocityViewFactory} owns the configuration and hands the set to every
+     * Canoe it constructs.
+     */
+    private final Set<String> extraPlainTextAttributes;
+
+    /**
+     * The name of the attribute whose value is being scanned, when nothing recognised it.
+     *
+     * <p>Kept only for the diagnostic in {@link #currentContext()}: a suppressed value is otherwise
+     * indistinguishable from an empty one, which is the failure mode that sends a developer to
+     * {@code $_x.asis()}. Null whenever the current attribute name <em>was</em> recognised, so the
+     * field cannot report a stale name for a later attribute.
+     *
+     * <p>Protected rather than private so that {@code CanoeStateProbe} can assert the diagnostic
+     * carries the right name: the log call itself is not observable from a test without installing
+     * a logging backend, and a diagnostic nobody asserts is a diagnostic that names the wrong
+     * attribute the first time somebody reorders this method.
+     */
+    protected String unknownAttributeName;
+
+    /**
+     * Create a Canoe instance with no application-level additions to the plain-text allowlist.
      */
     public Canoe(Writer writer) {
+        this(writer, Collections.<String>emptySet());
+    }
+
+    /**
+     * Create a Canoe instance that treats the given extra attribute names as plain text.
+     *
+     * <p>The names are put through {@link #normalisePlainTextAttributeNames(Collection)} here rather
+     * than trusted, even though {@code VelocityViewFactory} has already validated everything it
+     * passes. This constructor is public API on a public {@link Writer}, so "the caller validated
+     * it" is a convention and not a guarantee, and a convention is not what should stand between an
+     * application and {@code new Canoe(writer, Set.of("sandbox"))}. Validating twice costs one pass
+     * over a handful of strings once per render; validating once costs the guard.
+     *
+     * @param writer                       the writer parsed output is passed to
+     * @param extraPlainTextAttributeNames additional plain-text attribute names; a null or empty set
+     *                                     means the built-in allowlist only
+     * @throws IllegalArgumentException if a name is one
+     *                                  {@link #normalisePlainTextAttributeNames(Collection)} refuses
+     */
+    public Canoe(Writer writer, Set<String> extraPlainTextAttributeNames) {
         this.writer = writer;
         this.state = HTML;
+        this.extraPlainTextAttributes = (extraPlainTextAttributeNames == null)
+                ? Collections.<String>emptySet()
+                : normalisePlainTextAttributeNames(extraPlainTextAttributeNames);
+    }
+
+    /**
+     * Validates and normalises application-supplied plain-text attribute names.
+     *
+     * <p>Called once at configuration time rather than per render, so that a name Canoe would refuse
+     * fails at startup with a message naming the reason instead of silently doing nothing on every
+     * page. Names are lower-cased because the attribute-name scan lower-cases as it buffers.
+     *
+     * @param names the names an application wants treated as plain text
+     * @return an unmodifiable, lower-cased set
+     * @throws IllegalArgumentException if a name is not a legal attribute name, begins {@code on},
+     *                                  or is one of the names whose suppression is the fix for a
+     *                                  finding
+     */
+    public static Set<String> normalisePlainTextAttributeNames(Collection<String> names) {
+        Set<String> normalised = new LinkedHashSet<>();
+        if (names == null) {
+            return Collections.unmodifiableSet(normalised);
+        }
+
+        for (String raw : names) {
+            if (raw == null) {
+                throw new IllegalArgumentException("A plain-text attribute name cannot be null");
+            }
+
+            String name = raw.trim().toLowerCase();
+            if (name.isEmpty()) {
+                continue;
+            }
+
+            if (name.length() > MAX_TAGNAME_LEN - 1) {
+                throw new IllegalArgumentException("Attribute name too long for Canoe's buffer: "
+                        + name);
+            }
+
+            for (int i = 0; i < name.length(); i++) {
+                if (!isNameChar(name.charAt(i), i)) {
+                    throw new IllegalArgumentException("Not a legal attribute name: " + raw);
+                }
+            }
+
+            if (name.startsWith("on")) {
+                throw new IllegalArgumentException("Refusing to treat " + name + " as plain text:"
+                        + " every attribute name beginning \"on\" is a JavaScript context, and the"
+                        + " prefix rule has no exceptions (F1, F2, F19).");
+            }
+
+            if (URL_ATTRIBUTE_NAMES.contains(name) || NAMES_THAT_MAY_NOT_BE_ADDED.contains(name)) {
+                throw new IllegalArgumentException("Refusing to treat " + name + " as plain text:"
+                        + " Canoe classifies it before it consults the application allowlist, or its"
+                        + " suppression is the fix for a finding. The per-name reasoning is on"
+                        + " Canoe's URL_ATTRIBUTE_NAMES and PLAIN_TEXT_ATTRIBUTE_NAMES.");
+            }
+
+            normalised.add(name);
+        }
+
+        return Collections.unmodifiableSet(normalised);
+    }
+
+    /**
+     * Whether a character is legal at the given position of a tag or attribute name.
+     *
+     * <p>The one implementation of the rule, so that
+     * {@link #normalisePlainTextAttributeNames(Collection)} rejects exactly the names the tokenizer
+     * could never produce rather than a second opinion about them - a configured name the parser
+     * cannot buffer is a set entry nothing will ever match, which is a silently ineffective
+     * security configuration.
+     */
+    private static boolean isNameChar(char c, int pos) {
+        if (Character.isLetter(c) || (c == ':') || (c == '_')) {
+            return true;
+        }
+
+        return (pos != 0) && (Character.isDigit(c) || (c == '-') || (c == '.'));
     }
 
     /**
@@ -190,29 +571,15 @@ public class Canoe extends Writer {
     /**
      * Determines if the character can be used in tag name.
      *
+     * <p>Delegates to {@link #isNameChar(char, int)}, which is the same rule the application-level
+     * allowlist is validated against; the two were written out twice for one commit and one copy is
+     * one too many for a rule that decides where a name ends.
+     *
      * @param c
      * @return
      */
     public boolean isTagNameChar(char c, int pos) {
-        if (Character.isLetter(c)) {
-            return true;
-        }
-
-        if ((c == ':') || (c == '_')) {
-            return true;
-        }
-
-        if (pos != 0) {
-            if (Character.isDigit(c)) {
-                return true;
-            }
-
-            if ((c == '-') || (c == '.')) {
-                return true;
-            }
-        }
-
-        return false;
+        return isNameChar(c, pos);
     }
 
     /**
@@ -321,18 +688,32 @@ public class Canoe extends Writer {
      * EventHandlerMatrixTest's completeness guard permanently satisfiable rather
      * than a list to catch up with.
      *
-     * <p>Every comparison here is made against the buffered name as a bounded
-     * string rather than against fixed buf indices, for the reason R3 gave for
-     * the value side: buf is a field of the whole render, and a comparison that
-     * reads an index the current name did not write is reading residue. The name
-     * scan does write a NUL terminator, so the old chains were not wrong in the
-     * way detectAttributePrefix()'s were - but "correct because a terminator
-     * happens to be there" is the property that failed on the value side, and it
-     * is not worth keeping on this one.
+     * <p>Everything below the prefix rule is a lookup of the buffered name in a
+     * declared set rather than a chain of hand-unrolled comparisons. The name is
+     * read out of buf as exactly the characters this attribute's own scan wrote -
+     * bufLen counts them, plus the NUL terminator TAG_ATTR_NAME appends - so it is
+     * bounded in the same sense R3 and R4 made their comparisons bounded, and a
+     * name cannot inherit a byte from an earlier tag, attribute or value. What the
+     * sets buy over the chains is that the classification is now data with its
+     * reasoning attached, and that a reader can see the whole of what reaches each
+     * encoder in one place: see URL_ATTRIBUTE_NAMES and PLAIN_TEXT_ATTRIBUTE_NAMES.
+     *
+     * <p><strong>R5 inverted the default.</strong> An unrecognised name used to be
+     * ATTR_HTML and is ATTR_UNKNOWN now, which suppresses. The old default was the
+     * policy and markup half of F3 and the whole of F20: html() is worthless for
+     * any attribute whose decoded value a second parser or a browser algorithm
+     * consumes, so every name nobody had thought of - every URL-bearing name
+     * outside the five, srcdoc, content, sandbox, rel, integrity, nonce - was
+     * handed to the attacker character for character. Fail-closed is the only
+     * defensible default for a classifier whose misses are silent, and the
+     * allowlist plus the application extension point are what keep the cost of it
+     * from being paid in $_x.asis() calls.
      */
     protected void setTagAttributeContext() {
-        // Use HTML by default
-        attributeContext = ATTR_HTML;
+        // Fail closed. A name that reaches the end of this method unclassified is
+        // suppressed, and says so at debug level when a reference lands in it.
+        attributeContext = ATTR_UNKNOWN;
+        unknownAttributeName = null;
 
         // Any event handler. The prefix rule replaces the on* table entirely; see
         // the method javadoc for why there is no exception list.
@@ -341,73 +722,62 @@ public class Canoe extends Writer {
             return;
         }
 
-        // background
-        if (bufferedNameIs("background")) {
+        String name = bufferedName();
+
+        if (URL_ATTRIBUTE_NAMES.contains(name)) {
             attributeContext = ATTR_URI;
             return;
         }
 
-        // XXX The following two cases are the same, which one is correct?
-
-        // content
-        if (bufferedNameIs("data")) {
-            attributeContext = ATTR_CONTENT;
-            return;
-        }
-
-        // data
-        if (bufferedNameIs("data")) {
-            attributeContext = ATTR_URI;
-            return;
-        }
-
-        // dynsrc
-        if (bufferedNameIs("dynsrc")) {
-            attributeContext = ATTR_URI;
-            return;
-        }
-
-        // lowsrc
-        if (bufferedNameIs("lowsrc")) {
-            attributeContext = ATTR_URI;
-            return;
-        }
-
-        // href
-        if (bufferedNameIs("href")) {
-            attributeContext = ATTR_URI;
-            return;
-        }
-
-        // src
-        if (bufferedNameIs("src")) {
-            attributeContext = ATTR_URI;
-            return;
-        }
-
-        // style
-        if (bufferedNameIs("style")) {
+        if (name.equals("style")) {
             attributeContext = ATTR_CSS;
             return;
         }
+
+        if (isPlainTextAttributeName(name)) {
+            attributeContext = ATTR_HTML;
+            return;
+        }
+
+        unknownAttributeName = name;
     }
 
     /**
-     * Whether the attribute name the name scan has buffered is exactly the given
-     * name. The scan lower-cases as it buffers, so the comparison is against a
-     * lower-case literal and no case variant evades it.
+     * Whether the name is one the browser consumes as plain text: the built-in
+     * allowlist, the two plain-text name families, or the application's own
+     * additions.
      *
-     * @param name the name to compare against, in lower case
-     * @return true when the buffered name equals name
+     * <p>The application's set is consulted last so that nothing it contains can
+     * change how a name Canoe already classifies is treated;
+     * {@link #normalisePlainTextAttributeNames(Collection)} refuses those names
+     * outright as well, so the ordering here is a second line rather than the only
+     * one.
      */
-    private boolean bufferedNameIs(String name) {
-        // bufLen counts the NUL terminator TAG_ATTR_NAME writes when the name
-        // ends, so a buffered name of n characters leaves bufLen at n + 1.
-        if (bufLen != name.length() + 1) {
-            return false;
+    private boolean isPlainTextAttributeName(String name) {
+        if (PLAIN_TEXT_ATTRIBUTE_NAMES.contains(name)) {
+            return true;
         }
 
-        return bufferedNameStartsWith(name);
+        for (String prefix : PLAIN_TEXT_ATTRIBUTE_PREFIXES) {
+            if (name.startsWith(prefix)) {
+                return true;
+            }
+        }
+
+        return extraPlainTextAttributes.contains(name);
+    }
+
+    /**
+     * The attribute name the name scan has buffered, as a string.
+     *
+     * <p>bufLen counts the NUL terminator TAG_ATTR_NAME writes when the name ends,
+     * so the name itself is the first bufLen - 1 characters and nothing this method
+     * reads was written by anything other than the current name. The scan
+     * lower-cases as it buffers, so the result is lower case and every set this
+     * class compares it against is spelled in lower case.
+     */
+    private String bufferedName() {
+        return new String(buf, 0, bufLen - 1);
     }
 
     /**
@@ -888,6 +1258,15 @@ public class Canoe extends Writer {
      * Determines the current output context based on the parser's internal
      * state.
      *
+     * <p>This method is called once per reference the template inserts, which is
+     * why the unknown-attribute diagnostic lives here rather than in
+     * {@link #setTagAttributeContext()}: a page classifies every attribute it
+     * contains and suppresses only the ones a reference actually lands in, and it
+     * is the drop that a developer needs told about. Debug level, because on a page
+     * with unrecognised attribute names it fires per reference; the message names
+     * the attribute and the position, because "a value went missing somewhere on
+     * the page" is the complaint this exists to answer.
+     *
      * @return current output context
      */
     public int currentContext() {
@@ -920,9 +1299,16 @@ public class Canoe extends Writer {
                     case ATTR_URI:
                         return CTX_URI;
 
+                    case ATTR_UNKNOWN:
+                        log.debug("Canoe suppressed a reference in the unrecognised attribute"
+                                        + " \"{}\" (line: {}, pos: {}). Add the name to the"
+                                        + " plain-text allowlist if its value is text; see"
+                                        + " VelocityViewFactory.addPlainTextAttributes().",
+                                unknownAttributeName, currentLine, currentPos);
+                        return CTX_SUPPRESS;
+
                     case ATTR_CSS:
                     case ATTR_DATA:
-                    case ATTR_CONTENT:
                     case ATTR_ACTIONSCRIPT:
                         return CTX_SUPPRESS;
 
