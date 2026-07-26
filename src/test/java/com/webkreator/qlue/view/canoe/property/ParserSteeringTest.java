@@ -93,8 +93,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * steering character one of them emitted.
  *
  * <p>Three findings depend on this property being true and would need re-rating if it ever failed:
- * <strong>F10</strong> (both desyncs are reachable only from template text — {@code
- * ScriptAndStyleElementTest.onlyTemplateTextCanCauseADesync} is the local form of this test),
+ * <strong>F10</strong> (closed by R17; both desyncs were reachable only from template text, which is
+ * why they were latent rather than exploitable, and {@code
+ * ScriptAndStyleElementTest.onlyTemplateTextCanCauseADesync} is the local form of this test — it
+ * passed unchanged through R17, because the argument is about what an encoder can emit),
  * <strong>F14</strong> (the same argument for the comment states), and the review's whole
  * "what is not affected" section, which claims body-context templates are safe under all
  * twenty-one findings.

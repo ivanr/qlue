@@ -28,7 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>The single most valuable assertion in the suite is
  * {@link #noEncoderCanEverEmitAMarkupDelimiter}. Canoe's entire safety argument — including why F10
- * is not exploitable, and why attacker data can never steer the state machine — rests on encoded
+ * was never exploitable before R17 closed it, and why attacker data can never steer the state
+ * machine — rests on encoded
  * output being unable to contain a raw {@code <} or a raw quote. If that ever stops being true,
  * several findings currently rated latent become live at once.
  */

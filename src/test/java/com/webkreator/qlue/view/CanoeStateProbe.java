@@ -17,7 +17,8 @@ import java.io.StringWriter;
  *
  * <p>Asserting on the state rather than only on {@link Canoe#currentContext()} matters because
  * several distinct states collapse to the same context. {@code CTX_SUPPRESS} is returned by
- * {@code CSS}, {@code CSS_END}, {@code TAG}, {@code TAG_NAME}, {@code TAG_ATTR_NAME_AFTER}, every
+ * {@code CSS}, {@code CSS_END}, {@code CSS_END_NAME}, {@code TAG}, {@code TAG_NAME},
+ * {@code TAG_ATTR_NAME_AFTER}, every
  * state {@code currentContext()} has no case for, and the default branch — so a test that checked
  * only the context could not tell "correctly suppressed inside a style element" from "fell through
  * a hole in the switch".
@@ -170,8 +171,10 @@ public class CanoeStateProbe extends Canoe {
             case TAG_ATTR_VALUE: return "TAG_ATTR_VALUE";
             case SCRIPT: return "SCRIPT";
             case SCRIPT_END: return "SCRIPT_END";
+            case SCRIPT_END_NAME: return "SCRIPT_END_NAME";
             case CSS: return "CSS";
             case CSS_END: return "CSS_END";
+            case CSS_END_NAME: return "CSS_END_NAME";
             case URL: return "URL";
             case TAG_EMPTY_ENDING: return "TAG_EMPTY_ENDING";
             case COMMENT_OPEN_OR_DOCTYPE: return "COMMENT_OPEN_OR_DOCTYPE";

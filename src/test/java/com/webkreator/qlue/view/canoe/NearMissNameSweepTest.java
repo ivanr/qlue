@@ -424,8 +424,11 @@ public class NearMissNameSweepTest {
      * <p>The stakes are higher here than for an attribute name: a tag name that matched
      * {@code script} by accident would put the following markup into the {@code SCRIPT} state,
      * where every reference is suppressed — a silent availability failure of the F14 class — and one
-     * that failed to match would put a reference into a live script block. F10 is the second half
-     * of this claim, at the closing tag.
+     * that failed to match would put a reference into a live script block. F10 was the second half
+     * of this claim, at the closing tag, where a name that matched with a suffix
+     * ({@code </scriptfoo>}) used to end the block for Canoe and not for the browser; R17 closed it,
+     * and {@code CanoeStateMachineTest.scriptEndRequiresADelimiterAfterTheName} is the near-miss
+     * sweep for that end.
      */
     @ParameterizedTest(name = "<{0}> is ordinary HTML")
     @MethodSource("tagNameNearMisses")

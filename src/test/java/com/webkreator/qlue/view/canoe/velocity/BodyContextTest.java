@@ -463,11 +463,13 @@ public class BodyContextTest {
     /**
      * A reference immediately before and immediately after a {@code <script>} block.
      *
-     * <p>The machine leaves HTML for {@code SCRIPT} and comes back through {@code SCRIPT_END} between
-     * the two, and neither reference is affected. The second one is the load-bearing assertion: if
-     * {@code SCRIPT_END} had not returned the machine to HTML the reference after the block would be
-     * suppressed, which is exactly what {@code desync.script-stuck-on-a-double-less-than} shows
-     * happening when the block contains a stray {@code <}.
+     * <p>The machine leaves HTML for {@code SCRIPT} and comes back through {@code SCRIPT_END} and
+     * {@code SCRIPT_END_NAME} between the two, and neither reference is affected. The second one is
+     * the load-bearing assertion: if the end tag had not returned the machine to HTML the reference
+     * after the block would be suppressed, which is what
+     * {@code desync.script-stuck-on-a-double-less-than} showed happening when the block contained a
+     * stray {@code <} — until R17 made the mismatching character be re-processed, so that row renders
+     * its paragraph too now.
      */
     @Test
     public void aReferenceOnEitherSideOfAScriptBlockIsStillBodyContext() {

@@ -109,6 +109,22 @@ public class Canoe extends Writer {
 
     public static final int DOCTYPE_TEST = 19;
 
+    /**
+     * Inside {@code </script}, with the name matched and the character after it not yet seen.
+     *
+     * <p>The HTML Standard's script-data-end-tag-name state does not leave script data on the name
+     * alone: the end tag is only "appropriate" when the character following the name is whitespace,
+     * {@code /} or {@code >}. {@code SCRIPT_END} used to go straight to {@link #TAG} on the final
+     * {@code t}, so {@code </scriptfoo>} closed the element for Canoe and not for the browser, and
+     * everything after it was encoded for a context that did not exist there (F10, closed by R17).
+     * This state is where that one character is judged. It is still script data - {@link
+     * #currentContext()} answers {@link #CTX_JS} here, exactly as it does for {@code SCRIPT_END}.
+     */
+    public static final int SCRIPT_END_NAME = 20;
+
+    /** The {@code </style} twin of {@link #SCRIPT_END_NAME}; suppresses, as every CSS route does. */
+    public static final int CSS_END_NAME = 21;
+
     public static final int INVALID = 666;
 
     public static final int QUOTE_NONE = 0;
@@ -519,10 +535,12 @@ public class Canoe extends Writer {
      *       case and a comparison against a lower-case literal cannot be evaded by case. For an end
      *       tag the leading {@code '/'} is not part of the name; {@link #closingTag} records which
      *       kind of tag it was.
-     *   <li><strong>Set</strong> equally when SCRIPT_END or CSS_END recognises {@code </script} or
-     *       {@code </style} and enters the TAG state without ever passing through TAG_NAME, so the
-     *       invariant "inside a tag whose name has been read" has no exception for the two elements
-     *       whose end tag is matched by a different state.
+     *   <li><strong>Set</strong> equally when SCRIPT_END_NAME or CSS_END_NAME <em>confirms</em>
+     *       {@code </script} or {@code </style} and enters the TAG state without ever passing through
+     *       TAG_NAME, so the invariant "inside a tag whose name has been read" has no exception for
+     *       the two elements whose end tag is matched by a different state. Confirmation is the
+     *       delimiter after the name, not the name alone (R17, F10): at {@code </scriptfoo} there is
+     *       no end tag, so the field stays as it was — null, because the {@code '<'} cleared it.
      *   <li><strong>Cleared</strong> when the tag ends — {@code '>'} in the TAG and TAG_EMPTY_ENDING
      *       states — and again when a new tag opens on {@code '<'}, so body text, script and style
      *       bodies, comments and DOCTYPEs never see the previous element's name, and an error path
@@ -675,6 +693,54 @@ public class Canoe extends Writer {
         }
 
         return (pos != 0) && (Character.isDigit(c) || (c == '-') || (c == '.'));
+    }
+
+    /**
+     * Whether a character terminates the name of an end tag, which is what decides that the tag
+     * really is one (R17, F10).
+     *
+     * <p>Used by {@link #SCRIPT_END_NAME} and {@link #CSS_END_NAME}, the only two places Canoe
+     * matches an end tag name character by character rather than through {@code TAG_NAME}. The set
+     * is the HTML Standard's: its script-data-end-tag-name and rawtext-end-tag-name states move on
+     * only for tab, LF, FF, space, {@code /} or {@code >}, and anything else makes the whole thing
+     * character data. CR is in the set because the standard's input preprocessing turns it into an
+     * LF before the tokenizer sees it, so a browser treats {@code &lt;/script\r&gt;} as whitespace
+     * too.
+     *
+     * <p>Written out rather than delegated to {@link Character#isWhitespace(char)}, which is wider -
+     * it accepts a vertical tab and the Unicode space separators, none of which a browser treats as
+     * whitespace here. Matching the standard exactly is the whole point of the check: a wider set
+     * re-opens F10 for the characters it adds, because Canoe would leave script data where the
+     * browser stays in it.
+     */
+    private static boolean isEndTagNameDelimiter(char c) {
+        return (c == ' ') || (c == '\t') || (c == '\n') || (c == '\f') || (c == '\r')
+                || (c == '/') || (c == '>');
+    }
+
+    /**
+     * ASCII-only case folding, for the two states that match an end tag name against a literal
+     * (R17, F10).
+     *
+     * <p>The HTML Standard's script-data-end-tag-name and rawtext-end-tag-name states accept only
+     * <em>ASCII</em> upper alpha and ASCII lower alpha into the name; every other code point is
+     * "anything else" and makes the whole run character data. {@link Character#toLowerCase(char)} is
+     * a Unicode fold and is wider than that in one respect that matters here: it maps U+0130 LATIN
+     * CAPITAL LETTER I WITH DOT ABOVE to {@code 'i'}, so an end tag that spells {@code script} with
+     * U+0130 matched {@code /script} and closed the element for Canoe while every browser stayed in
+     * script data. That is F10's forward desync exactly, reached by a different character than
+     * {@code </scriptfoo>} and not closed by the delimiter rule, so the fold is bounded here rather
+     * than left to {@code Character}. A sweep of the whole BMP finds U+0130 to be the only non-ASCII
+     * code point whose {@code Character.toLowerCase()} lands in {@code /script} or {@code /style};
+     * the point of writing the fold out is that no future JDK Unicode update can add a second one.
+     *
+     * <p>Deliberately not applied to {@code TAG_NAME}, which folds the same way for the opening
+     * {@code <script>}: there the divergence runs the other way — Canoe enters {@code SCRIPT} and
+     * suppresses where the browser sees an unknown element — which is fail-closed, and it is the
+     * {@code isNameChar()}/{@code Character.isLetter()} observation the plan records separately.
+     */
+    private static char asciiToLowerCase(char c) {
+        return ((c >= 'A') && (c <= 'Z')) ? (char) (c + ('a' - 'A')) : c;
     }
 
     /**
@@ -1379,54 +1445,104 @@ public class Canoe extends Writer {
                     if (c == '<') {
                         state = SCRIPT_END;
                         // Not resetBuffer(): SCRIPT_END counts through jsEnd with
-                        // bufLen and never reads or writes buf.
+                        // bufLen and never reads or writes buf. Neither does
+                        // SCRIPT_END_NAME, which reads one character and no buffer
+                        // at all.
                         bufLen = 0;
                     }
                     break;
 
                 case SCRIPT_END:
-                    if (Character.toLowerCase(c) == jsEnd.charAt(bufLen)) {
+                    // asciiToLowerCase(), not Character.toLowerCase(): the standard's
+                    // end-tag-name states fold ASCII and nothing else, and the wider
+                    // fold made an end tag spelled with U+0130 close it (R17, F10).
+                    if (asciiToLowerCase(c) == jsEnd.charAt(bufLen)) {
                         if (jsEnd.length() == bufLen + 1) {
-                            state = TAG;
-                            nextState = HTML;
-                            // The parser is inside "</script" now, having entered
-                            // TAG without passing TAG_NAME, so set what TAG_NAME
-                            // would have: this is the script element's end tag.
-                            // Neither field is read again on this path today; they
-                            // are kept truthful so that R9 cannot mistake the tail
-                            // of an end tag for an opening <script>.
-                            closingTag = true;
-                            tagName = jsEnd.substring(1);
+                            // The name matched. That is not enough to leave script
+                            // data: the HTML Standard checks the character after the
+                            // name too, so the decision moves to SCRIPT_END_NAME and
+                            // closingTag/tagName are assigned there, once the end tag
+                            // is confirmed (R17, F10).
+                            state = SCRIPT_END_NAME;
                         } else {
                             bufLen++;
                         }
                     } else {
+                        // Not "</script" after all. Re-process the character rather
+                        // than dropping it: it may itself be the '<' that opens the
+                        // real end tag, which is what "<</script>" is and what F10's
+                        // converse desync lost - the rest of the page stayed inside
+                        // the script element and every reference in it was suppressed.
                         state = SCRIPT;
+                        charNeedsProcessing = true;
+                    }
+                    break;
+
+                case SCRIPT_END_NAME:
+                    if (isEndTagNameDelimiter(c)) {
+                        state = TAG;
+                        nextState = HTML;
+                        // The parser is inside "</script" now, having entered
+                        // TAG without passing TAG_NAME, so set what TAG_NAME
+                        // would have: this is the script element's end tag.
+                        // Neither field is read again on this path today; they
+                        // are kept truthful so that R9 cannot mistake the tail
+                        // of an end tag for an opening <script>.
+                        closingTag = true;
+                        tagName = jsEnd.substring(1);
+
+                        // TAG has not seen this character, and it carries meaning
+                        // there: '>' ends the tag, '/' begins "</script/>".
+                        charNeedsProcessing = true;
+                    } else {
+                        // "</scriptfoo": not an end tag at all. A browser emits those
+                        // characters as script data and stays in the script element,
+                        // so Canoe does too (R17, F10's forward desync). Re-process
+                        // the character, because a '<' here opens a fresh end tag.
+                        state = SCRIPT;
+                        charNeedsProcessing = true;
                     }
                     break;
 
                 case CSS:
                     if (c == '<') {
                         state = CSS_END;
-                        // As in SCRIPT: bufLen indexes cssEnd, and buf is untouched.
+                        // As in SCRIPT: bufLen indexes cssEnd, and buf is untouched
+                        // by CSS_END and by CSS_END_NAME alike.
                         bufLen = 0;
                     }
                     break;
 
                 case CSS_END:
-                    if (Character.toLowerCase(c) == cssEnd.charAt(bufLen)) {
+                    // As in SCRIPT_END: an ASCII-only fold, for the same reason.
+                    if (asciiToLowerCase(c) == cssEnd.charAt(bufLen)) {
                         if (cssEnd.length() == bufLen + 1) {
-                            state = TAG;
-                            nextState = HTML;
-                            // As in SCRIPT_END: the state entered TAG mid-way
-                            // through "</style", so record the end tag it is in.
-                            closingTag = true;
-                            tagName = cssEnd.substring(1);
+                            // As in SCRIPT_END: the name is matched, the character
+                            // after it decides, and CSS_END_NAME is where it is read.
+                            state = CSS_END_NAME;
                         } else {
                             bufLen++;
                         }
                     } else {
+                        // As in SCRIPT_END: hand the mismatching character back.
                         state = CSS;
+                        charNeedsProcessing = true;
+                    }
+                    break;
+
+                case CSS_END_NAME:
+                    if (isEndTagNameDelimiter(c)) {
+                        state = TAG;
+                        nextState = HTML;
+                        // As in SCRIPT_END_NAME: the state entered TAG mid-way
+                        // through "</style", so record the end tag it is in.
+                        closingTag = true;
+                        tagName = cssEnd.substring(1);
+                        charNeedsProcessing = true;
+                    } else {
+                        // As in SCRIPT_END_NAME: "</stylefoo" closes nothing.
+                        state = CSS;
+                        charNeedsProcessing = true;
                     }
                     break;
             }
@@ -1481,6 +1597,7 @@ public class Canoe extends Writer {
 
             case SCRIPT:
             case SCRIPT_END:
+            case SCRIPT_END_NAME:
                 return CTX_JS;
 
             case URL:
@@ -1488,6 +1605,7 @@ public class Canoe extends Writer {
 
             case CSS:
             case CSS_END:
+            case CSS_END_NAME:
             case TAG:
             case TAG_NAME:
             case TAG_ATTR_NAME_AFTER:

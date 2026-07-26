@@ -659,7 +659,8 @@ public final class CanoeCorpus {
                 .payloads(Payloads.family("TAG_BREAKOUT"))
                 .verdict(Verdict.SAFE)
                 .note("Proves SCRIPT_END returned the machine to HTML. If it had not, this would be"
-                        + " suppressed - which is exactly what the F10 converse case does.")
+                        + " suppressed - which is what the F10 converse case did until R17 made the"
+                        + " mismatching character be re-processed rather than dropped.")
                 .build());
 
         // Inside a table cell, and in the foster-parenting position before the first row. Neither is
@@ -3252,22 +3253,33 @@ public final class CanoeCorpus {
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .build());
 
-        // F10, both directions. Neither is attacker-reachable today, precisely because attacker data
-        // can never emit a raw '<' - the property T23 guards.
+        // F10, both directions, closed by R17. Neither was ever attacker-reachable, precisely
+        // because attacker data can never emit a raw '<' - the property T23 guards - so what these
+        // four rows record is a divergence between Canoe's model of the tokenizer and the browser's,
+        // and what they record now is that the divergence is gone.
         cases.add(XssCase.id("desync.script-end-tag-with-a-suffix")
                 .section(A7)
                 .template("<script>x=1;</scriptfoo>$data")
-                .textSink("script")
+                .sink(SinkKind.JAVASCRIPT, "script", null)
                 .payloads(Payloads.family("TAG_BREAKOUT"))
-                .verdict(Verdict.SAFE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F10")
-                .note("SCRIPT_END matches the seven characters '/script' and returns to HTML without"
-                        + " checking what follows, so Canoe believes the script ended and encodes for"
-                        + " CTX_HTML. Every browser stays in script data. SAFE anyway, and for a"
-                        + " reason worth stating: htmlWhite() output inside script TEXT is not"
-                        + " entity-decoded, so &#39; stays literal - syntax errors, not a string"
-                        + " breakout. That reasoning holds only while no encoder can emit a raw '<',"
-                        + " which is the property ParserSteeringTest (T23) exists to guard.")
+                .note("Was SAFE, and safe for an accidental reason. SCRIPT_END used to match the"
+                        + " seven characters '/script' and return to HTML without checking what"
+                        + " followed, so Canoe believed the script had ended and encoded the"
+                        + " reference for CTX_HTML while every browser stayed in script data; the"
+                        + " htmlWhite() output landed in script TEXT, where character references are"
+                        + " not decoded, so it was inert by luck rather than by routing. R17 requires"
+                        + " the delimiter the HTML Standard requires - whitespace, '/' or '>' - so"
+                        + " '</scriptfoo>' now closes nothing for Canoe either. The reference is"
+                        + " inside the script body for both parsers, and a script body is suppressed"
+                        + " by design (CTX_JS -> empty), so the payload reaches no sink at all. The"
+                        + " sink moved with the verdict: it was declared HTML_TEXT because Canoe put"
+                        + " htmlWhite() output there, and the position is now unambiguously"
+                        + " JAVASCRIPT - which is what makes this row fail rather than pass the day"
+                        + " CTX_JS is relaxed, because a JavaScript breakout does not change the"
+                        + " document skeleton the HTML_TEXT oracle measures. Browser-relevant still:"
+                        + " the tier confirms the rendered page fires nothing.")
                 .browserRelevant()
                 .build());
 
@@ -3276,24 +3288,35 @@ public final class CanoeCorpus {
                 .template("<script>x = 1 <</script><p>$data</p>")
                 .textSink("p")
                 .payloads(Payloads.family("TAG_BREAKOUT"))
-                .verdict(Verdict.SUPPRESSED_UNINTENDED)
+                .verdict(Verdict.SAFE)
                 .finding("F10")
-                .note("The converse desync. SCRIPT_END mismatches on the second '<' and returns to"
-                        + " SCRIPT without re-processing that character, so the real </script> is"
-                        + " never seen and every reference for the rest of the page is suppressed."
-                        + " Same shape as F14, different state.")
+                .note("Was SUPPRESSED_UNINTENDED - the converse desync, an availability defect of"
+                        + " the same shape as F14. SCRIPT_END mismatched on the second '<' and"
+                        + " returned to SCRIPT without re-processing that character, so the '<' that"
+                        + " opens the real </script> was dropped, the machine never left the script"
+                        + " body and every reference for the rest of the page rendered empty. R17"
+                        + " re-processes the mismatching character, so the end tag is recognised and"
+                        + " the reference lands in the <p> text context html() escapes: the"
+                        + " structural oracle sees the same document skeleton as the benign render,"
+                        + " which is SAFE. The page keeps its content, which is the point.")
                 .build());
 
         cases.add(XssCase.id("desync.style-end-tag-with-a-suffix")
                 .section(A7)
                 .template("<style>a{}</stylefoo>$data")
-                .textSink("style")
+                .sink(SinkKind.CSS, "style", null)
                 .payloads(Payloads.families("CSS_INJECTION", "CSS_IMPORT"))
-                .verdict(Verdict.SAFE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F10")
-                .note("CSS_END has the identical defect with '/style'. Safe for the RAWTEXT reason:"
-                        + " the browser never decodes character references inside a style element, so"
-                        + " the entity-encoded payload is inert text rather than CSS.")
+                .note("Was SAFE, for the RAWTEXT reason: the browser never decodes character"
+                        + " references inside a style element, so the entity-encoded payload was"
+                        + " inert text rather than CSS. CSS_END had the identical defect with"
+                        + " '/style' and R17 fixed it identically, so '</stylefoo>' closes nothing"
+                        + " and the reference is inside the style body, which suppresses (R14/F21"
+                        + " keeps ATTR_CSS and the CSS states on CTX_SUPPRESS). Nothing reaches the"
+                        + " sink. Sink kind moved from HTML_TEXT to CSS with the verdict, for the"
+                        + " same reason as the script twin: the position is a style element body"
+                        + " now that Canoe agrees the element is still open.")
                 .build());
 
         cases.add(XssCase.id("desync.style-stuck-on-a-double-less-than")
@@ -3301,8 +3324,12 @@ public final class CanoeCorpus {
                 .template("<style>a{} <</style><p>$data</p>")
                 .textSink("p")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.SUPPRESSED_UNINTENDED)
+                .verdict(Verdict.SAFE)
                 .finding("F10")
+                .note("Was SUPPRESSED_UNINTENDED, the CSS twin of the converse desync. R17 hands the"
+                        + " mismatching character back to CSS, so </style> is recognised and the"
+                        + " reference renders html()-escaped in the paragraph after it - inert text"
+                        + " in a text sink, with the document skeleton unchanged.")
                 .build());
 
         cases.add(XssCase.id("shape.script-containing-a-script-literal")

@@ -51,7 +51,7 @@ by application code calling `setAutoEscaping(false)`.
 | F7 | Medium | The `content` attribute branch tests for `data` (author-flagged) |
 | F8 | Medium | No tests, no documentation, no published threat model |
 | F9 | Low (latent) | `write(char[],int,int)` confuses length with end index |
-| F10 | Low (latent) | `SCRIPT_END` accepts `</scriptfoo>` as a script terminator |
+| F10 | Low (latent) | `SCRIPT_END` accepts `</scriptfoo>` as a script terminator — **fixed in R17** |
 | F11 | Low | Unquoted attribute references silently render as the empty string |
 | F12 | Low | References inside `#set` and interpolated strings use the wrong context |
 | F13 | Medium | The `[Encoding Error]` recovery branch is unreachable; every encoding error is an unhandled 500 |
@@ -949,6 +949,42 @@ depends on the *encoders*.
 > comparison there would have been the converse desync reachable from ordinary well-formed markup
 > rather than from a stray `<`, which would have been a finding of its own; it is pinned in
 > `theFourStatesAScriptOrStyleBodyCanBeIn` with that reasoning attached.
+
+> **Resolved — R17 (2026-07-26).** Both desyncs are closed and the finding is no longer live.
+>
+> - **Forward.** `SCRIPT_END`/`CSS_END` now hand the matched name to new `SCRIPT_END_NAME`/
+>   `CSS_END_NAME` states, which leave the element only for the delimiters the standard's
+>   script-data-end-tag-name and rawtext-end-tag-name states name — tab, LF, FF, CR, space, `/` or
+>   `>` — and return to the element body for anything else. `closingTag`/`tagName` are assigned on
+>   the confirmed path only, so `</scriptfoo` names no tag.
+> - **Converse.** Both `*_END` and both `*_END_NAME` states set `charNeedsProcessing = true` on the
+>   mismatch arm, so the `<` that opens the real end tag is re-processed rather than swallowed.
+>
+> **The "not a defect" note above was too generous, and R17's first cut inherited it.** The fold was
+> `Character.toLowerCase()`, which is Unicode and not ASCII, and `Character.toLowerCase(U+0130 LATIN
+> CAPITAL LETTER I WITH DOT ABOVE)` is `'i'`. So an end tag spelling `script` with U+0130 matched
+> `/script`, closed the element for Canoe, and left every browser in script data — this finding's own
+> forward desync, reached by a character the new delimiter check never sees. The tokenizer accepts
+> only ASCII alpha into an end tag name, so the fold is now `asciiToLowerCase()`; a sweep of the BMP
+> confirms U+0130 was the only code point whose fold lands anywhere in `/script` or `/style`. The
+> *opening* tag still folds Unicode and is deliberately unchanged: there Canoe enters `SCRIPT` where
+> the browser has an unknown element, which suppresses, and suppression is fail-closed.
+>
+> Test names moved with the inversions and the ones cited above no longer exist:
+> `aScriptEndTagWithASuffixClosesTheScriptForCanoeAndNotForTheParser` is now
+> `.aScriptEndTagWithASuffixClosesTheScriptForNeitherCanoeNorTheParser`,
+> `aStrayLessThanInsideAScriptSuppressesTheRestOfThePage` is now `.aStrayLessThanInsideAScript`
+> `NoLongerSuppressesTheRestOfThePage`,
+> `afterAForwardDesyncAUrlAttributeIsEncodedWithUrlRatherThanHtmlWhite` is now
+> `.afterASuffixedEndTagNoAttributeEncoderIsReachableAtAll`, and
+> `theFourStatesAScriptOrStyleBodyCanBeIn` is now `.theSixStatesAScriptOrStyleBodyCanBeIn`.
+> `bothDesyncsHaveExactCssTwins` and `onlyTemplateTextCanCauseADesync` keep their names;
+> `CanoeStateMachineTest.theEndTagNameIsMatchedWithAnAsciiFoldAndNotAUnicodeOne` is new and owns the
+> fold. The four corpus rows are re-verdicted against the sink: the two suffixed-end-tag rows are
+> `SUPPRESSED_BY_DESIGN` (and their sink kinds moved to `JAVASCRIPT`/`CSS`, because that is what the
+> position now is), the two converse rows are `SAFE`. `ParserSteeringTest` (T23) exists and passes,
+> so the precondition this finding rested on is now quantified over the whole corpus rather than over
+> one file.
 
 ---
 

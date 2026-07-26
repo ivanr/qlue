@@ -369,6 +369,38 @@ jacocoTestReport {
  *   Canoe                             252 / 263 branches   95.82%   (was 250 / 261; R16 added the
  *                                                                    comment-end '-' arm)
  *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14, R15, R16)
+ *
+ * RE-MEASURED after R17 (fix SCRIPT_END and CSS_END, F10). The largest addition since R9, and every
+ * branch of it is reached. Four things grew:
+ *   - two new states, SCRIPT_END_NAME and CSS_END_NAME, each an `if (isEndTagNameDelimiter(c))` with
+ *     both outcomes driven (2 x 2 = 4 outcomes), plus the two new `case` labels in
+ *     reallyProcessChar()'s switch(state) (2). reallyProcessChar 155/160 -> 161/166 = 96.99%.
+ *   - the new private isEndTagNameDelimiter(), a seven-way `||` chain = 14 outcomes, all covered:
+ *     CanoeStateMachineTest.scriptEndRequiresADelimiterAfterTheName and
+ *     ScriptAndStyleElementTest.onlyTheStandardsDelimitersEndTheElement drive each of space, tab, LF,
+ *     CR, FF, '/' and '>' (the true outcome of each condition) and a suffixed name (the false outcome
+ *     of all seven). It is not gated individually - like isNameChar() and isPlainTextAttributeName()
+ *     it is a pure predicate with no configuration behind it, and it is part of the class figure.
+ *   - the new private asciiToLowerCase(), which bounds the fold SCRIPT_END and CSS_END apply to the
+ *     end tag name to ASCII. Two conditions = 4 outcomes, all reached by ordinary end tags: '/'
+ *     (below 'A'), 'S' in `</SCRIPT>` (both true) and 's' (above 'Z').
+ *     CanoeStateMachineTest.theEndTagNameIsMatchedWithAnAsciiFoldAndNotAUnicodeOne is the test that
+ *     says why the bound is there - Character.toLowerCase(U+0130) is 'i', so the wider fold left
+ *     F10's forward desync open for `</scr\u0130pt>`. Ungated for the same reason as its neighbour.
+ *   - currentContext() gains the SCRIPT_END_NAME (CTX_JS) and CSS_END_NAME (CTX_SUPPRESS) arms:
+ *     10/12 -> 11/13, the two missed outcomes still being `case URL` and the inner default.
+ * Canoe is 276/287 = 96.17% (was 252/263), the eleven dead outcomes are unchanged (5 reallyProcessChar
+ * + 2 currentContext + 4 inBuf) and F10 was never in the inventory - its bug was a missing test, a
+ * dropped character and an over-wide fold, not an unreachable branch. HtmlEncoder is untouched. No
+ * floor moves: both figures are comfortably above 0.95 and 0.96, and raising them to sit one outcome
+ * below the measurement is R27's reconciliation rather than this task's - R8 and R16 left the same
+ * slack for the same reason.
+ *
+ *   Canoe                             276 / 287 branches   96.17%   (was 252 / 263; R17 added the
+ *                                                                    two end-tag-name states,
+ *                                                                    isEndTagNameDelimiter() and
+ *                                                                    asciiToLowerCase())
+ *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14 - R17)
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],

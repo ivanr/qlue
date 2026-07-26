@@ -849,8 +849,45 @@ in comment-end. Stay in `COMMENT_CLOSE_2` on `-`.
 
 ---
 
-**R17 — Fix `SCRIPT_END` and `CSS_END`**
+**R17 — Fix `SCRIPT_END` and `CSS_END`** — ✅ **DONE**
 *Closes:* F10. *Depends on:* nothing.
+*Landed:* three changes, one per direction of the desync plus one the review had explicitly cleared.
+(1) The name match no longer ends the element on its own: `SCRIPT_END`/`CSS_END` hand off to new
+`SCRIPT_END_NAME`/`CSS_END_NAME` states, which require the HTML Standard's delimiter — tab, LF, FF,
+CR, space, `/` or `>`, written out in `isEndTagNameDelimiter()` rather than delegated to
+`Character.isWhitespace()`, which is wider — before entering `TAG`, and re-process that delimiter
+there so `>`, `/` and whitespace each mean in `TAG` what they mean in the standard. `closingTag`/
+`tagName` are assigned only on the confirmed path, so `</scriptfoo` names no tag. (2) Both `*_END`
+states and both `*_END_NAME` states now set `charNeedsProcessing = true` on the mismatch arm, so a
+`<` that is not part of the name opens a fresh end tag instead of being swallowed; `<<</script>`
+closes, and so does the ordinary `a < b`. Termination is by inspection: every re-process either
+leaves the state machine in `SCRIPT`/`CSS`, which never re-processes, or in `TAG`, which re-processes
+nothing for the three delimiters that can reach it. (3) **Found in review and fixed with it:** the
+name was matched with `Character.toLowerCase()`, a Unicode fold, and `Character.toLowerCase(U+0130)`
+is `'i'` — so `</scr\u0130pt>` matched `/script`, closed the element for Canoe and not for the
+browser, and re-opened F10's forward desync through a character no delimiter check can see. The two
+states now fold with an ASCII-only `asciiToLowerCase()`; a sweep of the BMP confirms U+0130 was the
+only code point whose fold lands anywhere in `/script` or `/style`. The opening tag is left folding
+Unicode on purpose — there the divergence suppresses, which is fail-closed, and it belongs with §5's
+`isNameChar()` observation. Ledger: the four F10 rows, re-verdicted against the sink —
+`desync.script-end-tag-with-a-suffix` and `desync.style-end-tag-with-a-suffix` SAFE →
+**SUPPRESSED_BY_DESIGN** (the reference is inside the element body for both parsers now, and an
+element body suppresses), with their sink kinds moved from `HTML_TEXT` to `JAVASCRIPT`/`CSS` to match,
+which is what makes them fail rather than pass the day `CTX_JS` is relaxed; `desync.script-stuck-on-a`
+`-double-less-than` and its style twin SUPPRESSED_UNINTENDED → **SAFE** (the end tag is recognised and
+the reference renders `htmlWhite()`-escaped in the `<p>` after it, structural oracle unchanged). No
+F10 row records a defect any more, and `ScriptAndStyleElementTest.theFourDesyncRowsRecordNoDefectAt`
+`All` asserts exactly that. Tests: both halves of `ScriptAndStyleElementTest` inverted with their
+former names in the javadoc, `bothDesyncsHaveExactCssTwins` still comparing both halves,
+`onlyTemplateTextCanCauseADesync` passing **unchanged in substance** (two templates added, no
+assertion touched — the argument is about what an encoder can emit, and R17 does not touch an
+encoder); `CanoeStateMachineTest.scriptEndAcceptsATagNameItShouldNot` and
+`.scriptAndStyleEndSwallowTheCharacterThatMismatched` inverted; `TagNameTrackingTest` asserts both
+halves of the deferred naming; `theFourStatesAScriptOrStyleBodyCanBeIn` is now
+`.theSixStatesAScriptOrStyleBodyCanBeIn`. Coverage: two states (6 outcomes),
+`isEndTagNameDelimiter()` (14) and `asciiToLowerCase()` (4), all reached; Canoe 252/263 → 276/287 =
+96.17%, `reallyProcessChar()` 155/160 → 161/166 = 96.99%, the eleven dead outcomes unchanged, no
+floor moved. `./gradlew test` (5,922) and `canoeCoverageGate` green; `browserTest` green on Chromium.
 
 `Canoe.java:947-958` matches `/script` and immediately leaves script data state with no check that the
 next character is whitespace, `/` or `>`, so `</scriptfoo>` closes the element for Canoe and not for
@@ -1070,7 +1107,7 @@ a page with an author nonce and a real CSP), and §A.3 of the test plan is missi
 | F7 — `content` branch tests for `data` | Medium | R7 |
 | F8 — no tests, no docs, no threat model | Medium | R25 (tests: already delivered) |
 | F9 — `write(char[],int,int)` length/end confusion | Low (latent) | R15 |
-| F10 — `SCRIPT_END` accepts `</scriptfoo>` | Low (latent) | R17 |
+| F10 — `SCRIPT_END` accepts `</scriptfoo>` | Low (latent) | R17 ✅ (delimiter required, mismatch re-processed, fold bounded to ASCII) |
 | F11 — unquoted attribute references vanish | Low | R19 |
 | F12 — `#set` interpolation uses the wrong context | Low | R24 |
 | F13 — `[Encoding Error]` branch unreachable | Medium | R21, R20 |
@@ -1152,6 +1189,19 @@ fold into a task above.
    character that can start a tag name — but it is another place where the state machine is not a
    faithful model of the tokenizer, the same class as F10 and F14. Worth a comment at minimum; worth
    restricting to ASCII while R17 is open.
+
+   **Half-discharged by R17, and the half that mattered.** The same observation applies to the
+   *case fold*, not only to the character class, and there it was live rather than cosmetic:
+   `SCRIPT_END`/`CSS_END` matched the end tag name with `Character.toLowerCase()`, which maps U+0130
+   to `'i'`, so `</scr\u0130pt>` closed the script element for Canoe and not for the browser — F10's
+   forward desync, through a character the delimiter rule R17 added cannot see. R17 bounds that fold
+   with `asciiToLowerCase()`; a BMP sweep confirms U+0130 was the only code point whose fold reaches
+   `/script` or `/style`, so the end-tag side is now closed rather than narrowed. What is left is
+   the **opening** tag: `TAG_NAME` still folds Unicode and `isTagNameChar()` still accepts any
+   letter, so `<scr\u0130pt>` puts Canoe into `SCRIPT` where the browser has an unknown element.
+   That direction *suppresses* — fail-closed, an availability divergence and not a desync into a
+   live context — which is why R17 deliberately did not touch it. Still worth doing; still not
+   urgent.
 
 3. **Residue false positives in `detectAttributePrefix()` fail closed, which is why R3 is not
    urgent.** Because the method can only assign `ATTR_JS`, `ATTR_DATA` or `ATTR_ACTIONSCRIPT` — all

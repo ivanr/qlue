@@ -48,7 +48,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       family R3 closed.
  *   <li><strong>End tags carry the name without the slash</strong>, with {@code closingTag} saying
  *       which kind of tag it was — including the {@code </script>} and {@code </style>} end tags,
- *       which reach the TAG state through SCRIPT_END/CSS_END without ever passing TAG_NAME.
+ *       which reach the TAG state through SCRIPT_END/CSS_END without ever passing TAG_NAME, and
+ *       which since R17 are named only once the delimiter after the name has confirmed that there is
+ *       an end tag at all.
  * </ul>
  */
 public class TagNameTrackingTest {
@@ -189,15 +191,34 @@ public class TagNameTrackingTest {
      * tag whose name has been read implies tagName holds it" has no exception R9 could fall into:
      * the tail of {@code </script foo=...>} must not look like an opening {@code <script>} tag, and
      * must not look like no tag at all.
+     *
+     * <p>R17 moved the moment of assignment by one character and this test moved with it. Matching
+     * the name is no longer enough to be in an end tag — {@code </scriptfoo>} matches the name and is
+     * character data (F10) — so the fields are assigned in {@code SCRIPT_END_NAME}/
+     * {@code CSS_END_NAME}, once the delimiter has confirmed the tag. Both halves are asserted: at
+     * {@code </script} there is no confirmed tag and therefore no name, and one delimiter later there
+     * is. Assigning earlier would be the thing the javadoc above forbids — a name for a tag that does
+     * not exist.
      */
     @Test
     public void theScriptAndStyleEndTagsAreNamedDespiteSkippingTagName() throws IOException {
-        CanoeStateProbe script = new CanoeStateProbe().feed("<script>var a;</script");
+        CanoeStateProbe unconfirmed = new CanoeStateProbe().feed("<script>var a;</script");
+        assertEquals(Canoe.SCRIPT_END_NAME, unconfirmed.state());
+        assertNull(unconfirmed.tagName(),
+                "R17: the name is matched but the end tag is not confirmed until the character"
+                        + " after it, so there is no tag to name yet");
+
+        CanoeStateProbe script = new CanoeStateProbe().feed("<script>var a;</script ");
         assertEquals(Canoe.TAG, script.state());
         assertEquals("script", script.tagName());
         assertTrue(script.closingTag());
 
-        CanoeStateProbe css = new CanoeStateProbe().feed("<style>p{}</style");
+        CanoeStateProbe notAnEndTag = new CanoeStateProbe().feed("<script>var a;</scriptfoo");
+        assertEquals(Canoe.SCRIPT, notAnEndTag.state());
+        assertNull(notAnEndTag.tagName(),
+                "R17: '</scriptfoo' is script data, not an end tag, so nothing is named");
+
+        CanoeStateProbe css = new CanoeStateProbe().feed("<style>p{}</style ");
         assertEquals(Canoe.TAG, css.state());
         assertEquals("style", css.tagName());
         assertTrue(css.closingTag());

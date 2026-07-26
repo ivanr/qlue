@@ -86,12 +86,24 @@ public class CanoeStateMachineTest {
                         Canoe.SCRIPT, Canoe.CTX_JS),
                 row("part-way through a script close", "<script></scr",
                         Canoe.SCRIPT_END, Canoe.CTX_JS),
+                // R17: the name alone does not end script data - the character after it decides -
+                // so the whole name matched is its own state, and it is still CTX_JS there.
+                row("script close, name matched but unconfirmed", "<script>x</script",
+                        Canoe.SCRIPT_END_NAME, Canoe.CTX_JS),
                 row("closed script", "<script>x</script>", Canoe.HTML, Canoe.CTX_HTML),
+                // R17: a name with a suffix is not an end tag, so the machine is back in the script
+                // body - where it stays until a real end tag arrives.
+                row("script close with a suffix (R17)", "<script>x</scriptfoo>",
+                        Canoe.SCRIPT, Canoe.CTX_JS),
                 row("style body", "<style>", Canoe.CSS, Canoe.CTX_SUPPRESS),
                 row("style body, uppercase tag", "<STYLE>", Canoe.CSS, Canoe.CTX_SUPPRESS),
                 row("part-way through a style close", "<style></sty",
                         Canoe.CSS_END, Canoe.CTX_SUPPRESS),
+                row("style close, name matched but unconfirmed", "<style>a{}</style",
+                        Canoe.CSS_END_NAME, Canoe.CTX_SUPPRESS),
                 row("closed style", "<style>a{}</style>", Canoe.HTML, Canoe.CTX_HTML),
+                row("style close with a suffix (R17)", "<style>a{}</stylefoo>",
+                        Canoe.CSS, Canoe.CTX_SUPPRESS),
 
                 // --- attribute values, by attribute name ---
                 // Was "unrecognised attribute" until R5, when an unrecognised name stopped being
@@ -286,9 +298,9 @@ public class CanoeStateMachineTest {
      */
     @Test
     public void statesWithNoCaseFallThroughToSuppress() throws IOException {
-        Set<Integer> withACase = Set.of(Canoe.HTML, Canoe.SCRIPT, Canoe.SCRIPT_END, Canoe.URL,
-                Canoe.CSS, Canoe.CSS_END, Canoe.TAG, Canoe.TAG_NAME, Canoe.TAG_ATTR_NAME_AFTER,
-                Canoe.TAG_ATTR_VALUE);
+        Set<Integer> withACase = Set.of(Canoe.HTML, Canoe.SCRIPT, Canoe.SCRIPT_END,
+                Canoe.SCRIPT_END_NAME, Canoe.URL, Canoe.CSS, Canoe.CSS_END, Canoe.CSS_END_NAME,
+                Canoe.TAG, Canoe.TAG_NAME, Canoe.TAG_ATTR_NAME_AFTER, Canoe.TAG_ATTR_VALUE);
 
         for (Arguments arguments : (Iterable<Arguments>) transitions()::iterator) {
             String prefix = (String) arguments.get()[1];
@@ -317,33 +329,126 @@ public class CanoeStateMachineTest {
     // ------------------------------------------------------------------
 
     /**
-     * F10. {@code SCRIPT_END} matches the seven characters {@code /script} and returns to HTML with
-     * no check that what follows is whitespace, {@code /} or {@code >}. Per the HTML Standard's
-     * script-data-end-tag-name state, {@code </scriptfoo>} does not close a script element, so the
-     * browser stays in script data while Canoe believes it is back in HTML.
+     * F10's forward desync, closed by R17 and now inverted. Was
+     * {@code scriptEndAcceptsATagNameItShouldNot}: it pinned the defect that {@code SCRIPT_END}
+     * matched the seven characters {@code /script} and set {@code state = TAG} with no check on what
+     * followed, so {@code </scriptfoo>} returned Canoe to HTML while the browser's
+     * script-data-end-tag-name state kept it in script data — and every reference after it was
+     * encoded for a context that did not exist there.
+     *
+     * <p>R17 moves the decision to {@code SCRIPT_END_NAME}/{@code CSS_END_NAME}, which require the
+     * standard's delimiter — tab, LF, FF, CR, space, {@code /} or {@code >} — before the element is
+     * treated as closed. A name with any other character after it is not an end tag, and the machine
+     * returns to the element body, which is where the browser has been all along.
      */
     @Test
-    public void scriptEndAcceptsATagNameItShouldNot() {
-        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</scriptfoo>"),
-                "F10: Canoe thinks the script element closed, the browser does not");
-        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<style>x</stylefoo>"),
-                "F10: the same defect in CSS_END");
+    public void scriptEndRequiresADelimiterAfterTheName() {
+        // Closes: each of the delimiters the standard names, in both elements.
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</script>"),
+                "'>' closes, as it always did");
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<script>x</script "),
+                "R17: a space closes the name and leaves the parser inside the tag");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</script >"),
+                "R17: '</script >' is an end tag with trailing whitespace");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</script\t>"),
+                "R17: tab");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</script\n>"),
+                "R17: line feed");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</script\r>"),
+                "R17: carriage return, which the standard's preprocessing turns into a line feed");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</script\f>"),
+                "R17: form feed");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</script/>"),
+                "R17: '</script/>' - a '/' delimits the name, then TAG_EMPTY_ENDING takes the '>'");
+
+        // Does not close: anything else after the name is character data to the browser, so the
+        // element body continues.
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<script>x</scriptfoo>"),
+                "R17: '</scriptfoo>' closes nothing - Canoe and the browser now agree");
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<script>x</scriptx"),
+                "R17: and one extra character is enough to make it not an end tag");
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<script>x</scrip"),
+                "a partial name never closed anything");
+
+        // The CSS twins, character for character.
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<style>x</style>"));
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<style>x</style >"));
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<style>x</style/>"));
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<style>x</stylefoo>"),
+                "R17: the same rule in CSS_END_NAME; still CTX_SUPPRESS because the style body is"
+                        + " suppressed rather than JavaScript-escaped (R14/F21)");
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<style>x</stylex"));
     }
 
     /**
-     * The converse desync, also F10: {@code SCRIPT_END} returns to {@code SCRIPT} on a mismatch
-     * <em>without</em> re-processing the character, so a stray {@code <} swallows the one that would
-     * have started the real closing tag. Everything after it is suppressed.
+     * The other half of F10's forward desync, and the half R17 as first written left open: the name
+     * has to be matched with an <em>ASCII</em> fold.
+     *
+     * <p>The delimiter rule decides what happens after the name; this decides what counts as the
+     * name. The standard's script-data-end-tag-name and rawtext-end-tag-name states accept ASCII
+     * upper alpha and ASCII lower alpha and nothing else, so a non-ASCII code point in the run is
+     * "anything else" and the tokenizer stays in script data. {@code Character.toLowerCase()} is a
+     * Unicode fold, and it maps U+0130 LATIN CAPITAL LETTER I WITH DOT ABOVE onto {@code 'i'} - the
+     * one code point in the BMP whose fold lands anywhere in {@code /script} or {@code /style}. With
+     * it, an end tag spelled with U+0130 matched {@code /script}, closed the element for Canoe and
+     * not for the browser, and put {@code html()} or {@code url()} output into what the browser
+     * reads as JavaScript: F10's forward desync, unaffected by the delimiter check because the name
+     * genuinely does end at a {@code >}.
+     *
+     * <p>Same shape as {@code aNearMissOfScriptOrStyleIsAnOrdinaryElement} in
+     * {@code NearMissNameSweepTest}, at the closing tag and in the dangerous direction. The opening
+     * tag folds the same way and is deliberately left alone: there the divergence runs the other way
+     * - Canoe enters {@code SCRIPT} where the browser has an unknown element - which suppresses, and
+     * suppression is fail-closed.
      */
     @Test
-    public void scriptAndStyleEndSwallowTheCharacterThatMismatched() {
-        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<script>x = 1 <</script>"),
-                "F10: still inside SCRIPT, so the rest of the page is suppressed");
-        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x = 1 </script>"),
-                "the same template without the stray '<' closes correctly");
+    public void theEndTagNameIsMatchedWithAnAsciiFoldAndNotAUnicodeOne() {
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</SCRIPT>"),
+                "ASCII upper alpha still folds, so an uppercase end tag closes");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x</ScRiPt>"),
+                "...in any mixture");
 
-        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<style>a{}<</style>"),
-                "F10: the CSS twin, which the original finding does not mention");
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<script>x</scr\u0130pt>"),
+                "U+0130 lowercases to 'i' under Character.toLowerCase() and to itself under the"
+                        + " standard's ASCII fold: the run is character data and the element stays"
+                        + " open, for Canoe as for the browser");
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<script>x</scr\u0130pt><a href=\""),
+                "and so no attribute encoder is reachable after it either - the sharp form of the"
+                        + " desync, which is url() output landing in script data");
+
+        // The style twin cannot be reached by U+0130 - there is no 'i' in '/style' - and a sweep of
+        // the BMP finds no second code point that folds into either name, so there is no positive
+        // case to write for it. This row is the control that says so: U+017F LATIN SMALL LETTER
+        // LONG S is the nearest miss, it never matched 's' under either fold, and it still does not.
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<style>x</\u017Ftyle>"),
+                "the CSS twin closes nothing on a non-ASCII near miss, before R17 and after it");
+    }
+
+    /**
+     * F10's converse desync, closed by R17 and now inverted. Was
+     * {@code scriptAndStyleEndSwallowTheCharacterThatMismatched}: {@code SCRIPT_END} returned to
+     * {@code SCRIPT} on a mismatch <em>without</em> re-processing the character, so a stray
+     * {@code <} swallowed the one that would have started the real closing tag and everything after
+     * it was suppressed for the rest of the page.
+     *
+     * <p>R17 sets {@code charNeedsProcessing = true} on that path, the same idiom five other states
+     * in {@code reallyProcessChar()} already use, so the mismatching character is handed back to
+     * {@code SCRIPT}/{@code CSS} and a {@code <} there opens a fresh end tag.
+     */
+    @Test
+    public void scriptAndStyleEndReprocessTheCharacterThatMismatched() {
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x = 1 <</script>"),
+                "R17: the second '<' is re-processed, so the real </script> is recognised");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>x = 1 </script>"),
+                "the same template without the stray '<' closes, as it always did");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<script>a < b</script>"),
+                "R17: an ordinary comparison in the body no longer eats the character after it");
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<script>a < b"),
+                "...and a mismatch on its own leaves the machine in the script body, where it"
+                        + " belongs");
+
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<style>a{}<</style>"),
+                "R17: the CSS twin, which the original finding does not mention");
         assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<style>a{}</style>"));
     }
 
@@ -363,8 +468,9 @@ public class CanoeStateMachineTest {
      * comment-start/comment-start-dash state, so its single interior dash reaches only
      * {@code COMMENT_CLOSE_1}, and the {@code >} there returns to {@code COMMENT}. The HTML Standard
      * treats {@code <!--->} as an abrupt-closing empty comment. This is the same "not a faithful model
-     * of the tokenizer" class as F10, it is fail-closed (the rest of the page is suppressed, never
-     * mis-parsed), and R16 deliberately touches only {@code COMMENT_CLOSE_2}.
+     * of the tokenizer" class F10 was in — R17 has since closed that one — it is fail-closed (the rest
+     * of the page is suppressed, never mis-parsed), and R16 deliberately touches only
+     * {@code COMMENT_CLOSE_2}.
      */
     @Test
     public void aCommentEndingInThreeDashesNowCloses() {
