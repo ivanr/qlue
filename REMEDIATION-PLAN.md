@@ -98,8 +98,10 @@ This phase is where the exploitable findings live. Three of its tasks close thir
 
 ---
 
-**R1 — Add the regression harness for the routing change**
+**R1 — Add the regression harness for the routing change** — ✅ **DONE**
 *Closes:* nothing. *Depends on:* nothing.
+*Implemented as:* `RoutingTargetTest` — 9-row table asserting current behaviour, with the target
+context and the flipping task recorded per row; reviewed, no defects.
 
 Before touching `Canoe.java`, add a single test class that pins the *intended* end state of Phase A:
 for a representative name from each category — a recognised handler, an unrecognised handler, a URL
