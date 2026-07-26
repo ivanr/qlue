@@ -105,6 +105,25 @@ public class CanoeStateProbe extends Canoe {
         return unknownAttributeName;
     }
 
+    /**
+     * The element name R8 tracks for the duration of the tag, in lower case, or null when the
+     * parser is not inside a tag whose name has been read.
+     *
+     * <p>This is the field R9 and R10 will consult - "is the current element one of
+     * script/iframe/object/embed/link/base", "is this a meta whose http-equiv is refresh" - so what
+     * the tests assert through this accessor is exactly the value those decisions will be made on:
+     * available for every attribute of the tag, lower-cased however the template spelled it,
+     * stripped of an end tag's leading '/', and null again the moment the tag closes.
+     */
+    public String tagName() {
+        return tagName;
+    }
+
+    /** Whether the tag being parsed is an end tag; pairs with {@link #tagName()}. */
+    public boolean closingTag() {
+        return closingTag;
+    }
+
     /** Which quote style, if any, delimits the attribute value being parsed. */
     public int attrQuotes() {
         return attrQuotes;
@@ -128,10 +147,10 @@ public class CanoeStateProbe extends Canoe {
     /**
      * The character at one buffer index. Canoe no longer classifies attribute names or values by
      * fixed buffer index - R3 and R4 replaced both sets of hand-unrolled comparisons with bounded
-     * string comparisons - so this accessor exists for the tests that record what those comparisons
-     * used to read, and that nothing reads it now. (The one fixed-index read left in the class is
-     * TAG_NAME's script/style detection, which is residue-safe because the buffer is cleared on
-     * every {@code '<'}; R8 owns restructuring it.)
+     * string comparisons, and R8 retired the last fixed-index read, TAG_NAME's script/style
+     * detection, when it began keeping the completed tag name in a field of its own - so this
+     * accessor exists for the tests that record what those comparisons used to read, and that
+     * nothing reads it now.
      */
     public char bufferAt(int index) {
         return buf[index];

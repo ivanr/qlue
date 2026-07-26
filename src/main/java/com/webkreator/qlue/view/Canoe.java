@@ -407,6 +407,40 @@ public class Canoe extends Writer {
     private final Set<String> extraPlainTextAttributes;
 
     /**
+     * The name of the element whose tag is currently being parsed, in lower case, or null when the
+     * parser is not inside a tag whose name has been read.
+     *
+     * <p>The shared buffer cannot carry this: {@code buf} is reused for the first attribute name the
+     * moment one starts, so before R8 the element name was gone by the time
+     * {@link #setTagAttributeContext()} ran, and {@code src} on {@code <script>} was
+     * indistinguishable from {@code src} on {@code <img>} — F6's structural cause. This field is the
+     * enabler for R9 (an origin policy for {@code src}/{@code href} on the resource-loading elements
+     * {@code script}, {@code iframe}, {@code object}, {@code embed}, {@code link}, {@code base}) and
+     * R10 ({@code <meta http-equiv="refresh" content>}); nothing consumes it for a security decision
+     * until those land.
+     *
+     * <p>Lifecycle, which is the whole of what the field means:
+     *
+     * <ul>
+     *   <li><strong>Set</strong> when the tag name completes in the TAG_NAME state, after the name
+     *       has been validated and before any attribute is scanned. The name scan lower-cases as it
+     *       buffers — the same convention the attribute-name scan follows — so the field is lower
+     *       case and a comparison against a lower-case literal cannot be evaded by case. For an end
+     *       tag the leading {@code '/'} is not part of the name; {@link #closingTag} records which
+     *       kind of tag it was.
+     *   <li><strong>Set</strong> equally when SCRIPT_END or CSS_END recognises {@code </script} or
+     *       {@code </style} and enters the TAG state without ever passing through TAG_NAME, so the
+     *       invariant "inside a tag whose name has been read" has no exception for the two elements
+     *       whose end tag is matched by a different state.
+     *   <li><strong>Cleared</strong> when the tag ends — {@code '>'} in the TAG and TAG_EMPTY_ENDING
+     *       states — and again when a new tag opens on {@code '<'}, so body text, script and style
+     *       bodies, comments and DOCTYPEs never see the previous element's name, and an error path
+     *       that abandons a half-read name cannot leak the name before it into the next tag.
+     * </ul>
+     */
+    protected String tagName;
+
+    /**
      * The name of the attribute whose value is being scanned, when nothing recognised it.
      *
      * <p>Kept only for the diagnostic in {@link #currentContext()}: a suppressed value is otherwise
@@ -846,6 +880,10 @@ public class Canoe extends Writer {
                         state = TAG_NAME;
                         closingTag = false;
                         resetBuffer();
+                        // No stale element name while the new one is being read; an
+                        // error that abandons this tag mid-name leaves null, never
+                        // the previous tag's name.
+                        tagName = null;
                         tagCount++;
                     } else {
                         // Non-markup character
@@ -969,23 +1007,32 @@ public class Canoe extends Writer {
                             return;
                         }
 
+                        // Keep the element name past the point where buf is reused
+                        // for attribute names (R8). Already lower case - the scan
+                        // folds as it buffers - and without the leading '/' of an
+                        // end tag, which closingTag records. bufLen counts the name
+                        // plus the NUL terminator written above.
+                        tagName = closingTag
+                                ? new String(buf, 1, bufLen - 2)
+                                : new String(buf, 0, bufLen - 1);
+
                         // By default, the next state
                         // (inside tag) is HTML
                         nextState = HTML;
 
-                        // Detect <script> and <style> tags
+                        // Detect <script> and <style> tags. A bounded comparison of
+                        // the name the current scan wrote, not fixed buffer indices:
+                        // this was the one fixed-index read R3 and R4 left behind
+                        // (residue-safe only because resetBuffer() runs on every
+                        // '<'), and R8 retired it along with the reason it needed
+                        // that defence.
                         if (!closingTag) {
-                            if ((buf[0] == 's') && (buf[1] == 'c')
-                                    && (buf[2] == 'r') && (buf[3] == 'i')
-                                    && (buf[4] == 'p') && (buf[5] == 't')
-                                    && (buf[6] == '\0')) {
+                            if (tagName.equals("script")) {
                                 // Script
                                 nextState = SCRIPT;
                             }
 
-                            if ((buf[0] == 's') && (buf[1] == 't')
-                                    && (buf[2] == 'y') && (buf[3] == 'l')
-                                    && (buf[4] == 'e') && (buf[5] == '\0')) {
+                            if (tagName.equals("style")) {
                                 // Style
                                 nextState = CSS;
                             }
@@ -1005,6 +1052,8 @@ public class Canoe extends Writer {
                         return;
                     } else {
                         state = nextState;
+                        // The tag is over; what follows must not see its name.
+                        tagName = null;
                     }
                     break;
 
@@ -1013,6 +1062,8 @@ public class Canoe extends Writer {
                     if (c == '>') {
                         // Switch to the state we decided on earlier
                         state = nextState;
+                        // The tag is over; what follows must not see its name.
+                        tagName = null;
                     } else if (c == '/') {
                         // Seems like the end of an empty element
                         state = TAG_EMPTY_ENDING;
@@ -1196,6 +1247,14 @@ public class Canoe extends Writer {
                         if (jsEnd.length() == bufLen + 1) {
                             state = TAG;
                             nextState = HTML;
+                            // The parser is inside "</script" now, having entered
+                            // TAG without passing TAG_NAME, so set what TAG_NAME
+                            // would have: this is the script element's end tag.
+                            // Neither field is read again on this path today; they
+                            // are kept truthful so that R9 cannot mistake the tail
+                            // of an end tag for an opening <script>.
+                            closingTag = true;
+                            tagName = jsEnd.substring(1);
                         } else {
                             bufLen++;
                         }
@@ -1217,6 +1276,10 @@ public class Canoe extends Writer {
                         if (cssEnd.length() == bufLen + 1) {
                             state = TAG;
                             nextState = HTML;
+                            // As in SCRIPT_END: the state entered TAG mid-way
+                            // through "</style", so record the end tag it is in.
+                            closingTag = true;
+                            tagName = cssEnd.substring(1);
                         } else {
                             bufLen++;
                         }

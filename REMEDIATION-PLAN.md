@@ -388,8 +388,16 @@ moved; the `refresh.meta-content` corpus row is re-verdicted.
 
 ---
 
-**R8 — Track the current tag name through attribute parsing**
+**R8 — Track the current tag name through attribute parsing** — ✅ **DONE**
 *Closes:* nothing on its own. *Depends on:* Phase A.
+*Landed:* a `tagName` field holds the element name, lower-cased, for the duration of the tag —
+set when TAG_NAME completes (and on the SCRIPT_END/CSS_END paths that reach TAG without passing
+TAG_NAME), cleared on `>` and on the next `<` so body text, script/style bodies, comments and
+DOCTYPEs never see a stale name. No behaviour change (ledger unchanged); it is the value R9 and
+R10 will read. As a bonus it retired the last fixed-index `buf[]` read — TAG_NAME's script/style
+detection is now `tagName.equals(...)`. `TagNameTrackingTest` pins the field's lifecycle;
+coverage floors moved down (Canoe 0.96→0.95, reallyProcessChar 0.97→0.96) purely because 13
+always-covered comparison branches became 2, with no new dead branch.
 
 Canoe discards the tag name the moment it starts parsing attributes, because `buf` is reused at
 `Canoe.java:787`. Add a separate field holding the element name for the duration of the tag. No

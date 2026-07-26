@@ -250,18 +250,18 @@ jacocoTestReport {
  *      keeps this entry from coming back.
  *
  *   reallyProcessChar(), 5 outcomes
- *      1  the default arm of switch(state) (Canoe.java:840). Nineteen states have a case; the two
+ *      1  the default arm of switch(state) (Canoe.java:874). Nineteen states have a case; the two
  *         that do not are URL, which nothing ever assigns, and INVALID, which is only ever assigned
  *         immediately before raiseError() throws.
  *         -> AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss (URL is dead),
  *            CanoeRobustnessTest (every raiseError message, each of which escapes)
- *      1  the default arm of switch(attrQuotes) (Canoe.java:1133). attrQuotes is assigned exactly
- *         one of QUOTE_NONE/QUOTE_SINGLE/QUOTE_DOUBLE at Canoe.java:1118-1124 and nowhere else.
- *      1  "Internal error #1001" (the bufLen == buf.length test at Canoe.java:1173). Value scanning
+ *      1  the default arm of switch(attrQuotes) (Canoe.java:1184). attrQuotes is assigned exactly
+ *         one of QUOTE_NONE/QUOTE_SINGLE/QUOTE_DOUBLE and nowhere else.
+ *      1  "Internal error #1001" (the bufLen == buf.length test at Canoe.java:1224). Value scanning
  *         gives up at bufLen == 10, so bufLen can never equal buf.length.
  *         -> CanoeRobustnessTest.everyRaiseErrorMessageIsReached lists the twelve that are.
- *      2  UNMEASURABLE rather than unreached: Canoe.java:873 (COMMENT_OPEN_OR_DOCTYPE's else) and
- *         Canoe.java:893 (COMMENT_OPEN_2's else), whose failing outcome enters a block that calls
+ *      2  UNMEASURABLE rather than unreached: Canoe.java:911 (COMMENT_OPEN_OR_DOCTYPE's else) and
+ *         Canoe.java:931 (COMMENT_OPEN_2's else), whose failing outcome enters a block that calls
  *         raiseError() and then falls through to `break` with no `return`. raiseError() always
  *         throws, so no JaCoCo probe downstream of those blocks is ever executed and the outcome
  *         is reported missed. Both are exercised:
@@ -270,13 +270,25 @@ jacocoTestReport {
  *         Every raiseError() call site in the file reports zero instruction coverage for the same
  *         reason, including the thirteen the suite provably reaches.
  *
+ *   R8 moved the two class/method floors down (Canoe class 0.96 -> 0.95, reallyProcessChar
+ *   0.97 -> 0.96) without adding a single unreached branch. It replaced TAG_NAME's script/style
+ *   detection - two `&&` chains of fixed buf[] index reads, thirteen branch outcomes, all of them
+ *   always covered - with `tagName.equals("script")`/`.equals("style")`, two outcomes, still always
+ *   covered. Retiring those thirteen live branches shrank the denominator, so the eleven genuinely
+ *   dead outcomes inventoried here (5 reallyProcessChar + 2 currentContext + 4 inBuf) are now a
+ *   larger share of a smaller total: 245/256 = 95.70% for the class, 153/158 = 96.84% for the
+ *   method. Same eleven, no twelfth.
+ *   -> TagNameTrackingTest.theScriptAndStyleEndTagsAreNamedDespiteSkippingTagName and
+ *      theNameIsClearedTheMomentTheTagEnds reach both new equals outcomes and the closingTag
+ *      ternary; nothing R8 added is unreached.
+ *
  *   currentContext(), 2 outcomes  (not gated individually; part of the class figure)
  *      1  `case URL` - the URL state is declared and never assigned.
  *      1  the inner `default:` - all seven ATTR_* constants have a case above it, ATTR_UNKNOWN
  *         included since R5. F21.
  *
  *   inBuf(), 4 outcomes  (not gated individually; part of the class figure)
- *      4  the method is called only from commented-out debug statements (Canoe.java:957, 1056).
+ *      4  the method is called only from commented-out debug statements (Canoe.java:995, 1107).
  *
  *   HtmlEncoder, 2 outcomes
  *      1  the null guard of the private css(String, StringBuilder). The public css(String) returns
@@ -295,10 +307,10 @@ jacocoTestReport {
  *   both fully covered by HtmlEncoderUrlTest bar the one short-circuit outcome above.
  */
 ext.canoeCoverageFloors = [
-        [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.96],
+        [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],
         [kind: 'class',  target: 'com/webkreator/qlue/util/HtmlEncoder', floor: 0.99],
         [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#setTagAttributeContext', floor: 0.99],
-        [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#reallyProcessChar',      floor: 0.97],
+        [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#reallyProcessChar',      floor: 0.96],
         [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#normalisePlainTextAttributeNames',
          floor: 0.99],
 ]
