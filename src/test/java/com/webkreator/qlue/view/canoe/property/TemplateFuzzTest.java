@@ -251,11 +251,35 @@ public class TemplateFuzzTest {
             }
         }
 
-        // 3. No structural divergence.
-        String benignShape = VerdictEvaluator.domSkeleton(Jsoup.parse(benign.output()));
-        String attackedShape = VerdictEvaluator.domSkeleton(Jsoup.parse(attacked.output()));
-        if (!benignShape.equals(attackedShape)) {
-            return "the document skeleton diverged: " + benignShape + " vs " + attackedShape;
+        // 3. No structural divergence - unless the value was suppressed, in which case there is no
+        //    attacker byte in the output to have diverged anything.
+        //
+        //    The exemption is VerdictEvaluator.observe()'s first step, imported here because R19 is
+        //    where the two oracles first disagreed. The corpus oracle compares the attacked render
+        //    against a render with an empty value before it judges any sink, and calls an exact match
+        //    a suppression rather than looking for an injection in it; this oracle only ever compared
+        //    against the INERT_MARKER render, which cannot tell "the payload built markup" from "the
+        //    payload was suppressed and the marker was not".
+        //
+        //    R19 made that distinction reachable. `<img src=${data} alt="a">` is a generator host, and
+        //    until R19 it rendered `<img src= alt="a">` for every value including the marker, so both
+        //    sides were equally broken and the property held vacuously. Now the marker renders and a
+        //    rejected scheme does not, and an unquoted attribute whose value is EMPTY swallows the
+        //    next attribute - the browser reads `alt="a"` as src's unquoted value, so the skeleton
+        //    loses `alt`. That is data loss and it is worth knowing about (see
+        //    UnquotedAttributeValueTest.anEmptyUnquotedValueSwallowsTheNextAttribute), but it is not
+        //    an injection: the output contains no character the payload contributed, which is exactly
+        //    what `attacked.output().equals(empty.output())` establishes. It is also strictly better
+        //    than what F11 did, which was to render every unquoted value empty unconditionally.
+        //
+        //    Property 2 above is unaffected and still runs against the empty render, so a payload that
+        //    adds a delimiter is caught whether or not it was suppressed, and property 4 still runs.
+        if (!attacked.output().equals(empty.output())) {
+            String benignShape = VerdictEvaluator.domSkeleton(Jsoup.parse(benign.output()));
+            String attackedShape = VerdictEvaluator.domSkeleton(Jsoup.parse(attacked.output()));
+            if (!benignShape.equals(attackedShape)) {
+                return "the document skeleton diverged: " + benignShape + " vs " + attackedShape;
+            }
         }
 
         // 4. No steering: the contexts seen at each reference position must be identical.
@@ -483,6 +507,30 @@ public class TemplateFuzzTest {
         assertViolation("<p>$_x.asis($data)</p>", Payloads.TAG_SCRIPT.value(),
                 "a script element, which the parser hoists into <head> and which also moves the"
                         + " context sequence for anything after it");
+
+        // The unquoted host, which R19 made live and which property 3 now exempts when the value is
+        // suppressed. The exemption must be exactly that narrow: an unencoded value in the same
+        // position still builds an attribute and must still be caught, or the exemption has blinded
+        // the oracle to the one shape it was written for.
+        assertViolation("<img src=$_x.asis($data) alt=\"a\">",
+                Payloads.ATTR_UNQUOTED_BREAKOUT.value(),
+                "a new attribute out of an unquoted value, which is the position the suppression"
+                        + " exemption in check() covers");
+
+        // ...and the same shape again with a payload that carries no markup delimiter at all, which
+        // is what makes it evidence about property 3 rather than about property 2. ATTR_UNQUOTED_
+        // BREAKOUT above contains two apostrophes, so property 2 reports it and returns before the
+        // skeleton is ever compared - the row is a true statement about the oracle as a whole and no
+        // statement at all about the exemption. This one changes no delimiter count (the quotes in
+        // the output are the template's own alt="a"), so property 2 is silent, the value is not
+        // suppressed so the exemption does not apply, and the violation has to be the skeleton one.
+        // Asserted by name: if the exemption ever widens to cover this, the assertion says which
+        // property went quiet instead of merely that something still fires.
+        assertViolationIs("the document skeleton diverged",
+                "<img src=$_x.asis($data) alt=\"a\">",
+                "x onmouseover=" + Payloads.SENTINEL_FUNCTION + "(1)",
+                "a new attribute out of an unquoted value, built from characters property 2 does"
+                        + " not count");
     }
 
     /**
@@ -508,6 +556,19 @@ public class TemplateFuzzTest {
     private static void assertViolation(String template, String value, String what) {
         assertTrue(check(template, value) != null,
                 () -> "the oracle failed to notice " + what + " in " + template);
+    }
+
+    /**
+     * As {@link #assertViolation}, but pins <em>which</em> property fired. Needed wherever the point
+     * of a row is that one named property still works: {@link #check} returns on the first violation
+     * it finds, so a row whose payload trips an earlier property says nothing about a later one.
+     */
+    private static void assertViolationIs(String expected, String template, String value,
+                                          String what) {
+        String violation = check(template, value);
+        assertTrue(violation != null && violation.startsWith(expected),
+                () -> "the oracle was expected to report \"" + expected + "\" for " + what + " in "
+                        + template + ", and reported: " + violation);
     }
 
     /**

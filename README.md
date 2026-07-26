@@ -28,7 +28,7 @@ It is a real defence and it is **not** a complete XSS defence; the paragraph abo
 
 **What is suppressed.** A reference inside a `<script>` or `<style>` element, inside one of the
 twenty-one `on*` attributes Canoe recognises, inside a `style` or `data` attribute, in a tag name or
-attribute name position, in an unquoted attribute value, or after a recognised `javascript:`,
+attribute name position, inside a comment or a DOCTYPE, or after a recognised `javascript:`,
 `livescript:`, `mocha:`, `asfunction:` or `data:` value prefix renders as **the empty string**.
 Canoe does not try to escape into JavaScript or CSS; it refuses to write there at all. This is the
 centrepiece of the design and it is why `<script>var x = '$name';</script>` silently produces

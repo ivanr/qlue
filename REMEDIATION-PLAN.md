@@ -955,8 +955,8 @@ takes the whole page down with `DOCTYPE declaration must be at the beginning`. T
 
 ---
 
-**R19 — Handle `TAG_ATTR_VALUE_BEFORE` in `currentContext()`**
-*Closes:* F11. *Depends on:* Phase A.
+**R19 — Handle `TAG_ATTR_VALUE_BEFORE` in `currentContext()`** — ✅ **DONE**
+*Closes:* F11 (the attribute-value half; see below). *Depends on:* Phase A.
 
 `<a href=$x>` inserts the reference while the parser is still in `TAG_ATTR_VALUE_BEFORE` — the quote
 that would advance it never arrives — and `currentContext()` has no case for that state, so it falls
@@ -968,6 +968,114 @@ silent: this is the failure mode that pushes developers to `allowDirectOutput()`
 which turns Canoe off for that value entirely.
 
 *Done when:* the `unquoted-after-equals` corpus row moves off `SUPPRESSED_UNINTENDED`.
+
+*Landed:* `currentContext()` answers `TAG_ATTR_VALUE_BEFORE` with the same thing it answers
+`TAG_ATTR_VALUE` — the attribute's name-derived context — by sharing its `case` label. One line of
+code and forty of comment, and the ratio is the point: the change is trivial and the argument that it
+is safe is not. **Why the name-derived context is available at all:** the state is entered only from
+`TAG_ATTR_NAME_AFTER` on `=`, which is only reachable from `TAG_ATTR_NAME`, which calls
+`setTagAttributeContext()` before it leaves — so `attributeContext` there is this attribute's own and
+never a leftover, which is F5's failure mode and is asserted rather than read off the control flow
+(`CanoeStateMachineTest.theContextInValueBeforeBelongsToTheAttributeInFront`). What it has *not* been
+through is `detectAttributePrefix()`, and it does not need to be: that runs on value characters, can
+only narrow since R2, and a reference sitting directly after the `=` has no value characters in front
+of it. **Why routing it is safe** — the load-bearing argument, checked against the encoders rather
+than assumed: an unquoted value ends at whitespace or `>`, for Canoe (`TAG_ATTR_VALUE`,
+`QUOTE_NONE`) and for the standard's attribute-value-unquoted state, which treats `"`, `'`, `<`, `=`
+and `` ` `` as a parse error that stays *inside* the value; and the first character decides the
+quoting, so a leading quote would be read as an opening one. `htmlAttr()` is `html()`, which escapes
+every non-alphanumeric — space is `&#32;`, `>` is `&gt;`, a C0 control is the four printable
+characters `\xNN` — and whose whole output alphabet is alphanumerics plus `&`, `#`, `;` and `\`;
+`url()` emits the unreserved set, the four per-component safe sets (`AUTHORITY_SAFE`, `PATH_SAFE`,
+`RELATIVE_PATH_SAFE`, `QUERY_SAFE` — no quote, no space, no angle bracket in any of them), `%XX`
+escapes, `&amp;`, and the structural `:`/`//`/`?`/`#` it writes from its own parse; `urlResource()`
+returns `url()`'s output or nothing; every other `ATTR_*` returns the empty string. No terminator, and
+no leading quote, from any of them. The argument is executable, not prose:
+`UnquotedAttributeValueTest.noEncoderReachableFromAnAttributeValueCanTerminateAnUnquotedOne` sweeps
+all 60 catalogue payloads through every context an attribute name can produce — collected by running
+the machine, not written down, so a sixth context fails
+`.theSweepCoversEveryContextAnAttributeNameCanProduce` rather than escaping the sweep — through both
+the static dispatcher and the instance path with a CDN allowlist configured, so the `CTX_URI_RESOURCE`
+rows are not vacuous against the empty string. **Fuzz counterexample, found by the run and fixed with
+it.** `TemplateFuzzTest` failed at iteration 79 on `<img src=${data} alt="a">`: an unquoted attribute
+whose value renders *empty* is not an empty attribute — the browser reads `alt="a"` as `src`'s value —
+so the skeleton loses `alt` when the payload suppresses and the marker does not. It is a property of
+HTML, it fires for a legitimately empty model value too, and F11 produced it *unconditionally* for
+every unquoted value, so R19 shrinks it rather than introduces it. It is not an injection either: the
+attacked output is byte-identical to the empty-value output, so no attacker byte is in the document,
+and property 3 of the fuzz oracle now carries the suppression precedence `VerdictEvaluator.observe()`
+has always had (compare against the empty render first; an exact match is a suppression, not an
+injection). Property 2 still runs unconditionally and two self-test rows on
+`<img src=$_x.asis($data) alt="a">` hold the exemption to its scope. The first, with
+`ATTR_UNQUOTED_BREAKOUT`, was reviewed and found **insufficient on its own** and is kept rather than
+replaced: that payload carries two apostrophes, so property *2* reports it and `check()` returns
+before the skeleton is ever compared — a true statement about the oracle as a whole and no statement
+at all about the exemption. The second, added in review, uses a delimiter-free
+`x onmouseover=__canoePwned(1)`, which changes no character count property 2 watches and is not
+suppressed, and asserts the violation **by name** (`assertViolationIs("the document skeleton
+diverged", …)`) so the row cannot be satisfied by a different property going off. That is the row
+that proves property 3 still fires in the exempted position. Emitting `""` for a suppressed value would repair
+`<img src=$x alt="a">` and break `<a href=$base/p>` (currently `<a href=/p>`, which would become
+`<a href=""/p>` plus a stray `p` attribute), and would make `Canoe.encode()` depend on parser position
+and on emptiness; the template-level answer — quote the value — has no such trade, so this is the
+**residual R19 deliberately leaves**, pinned by
+`UnquotedAttributeValueTest.anEmptyUnquotedValueSwallowsTheNextAttribute` and documented in
+`qlue_user_guide.md`. **F11 is closed in part, and the plan's heading now says so.** Its other holes —
+`TAG_ATTR_NAME`, `TAG_EMPTY_ENDING`, the `COMMENT_*`/`DOCTYPE_*` states, `INVALID` — stay
+`CTX_SUPPRESS`, because `TAG_ATTR_VALUE_BEFORE` had a name-derived answer waiting for it and none of
+the others has an encoder at all; the four remaining `SUPPRESSED_UNINTENDED` cases are exactly those.
+Ledger: 1005 → **1008** invocations, 276 → **277** cases. `SUPPRESSED_UNINTENDED` **18 → 12** (the six
+F11 invocations leave), `SAFE` **462 → 469**, `KNOWN_VULNERABLE` **66 → 68**, `SUPPRESSED_BY_DESIGN`
+415 and `REJECTED` 44 unchanged. Per row: `unquoted.immediately-after-equals` and
+`unquoted.whitespace-then-reference` go SUPPRESSED_UNINTENDED ×3 → **SAFE ×2 + KNOWN_VULNERABLE ×1**
+each, re-verdicted by reading the rendered output against the sink payload by payload — the unquoted
+form now renders byte-for-byte what `<a href="$data">` renders minus the quotes, so
+`PROTOCOL_RELATIVE/slashes` arrives as `//attacker.invalid/x.js` (F6, the residual R26 tracks) and the
+two backslash spellings are percent-escaped to same-origin paths. **The citation moves with the
+verdict**, F11 → **F6**, on the same rule R7 applied: a case cites the finding its *current* verdict is
+about. F11 keeps a case rather than joining `FINDINGS_WITHOUT_CASES` — the new
+`unquoted.plain-text-after-equals` (`<span title=$data>x</span>`, `ATTR_BREAKOUT` ×3, **SAFE**, citing
+F11), which is where the safety argument lives in the ledger: `ATTR_BREAKOUT/unquoted-attr` is
+`x onmouseover=…`, the payload built to end an unquoted value, and `html()` escapes its space to
+`&#32;` and its `=` to `&#61;`. Finding coverage: F6 30 cases/424 invocations/66 KV →
+**32/430/68**; F11 2/6/0 → **1/3/0**. Tests: `CanoeStateMachineTest`
+`.unquotedValuesAreSuppressedOnlyImmediatelyAfterTheEquals` inverted to
+`.unquotedValuesTakeTheirNameDerivedContextImmediatelyAfterTheEquals`, keeping the former name and
+the reasoning in its javadoc; its two `(F11)` transition rows re-labelled `(R19)` and moved from
+`CTX_SUPPRESS` to `CTX_HTML_ATTR`, with five more added for the other classifications; the class
+javadoc's prediction that a context-only table would report this fix as a regression is marked as
+having come true; `statesWithNoCaseFallThroughToSuppress` gains `TAG_ATTR_VALUE_BEFORE` in its
+`withACase` set, which is where the security decision is visible. New `UnquotedAttributeValueTest`
+owns the position: a twelve-row rendered-output table across every shape (`<a href=$x>`,
+`<a href="$x">` unchanged, `<a href= $x>`, `<div id=$x>`, `<span title=$x>`, `<script src=$x>` with a
+relative and an off-origin value, `<div style=$x>`, `<a onclick=$x>`, an unlisted name, an empty
+value, and a value followed by another attribute), a per-payload equivalence between the quoted and
+unquoted forms at the DOM, the terminator sweep, the two parser-position tests, the `/`-before-`>`
+trap, and the diagnostic. Two additions made in review: `.theSweepCoversEveryContextAnAttributeName`
+`CanProduce` now also asserts the set of `ATTR_*` classifications `Canoe` declares, because its
+javadoc claimed a new classification would fail it and a probe-template list cannot do that on its
+own — a ninth `ATTR_*` would simply reach no probe; and
+`.aSecondReferenceInsideTheSwallowedRegionKeepsTheSwallowingAttributesContext` pins the half of the
+swallowing residual the original argument skipped, that the swallowed region may hold **another
+reference** rather than only literal text. It is one attribute value to both tokenizers, so
+`<a href=$a onclick=$b>` encodes `$b` with `url()` and produces no `onclick` attribute at all, and
+`<a onclick=$a href=$b>` suppresses `$b` too because `attributeContext` is still `ATTR_JS` — the
+agreement that keeps the residual data loss rather than an F10-class tokenizer divergence.
+Prose corrected where R19 falsified it: `README.md` and
+`qlue_user_guide.md` both listed "an unquoted attribute value" among what Canoe suppresses (the guide
+gains the empty-value warning instead), and the F11 mentions in `AttributePrefixTest`,
+`BodyContextTest`, `AttributeNameMatrixTest`, `Verdict` and `ViewFactoryRenderTest` are re-tensed and
+scoped. Coverage: **nothing moved**, and the reason is recorded in `build.gradle` rather than left to
+look like an oversight — and it was checked against the JaCoCo XML rather than asserted: javac compiles the two `case` keys to one jump target and JaCoCo counts a
+switch's distinct targets, so `currentContext()` is 11/13 exactly as before, Canoe 278/289 = 96.19%,
+`reallyProcessChar` 163/168 = 97.02%, the eleven dead outcomes unchanged (the new label routes to the
+*same* inner switch, so it cannot make the inner default reachable), no floor moved. `./gradlew test`
+(6,083 tests, the last of them added in review) and `canoeCoverageGate` green. `browserTest` green on Chromium — 91 passed, 2 skipped
+(Firefox and WebKit are not installed here) — and it is not a formality this time:
+`unquoted.immediately-after-equals` and `unquoted.plain-text-after-equals` were made browser-relevant,
+taking the tier 62/18/44/0 → **65/19/46/0**, and Chromium fires the sentinel-origin detector on
+`<a href=//attacker.invalid/x.js>` exactly as it does on the quoted twin `url.href-full`. That is the
+safety argument checked by a real parser rather than by jsoup.
 
 ---
 
@@ -1152,7 +1260,7 @@ a page with an author nonce and a real CSP), and §A.3 of the test plan is missi
 | F8 — no tests, no docs, no threat model | Medium | R25 (tests: already delivered) |
 | F9 — `write(char[],int,int)` length/end confusion | Low (latent) | R15 |
 | F10 — `SCRIPT_END` accepts `</scriptfoo>` | Low (latent) | R17 ✅ (delimiter required, mismatch re-processed, fold bounded to ASCII) |
-| F11 — unquoted attribute references vanish | Low | R19 |
+| F11 — unquoted attribute references vanish | Low | R19 ✅ (`TAG_ATTR_VALUE_BEFORE` shares `TAG_ATTR_VALUE`'s case label); the `COMMENT_*`/`DOCTYPE_*` half of the finding is deliberately left suppressing |
 | F12 — `#set` interpolation uses the wrong context | Low | R24 |
 | F13 — `[Encoding Error]` branch unreachable | Medium | R21, R20 |
 | F14 — comment ending in three dashes never closes | Low | R16 |

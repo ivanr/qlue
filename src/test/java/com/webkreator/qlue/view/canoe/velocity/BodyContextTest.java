@@ -429,6 +429,11 @@ public class BodyContextTest {
      * value vanishes with no error and no diagnostic, and the documented remedy is
      * {@code $_x.asis()}, which disables Canoe for that value entirely. A generator stamp or a build
      * marker built from a reference renders empty.
+     *
+     * <p>R19 closed F11's attribute-value half — {@code TAG_ATTR_VALUE_BEFORE} has a name-derived
+     * answer waiting for it — and stopped there. These states have no encoder at all: interpolating
+     * into a comment would need {@code -->} and the nested-comment rules modelled first. So the holes
+     * here are the ones that remain, and they remain deliberately.
      */
     @Test
     public void everythingInsideACommentIsSuppressed() {

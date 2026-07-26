@@ -556,7 +556,9 @@ public class AttributeNameMatrixTest {
      * <p>It is also the second reason the {@code ATTR_*} value is asserted alongside the context
      * throughout this file: at the context level a correctly-classified {@code style} attribute is
      * indistinguishable from one that fell through a hole in the switch, which is exactly the
-     * ambiguity F11 is made of.
+     * ambiguity F11 was made of. R19 closed F11's attribute-value hole and left the comment and
+     * DOCTYPE ones, so the ambiguity is smaller and the reason for asserting the {@code ATTR_*} value
+     * is unchanged.
      */
     @Test
     public void thereIsNoCtxCssAndStyleStillSuppresses() throws IOException {
@@ -1011,8 +1013,9 @@ public class AttributeNameMatrixTest {
     /**
      * The diagnostic R5 owes a developer: which attribute the value went missing in.
      *
-     * <p>A suppressed value is otherwise indistinguishable from an empty one — that is F11's whole
-     * complaint and it applies to every name the fail-closed default catches. Canoe logs the name at
+     * <p>A suppressed value is otherwise indistinguishable from an empty one — that was F11's whole
+     * complaint, and it applies to every name the fail-closed default catches whether or not R19 has
+     * routed the position the reference sits in. Canoe logs the name at
      * debug level from {@code currentContext()}, which is called once per inserted reference, so the
      * message appears for the drop rather than for every attribute on the page.
      *

@@ -1662,6 +1662,16 @@ public class Canoe extends Writer {
      * the attribute and the position, because "a value went missing somewhere on
      * the page" is the complaint this exists to answer.
      *
+     * <p><strong>R19 gave {@link #TAG_ATTR_VALUE_BEFORE} the same answer as
+     * {@link #TAG_ATTR_VALUE}.</strong> See the case label below for why that is safe;
+     * the reason it is necessary is F11. {@code <a href=$x>} inserts the reference
+     * while the parser is still waiting for the quote that decides the value's
+     * quoting style, and that quote never arrives, so the state had no case here and
+     * fell to the trailing {@code CTX_SUPPRESS}: the value vanished with no error and
+     * no diagnostic. {@code <a href=/p/$y>} worked, because one literal character is
+     * enough to reach {@code TAG_ATTR_VALUE}, so the defect was invisible in exactly
+     * the templates that were nearly right.
+     *
      * @return current output context
      */
     public int currentContext() {
@@ -1685,6 +1695,70 @@ public class Canoe extends Writer {
             case TAG_ATTR_NAME_AFTER:
                 return CTX_SUPPRESS;
 
+            // An unquoted value, judged by the attribute's name (R19, F11). The state is entered
+            // from TAG_ATTR_NAME_AFTER on '=', which is only reachable through TAG_ATTR_NAME, which
+            // calls setTagAttributeContext() before it leaves - so attributeContext is this
+            // attribute's own classification and never a leftover from an earlier one. What it has
+            // not been through is detectAttributePrefix(), which runs on value characters and can
+            // only ever narrow; a reference sitting directly after the '=' has no value characters
+            // in front of it, so there is nothing to narrow from and the name-derived answer is the
+            // whole answer.
+            //
+            // WHY THIS IS SAFE, and it is the whole argument for the case label. An unquoted value
+            // ends at whitespace or '>' - for this tokenizer (TAG_ATTR_VALUE, QUOTE_NONE) and for
+            // the HTML Standard's attribute-value-unquoted state, which additionally treats '"',
+            // '\'', '<', '=' and '`' as a parse error that stays *inside* the value. And the first
+            // character decides the quoting: a leading '"' or '\'' would be read as an opening quote
+            // here and in the standard's before-attribute-value state. So routing this state is safe
+            // exactly when no encoder reachable from it can emit whitespace or '>' anywhere, or a
+            // quote at the front. Checked against each of them rather than assumed:
+            //
+            //   ATTR_HTML -> HtmlEncoder.htmlAttr(), which is html(): everything outside [A-Za-z0-9]
+            //     becomes a character reference, so space is "&#32;", '>' is "&gt;", '"' is "&quot;"
+            //     and '\'' is "&#39;". A C0 control becomes the four printable characters \xNN. The
+            //     output alphabet is alphanumerics plus '&', '#', ';' and '\', and holds no
+            //     terminator. (The character reference is decoded into the value by the browser, not
+            //     re-tokenized: the character-reference state appends to the current attribute value
+            //     and returns, so "&#32;" is a space *in* the value and not the end of it.)
+            //   ATTR_URI -> HtmlEncoder.url(), whose alphabet is the unreserved set [A-Za-z0-9-._~],
+            //     the per-component safe delimiters (AUTHORITY_SAFE, PATH_SAFE, RELATIVE_PATH_SAFE,
+            //     QUERY_SAFE - none of which contains a quote, a space, '<' or '>'), the structural
+            //     "//", ':', '?', '#' it emits itself, "&amp;" for an ampersand, and %XX escapes.
+            //     Anything else, including every whitespace character and every quote, is
+            //     percent-escaped. It cannot start with a quote: '"' is %22 and '\'' is %27.
+            //   ATTR_URI_RESOURCE -> HtmlEncoder.urlResource(), which returns either url()'s output
+            //     or the empty string, so it inherits the property above.
+            //   ATTR_JS, ATTR_CSS, ATTR_DATA, ATTR_ACTIONSCRIPT, ATTR_UNKNOWN -> the empty string.
+            //
+            // The empty string is the remaining case. Nothing is written, the state stays
+            // TAG_ATTR_VALUE_BEFORE, and the template's own next character is handled exactly as it
+            // was before the reference existed. A non-empty value moves the machine to
+            // TAG_ATTR_VALUE with QUOTE_NONE on its first character, which is the same place
+            // `<a href=/p/$y>` was already reaching.
+            //
+            // The one thing an empty value does cost is not a Canoe defect and is recorded rather
+            // than hidden: an unquoted attribute with no value is not an attribute with an empty
+            // value. `<img src= alt="a">` is ONE attribute to every tokenizer, this one included -
+            // the browser reads `alt="a"` as src's unquoted value - so the following attribute is
+            // swallowed. That is true of a legitimately empty model value too, and F11 produced it
+            // unconditionally for every unquoted value, so this routing shrinks the problem rather
+            // than creating it. Emitting `""` here instead would repair `<img src=$x alt="a">` and
+            // break `<a href=$base/p>`, and would make encode() depend on the parser's position; the
+            // template-level answer - quote the value - has no such trade. See
+            // UnquotedAttributeValueTest.anEmptyUnquotedValueSwallowsTheNextAttribute. What keeps
+            // that a data-loss bug rather than a routing one is that the swallowed region - which
+            // may hold another reference, not only literal text - is one attribute value to both
+            // tokenizers, so a reference inside it is encoded for the SWALLOWING attribute's
+            // classification, which is the classification the browser applies to those bytes too:
+            // .aSecondReferenceInsideTheSwallowedRegionKeepsTheSwallowingAttributesContext.
+            //
+            // UnquotedAttributeValueTest.noEncoderReachableFromAnAttributeValueCanTerminateAn
+            // UnquotedOne is the executable form of this argument: it sweeps every corpus payload
+            // through every context this arm can return and fails if any output carries a terminator
+            // or opens with a quote. If a future encoder can emit one - a CSS encoder wired into
+            // ATTR_CSS, a real JavaScript encoder behind CTX_JS - that test fails, and this case
+            // label has to be reconsidered rather than the test relaxed.
+            case TAG_ATTR_VALUE_BEFORE:
             case TAG_ATTR_VALUE:
                 switch (attributeContext) {
                     case ATTR_HTML:

@@ -208,9 +208,11 @@ public class AttributePrefixTest {
      * to be independent of quoting and of where in the value the reference sits, or it has only
      * moved the boundary.
      *
-     * <p>The unquoted row is a special case for a reason unrelated to R2: F11 drops a reference that
-     * sits <em>immediately</em> after the {@code =}, and this one does not, so it genuinely
-     * exercises {@code TAG_ATTR_VALUE} with {@code QUOTE_NONE}.
+     * <p>The unquoted row is a special case for a reason unrelated to R2: F11 dropped a reference
+     * that sat <em>immediately</em> after the {@code =}, and this one does not, so it genuinely
+     * exercised {@code TAG_ATTR_VALUE} with {@code QUOTE_NONE} even while F11 was open. R19 closed
+     * F11 and the row is unchanged by it — which is the point of saying so here: the two positions
+     * agree now, and this one has always been the second of them.
      */
     @Test
     public void nothingFiresWhateverTheQuotingAndWhereverTheReferenceSits() {

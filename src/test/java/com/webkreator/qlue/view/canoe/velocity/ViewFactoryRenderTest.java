@@ -57,9 +57,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>So the assertion is <strong>byte-identical output</strong> over a dozen cases picked from across
  * the corpus — body text, a plain-text attribute, four kinds of URL sink, a recognised and an
  * unrecognised event handler, both CSS shapes, a script body, {@code srcdoc}, a meta refresh, the
- * unquoted-value case (F11), the {@code javascript:} prefix case, and a two-reference template. If
- * any row ever fails, the fast harness stops being evidence about production and every conclusion
- * downstream of it needs re-checking.
+ * unquoted-value case (F11, routed by R19), the {@code javascript:} prefix case, and a two-reference
+ * template. If any row ever fails, the fast harness stops being evidence about production and every
+ * conclusion downstream of it needs re-checking.
  *
  * <p><strong>Result: the two paths agree on all fourteen rows, for every payload tried.</strong>
  *

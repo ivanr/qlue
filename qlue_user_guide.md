@@ -51,11 +51,17 @@ or styling language, it declines to write there:
 - inside a `<script>` or `<style>` element;
 - inside one of the twenty-one `on*` attributes Canoe recognises;
 - inside a `style` or `data` attribute;
-- in a tag-name or attribute-name position, and in an unquoted attribute value;
+- in a tag-name or attribute-name position, and inside a comment or a DOCTYPE declaration;
 - after a `javascript:`, `livescript:`, `mocha:`, `asfunction:` or `data:` value prefix.
 
 `<script>var user = '$name';</script>` therefore renders as `var user = '';`. If a value is
 disappearing from your page, this is why.
+
+An **unquoted** attribute value is encoded, not suppressed: `<a href=$url>` is encoded exactly as
+`<a href="$url">` is, by the attribute's name. Quote it anyway. If the value comes out empty — a
+suppressed attribute, a rejected URL scheme, or simply an empty model entry — an unquoted value is
+not an empty attribute: the browser reads the *next* attribute as its value, so `<img src=$u alt="a">`
+loses its `alt`. Two quote characters remove the whole class of problem.
 
 ### What Canoe rejects
 

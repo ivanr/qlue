@@ -52,7 +52,7 @@ by application code calling `setAutoEscaping(false)`.
 | F8 | Medium | No tests, no documentation, no published threat model |
 | F9 | Low (latent) | `write(char[],int,int)` confuses length with end index |
 | F10 | Low (latent) | `SCRIPT_END` accepts `</scriptfoo>` as a script terminator — **fixed in R17** |
-| F11 | Low | Unquoted attribute references silently render as the empty string |
+| F11 | Low | Unquoted attribute references silently render as the empty string — **the attribute-value half fixed in R19** |
 | F12 | Low | References inside `#set` and interpolated strings use the wrong context |
 | F13 | Medium | The `[Encoding Error]` recovery branch is unreachable; every encoding error is an unhandled 500 |
 | F14 | Low | A comment ending in three or more dashes never closes, suppressing the rest of the page |
@@ -1006,6 +1006,44 @@ developers: the value vanishes with no error and no diagnostic, and the document
 `allowDirectOutput()` + `$_x.asis()`, which disables Canoe for that value entirely. Every
 silent-suppression bug in this class — see also F7's `data=` — converts into a manually encoded,
 unreviewed output site.
+
+> **Resolved in part — R19 (2026-07-26).** `currentContext()` now answers `TAG_ATTR_VALUE_BEFORE`
+> with the same thing it answers `TAG_ATTR_VALUE`: the attribute's name-derived context. The state is
+> entered only from `TAG_ATTR_NAME_AFTER` on `=`, which is only reachable from `TAG_ATTR_NAME`, which
+> classifies the name before it leaves, so the answer is this attribute's own and never a leftover.
+> `<a href=$x>` now renders byte-for-byte what `<a href="$x">` renders, minus the quotes, and the
+> three classifications that suppress still suppress.
+>
+> The routing is safe because no encoder reachable from an attribute value can emit a character that
+> ends an unquoted one. An unquoted value ends at whitespace or `>` — for Canoe and for the
+> standard's attribute-value-unquoted state, which treats `"`, `'`, `<`, `=` and `` ` `` as a parse
+> error that stays *inside* the value — and the first character decides the quoting. `htmlAttr()`
+> is `html()`, which escapes every non-alphanumeric, so space is `&#32;` and `>` is `&gt;`; `url()`
+> emits only the unreserved set, its per-component safe delimiters (none of which is a quote, a space
+> or an angle bracket), `%XX` escapes and the structural `:`/`//`/`?`/`#` it writes itself; and
+> `urlResource()` returns either `url()`'s output or nothing. That argument is not left as prose:
+> `UnquotedAttributeValueTest.noEncoderReachableFromAnAttributeValueCanTerminateAnUnquotedOne` sweeps
+> every payload in the catalogue through every context an attribute name can produce, and Chromium
+> parses the result in the browser tier.
+>
+> **In part**, because F11's other holes are deliberate and stay. `TAG_ATTR_NAME`,
+> `TAG_EMPTY_ENDING`, the `COMMENT_*`/`DOCTYPE_*` states and `INVALID` still fall to `CTX_SUPPRESS`:
+> `TAG_ATTR_VALUE_BEFORE` had a name-derived answer waiting for it and none of the others has an
+> encoder at all — a comment would need `-->` modelled, a tag-name position would need a name
+> grammar. Those rows stay `SUPPRESSED_UNINTENDED` in the ledger.
+>
+> One residual, recorded rather than found later: an unquoted attribute whose value renders *empty*
+> swallows the template's next attribute, because `<img src= alt="a">` is one attribute to every
+> tokenizer including Canoe's. That is a property of HTML, it applies to a legitimately empty model
+> value just as much, and F11 used to produce it *unconditionally* for every unquoted value — so
+> R19 shrinks it to the suppressing classifications rather than introducing it. Emitting `""` instead
+> would repair `<img src=$x alt="a">` and break `<a href=$base/p>`; the template-level answer is to
+> quote the value. Pinned by
+> `UnquotedAttributeValueTest.anEmptyUnquotedValueSwallowsTheNextAttribute`.
+>
+> The verified test is inverted to
+> `CanoeStateMachineTest.unquotedValuesTakeTheirNameDerivedContextImmediatelyAfterTheEquals`, which
+> keeps the former name and this reasoning in its javadoc.
 
 ---
 
@@ -2051,6 +2089,7 @@ item that does **not** close the script-execution finding before the one that do
 
 10. **Handle `TAG_ATTR_VALUE_BEFORE`** in `currentContext()` — treat an unquoted attribute value as
     its name-derived context, or raise an encoding error rather than silently emitting nothing (F11).
+    **Done in R19**, by the first route: the state shares `TAG_ATTR_VALUE`'s case label.
 
 11. **Reconcile `CTX_CSS` with `currentContext()`** (F21) — return it for `ATTR_CSS`, or delete it
     and its `encode()` arm. Low on its own and **it must be settled before the commented-out

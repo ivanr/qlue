@@ -778,7 +778,11 @@ public final class CanoeCorpus {
                 .payloads(Payloads.family("TAG_BREAKOUT"))
                 .verdict(Verdict.SUPPRESSED_UNINTENDED)
                 .note("F11 lists the COMMENT_* states among those currentContext() has no case for."
-                        + " A generator stamp or a debug marker built from a reference renders empty.")
+                        + " A generator stamp or a debug marker built from a reference renders empty."
+                        + " R19 closed F11's attribute-value half and deliberately stopped there:"
+                        + " TAG_ATTR_VALUE_BEFORE has a name-derived answer waiting for it, and a"
+                        + " comment has no encoder at all until somebody models '-->' and the"
+                        + " nested-comment rules, so these states keep their hole.")
                 .build());
 
         cases.add(XssCase.id("comment.conditional")
@@ -872,25 +876,66 @@ public final class CanoeCorpus {
                 .sink(SinkKind.PLAIN_TEXT_ATTR, "span", "title")
                 .payloads(Payloads.family("ATTR_BREAKOUT"))
                 .verdict(Verdict.SAFE)
-                .note("The literal 'x' is what makes this reachable at all: it advances the machine"
-                        + " to TAG_ATTR_VALUE with QUOTE_NONE. A reference sitting directly after the"
-                        + " '=' does not get that far - see unquoted.immediately-after-equals."
-                        + " html() escapes space and '>', so an unquoted value still cannot be"
-                        + " terminated.")
+                .note("The literal 'x' is what makes this row a different shape from"
+                        + " unquoted.plain-text-after-equals: it advances the machine to"
+                        + " TAG_ATTR_VALUE with QUOTE_NONE before the reference is inserted, which is"
+                        + " why it rendered correctly all through F11's lifetime. html() escapes"
+                        + " space and '>', so an unquoted value still cannot be terminated.")
                 .browserRelevant()
                 .build());
 
-        // F11: currentContext() has no case for TAG_ATTR_VALUE_BEFORE, so a reference immediately
-        // after '=' is inserted while the parser is still waiting for a quote.
+        // R19 gave TAG_ATTR_VALUE_BEFORE the attribute's name-derived context, so a reference sitting
+        // directly after the '=' is encoded rather than dropped (F11). The three rows below hold that
+        // position: a plain-text name, a URL name, and the same URL name with whitespace between the
+        // '=' and the reference. The classifications that suppress are unchanged by R19 and are
+        // covered where they already were, by AttributeNameMatrixTest and UnquotedAttributeValueTest.
+        cases.add(XssCase.id("unquoted.plain-text-after-equals")
+                .section(A1)
+                .template("<span title=$data>x</span>")
+                .sink(SinkKind.PLAIN_TEXT_ATTR, "span", "title")
+                .payloads(Payloads.family("ATTR_BREAKOUT"))
+                .verdict(Verdict.SAFE)
+                .finding("F11")
+                .note("The row R19 exists for, and the one that carries its safety argument. Was not"
+                        + " in the corpus before R19, because under F11 it rendered empty and said"
+                        + " nothing that quoting.unquoted-after-literal-text did not. Now the value"
+                        + " arrives html()-encoded into an attribute with no quotes around it, and"
+                        + " the payload that tries to exploit exactly that - ATTR_BREAKOUT/"
+                        + "unquoted-attr, 'x onmouseover=...' - cannot: html() escapes the space to"
+                        + " &#32; and the '=' to &#61;, and the character-reference state appends to"
+                        + " the value it is in rather than re-tokenizing, so nothing terminates the"
+                        + " attribute. Verified against the rendered output: 'x onmouseover=...'"
+                        + " renders <span title=x&#32;onmouseover&#61;...>, which is one attribute"
+                        + " named title, and the DOM shape is identical to the benign render.")
+                .browserRelevant()
+                .build());
+
         cases.add(XssCase.id("unquoted.immediately-after-equals")
                 .section(A1)
                 .template("<a href=$data>link</a>")
                 .sink(SinkKind.URL, "a", "href")
                 .payloads(Payloads.family("PROTOCOL_RELATIVE"))
-                .verdict(Verdict.SUPPRESSED_UNINTENDED)
-                .finding("F11")
-                .note("Fail-closed, but silent: the value vanishes with no error and no diagnostic,"
-                        + " and the documented remedy is $_x.asis(), which disables Canoe entirely.")
+                .verdict(Verdict.SAFE)
+                .finding("F6")
+                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
+                .note("Re-verdicted by R19, and the citation moved with the verdict. Was"
+                        + " SUPPRESSED_UNINTENDED x3 under F11: currentContext() had no case for"
+                        + " TAG_ATTR_VALUE_BEFORE, so the value vanished with no error and no"
+                        + " diagnostic, and the documented remedy was $_x.asis(), which disables"
+                        + " Canoe entirely. R19 routes the state to ATTR_URI, so this template now"
+                        + " renders byte-for-byte what <a href=\"$data\"> renders, minus the quotes -"
+                        + " checked payload by payload against url()'s output. That makes it exactly"
+                        + " as safe, and exactly as unsafe: PROTOCOL_RELATIVE/slashes arrives as"
+                        + " //attacker.invalid/x.js because url() is a scheme filter and not an"
+                        + " origin filter, which is F6 and is the residual R26 tracks; the two"
+                        + " backslash spellings are percent-escaped to same-origin paths and are"
+                        + " SAFE. The row cites the finding its current verdict is about, so it"
+                        + " cites F6; F11's own evidence moved to unquoted.plain-text-after-equals.")
+                // Browser-relevant since R19, and it is the tier that settles the safety argument:
+                // whether a real engine reads an unquoted url()-encoded value as the href the DOM
+                // oracle says it is. Its quoted twin url.href-full has been loaded since the tier
+                // existed, so the two are directly comparable.
+                .browserRelevant()
                 .build());
 
         cases.add(XssCase.id("unquoted.whitespace-then-reference")
@@ -898,9 +943,14 @@ public final class CanoeCorpus {
                 .template("<a href= $data>link</a>")
                 .sink(SinkKind.URL, "a", "href")
                 .payloads(Payloads.family("PROTOCOL_RELATIVE"))
-                .verdict(Verdict.SUPPRESSED_UNINTENDED)
-                .finding("F11")
-                .note("TAG_ATTR_VALUE_BEFORE skips whitespace, so the extra space changes nothing.")
+                .verdict(Verdict.SAFE)
+                .finding("F6")
+                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
+                .note("TAG_ATTR_VALUE_BEFORE skips whitespace, so the extra space changes nothing -"
+                        + " which was true when this row recorded F11's suppression and is still true"
+                        + " now that it records R19's routing. Re-verdicted with its twin above, and"
+                        + " for the same reasons; the rendered output differs from that row's by the"
+                        + " one space the template itself contains.")
                 .build());
 
         // Script and style element bodies. Both suppressed, and both deliberately: refusing to output

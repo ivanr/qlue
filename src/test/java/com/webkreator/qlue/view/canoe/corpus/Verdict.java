@@ -46,7 +46,10 @@ public enum Verdict {
      * Canoe emits the empty string where it should have emitted an encoded value. Fail-safe, so not
      * a vulnerability, but a defect: the value vanishes with no error and no diagnostic. Tracked
      * separately from {@link #SUPPRESSED_BY_DESIGN} because these are what push developers towards
-     * {@code $_x.asis()}, which disables Canoe for that value entirely. F7 and F11 live here.
+     * {@code $_x.asis()}, which disables Canoe for that value entirely. F7 and F11 lived here; R7
+     * closed the first and R19 closed the attribute-value half of the second, so what is left is
+     * F11's other half — the {@code COMMENT_*} and {@code DOCTYPE*} states, which have no encoder to
+     * route to and are recorded as holes rather than as decisions.
      */
     SUPPRESSED_UNINTENDED,
 

@@ -34,10 +34,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * states plus every state {@code currentContext()} has no case for all collapse to
  * {@code CTX_SUPPRESS}, so a context-only assertion cannot tell "correctly suppressed inside a style
  * element" from "fell through a hole in the switch" — and the difference between those two is
- * exactly what F11 is. Worse, a context-only table records F11's holes as if they were intended:
- * fix F11 by giving {@code TAG_ATTR_VALUE_BEFORE} a real context and a context-only row for
- * {@code <p class=} fails, reporting a correct fix as a regression. With the state recorded
- * alongside, the row says what it means.
+ * exactly what F11 was. The prediction this javadoc used to make came true, which is the argument
+ * for the shape of the table: "fix F11 by giving {@code TAG_ATTR_VALUE_BEFORE} a real context and a
+ * context-only row for {@code <p class=} fails, reporting a correct fix as a regression". R19 gave it
+ * one, the two rows moved from {@code CTX_SUPPRESS} to the context their attribute name derives, and
+ * because the state is recorded alongside, the change reads as the routing fix it is rather than as a
+ * hole being papered over. The remaining holes — {@code TAG_ATTR_NAME}, {@code TAG_EMPTY_ENDING},
+ * the {@code COMMENT_*}/{@code DOCTYPE_*} states, {@code INVALID} — are still recorded as holes, by
+ * {@link #statesWithNoCaseFallThroughToSuppress}.
  */
 public class CanoeStateMachineTest {
 
@@ -72,11 +76,23 @@ public class CanoeStateMachineTest {
                 row("after an attribute name", "<p class ",
                         Canoe.TAG_ATTR_NAME_AFTER, Canoe.CTX_SUPPRESS),
 
-                // F11: currentContext() has no case for TAG_ATTR_VALUE_BEFORE. The state column is
-                // what stops these two rows from reading as deliberate suppression.
-                row("after the equals sign (F11)", "<p class=",
+                // R19: TAG_ATTR_VALUE_BEFORE answers with the attribute's name-derived context, so
+                // an unquoted value written directly after the '=' is encoded rather than dropped.
+                // The state column is what says these rows are about the value position and not
+                // about `class` - the parser has not seen a quote and never will.
+                row("after the equals sign (R19)", "<p class=",
+                        Canoe.TAG_ATTR_VALUE_BEFORE, Canoe.CTX_HTML_ATTR),
+                row("after equals and a space (R19)", "<p class= ",
+                        Canoe.TAG_ATTR_VALUE_BEFORE, Canoe.CTX_HTML_ATTR),
+                row("after equals on a URL name (R19)", "<a href=",
+                        Canoe.TAG_ATTR_VALUE_BEFORE, Canoe.CTX_URI),
+                row("after equals on a resource sink (R19)", "<script src=",
+                        Canoe.TAG_ATTR_VALUE_BEFORE, Canoe.CTX_URI_RESOURCE),
+                row("after equals on a handler (R19)", "<a onclick=",
+                        Canoe.TAG_ATTR_VALUE_BEFORE, Canoe.CTX_JS),
+                row("after equals on style (R19)", "<div style=",
                         Canoe.TAG_ATTR_VALUE_BEFORE, Canoe.CTX_SUPPRESS),
-                row("after equals and a space (F11)", "<p class= ",
+                row("after equals on an unlisted name (R19)", "<div my-widget-config=",
                         Canoe.TAG_ATTR_VALUE_BEFORE, Canoe.CTX_SUPPRESS),
 
                 // --- script and style element bodies ---
@@ -286,19 +302,60 @@ public class CanoeStateMachineTest {
     // ------------------------------------------------------------------
 
     /**
-     * F11. A reference placed immediately after {@code =} is encoded for {@code CTX_SUPPRESS} and
-     * renders as nothing, because the quote that would advance the parser into
-     * {@code TAG_ATTR_VALUE} never arrives.
+     * F11, closed by R19 and now inverted. Was
+     * {@code unquotedValuesAreSuppressedOnlyImmediatelyAfterTheEquals}: it pinned the defect that
+     * {@code currentContext()} had no case for {@code TAG_ATTR_VALUE_BEFORE}, so a reference placed
+     * immediately after {@code =} was encoded for {@code CTX_SUPPRESS} and rendered as nothing —
+     * the quote that would have advanced the parser into {@code TAG_ATTR_VALUE} never arrives.
      *
-     * <p>Narrower than it looks: a single character of literal value text is enough to advance the
-     * parser, so only a reference immediately after the equals sign is dropped.
+     * <p>The defect was narrower than it looks, and that is what made it dangerous rather than
+     * merely annoying: a single character of literal value text was enough to advance the parser, so
+     * {@code <a href=/p/$y>} worked and only {@code <a href=$y>} silently lost its value. A developer
+     * meeting that reaches for {@code allowDirectOutput()} and {@code $_x.asis()}, which turns Canoe
+     * off for the value entirely.
+     *
+     * <p>R19 routes the state to the same place {@code TAG_ATTR_VALUE} goes: the attribute's
+     * name-derived context. The three shapes below are the same attribute in three positions, and
+     * they now agree — which is the whole claim.
      */
     @Test
-    public void unquotedValuesAreSuppressedOnlyImmediatelyAfterTheEquals() {
-        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<a href="));
-        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<a href= "));
+    public void unquotedValuesTakeTheirNameDerivedContextImmediatelyAfterTheEquals() {
+        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href="),
+                "R19: the name is complete, so the context is known even with no quote and no value");
+        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href= "),
+                "TAG_ATTR_VALUE_BEFORE skips whitespace, and the answer does not depend on it");
         assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href=/"),
-                "one literal character is enough to reach TAG_ATTR_VALUE");
+                "one literal character reaches TAG_ATTR_VALUE, which always answered correctly");
+
+        // The routing is the attribute's, not the position's: every classification survives the
+        // move, including the two that suppress.
+        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<span title="));
+        assertEquals(Canoe.CTX_URI_RESOURCE, CanoeTestSupport.contextAfter("<script src="));
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<a onclick="));
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<div style="),
+                "style is ATTR_CSS and suppresses in either position (R14)");
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<div my-widget-config="),
+                "an unlisted name is ATTR_UNKNOWN and suppresses in either position (R5)");
+    }
+
+    /**
+     * The state is entered only from {@code TAG_ATTR_NAME_AFTER} on {@code =}, which is only
+     * reachable from {@code TAG_ATTR_NAME}, which classifies the name before it leaves — so
+     * {@code attributeContext} in {@code TAG_ATTR_VALUE_BEFORE} is always this attribute's own and
+     * never a leftover from an earlier one. That is the precondition R19's case label rests on, and
+     * a buffer-residue defect in this component has already been real once (F5), so it is asserted
+     * rather than read off the control flow.
+     */
+    @Test
+    public void theContextInValueBeforeBelongsToTheAttributeInFront() {
+        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a title=\"t\" href="),
+                "a plain-text attribute before it does not leak ATTR_HTML in");
+        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<a href=\"/p\" title="),
+                "and a URL attribute before it does not leak ATTR_URI in");
+        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<a href=\"javascript:x\" title="),
+                "not even when the earlier value narrowed the context through detectAttributePrefix()");
+        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a disabled href="),
+                "a valueless attribute in between reclassifies too");
     }
 
     /**
@@ -310,7 +367,10 @@ public class CanoeStateMachineTest {
     public void statesWithNoCaseFallThroughToSuppress() throws IOException {
         Set<Integer> withACase = Set.of(Canoe.HTML, Canoe.SCRIPT, Canoe.SCRIPT_END,
                 Canoe.SCRIPT_END_NAME, Canoe.URL, Canoe.CSS, Canoe.CSS_END, Canoe.CSS_END_NAME,
-                Canoe.TAG, Canoe.TAG_NAME, Canoe.TAG_ATTR_NAME_AFTER, Canoe.TAG_ATTR_VALUE);
+                Canoe.TAG, Canoe.TAG_NAME, Canoe.TAG_ATTR_NAME_AFTER, Canoe.TAG_ATTR_VALUE,
+                // R19 added this one. It is in the set rather than in the sweep below, which is the
+                // security decision the sweep exists to make visible.
+                Canoe.TAG_ATTR_VALUE_BEFORE);
 
         for (Arguments arguments : (Iterable<Arguments>) transitions()::iterator) {
             String prefix = (String) arguments.get()[1];

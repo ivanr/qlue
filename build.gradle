@@ -428,6 +428,28 @@ jacocoTestReport {
  *   Canoe                             278 / 289 branches   96.19%   (was 276 / 287; R18 split the
  *                                                                    DOCTYPE precondition in two)
  *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14 - R18)
+ *
+ * RE-MEASURED after R19 (route TAG_ATTR_VALUE_BEFORE, F11). Nothing moved, and the reason is worth
+ * writing down because "a new case label added no branch" reads like a mistake. R19 adds
+ * `case TAG_ATTR_VALUE_BEFORE:` immediately above `case TAG_ATTR_VALUE:` in currentContext(), sharing
+ * its body. javac compiles the two keys to the same jump target and JaCoCo counts a switch's distinct
+ * TARGETS rather than its keys (LabelInfo dedups before MethodAnalyzer records the branches), so the
+ * outer switch stays at six outcomes: HTML, the three script states, URL, the six suppressing states,
+ * the value states, and default. currentContext() is therefore 11/13 exactly as after R18, and Canoe
+ * is 278/289 = 96.19% with reallyProcessChar unchanged at 163/168 = 97.02%. No floor moves.
+ *
+ * The eleven dead outcomes are unchanged and are still the same eleven (5 reallyProcessChar +
+ * 2 currentContext + 4 inBuf), re-read from the XML rather than inferred. In particular
+ * currentContext()'s two are still `case URL` and the inner switch(attributeContext) default: the new
+ * label routes to the SAME inner switch, so it reaches the same five live ATTR_* arms and cannot make
+ * the inner default reachable - an attributeContext outside the declared set is still something
+ * setTagAttributeContext() cannot produce. F11 was never in the inventory; its bug was a missing case,
+ * which is a branch that did not exist rather than one that could not be taken. HtmlEncoder is
+ * untouched.
+ *
+ *   Canoe                             278 / 289 branches   96.19%   (unchanged by R19; the shared
+ *                                                                    case label adds no target)
+ *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14 - R19)
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],

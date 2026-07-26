@@ -213,6 +213,17 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * action or another open-redirect/referrer surface that R9 scopes out by design — the residual
      * F6 that R26 tracks and that this component does not treat as code execution.
      * </p>
+     *
+     * <p>R19 (route {@code TAG_ATTR_VALUE_BEFORE}, F11) takes it to <strong>65/19/46/0</strong>, and
+     * it is the only Phase D task that touches this tier. Two cases join it, for three pages. The
+     * first, {@code unquoted.immediately-after-equals}, is {@code <a href=$data>} — the shape F11
+     * rendered empty and R19 routes — and it earns two pages, its {@code PROTOCOL_RELATIVE/slashes}
+     * row (must-fire, F6, exactly as its quoted twin {@code url.href-full} is) plus one safe control.
+     * The second, {@code unquoted.plain-text-after-equals}, is {@code <span title=$data>} with the
+     * {@code ATTR_BREAKOUT} family and earns the one control every safe case earns. That is where the
+     * safety argument for R19 stops being an argument: the claim is that {@code html()} and
+     * {@code url()} cannot emit a character that ends an unquoted attribute value, and here a real
+     * engine parses the result rather than jsoup.
      */
     @Test
     public void theBrowserRelevantSubsetIsTheSizeTheCorpusClaims() {
@@ -225,10 +236,10 @@ public class BrowserCorpusTest extends BrowserTestBase {
                 .count();
         long quiet = invocations.size() - mustFire;
 
-        assertEquals(62, invocations.size(), "browser-relevant invocation count");
+        assertEquals(65, invocations.size(), "browser-relevant invocation count");
         assertEquals(0, unobservable, "invocations flagged as not browser-observable");
-        assertEquals(18, mustFire, "invocations that must trip a detector");
-        assertEquals(44, quiet, "invocations that must trip none");
+        assertEquals(19, mustFire, "invocations that must trip a detector");
+        assertEquals(46, quiet, "invocations that must trip none");
     }
 
     @AfterAll
