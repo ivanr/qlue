@@ -53,7 +53,7 @@ by application code calling `setAutoEscaping(false)`.
 | F9 | Low (latent) | `write(char[],int,int)` confuses length with end index |
 | F10 | Low (latent) | `SCRIPT_END` accepts `</scriptfoo>` as a script terminator — **fixed in R17** |
 | F11 | Low | Unquoted attribute references silently render as the empty string — **the attribute-value half fixed in R19** |
-| F12 | Low | References inside `#set` and interpolated strings use the wrong context |
+| F12 | Low | References inside `#set` and interpolated strings use the wrong context — **fixed in R24**, except where the literal is compiled or resolved to a file (`#evaluate`, `#parse`, `#include`), which keep the pre-R24 encoding; the `${_x.` footgun in its notes was closed separately in R23 |
 | F13 | Medium | The `[Encoding Error]` recovery branch is unreachable; every encoding error is an unhandled 500 — **fixed in R21; the rejection table triaged in R20** |
 | F14 | Low | A comment ending in three or more dashes never closes, suppressing the rest of the page |
 | F15 | Low | `url()` silently corrupts legitimate URLs five different ways |
@@ -1049,6 +1049,98 @@ unreviewed output site.
 
 ### F12 — Low (unverified): references inside `#set` and interpolated strings use the wrong context
 
+> **Resolved — R24 (2026-07-26).** `referenceInsert()` now detects that it is being called for a
+> nested render and returns the value untouched, so it is encoded exactly once, later, at the
+> position it is printed. `#set($msg = "Hello $data")<p>$msg</p>` renders `<p>Hello &lt;b&gt;</p>`.
+>
+> **The approach this finding suggested does not exist, and that was measured rather than assumed.**
+> The remediation plan proposed asking Velocity's `InternalContextAdapter` whether this is a nested
+> render. Read against velocity-engine-core 2.4.1: the adapter, through
+> `InternalHousekeepingContext`, `InternalWrapperContext` and `InternalEventContext`, exposes a
+> template-name stack, a macro-name stack, the introspection cache, the current `Resource` and the
+> macro libraries — and **nothing about which node is evaluating**. `ASTStringLiteral` has no
+> `render(context, writer)` at all; interpolation exists only inside `value(InternalContextAdapter)`,
+> which allocates a private `StringBuilderWriter` and calls `nodeTree.render(context, writer)` on it,
+> and `evaluate()` routes through `value()` too. `ASTReference.render()` calls
+> `EventHandlerUtil.referenceInsert(...)` and writes the result to whichever writer it was handed,
+> which it never shows the handler. So the one place the information exists is the call stack, and an
+> `ASTStringLiteral` frame below the handler is not a hint but the thing itself: that frame *is* the
+> `StringBuilderWriter` whose `toString()` becomes the `#set` variable.
+>
+> The detector is a `StackWalker` walk, without `RETAIN_CLASS_REFERENCE`, comparing
+> `StackFrame.getClassName()` against `org.apache.velocity.runtime.parser.node.ASTStringLiteral` —
+> and then against the frame below that one, because deferring is a claim about what becomes of the
+> string rather than about the literal. See *the three directives that must not defer* below. It
+> is bounded twice: it skips to the first `org.apache.velocity.` frame and stops at the first frame
+> after that run ends, with a hard 64-frame limit as a backstop. The boundary loses nothing — every
+> frame between the handler and the literal belongs to that package, including the macro,
+> `#foreach` and `#parse` shapes, which were rendered and read frame by frame rather than reasoned
+> about (below `referenceInsert()` the node sits 5 frames down for a bare literal and for an
+> interpolated macro argument, 8 through a `#parse`d fragment inside one, 9 through a `#foreach`
+> inside one, 10 through a macro invoked inside one, and inside the first unbroken Velocity run in
+> every case).
+> **Every bound fails towards encoding**, which is the whole safety argument: a missed nested render
+> costs a double encoding, which is this finding, while a spurious one puts raw attacker data in the
+> page, so an uncertain stack must resolve to "encode". That covers the consumer check too — a
+> literal with no readable frame under it, or one whose consumer is on the list, encodes.
+> `NestedRenderDetectionTest` drives each bound from the generous side.
+>
+> **Cost, measured rather than assumed:** the walk is ~2.1 µs per reference in the stack shape it
+> actually runs in. A whole render of a reference-dense template goes from 3.1 to 5.2 µs per
+> reference, and of a template with realistic markup density from 14.0 to 16.2 µs — so about 15% on a
+> page-shaped template, or 0.6 ms for a page with 300 references. The figure is regenerated into
+> `build/reports/canoe/reference-insertion-cost.txt` on every test run.
+>
+> **The three directives that must not defer.** Deferring is a promise that the value will be encoded
+> later, where it is written to the page, and three of `ASTStringLiteral.value()`'s callers never
+> write it to the page at all:
+>
+> - **`#evaluate("…$data…")`** interpolates the literal and then *parses the result as VTL*. A
+>   deferred value there is compiled: a payload of `#set($injected = 1)$injected` would render as
+>   `1`, which is server-side template injection and a strictly worse outcome than the XSS this
+>   handler exists to prevent.
+> - **`#parse("$data")`** interpolates the literal into a *template name* and then parses and renders
+>   that template; **`#include("$data")`** into a *resource name* whose bytes it copies to the writer
+>   unparsed. A deferred value there is an attacker-chosen path.
+>
+> `ASTStringLiteral.value()` has exactly one caller per invocation, so the frame directly below the
+> literal *is* its consumer, and the detector refuses to defer for those three. That is not a new
+> control: it is the pre-R24 behaviour, kept. Encoding is sufficient for it because `html()` and
+> `htmlWhite()` are allowlists of `[a-zA-Z0-9]` plus a little whitespace, so `$`, `#`, `(`, `.` and
+> `/` all come back as numeric character references and neither VTL nor a path can be reconstituted.
+> The check is one frame and not "anywhere in the run" on purpose: a `#set` inside a `#parse`d
+> fragment is the commonest nested render there is and carries a `Parse` frame four frames below
+> the literal, three below its real consumer, so widening the rule would be safe but would leave
+> this finding alive in
+> most of an application's templates.
+> `VelocityIntegrationTest.evaluateOfAnInterpolatedLiteralIsStillEncodedRatherThanCompiled`,
+> `.aParsedOrIncludedTemplateNameBuiltFromAReferenceIsEncodedAndNotDeferred` and
+> `.aSetInsideAParsedOrEvaluatedTemplateStillDefers` own the three cases.
+>
+> **What this does not do is close the underlying hole, and it is not meant to.** The plain spellings
+> `#set($t = $data)#evaluate($t)` and `#parse($data)` hand these directives the raw value and always
+> have, because a bare reference argument never reaches `value()` through a literal and so never fires
+> the handler. §2.5 is the answer there — the attacker controls data and never the template, and a
+> directive whose argument is compiled or resolved to a file is outside what an output encoder can
+> defend. R24's obligation was not to widen it to a second spelling, and it does not.
+>
+> **One consequence that is a change in behaviour and not merely a fix**, recorded because it follows
+> from the design rather than from an oversight: **`$_x.asis($msg)` on an interpolated `#set` value
+> now emits raw data.** It used to emit once-encoded data, because the `#set` had encoded it and
+> `asis()` was declining to encode it again. `asis()` is the documented, unguarded bypass; what
+> changed is that this combination was safer than it said it was.
+> `VelocityIntegrationTest.asisOnAnInterpolatedSetValueNowEmitsRawData`.
+>
+> **The F6 masking recorded below is gone**, which is the honest consequence and is asserted rather
+> than left to be rediscovered: an off-origin URL now survives `url()` byte for byte on the `#set`
+> path as it already did on the direct path. The ledger does not move — no corpus template uses
+> `#set` in any spelling, verified against `matrix.csv` — and the sink is already `KNOWN_VULNERABLE`
+> under F6 by its direct route.
+> `VelocityIntegrationTest.doubleEncodingNoLongerCoversAnyClassOfMissingClassification` is retired
+> *because its precondition is gone*, and is replaced by
+> `.theSetPathAndTheDirectPathAgreeAtEverySinkTheAccidentCovered`, whose javadoc carries its
+> reasoning.
+
 **Location:** `CanoeReferenceInsertionHandler.java:41-57`.
 
 `referenceInsert()` queries `qlueWriter.currentContext()` — the state of the *main output stream at
@@ -1086,7 +1178,9 @@ developers to the `$_x` escape hatch.
 >
 > **Resolved — R23 (2026-07-26): the `${_x.` trap in the paragraph above, and only that.** F12 itself
 > is untouched and still live; it belongs to R24, which must land after R4 and R5 for the reason the
-> preceding paragraph gives. What R23 changed is the two-prefix list: `SAFE_REFERENCE_PREFIX3`
+> preceding paragraph gives. *(R24 landed later the same day; the note at the head of this finding is
+> what closed F12, and it is also where the retirement of the test named two paragraphs above is
+> recorded. This paragraph is left as R23 wrote it.)* What R23 changed is the two-prefix list: `SAFE_REFERENCE_PREFIX3`
 > (`${_x.`) and `SAFE_REFERENCE_PREFIX4` (`$!{_x.`) join the two that were already there, so all four
 > of the reference spellings Velocity accepts bypass identically. The literals were measured against
 > velocity-engine-core 2.4.1 rather than assumed: `ASTReference` hands `referenceInsert()` the

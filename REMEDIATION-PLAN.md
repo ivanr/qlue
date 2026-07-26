@@ -91,6 +91,10 @@ the locations cited. Three additional observations that are not in the review ar
    mangled on the `#set` path — so R24 exposes nothing the ledger does not already record as
    `KNOWN_VULNERABLE` by its direct route. Landing R24 before R9/R11/R12 is now a judgement call
    about F6 rather than an ordering constraint.
+   **R24 has landed, after R9, R11 and R12.** The F6 masking is gone with it: the two paths are now
+   byte-identical at that sink and both are F6's live vector, which
+   `.theSetPathAndTheDirectPathAgreeAtEverySinkTheAccidentCovered` asserts in place of the retired
+   test. The ledger did not move, because no corpus template uses a Velocity directive at all.
 3. **R14 (settle `CTX_CSS`) must not precede R13 (fix `css()`).** Routing `ATTR_CSS` to a real CSS
    encoder before `css()` stops emitting unterminated hex escapes replaces a suppression with a
    defective escaper, which is worse than either. F23 shows a `style` value is decoded *twice*, so the
@@ -1445,8 +1449,8 @@ nothing — so the bytes handed to Chromium are identical before and after.
 
 ---
 
-**R24 — Encode `#set` references where they are output, not where the `#set` ran**
-*Closes:* F12. *Depends on:* **R4 and R5 — see trap 2 in §1.**
+**R24 — Encode `#set` references where they are output, not where the `#set` ran** — ✅ **DONE**
+*Closes:* F12. *Depends on:* **R4 and R5 — see trap 2 in §1** (discharged before this landed).
 
 `referenceInsert()` queries `qlueWriter.currentContext()`, the state of the main output stream at that
 instant. Velocity renders interpolated string literals into an internal writer, so
@@ -1463,8 +1467,165 @@ committing to an approach; this is the least mechanical task in the plan.
 **Do not do this before R4 and R5.** The double encoding accidentally neutralises F2's entire class,
 so fixing it first turns some templates from safe to injectable with no other change.
 
+*Landed:* the handler detects the nested render and returns the value untouched, so it is encoded
+once, later, where it is printed. **The approach this section suggested does not exist**, and that
+was measured in velocity-engine-core 2.4.1 rather than argued: `InternalContextAdapter` — through
+`InternalHousekeepingContext`, `InternalWrapperContext` and `InternalEventContext` — carries a
+template-name stack, a macro-name stack, the introspection cache, the current `Resource` and the
+macro libraries, and **nothing about which node is evaluating**. `ASTStringLiteral` has no
+`render(context, writer)`; interpolation exists only in `value(InternalContextAdapter)`, which
+allocates a private `StringBuilderWriter` and renders the literal's node tree into it, and
+`evaluate()` routes through `value()`. `ASTReference.render()` writes the handler's return value to
+whichever writer it was handed and never shows it to the handler. The second suggestion — Canoe
+exposing "the context this writer will be in later" — is not a thing Canoe can know: at `#set` time
+the bytes that decide it have not been written.
+*Detector:* an `ASTStringLiteral` frame below the handler is not a heuristic for the nested render,
+it *is* the `StringBuilderWriter` whose `toString()` becomes the `#set` variable. `StackWalker`
+without `RETAIN_CLASS_REFERENCE`, `StackFrame.getClassName()` compared with `equals` against
+`org.apache.velocity.runtime.parser.node.ASTStringLiteral`. **And one frame further, because
+deferring is a claim about what becomes of the string and not about the literal.**
+`ASTStringLiteral.value()` has exactly one caller per invocation, so the frame directly below the
+literal *is* its consumer, and three of them never print the string: `Evaluate` compiles it as VTL,
+`Parse` resolves it to a template and renders that, `Include` resolves it to a resource and copies
+the bytes. For those the value is encoded here, exactly as it was before R24 — see *the directives
+that must not defer* below.
+*Bound:* the walk skips to the first `org.apache.velocity.` frame and stops at the first frame after
+that run ends, with `limit(64)` as a backstop; it short-circuits at the first literal. The boundary
+argument was checked against the shapes that put frames in between rather than assumed — measured
+below `referenceInsert()`, the node is 5 frames down for a bare interpolated `#set` and for an
+interpolated macro argument, 8 through a `#parse`d fragment inside one, 9 through a `#foreach` inside
+one, 10 through a macro invoked inside one, and inside the first unbroken run of Velocity frames in
+every case, because every directive passes the literal's writer down unchanged. When the answer is
+"no", the walk reads the Velocity run and one frame past it: 11 frames for a reference in ordinary
+template text, 20 for one inside a macro inside a `#foreach`. Without the rule it would read ~100 to
+the bottom of the JUnit stack, and more in a container. **Every bound fails towards encoding, which
+is the safety argument and is in the javadoc:** a missed nested render costs a double encoding — F12,
+visible and harmless — while a spurious one puts raw attacker data in the page, so an uncertain stack
+must resolve to encoding. That is true of the consumer check too: no literal, a literal past the
+limit, a literal below the run, a literal with *no readable consumer frame*, and a literal whose
+consumer is on the list all answer "encode".
+*Benchmark:* `NestedRenderDetectionTest.theStackWalkCostsAboutTwoMicrosecondsPerReference` renders a
+reference-dense template and times the walk **in situ**, from inside a `Canoe.encode()` override one
+frame below the handler, because the cost is a function of the stack it is called from (from a bare
+JUnit stack, with no Velocity frames at all, the walk runs to the 64-frame limit and costs 8.7 µs —
+a figure that describes nothing that can happen in production). Measured: **~2.1 µs per reference**
+for the walk; a whole render goes **3.1 → 5.2 µs per reference** for the dense template (+67%) and
+**14.0 → 16.2 µs** for one with realistic markup density (+15%), A/B against the same build with the
+detector call disabled. About 0.6 ms for a page with 300 references. Not free, and not hidden: the
+numbers are regenerated into `build/reports/canoe/reference-insertion-cost.txt` on every run.
+*Tests:* `VelocityIntegrationTest.anInterpolatedStringLiteralIsEncodedTwice` is inverted to
+`.anInterpolatedStringLiteralIsEncodedOnceAtThePositionItIsPrintedAt`, keeping the former name and
+the review's golden in its javadoc, and asserting exact bytes on both sides of the tag boundary —
+`<p>Hello &lt;b&gt;</p>` in body text, where `htmlWhite()` passes the author's space through, and
+`<a title="Hello&#32;&lt;b&gt;">` in an attribute, where `html()` does not. The author's own literal
+text is encoded with the value because the built string is one value by the time it is printed; both
+render identically in a browser. `.anInterpolatedSetInsideAScriptOrHandlerSilentlyProducesNothing` is
+inverted to `.anInterpolatedSetInsideAScriptNoLongerLosesItsValue` — the `<script>` case flips from
+`<p>x</p>` to `<p>x&lt;b&gt;</p>`, exactly as the plan predicted.
+`.aPlainSetAssignmentSingleEncodesForThePositionTheValueIsPrintedAt` keeps its name and its first
+assertion; its second inverts, and the two spellings now agree.
+`.doubleEncodingNoLongerCoversAnyClassOfMissingClassification` is **retired because its precondition
+is gone** — there is no double encoding left to neutralise anything with — and replaced by
+`.theSetPathAndTheDirectPathAgreeAtEverySinkTheAccidentCovered`, which carries its whole reasoning in
+its javadoc and asserts the stronger property the retired test was circling: the two paths are
+byte-identical at each of the three sinks the accident touched. Five new tests:
+`.asisOnAnInterpolatedSetValueNowEmitsRawData`,
+`.everyShapeThatRendersIntoALiteralCarriesTheValueRawToWhereItIsPrinted` (macro argument, `#foreach`
+body, `#parse`d fragment, and a comparison — `#if("$data" == "<b>")` answered `no` before R24 and
+answers `yes` now, because it was comparing the *encoded* value), and the three that own the
+consumer rule: `.evaluateOfAnInterpolatedLiteralIsStillEncodedRatherThanCompiled`,
+`.aParsedOrIncludedTemplateNameBuiltFromAReferenceIsEncodedAndNotDeferred` and
+`.aSetInsideAParsedOrEvaluatedTemplateStillDefers`. A `set-interpolated` row joins the
+`directives()` table, where it produces what a bare reference produces. New file
+`NestedRenderDetectionTest` (11 tests) owns the detector: it feeds
+`encodingMustBeDeferred(Stream<String>)` synthetic stacks so the bound is asserted **exactly and
+without timing** — a literal below the Velocity run, a literal past the frame limit, a stack with no
+Velocity in it, four near-miss class names, each of the three non-printing consumers, a literal with
+no consumer frame, and a `Parse` frame that is *not* the consumer — and counts the frames consumed
+(6 for a realistic stack with 500 frames under it).
+*The directives that must not defer, which is the sharpest thing in this task.* The false-positive
+check the plan asked for holds for `#macro` — a macro body renders to whatever writer the call site
+had, and a macro *argument* built from a literal is a genuine nested render that defers correctly.
+But three directives call `ASTStringLiteral.value()` for something that is never printed through a
+reference, so deferring to them defers to nothing:
+
+* **`#evaluate("…$data…")`** interpolates the literal and then **parses the result as VTL**. A
+  deferred value would be compiled: a payload of `#set($injected = 1)$injected` would render as `1`,
+  which is server-side template injection and a strictly worse outcome than the XSS this handler
+  exists to prevent.
+* **`#parse("$data")`** interpolates the literal into a **template name**, then parses and renders
+  that template; **`#include("$data")`** into a **resource name**, then copies its bytes to the
+  writer unparsed. A deferred value is an attacker-chosen path — traversal, disclosure, and for
+  `#parse` template injection by a second route.
+
+The detector reads one frame past the literal and refuses to defer for those three, which is not a
+new control but **the pre-R24 behaviour, kept**: the value is encoded at the reference as it always
+was, and that is sufficient because `html()`/`htmlWhite()` are allowlists of `[a-zA-Z0-9]` plus a
+little whitespace — `$`, `#`, `(`, `.` and `/` all come back as numeric character references, so
+neither VTL nor a path can be reconstituted from the output. The check is deliberately *one* frame
+and not "anywhere in the run": a `#set` inside a `#parse`d fragment — the commonest nested render
+there is — carries a `Parse` frame four frames below the literal, three below its real consumer,
+and widening the rule
+would be safe but would leave F12 alive in most of an application's templates. Two residuals are
+recorded in the javadoc rather than left to be found: a *custom* `userdirective` that compiles or
+resolves its literal argument is not on the list and is §2.5's, like `#evaluate($t)`; and under a
+repackaged (shaded) Velocity no class name matches at all, so nothing is ever deferred and the whole
+detector degrades to the pre-R24 double encoding — a silent loss of the fix, in the safe direction.
+**The underlying hole is pre-existing and untouched.** The plain spellings `#set($t = $data)#evaluate($t)`
+and `#parse($data)` hand these directives the raw value and always have, because a bare reference
+argument never reaches `value()` through a literal and so never fires the handler at all. §2.5 is the
+answer there — the attacker controls data and never the template — and R25 owns saying so in the
+guide. What R24 must not do, and now does not, is widen it to a second spelling.
+*`$_x.asis()` consequence, prominently:* **`$_x.asis($msg)` on an interpolated `#set` value now emits
+raw data**, where it emitted singly-encoded data before — the `#set` had encoded it once and `asis()`
+was declining to do the second pass. `asis()` is the documented, unguarded bypass and this follows
+from the design, but it is a real change in what that combination does: it was safer than it said it
+was, and a developer who checked the rendered page saw escaped markup and could have concluded the
+framework was still protecting them.
+*Ledger:* **unchanged**, verified rather than assumed — 1,012 invocations, SAFE 481,
+KNOWN_VULNERABLE 68 (all F6), SUPPRESSED_BY_DESIGN 415, SUPPRESSED_UNINTENDED 12, REJECTED 36,
+re-tallied from `build/reports/canoe/matrix.csv` after the change. **No corpus template contains a
+Velocity directive at all** — checked over the generated CSV's own `template` column, where the only
+18 rows containing a `#` are `url.href-fragment`'s URL fragment — so no corpus row can produce an
+interpolated string literal and none could move. The row R12's note warned about is the one asserted
+in `theSetPathAndTheDirectPathAgree…`: it is a test, not a ledger row, and its `#set` half moved from
+mangled to live-under-F6 exactly as predicted. Nothing went from safe-by-accident to
+`KNOWN_VULNERABLE` in the ledger because the ledger never had that accident in it.
+*Coverage:* **unchanged** where it is gated — Canoe 292/303 = 96.37% (floor 95), HtmlEncoder 315/320
+= 98.44% (floor 98), `reallyProcessChar()` 169/174 = 97.13% (floor 96), `setTagAttributeContext()`
+10/10, `normalisePlainTextAttributeNames()` 20/20. `CanoeReferenceInsertionHandler` is not a gated
+class; for the record it goes from 6 to 18 branch outcomes (the new `if`, the walk's two `startsWith`
+predicates, the literal scan and the consumer test) and is **18/18, 106/106 instructions, 100%** —
+the new code has no untested branch. `build.gradle` needs no edit and the gate's dead-branch
+inventory is untouched.
+*`MatrixReportTest.FINDINGS_WITHOUT_CASES`:* F12's exemption is **kept and reworded**, which is the
+decision the two halves of that map's assertion actually call for. It is not stale in the sense the
+second assertion catches — a stale exemption is one whose finding has *acquired* corpus cases, and
+F12 has none, verified against `matrix.csv` rather than assumed. And the reason it gave is still the
+true one: a corpus case is a template plus a payload at a sink, F12 is about a Velocity reference
+*form*, and counting it would mean restating the same defect once per sink. The rewording follows
+F21's and F22's: it records that R24 closed the finding, says why the exemption survives its closure,
+and names the two tests that own it.
+*Docs:* two paragraphs in `qlue_user_guide.md`, both confined to what R24 changes. The encoding table
+gains the rule that a `#set` value is encoded where it is printed, with the note that the author's
+own literal text goes through the encoder with it; the `$_x.asis()` bullet gains the consequence
+above, because that bullet now describes something that puts attacker bytes on the page where it used
+to describe something that did not. **R25 still owns the documentation rewrite.**
+*Review:* F12 carries a `Resolved — R24` note at the head of the finding in the F18/F21/F22 style,
+recording the measurement, the detector, the bound, the consumer rule, the asymmetry, the cost, the
+one behaviour change and the removal of the F6 masking. The R23 note inside it is left as R23 wrote it, with a parenthesis
+pointing at the new note rather than a rewrite of a dated record. The glance-table row says
+**fixed in R24**.
+*Gates:* `./gradlew test` (6,146 tests, 0 failures, 0 errors, 0 skipped) and `canoeCoverageGate`
+green. `browserTest` was **not** run: known hang in this environment, owned by R28. **R24 changes
+nothing the browser tier renders** — the tier replays corpus invocations through
+`VerdictEvaluator.render`, and no corpus template uses `#set` or any other directive, so the bytes
+handed to Chromium are identical before and after.
+
 *Done when:* `VelocityIntegrationTest.doubleEncodingAccidentallyNeutralisesAnUnrecognisedHandler` is
-retired *because its precondition is gone*, not because F12 was fixed under it.
+retired *because its precondition is gone*, not because F12 was fixed under it. ✅ — retired under the
+name R4 and R5 left it with, `.doubleEncodingNoLongerCoversAnyClassOfMissingClassification`, and for
+that reason.
 
 ---
 
@@ -1555,7 +1716,7 @@ figure in this plan was measured in: 91 passed, 2 skipped.
 | F9 — `write(char[],int,int)` length/end confusion | Low (latent) | R15 |
 | F10 — `SCRIPT_END` accepts `</scriptfoo>` | Low (latent) | R17 ✅ (delimiter required, mismatch re-processed, fold bounded to ASCII) |
 | F11 — unquoted attribute references vanish | Low | R19 ✅ (`TAG_ATTR_VALUE_BEFORE` shares `TAG_ATTR_VALUE`'s case label); the `COMMENT_*`/`DOCTYPE_*` half of the finding is deliberately left suppressing |
-| F12 — `#set` interpolation uses the wrong context | Low | R24; the `${_x.` footgun recorded in F12's notes is closed separately by R23 ✅ (all four Velocity reference spellings bypass) |
+| F12 — `#set` interpolation uses the wrong context | Low | R24 ✅ (an `ASTStringLiteral` frame below the handler means the value is going to Velocity's own writer, so it is returned unencoded and encoded once where it is printed — unless the frame below *that* is `Evaluate`, `Parse` or `Include`, which compile or resolve the string rather than printing it and so keep the pre-R24 encoding; one behaviour change recorded with it — `$_x.asis()` on such a value now emits raw data); the `${_x.` footgun recorded in F12's notes was closed separately by R23 ✅ (all four Velocity reference spellings bypass) |
 | F13 — `[Encoding Error]` branch unreachable | Medium | R21 ✅ (typed `CanoeEncodingException` found on the cause chain; the marker is gone, the flush is suppressed and the response is reset so the request can fail cleanly) + R20 ✅ (the rejection table triaged: `<br/>`, names to 127 characters and a second DOCTYPE render; the literal `<`, `</ p>`, `</>` and C0 controls stay rejected, each with its reason recorded) |
 | F14 — comment ending in three dashes never closes | Low | R16 |
 | F15 — `url()` corrupts legitimate URLs five ways | Low | R11, R12 |
@@ -1611,7 +1772,7 @@ R20 rejection-table triage              <- done
 -------------------------------------------- tokenizer faithful, pages stop dying here
 R22 resource loader key
 R23 formal-notation bypass
-R24 #set context                        <- must be after R4 and R5
+R24 #set context                        <- done; was after R4 and R5
 R25 documentation
 R26 ledger to zero + CI guard
 R27 coverage gate

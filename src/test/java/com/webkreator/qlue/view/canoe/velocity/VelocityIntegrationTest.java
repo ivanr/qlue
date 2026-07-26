@@ -30,20 +30,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * model, and it is independent of context: a bypass bypasses in body text exactly as it does in an
  * event handler.
  *
- * <p>Two things in here are traps rather than tests, and each has a test named after the trap. A
- * third was one until R23 closed it: <strong>formal notation used to defeat the bypass</strong>,
- * because the handler matched only the literal prefixes {@code $_x.} and {@code $!_x.} against the
- * reference's source text and <code>${_x.</code> starts with neither, so a developer switching notation
- * for readability silently changed the security behaviour of the line. All four spellings now
- * bypass; {@code everySpellingOfTheBypassBypassesIncludingFormalNotation} is the inverted test and
- * carries the mechanism.
+ * <p>One thing in here is a trap rather than a test, and it has a test named after the trap. Two
+ * others were traps until R23 and R24 closed them, and each has an inverted test carrying the
+ * mechanism:
  *
  * <ul>
- *   <li><strong>F12: an interpolated string literal double-encodes.</strong> {@code #set($msg =
+ *   <li><strong>formal notation used to defeat the bypass</strong>, because the handler matched only
+ *       the literal prefixes {@code $_x.} and {@code $!_x.} against the reference's source text and
+ *       <code>${_x.</code> starts with neither, so a developer switching notation for readability
+ *       silently changed the security behaviour of the line. All four spellings now bypass;
+ *       {@code everySpellingOfTheBypassBypassesIncludingFormalNotation} is the inverted test.
+ *   <li><strong>F12: an interpolated string literal double-encoded.</strong> {@code #set($msg =
  *       "Hello $data")} fires the handler while the <em>main</em> writer is wherever the
- *       {@code #set} happens to sit, so the value is encoded once for that position and again where
- *       {@code $msg} is printed. A plain {@code #set($u = $data)} does not, because a bare reference
- *       assignment never fires {@code referenceInsert()} at all.
+ *       {@code #set} happens to sit, so the value was encoded once for that position and again where
+ *       {@code $msg} is printed. A plain {@code #set($u = $data)} never did, because a bare reference
+ *       assignment does not fire {@code referenceInsert()} at all. R24 made the handler detect the
+ *       nested render and return the value untouched, so it is encoded once, where it is printed;
+ *       {@code anInterpolatedStringLiteralIsEncodedOnceAtThePositionItIsPrintedAt} is the inverted
+ *       test and the section below it is the rest of the consequences. Deferring stops at the three
+ *       directives that never print the string they asked the literal for — {@code #evaluate},
+ *       which compiles it, and {@code #parse} and {@code #include}, which resolve it to a file —
+ *       because there is no later encoding for those to defer to.
+ * </ul>
+ *
+ * <ul>
  *   <li><strong>{@code #include} is not {@code #parse}.</strong> {@code #include} copies the file's
  *       bytes to the writer without a Velocity parse — but the writer <em>is</em> the {@link
  *       com.webkreator.qlue.view.Canoe}, so the included bytes still steer the state machine. An
@@ -427,7 +437,12 @@ public class VelocityIntegrationTest {
                 org.junit.jupiter.params.provider.Arguments.of("evaluate-literal",
                         "#evaluate('<p>$data</p>')", "<p>" + MARKUP_IN_BODY + "</p>"),
                 org.junit.jupiter.params.provider.Arguments.of("set-plain",
-                        "#set($u = $data)<p>$u</p>", "<p>" + MARKUP_IN_BODY + "</p>"));
+                        "#set($u = $data)<p>$u</p>", "<p>" + MARKUP_IN_BODY + "</p>"),
+                // Added by R24. Before it, this row would have read
+                // "<p>&amp;lt&#59;b&amp;gt&#59;</p>" and would have been the odd one out in a table
+                // whose whole point is that every directive produces what a bare reference does.
+                org.junit.jupiter.params.provider.Arguments.of("set-interpolated",
+                        "#set($u = \"$data\")<p>$u</p>", "<p>" + MARKUP_IN_BODY + "</p>"));
     }
 
     @ParameterizedTest(name = "#{0}")
@@ -468,153 +483,408 @@ public class VelocityIntegrationTest {
     // ------------------------------------------------------------------
 
     /**
-     * <strong>F12</strong>, as the golden the review records.
+     * <strong>F12, inverted by R24.</strong> Formerly
+     * {@code anInterpolatedStringLiteralIsEncodedTwice}.
      *
-     * <p>{@code referenceInsert()} asks {@code qlueWriter.currentContext()} — the position of the
-     * <em>main</em> output stream at the instant the {@code #set} runs. Velocity renders an
-     * interpolated string literal into an internal writer, but the event cartridge is attached to the
-     * context, so the handler still fires and still consults the main stream. The value is therefore
-     * encoded for wherever the {@code #set} sat, and encoded again where {@code $msg} is printed.
+     * <p>The mechanism it pinned: {@code referenceInsert()} asked
+     * {@code qlueWriter.currentContext()} — the position of the <em>main</em> output stream at the
+     * instant the {@code #set} ran. Velocity renders an interpolated string literal into an internal
+     * writer, but the event cartridge is attached to the context, so the handler still fired and
+     * still consulted the main stream. The value was encoded for wherever the {@code #set} sat, and
+     * encoded again where {@code $msg} was printed. The review's golden was
+     * {@code <p>Hello &amp;amp;lt&amp;#59;b&amp;amp;gt&amp;#59;</p>}, and {@code &amp;amp;lt&amp;#59;}
+     * was the visible symptom: {@code htmlWhite()} produced {@code &amp;lt;}, and {@code htmlWhite()}
+     * then escaped that string's ampersand and semicolon.
      *
-     * <p>{@code &amp;lt&#59;} is the visible symptom: {@code htmlWhite()} produced {@code &lt;},
-     * {@code htmlWhite()} then escaped that string's ampersand and semicolon.
+     * <p>R24 gave the handler a way to know that the writer is not Canoe — an
+     * {@code ASTStringLiteral} frame below it on the call stack — and to hand the value back
+     * untouched when it is. The value is then encoded exactly once, at the {@code <p>}, which is the
+     * position Canoe genuinely knows.
+     *
+     * <p><strong>The template author's own literal text is encoded too</strong>, which is the part
+     * worth asserting as bytes rather than as a substring. The whole string {@code $msg} is data by
+     * the time it is printed, so {@code Hello } goes through the encoder with the value. In body
+     * context that is invisible — {@code htmlWhite()} passes the space through — but in an attribute
+     * {@code html()} emits {@code &amp;#32;} for it, which is why the second assertion exists. Both
+     * render identically in a browser, and neither is a substring match that would still pass if the
+     * encoding moved.
      */
     @Test
-    public void anInterpolatedStringLiteralIsEncodedTwice() {
-        assertEquals("<p>Hello &amp;lt&#59;b&amp;gt&#59;</p>",
+    public void anInterpolatedStringLiteralIsEncodedOnceAtThePositionItIsPrintedAt() {
+        assertEquals("<p>Hello &lt;b&gt;</p>",
                 CanoeTestSupport.render("#set($msg = \"Hello $data\")<p>$msg</p>", MARKUP).output(),
-                "F12, exactly as the review records it");
+                "R24: encoded once, at the <p>, and not at all where the #set ran");
+
+        assertEquals("<a title=\"Hello&#32;&lt;b&gt;\">x</a>",
+                CanoeTestSupport.render("#set($msg = \"Hello $data\")<a title=\"$msg\">x</a>",
+                        MARKUP).output(),
+                "the author's own 'Hello ' is encoded with the value, because by the time the string"
+                        + " is printed it is one value: html() emits &#32; for the space, which a"
+                        + " browser renders as a space");
+
+        assertEquals(CanoeTestSupport.render("<p>$data</p>", MARKUP).output(),
+                CanoeTestSupport.render("#set($msg = \"$data\")<p>$msg</p>", MARKUP).output(),
+                "and a literal that is nothing but the reference is now byte-identical to the bare"
+                        + " reference, which is the shape of the whole fix");
     }
 
     /**
-     * F12's true scope: only interpolated string literals, and the plain assignment is correct.
+     * F12's true scope, and after R24 the two spellings finally agree.
      *
      * <p>A bare {@code #set($u = $data)} never fires {@code referenceInsert()} — there is no
      * insertion, only an assignment — so the value is untouched until {@code $u} is printed, and it
      * is then encoded once for the position it is printed at. This is the half the finding's original
-     * text got wrong by omission, and it is what bounds the defect: it is not "references inside
-     * {@code #set}", it is "references inside an interpolated string literal", wherever that literal
-     * appears.
+     * text got wrong by omission, and it is what bounded the defect: it was not "references inside
+     * {@code #set}", it was "references inside an interpolated string literal", wherever that literal
+     * appeared. The two spellings are one character of template text apart, and before R24 the
+     * interpolated one double-encoded to
+     * {@code <a title="x&amp;amp;lt&amp;#59;b&amp;amp;gt&amp;#59;">} — which is the assertion this
+     * test used to make, and the reason a developer could not tell the two apart by reading them.
      */
     @Test
     public void aPlainSetAssignmentSingleEncodesForThePositionTheValueIsPrintedAt() {
         assertEquals("<a title=\"&lt;b&gt;\">x</a>",
                 CanoeTestSupport.render("#set($u = $data)<a title=\"$u\">x</a>", MARKUP).output(),
                 "encoded once, for the attribute it is printed into and not for where the #set sat");
-        assertEquals("<a title=\"x&amp;lt&#59;b&amp;gt&#59;\">x</a>",
+        assertEquals("<a title=\"x&lt;b&gt;\">x</a>",
                 CanoeTestSupport.render("#set($u = \"x$data\")<a title=\"$u\">x</a>", MARKUP).output(),
-                "...and the interpolated form of the same assignment double-encodes, one character"
-                        + " of template text apart");
+                "...and R24 makes the interpolated form of the same assignment agree with it,"
+                        + " character for character apart from the template's own 'x'");
     }
 
     /**
-     * F12 encoding for the wrong position can also mean encoding for a <em>suppressed</em> position,
-     * in which case the value disappears entirely.
+     * <strong>Inverted by R24.</strong> Formerly
+     * {@code anInterpolatedSetInsideAScriptOrHandlerSilentlyProducesNothing}.
      *
-     * <p>The finding says this ("inside a tag it means the value silently becomes empty") and it is
-     * worth an assertion because it is the failure mode a developer meets first: the {@code #set} is
-     * moved into a {@code <script>} block or an event handler for tidiness, and the string it builds
-     * is empty from then on with no error anywhere.
+     * <p>F12 encoding for the wrong position could also mean encoding for a <em>suppressed</em>
+     * position, in which case the value disappeared entirely. The finding said so ("inside a tag it
+     * means the value silently becomes empty") and it was worth an assertion because it was the
+     * failure mode a developer met first: the {@code #set} was moved into a {@code <script>} block or
+     * an event handler for tidiness, and the string it built was empty from then on with no error
+     * anywhere. The old golden was {@code <script></script><p>x</p>} — the literal prefix and nothing
+     * else, because the reference had been encoded for {@code CTX_JS}, which is the empty string.
+     *
+     * <p>It inverts because the {@code #set} no longer consults the position it sits at. Where the
+     * literal is built is now irrelevant to what it contains; only where it is printed decides how
+     * it is encoded. The {@code <script>} block stays empty because the {@code #set} directive writes
+     * nothing to the page, which is the same before and after.
      */
     @Test
-    public void anInterpolatedSetInsideAScriptOrHandlerSilentlyProducesNothing() {
-        assertEquals("<script></script><p>x</p>",
+    public void anInterpolatedSetInsideAScriptNoLongerLosesItsValue() {
+        assertEquals("<script></script><p>x&lt;b&gt;</p>",
                 CanoeTestSupport.render("<script>#set($m = \"x$data\")</script><p>$m</p>",
                         MARKUP).output(),
-                "F12: the reference was encoded for CTX_JS, which is the empty string, so $m is"
-                        + " the literal prefix and nothing else");
+                "R24: the value survives the suppressed position it was built in, and is encoded"
+                        + " for the body context it is printed into");
         assertEquals("<script></script><p>&lt;b&gt;</p>",
                 CanoeTestSupport.render("<script>#set($m = $data)</script><p>$m</p>",
                         MARKUP).output(),
-                "...and the plain assignment in the same place is correct, which is the contrast"
-                        + " that makes the defect hard to spot");
+                "...and the plain assignment in the same place is unchanged: the contrast that made"
+                        + " the defect hard to spot is now no contrast at all");
     }
 
     /**
-     * The one direction F12 moves that is worth recording as a mitigation rather than a defect: the
-     * double encoding neutralises a payload aimed at an attribute Canoe classifies as plain text
-     * when it should not.
+     * <strong>Retired by R24, and replaced by this.</strong> Formerly
+     * {@code doubleEncodingNoLongerCoversAnyClassOfMissingClassification}, and before that
+     * {@code …AnUnrecognisedUrlAttribute} and {@code …AnUnrecognisedHandler}.
      *
-     * <p><strong>Half-inverted by R4.</strong> This was
-     * {@code doubleEncodingAccidentallyNeutralisesAnUnrecognisedHandler}, and the sink was
-     * {@code onmouseenter} — F2's territory, the largest vulnerability class in the review.
-     * {@code onmouseenter} was not in Canoe's {@code on*} table, so it was {@code ATTR_HTML} and its
-     * value was {@code html()}-encoded, which F2 showed was not enough: the parser decodes exactly
-     * once and the attacker's apostrophe became an apostrophe inside a JavaScript string literal.
-     * Routing the same value through an interpolated {@code #set} first encoded it twice, so the one
-     * decode left the literal text {@code &#39;} and the string literal was never closed.
+     * <p>That test's subject was the one direction F12 moved that was worth recording as a
+     * mitigation rather than a defect: the double encoding neutralised a payload aimed at an
+     * attribute Canoe classified as plain text when it should not have. It is retired because its
+     * <em>precondition</em> is gone — there is no double encoding left to neutralise anything with —
+     * and not because F12 was fixed under it. The distinction matters: a test whose mechanism has
+     * been fixed gets inverted, a test whose subject no longer exists gets replaced by the assertion
+     * that says so. This is that assertion, and it carries the retired test's reasoning:
      *
-     * <p>R4 suppressed every {@code on*} value, so the handler half of the template became inert by
-     * design on both paths and the accident had nothing left to neutralise there. The sink then
-     * moved to {@code formaction}, which was F3's territory and R5 and R6's to close — and they have
-     * closed it. <strong>Trap 2 in the plan's &sect;1 is discharged</strong>: no class of
-     * <em>missing classification</em> is being covered by the double encoding any more, because
-     * there is no longer a sink where {@code html()} output is decoded once into a second parser.
-     * R24 is unblocked with respect to R4 and R5.
+     * <ul>
+     *   <li>The original sink was {@code onmouseenter} — F2's territory, the largest vulnerability
+     *       class in the review. It was not in Canoe's {@code on*} table, so it was {@code ATTR_HTML}
+     *       and its value was {@code html()}-encoded, which F2 showed was not enough: the parser
+     *       decodes exactly once and the attacker's apostrophe became an apostrophe inside a
+     *       JavaScript string literal. Routing the same value through an interpolated {@code #set}
+     *       encoded it twice, so the one decode left the literal text {@code &amp;#39;} and the
+     *       string literal was never closed. <strong>R4</strong> suppressed every {@code on*} value,
+     *       so both paths became inert by design.
+     *   <li>The sink then moved to {@code formaction}, which was F3's territory. <strong>R5 and
+     *       R6</strong> made it a URL name and <strong>R12</strong> made {@code url()} reject an
+     *       off-allowlist scheme outright, so both paths became inert there too.
+     *   <li>What honestly remained was narrower: F12 masked <strong>F6</strong>. An off-origin URL
+     *       survived {@code url()} byte for byte on the direct path and was mangled on the
+     *       {@code #set} path, so the interpolated spelling was safe by accident where the direct
+     *       spelling was a live vector. <strong>R24 removes the accident</strong>, and the third
+     *       block below is where that is recorded: the two paths now agree, and they agree on the
+     *       vulnerable answer. Nothing new is exposed — the class was already
+     *       {@code KNOWN_VULNERABLE} in the ledger by its direct route, and no corpus template uses
+     *       {@code #set} in any spelling — but the masking is gone and this says so out loud rather
+     *       than leaving it to be rediscovered.
+     * </ul>
      *
-     * <p>What honestly remains is narrower and is asserted rather than assumed: F12 still masks
-     * <strong>F6</strong>. An off-origin URL survives {@code url()} byte for byte on the direct path
-     * and is mangled on the {@code #set} path, so fixing F12 before R9 and R12 would turn an
-     * interpolated {@code #set} into a live off-origin vector on a sink where the direct form
-     * already is one. That is a smaller and better-understood statement than the one this test was
-     * written for — the class it now covers is already {@code KNOWN_VULNERABLE} in the ledger by its
-     * direct route, so R24 would expose nothing the ledger does not already record.
-     *
-     * <p>Renamed from {@code doubleEncodingAccidentallyNeutralisesAnUnrecognisedUrlAttribute}, and
-     * before that from {@code …AnUnrecognisedHandler}. Kept rather than retired because a suite that
-     * only recorded F12 as double encoding would let R24 land without anybody re-deriving which
-     * findings the accident was standing in front of.
+     * <p>The assertion that replaces all of it is one sentence: <strong>the {@code #set} path and the
+     * direct path are byte-identical at every sink the accident touched.</strong> That is a stronger
+     * statement than "F12 is fixed", it is the property R24 was for, and it fails in both directions
+     * — if the interpolated path started encoding again, or if the direct path changed and the
+     * interpolated one did not.
      */
     @Test
-    public void doubleEncodingNoLongerCoversAnyClassOfMissingClassification() {
-        String payload = Payloads.QUOTE_SINGLE_BREAKOUT.value();
+    public void theSetPathAndTheDirectPathAgreeAtEverySinkTheAccidentCovered() {
+        String handlerPayload = Payloads.QUOTE_SINGLE_BREAKOUT.value();
+        assertEquals(
+                CanoeTestSupport.render("<div onmouseenter=\"v('$data')\">x</div>",
+                        handlerPayload).output(),
+                CanoeTestSupport.render(
+                        "#set($v = \"$data\")<div onmouseenter=\"v('$v')\">x</div>",
+                        handlerPayload).output(),
+                "R4: an on* value is suppressed whichever path it arrives by");
+        assertEquals("<div onmouseenter=\"v('')\">x</div>",
+                CanoeTestSupport.render(
+                        "#set($v = \"$data\")<div onmouseenter=\"v('$v')\">x</div>",
+                        handlerPayload).output(),
+                "...and the agreed answer is the empty value, not some jointly-wrong one");
 
-        // R4: the handler this test was originally about is suppressed on both paths now, so the
-        // double encoding neither helps nor is needed.
-        CanoeTestSupport.RenderResult handlerDirect = CanoeTestSupport.render(
-                "<div onmouseenter=\"v('$data')\">x</div>", payload);
-        assertEquals("v('')", handlerDirect.decodedAttr("div", "onmouseenter"),
-                "R4: onmouseenter is classified by the on-prefix rule, so nothing is emitted and"
-                        + " there is no payload for F12's double encoding to neutralise");
+        String schemePayload = Payloads.JS_URL.value();
+        CanoeTestSupport.RenderResult schemeViaSet = CanoeTestSupport.render(
+                "#set($v = \"$data\")<button formaction=\"$v\">go</button>", schemePayload);
+        assertEquals(
+                CanoeTestSupport.render("<button formaction=\"$data\">go</button>",
+                        schemePayload).output(),
+                schemeViaSet.output(),
+                "R6 and R12: an off-allowlist scheme is rejected whichever path it arrives by");
+        assertFalse(schemeViaSet.decodedAttr("button", "formaction").contains("javascript:"),
+                () -> "...and the agreed answer is a rejection. Decoded: "
+                        + schemeViaSet.decodedAttr("button", "formaction"));
 
-        // R5+R6: and neither is the URL attribute the sink moved to. Since R12 url() rejects the
-        // javascript: scheme outright, so the direct path is inert without any help from F12.
-        String urlPayload = Payloads.JS_URL.value();
-        CanoeTestSupport.RenderResult direct = CanoeTestSupport.render(
-                "<button formaction=\"$data\">go</button>", urlPayload);
-        assertFalse(direct.decodedAttr("button", "formaction").contains("javascript:"),
-                () -> "R6: formaction is a URL name now, and R12 rejects an off-allowlist scheme"
-                        + " to the empty string on the direct path. Decoded: "
-                        + direct.decodedAttr("button", "formaction"));
-
-        // What remains, stated precisely rather than left as "the accident still helps somewhere".
-        // An off-origin URL is F6's live vector on the direct path, and the double encoding mangles
-        // it on the #set path - so F12 still masks F6 here, and only here.
+        // The masking that was left, now removed. This is the row of the argument that changed:
+        // before R24 the two paths differed here, and the interpolated one was safe by accident.
         String offOrigin = Payloads.PROTOCOL_RELATIVE.value();
-        CanoeTestSupport.RenderResult offOriginDirect = CanoeTestSupport.render(
-                "<button formaction=\"$data\">go</button>", offOrigin);
-        assertEquals(offOrigin, offOriginDirect.decodedAttr("button", "formaction"),
-                "F6: every character of a protocol-relative URL is on url()'s allowlist, so the"
-                        + " direct path is live and the ledger records this sink as F6");
-
         CanoeTestSupport.RenderResult offOriginViaSet = CanoeTestSupport.render(
                 "#set($v = \"$data\")<button formaction=\"$v\">go</button>", offOrigin);
-        assertNotEquals(offOrigin, offOriginViaSet.decodedAttr("button", "formaction"),
-                () -> "F12: the #set encoded for body context first, so url() then escaped the"
-                        + " character references' own ampersands and the authority never survives."
-                        + " Decoded: " + offOriginViaSet.decodedAttr("button", "formaction"));
-        // ...asserted as the mechanism and not only as a difference, so that this half cannot pass
-        // for some later reason - a suppression, say - while F12 is quietly fixed underneath it. The
-        // #set path html-encoded '/' to &#47; first, and R12's url() then re-encoded that string's
-        // ampersands to &amp; - so the leading '/' arrives as &#47; rather than as a separator, and
-        // the authority is gone.
-        String viaSet = offOriginViaSet.decodedAttr("button", "formaction");
-        assertTrue(viaSet.startsWith("&#47;"),
-                () -> "the value must be url() applied to html()'s output: '/' arrives as the"
-                        + " character reference &#47; whose ampersand url() re-encoded, which is what"
-                        + " double encoding looks like at a URL sink. Decoded: " + viaSet);
-        assertFalse(viaSet.contains("//attacker.invalid"),
-                () -> "and the authority did not survive the double encoding. Decoded: " + viaSet);
+        assertEquals(
+                CanoeTestSupport.render("<button formaction=\"$data\">go</button>",
+                        offOrigin).output(),
+                offOriginViaSet.output(),
+                "F6, unmasked: url() passes every character of a protocol-relative URL, and the"
+                        + " #set path no longer mangles it into something inert first");
+        assertEquals(offOrigin, offOriginViaSet.decodedAttr("button", "formaction"),
+                "and the agreed answer is F6's live vector, byte for byte. This is the honest"
+                        + " consequence of R24 and is recorded rather than avoided: the accident"
+                        + " that hid it was never a control");
+    }
+
+    /**
+     * <strong>The consequence of R24 that gives an attacker raw bytes: {@code $_x.asis()} on an
+     * interpolated {@code #set} value.</strong>
+     *
+     * <p>Before R24 the two halves of this template each did half a job and the result was, by
+     * accident, once-encoded output: the {@code #set} encoded the value for wherever it sat, and
+     * {@code asis()} then declined to encode it again, so {@code &lt;b&gt;} reached the page. After
+     * R24 the {@code #set} does nothing to the value and {@code asis()} does nothing to it either,
+     * so {@code <b>} reaches the page raw.
+     *
+     * <p>This is not a defect in R24 and it is not a new bypass. {@code asis()} is the documented,
+     * unguarded escape hatch — {@code $_x.} is the one prefix in
+     * {@code CanoeReferenceInsertionHandler} that means "emit this without encoding", and R23's note
+     * on it says the same. What changed is that the combination used to be safer than it said it was,
+     * and a developer who had written it and looked at the rendered page would have seen escaped
+     * markup and concluded the framework was still protecting them. It was not protecting them; it
+     * was double-encoding, and the second encoder was the one they had switched off.
+     *
+     * <p>It gets its own test because "this combination changed meaning" is exactly the kind of thing
+     * that a suite records once and then nobody rediscovers. R25 owns the documentation; the sentence
+     * in {@code qlue_user_guide.md} that this falsifies is corrected with R24.
+     */
+    @Test
+    public void asisOnAnInterpolatedSetValueNowEmitsRawData() {
+        assertEquals("<p>Hello <b></p>",
+                CanoeTestSupport.render("#set($msg = \"Hello $data\")<p>$_x.asis($msg)</p>",
+                        MARKUP).output(),
+                "R24: the value is raw in $msg and asis() emits it raw. Before R24 this rendered"
+                        + " '<p>Hello &lt;b&gt;</p>', because the #set had already encoded it once"
+                        + " and asis() was declining to do it a second time");
+
+        assertEquals(
+                CanoeTestSupport.render("<p>$_x.asis($data)</p>", MARKUP).output(),
+                CanoeTestSupport.render("#set($msg = \"$data\")<p>$_x.asis($msg)</p>",
+                        MARKUP).output(),
+                "...which is the same thing asis() does to a bare reference. That is the point:"
+                        + " routing a value through an interpolated #set is no longer an encoding"
+                        + " step, so it no longer half-protects a value the author asked to be"
+                        + " emitted raw");
+    }
+
+    /**
+     * <strong>The one place R24 must <em>not</em> defer: a literal that is compiled rather than
+     * printed.</strong>
+     *
+     * <p>Deferring is a promise that the value will be encoded later, where it is written to the
+     * page. {@code #evaluate} breaks that promise in the worst available way: it calls
+     * {@code value()} on its argument — interpolating the literal, which is a nested render — and
+     * then <em>parses the resulting string as VTL</em> and renders it. The data never passes through
+     * a reference again, so a deferred value would never be encoded at all, and every {@code #} and
+     * {@code $} in it would be template syntax. A payload of
+     * <code>#set($injected = 1)$injected</code> would render as {@code 1}: server-side template
+     * injection, which is a strictly worse outcome than the XSS this whole class exists to prevent.
+     *
+     * <p>So the detector reads one frame further than the literal. {@code ASTStringLiteral.value()}
+     * has exactly one caller, and when that caller is {@code Evaluate} the string is source and not
+     * output, so the value is encoded here as it always was. That is not a new control — it is the
+     * pre-R24 behaviour, kept — and encoding is enough because {@code htmlWhite()} is an allowlist of
+     * {@code [a-zA-Z0-9]} and a little whitespace: the payload's {@code #} and {@code $} come back as
+     * {@code &amp;#35;} and {@code &amp;#36;} and nothing in the output can be reconstituted into a
+     * directive.
+     *
+     * <p><strong>The underlying hole is real, pre-existing, and untouched.</strong> The plain
+     * spelling {@code #set($t = $data)#evaluate($t)} hands {@code #evaluate} the raw value and always
+     * has, because a bare assignment never fires this handler; the first assertion pins that so the
+     * pair cannot be misread as "#evaluate is safe now". &sect;2.5 is the answer there — the attacker
+     * controls data and never the template, and a directive whose argument is compiled is outside
+     * what an output encoder can defend. What R24 must not do is widen it to a second spelling.
+     *
+     * <p>This test is also the alarm for a Velocity upgrade. The consumer is identified by the frame
+     * directly below the literal, measured against velocity-engine-core 2.4.1; if a future release
+     * puts plumbing in between, this assertion fails loudly rather than the deferral quietly
+     * re-opening.
+     */
+    @Test
+    public void evaluateOfAnInterpolatedLiteralIsStillEncodedRatherThanCompiled() {
+        String vtl = "#set($injected = 1)$injected";
+
+        assertEquals("1",
+                CanoeTestSupport.render("#set($t = $data)#evaluate($t)", vtl).output(),
+                "the plain assignment has always handed #evaluate raw data: no reference insertion"
+                        + " happens for it, so there has never been anything to encode it. This is"
+                        + " the pre-existing hole, and it is not R24's to close");
+
+        assertEquals("&#35;set&#40;&#36;injected &#61; 1&#41;&#36;injected",
+                CanoeTestSupport.render("#evaluate(\"$data\")", vtl).output(),
+                "...and the interpolated spelling does not join it: Evaluate is the literal's"
+                        + " consumer, so the value is encoded here, and what #evaluate then compiles"
+                        + " is inert text with no '#' or '$' left in it");
+
+        assertEquals("<p>" + MARKUP_IN_BODY + "</p>",
+                CanoeTestSupport.render("#evaluate(\"<p>$data</p>\")", MARKUP).output(),
+                "and an ordinary value through the same shape is encoded exactly once, which is what"
+                        + " the directives() table asserts for the single-quoted spelling too");
+    }
+
+    /**
+     * <strong>And the same for a literal that is resolved to a file rather than printed.</strong>
+     *
+     * <p>{@code #parse} and {@code #include} call {@code value()} on their argument for a template or
+     * resource <em>name</em>. A deferred value there is an attacker-chosen path: {@code #parse} then
+     * parses and renders whatever it finds, which is template injection by a second route, and
+     * {@code #include} copies the bytes to the writer unparsed, which is file disclosure. Both are
+     * outside what encoding-at-the-sink can reach once the path has been chosen, so the value is
+     * encoded at the reference exactly as it was before R24 — and {@code html()}'s allowlist turns
+     * {@code /} and {@code .} into character references, so no path survives it.
+     *
+     * <p>Asserted as a rejected lookup rather than as bytes, because that is the observable that
+     * matters: the name Velocity is handed does not resolve to the attacker's file. As with
+     * {@code #evaluate}, the plain spelling {@code #parse($data)} was and remains live, and &sect;2.5
+     * is the answer there.
+     */
+    @Test
+    public void aParsedOrIncludedTemplateNameBuiltFromAReferenceIsEncodedAndNotDeferred() {
+        for (String directive : List.of("parse", "include")) {
+            String template = "#" + directive + "(\"$data\")";
+
+            // The fragment exists, so an unencoded name would resolve and render. The encoded name
+            // is 'canoe&#45;fragment&#46;vm', which resolves to nothing.
+            IllegalStateException failure = assertThrows(IllegalStateException.class,
+                    () -> CanoeTestSupport.render(template, "canoe-fragment.vm"),
+                    () -> "#" + directive + " must not be handed the raw name: the value is encoded"
+                            + " at the reference, so the lookup fails rather than loading the file"
+                            + " the data named");
+            assertTrue(failure.getCause() instanceof
+                            org.apache.velocity.exception.ResourceNotFoundException,
+                    () -> "...and it fails as a resource lookup, which is what an encoded name looks"
+                            + " like. Actual cause: " + failure.getCause());
+        }
+    }
+
+    /**
+     * The deferral survives a directive that appears <em>below</em> the literal, which is the reason
+     * the consumer is one frame and not the whole stack.
+     *
+     * <p>A {@code #set} inside a {@code #parse}d fragment is the commonest nested render there is —
+     * a header that builds a title — and its stack carries a {@code Parse} frame four frames below
+     * the literal, three below its real consumer. A {@code #set} inside an {@code #evaluate}d string carries an
+     * {@code Evaluate} frame the same way. Both are ordinary F12 shapes and must still defer;
+     * treating "the directive is somewhere on the stack" as disqualifying would be safe but would
+     * leave F12 alive in every parsed fragment an application has, which is most of them.
+     */
+    @Test
+    public void aSetInsideAParsedOrEvaluatedTemplateStillDefers() {
+        CanoeTestSupport.publishFragment("canoe-setter-fragment.vm",
+                "#set($inner = \"i$data\")<p>$inner</p>");
+
+        assertEquals("<p>i&lt;b&gt;</p>",
+                CanoeTestSupport.render("#parse('canoe-setter-fragment.vm')", MARKUP).output(),
+                "Parse is on the stack, but it is not the literal's consumer - the #set is, and this"
+                        + " is F12's own shape one level in");
+
+        assertEquals("<p>i&lt;b&gt;</p>",
+                CanoeTestSupport.render(
+                        "#evaluate('#set($inner = \"i$data\")<p>$inner</p>')", MARKUP).output(),
+                "...and the same inside an evaluated string, where an Evaluate frame sits below the"
+                        + " #set rather than above it");
+    }
+
+    /**
+     * The other directives that take a value through {@code ASTStringLiteral.value()}, and one that
+     * does not take it to the page at all.
+     *
+     * <p>These are the shapes that told R24 where the boundary of the fix is. A macro argument, a
+     * {@code #foreach} body and a {@code #parse}d fragment all render <em>inside</em> the literal's
+     * private writer, and the detector sees the literal's frame under all of them — so the value is
+     * carried raw to wherever the macro or the loop prints it, and encoded there. A comparison never
+     * reaches a writer at all, which is why it is the one place the fix is visible as a bug fix in
+     * the ordinary sense: {@code #if("$data" == "<b>")} used to compare the <em>encoded</em> value
+     * against the author's literal and answer "no" for an input that plainly was {@code <b>}.
+     *
+     * <p>The last three rows are the deep stacks, and they are here as the shapes that would fail
+     * first if the frame limit were ever tightened past the point a real template needs: measured
+     * below {@code referenceInsert()}, the literal's node is 8 frames down through a {@code #parse}d
+     * fragment, 9 through a {@code #foreach} and 10 through a macro invoked inside the literal, which
+     * is the deepest the suite renders. Note what the {@code #parse} row says about a fragment inside
+     * a literal: the fragment's {@code <em>} markup is template text
+     * being turned into part of a string, so it is encoded along with the data when that string is
+     * printed. That follows from the fix rather than being a separate decision, and it is the reason
+     * building markup inside a {@code #set} is a thing to warn about rather than a thing to support.
+     */
+    @Test
+    public void everyShapeThatRendersIntoALiteralCarriesTheValueRawToWhereItIsPrinted() {
+        assertEquals("<table><tr><td>a&lt;b&gt;</td></tr></table>",
+                CanoeTestSupport.render(
+                        "#macro(cell $v)<td>$v</td>#end<table><tr>#cell(\"a$data\")</tr></table>",
+                        MARKUP).output(),
+                "a macro argument built from an interpolated literal is encoded at the <td> the"
+                        + " macro prints it into, not at the call site");
+
+        assertEquals("<p>a&lt;b&gt; </p>",
+                CanoeTestSupport.render(
+                        "#set($m = \"a#foreach($i in $items)$i#end \")<p>$m</p>",
+                        model("data", MARKUP, "items", List.of(MARKUP))).output(),
+                "a #foreach body inside a literal renders into the literal's writer too");
+
+        assertEquals("<p>a&lt;em&gt;&lt;b&gt;&lt;&#47;em&gt;b</p>",
+                CanoeTestSupport.render(
+                        "#set($m = \"a#parse('canoe-fragment.vm')b\")<p>$m</p>", MARKUP).output(),
+                "and so does a #parse'd fragment, eight frames down - with the fragment's own markup"
+                        + " encoded along with the data, because a string built inside a #set is a"
+                        + " value and not template text");
+
+        assertEquals("<p>a&lt;b&gt;b</p>",
+                CanoeTestSupport.render(
+                        "#macro(inner)$data#end#set($m = \"a#inner()b\")<p>$m</p>", MARKUP).output(),
+                "and a macro invoked inside the literal, ten frames down, which is the deepest"
+                        + " nesting the suite renders and the row the frame limit must clear");
+
+        assertEquals("yes",
+                CanoeTestSupport.render("#if(\"$data\" == \"<b>\")yes#{else}no#end",
+                        MARKUP).output(),
+                "a literal used in a comparison never reaches a writer, so it compares the value"
+                        + " the author bound. Before R24 this answered 'no': the comparison saw"
+                        + " '&lt;b&gt;', encoded for a position the value was never printed at");
     }
 
     // ------------------------------------------------------------------

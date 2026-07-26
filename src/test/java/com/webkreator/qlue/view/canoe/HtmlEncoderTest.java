@@ -726,9 +726,12 @@ public class HtmlEncoderTest {
 
     /**
      * Encoding is not idempotent, and must not be: {@code &} becomes {@code &amp;}, so encoding
-     * twice produces {@code &amp;lt;} where the browser renders a literal {@code &lt;}. That is the
-     * mechanism behind F12's double-encoded output, and it is worth pinning so that a future
+     * twice produces {@code &amp;lt;} where the browser renders a literal {@code &lt;}. That was the
+     * mechanism behind F12's double-encoded output — R24 removed the second encoding rather than
+     * this property, which is unchanged and must be — and it is worth pinning so that a future
      * "optimisation" to skip already-encoded input is recognised as the security change it would be.
+     * Such an optimisation would also have been a second, silent way to "fix" F12, by making the
+     * double encoding invisible instead of making it not happen.
      */
     @Test
     public void encodingTwiceDoubleEncodes() {

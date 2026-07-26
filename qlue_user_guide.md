@@ -43,6 +43,12 @@ its scope is narrower than that phrasing suggests.
 | An attribute value on any attribute not named below | `HtmlEncoder.html()` | The same allowlist, without the whitespace exemption. |
 | `href`, `src`, `background`, `dynsrc`, `lowsrc` — those five names only | `HtmlEncoder.url()` | Percent-encoding of everything outside `a-zA-Z0-9/.-#?=`. |
 
+A value assembled by `#set` is encoded **where it is printed**, not where the `#set` ran — including
+`#set($msg = "Hello $name")`, whose reference is interpolated into a string Velocity builds
+internally. The whole string is then one value: the template's own `Hello ` is encoded along with the
+data, which renders identically in a browser. Until this was fixed such a value was encoded twice and
+`<b>` reached the page as the visible text `&lt;b&gt;`.
+
 ### What Canoe suppresses
 
 These render as **the empty string**, by design — Canoe does not attempt to escape into a scripting
@@ -116,7 +122,10 @@ text, and the only thing substituted is the inner `$value`, which is encoded —
 `${ _x.asis(&lt;b&gt;) }` rather than bypassing anything.
 
 - `$_x.asis($value)` — emit unencoded. The supported bypass, for when the template author has
-  encoded the value themselves or knows it is safe.
+  encoded the value themselves or knows it is safe. This includes a value built by
+  `#set($value = "…$data…")`: such a value now carries the data as it arrived, so `asis()` on it puts
+  attacker-controlled bytes in the page. It used to come out encoded once, because the `#set`
+  double-encoded it and `asis()` was declining to do the second pass — an accident, not a control.
 - `$_x.html($value)`, `$_x.htmlWhite($value)`, `$_x.url($value)`, `$_x.js($value)`,
   `$_x.css($value)` — encode explicitly for a named context.
 

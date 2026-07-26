@@ -98,8 +98,20 @@ public class MatrixReportTest {
         gaps.put("F9", "a Writer-API defect, invisible through Velocity because"
                 + " CanoeReferenceInsertionHandler never calls write(char[],int,int) at a non-zero"
                 + " offset - CanoeWriterContractTest and ChunkInvarianceTest");
-        gaps.put("F12", "about Velocity reference forms rather than about a sink -"
-                + " VelocityIntegrationTest");
+        gaps.put("F12", "closed by R24: an interpolated string literal renders into Velocity's own"
+                + " writer, the handler detects that and defers, and the value is encoded once where"
+                + " it is printed - unless the literal's consumer is #evaluate, #parse or #include,"
+                + " which compile or resolve the string rather than printing it and so keep the"
+                + " pre-R24 encoding. The exemption stays, and is reworded rather than deleted,"
+                + " because"
+                + " the reason it gave is still the true one: the finding is about a Velocity"
+                + " reference FORM - #set of an interpolated literal - and a corpus case is a"
+                + " template plus a payload at a sink, so the same defect would have to be restated"
+                + " once per sink to be counted. It is not stale in the sense this map's second"
+                + " assertion catches: no corpus template uses #set in any spelling, verified"
+                + " against matrix.csv rather than assumed, so F12 has acquired no cases -"
+                + " VelocityIntegrationTest's F12 section and, for the detector itself,"
+                + " NestedRenderDetectionTest");
         gaps.put("F7", "closed by R7, and the citation left the corpus with the branch pair: the two"
                 + " rows that carried it are re-verdicted under other findings - attr.data-on-object"
                 + " is a URL sink citing F6 and refresh.meta-content is a suppression citing F3 -"
