@@ -196,8 +196,12 @@ public class AttributeNameMatrixTest {
                 row("STYLE", Group.CASE_PERMUTATION, Canoe.ATTR_CSS),
                 row("Data", Group.CASE_PERMUTATION, Canoe.ATTR_CONTENT),
                 row("ONCLICK", Group.CASE_PERMUTATION, Canoe.ATTR_JS),
-                // ...and the ones case cannot save, because the bug is in the indices.
-                row("ONSUBMIT", Group.CASE_PERMUTATION, Canoe.ATTR_HTML),
+                // ONSUBMIT was ATTR_HTML here until R4: the on* table's onselect/onsubmit block
+                // tested buf[0]=='s' inside a block that had already established buf[0]=='o', so
+                // no casing could save it because the bug was in the indices rather than in the
+                // letters. The prefix rule lower-cases the name as it buffers like everything else,
+                // so ONSUBMIT and onsubmit are one case now.
+                row("ONSUBMIT", Group.CASE_PERMUTATION, Canoe.ATTR_JS),
                 row("SRCDOC", Group.CASE_PERMUTATION, Canoe.ATTR_HTML),
                 row("SANDBOX", Group.CASE_PERMUTATION, Canoe.ATTR_HTML),
                 row("XLink:Href", Group.CASE_PERMUTATION, Canoe.ATTR_HTML));

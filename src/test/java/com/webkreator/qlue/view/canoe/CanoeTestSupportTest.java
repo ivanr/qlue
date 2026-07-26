@@ -25,22 +25,30 @@ public class CanoeTestSupportTest {
     }
 
     /**
-     * Reproduces F1: {@code onsubmit} is never classified as JavaScript, so the payload arrives
-     * html-encoded and the parser decodes it back before compiling the value as script.
+     * Reproduces F3: {@code xlink:href} is not one of the names Canoe classifies as a URL — {@code
+     * isTagNameChar()} accepts {@code ':'}, so it scans as one attribute name and simply does not
+     * match {@code href} — so the payload arrives html-encoded and the parser decodes it back before
+     * handing it to the URL parser.
      *
      * <p>Note the two assertions. The raw output does not contain the payload, which is exactly why
      * a string-level assertion would have called this safe. The decoded attribute does.
+     *
+     * <p>The template used to be {@code <form onsubmit="v('$data')">}, reproducing F1 by the
+     * identical mechanism. R4 suppresses every {@code on*} value, so that template no longer emits
+     * anything for the harness to decode; the sink moved rather than the test, because what is being
+     * demonstrated is {@code decodedAttr}'s reason for existing and not any particular finding.
      */
     @Test
     public void decodedAttrExposesWhatAStringAssertionWouldMiss() {
-        CanoeTestSupport.RenderResult result =
-                CanoeTestSupport.render("<form onsubmit=\"v('$data')\"></form>", "');alert(1);//");
+        CanoeTestSupport.RenderResult result = CanoeTestSupport.render(
+                "<svg><a xlink:href=\"$data\"><text>go</text></a></svg>",
+                "javascript:alert(1)");
 
-        assertFalse(result.output().contains("');alert(1);//"),
+        assertFalse(result.output().contains("javascript:alert(1)"),
                 "Canoe emits the payload entity-encoded");
-        assertEquals("v('');alert(1);//')",
-                result.decodedAttr("form", "onsubmit"),
-                "the HTML parser decodes it straight back into executable JavaScript");
+        assertEquals("javascript:alert(1)",
+                result.decodedAttr("a", "xlink:href"),
+                "the HTML parser decodes it straight back into an executable URL");
     }
 
     @Test

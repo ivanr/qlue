@@ -149,14 +149,27 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * {@code prefix.vbscript-not-in-the-table} — and by removing the not-browser-observable flags
      * those rows carried, since the flag only means anything on a row claiming a live vector.
      *
-     * <p>R3 (compare value prefixes by length rather than by fixed buffer indices) took it to the
-     * numbers below. Two cases moved to {@code SUPPRESSED_BY_DESIGN} — {@code
+     * <p>R3 (compare value prefixes by length rather than by fixed buffer indices) took it to
+     * 110/25/52/58. Two cases moved to {@code SUPPRESSED_BY_DESIGN} — {@code
      * residue.js-url-armed-buffer}, whose six payload invocations across it and {@code
      * residue.data-url-armed-buffer} become two controls — and the five not-browser-observable flags
      * they carried went with them. Only one of the six was ever observable in a browser: the
      * {@code data:} row's four payloads are markup in a background-image attribute, which no engine
      * renders, and the {@code javascript:} row's double-quote payload cannot close a single-quoted
-     * literal. So the tier loses four pages and one must-fire row.
+     * literal. So the tier lost four pages and one must-fire row.
+     *
+     * <p>R4 (replace the {@code on*} table with a prefix rule) took it to the numbers below, and it
+     * is the largest move any single task makes: F1, F2 and F19 together were 98 of the ledger's
+     * remaining 233 {@code KNOWN_VULNERABLE} invocations. Eleven browser-relevant handler cases are
+     * involved — {@code handler.onsubmit}, {@code .onselect}, {@code .onfocus},
+     * {@code .onreadystatechange}, {@code .ontoggle}, {@code .onmouseenter},
+     * {@code .onanimationstart}, {@code .onwebkitanimationstart}, {@code .onvisibilitychange},
+     * {@code .onshow} and, unchanged, {@code .onmouseover}. Each drops from one page per payload to
+     * one control, which is the seven pages the total loses, and the seven not-browser-observable
+     * flags they carried go with them because the corpus only permits the flag on a row claiming a
+     * live vector. The must-fire count falls by exactly the handler rows that were live in a
+     * browser; the quiet count is unchanged at 58, because every page those cases lose is replaced
+     * by the control the case still contributes.
      */
     @Test
     public void theBrowserRelevantSubsetIsTheSizeTheCorpusClaims() {
@@ -169,9 +182,9 @@ public class BrowserCorpusTest extends BrowserTestBase {
                 .count();
         long quiet = invocations.size() - mustFire;
 
-        assertEquals(110, invocations.size(), "browser-relevant invocation count");
-        assertEquals(25, unobservable, "invocations flagged as not browser-observable");
-        assertEquals(52, mustFire, "invocations that must trip a detector");
+        assertEquals(103, invocations.size(), "browser-relevant invocation count");
+        assertEquals(18, unobservable, "invocations flagged as not browser-observable");
+        assertEquals(45, mustFire, "invocations that must trip a detector");
         assertEquals(58, quiet, "invocations that must trip none");
     }
 

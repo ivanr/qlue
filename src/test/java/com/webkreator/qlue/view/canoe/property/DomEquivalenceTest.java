@@ -208,17 +208,21 @@ public class DomEquivalenceTest {
         assertBlindTo("markup.srcdoc", Payloads.SRCDOC_MARKUP,
                 "F3: the injected markup lives inside one attribute of one <iframe>; the injected"
                         + " document is a different document and this oracle parses the outer one");
-        // This row used to be residue.js-url-armed-buffer / QUOTE_SINGLE_BREAKOUT - "F5: a
-        // javascript: URL whose prefix detection was disarmed by an 11-character attribute name
-        // above it is still one attribute on one element". R3 closed F5, so that template is now
-        // byte-identical under attack and cannot demonstrate a blind spot at all; the row was
-        // replaced rather than dropped, because the count is the point, and F2 is the natural
-        // substitute - an unrecognised handler is the largest remaining class and has exactly the
-        // shape this oracle cannot see.
-        assertBlindTo("handler.onfocus", Payloads.QUOTE_SINGLE_BREAKOUT,
-                "F2: onfocus is not in the on* table, so the payload is html()-encoded into a"
-                        + " handler body the HTML parser decodes before compiling - and it is still"
-                        + " one attribute on one element");
+        // This row has been replaced twice, for the same reason each time, and the history is worth
+        // keeping because it is what the test measures. It was residue.js-url-armed-buffer /
+        // QUOTE_SINGLE_BREAKOUT - "F5: a javascript: URL whose prefix detection was disarmed by an
+        // 11-character attribute name above it is still one attribute on one element" - until R3
+        // closed F5; then handler.onfocus / QUOTE_SINGLE_BREAKOUT - "F2: onfocus is not in the on*
+        // table, so the payload is html()-encoded into a handler body the HTML parser decodes
+        // before compiling" - until R4 closed F2. Both templates are byte-identical under attack
+        // now and can demonstrate nothing. The row is replaced rather than dropped, because the
+        // count is the point; F3's unrecognised URL-bearing names are the largest remaining class
+        // and have exactly the shape this oracle cannot see.
+        assertBlindTo("url.xlink-href", Payloads.JS_URL,
+                "F3: isTagNameChar accepts ':', so xlink:href scans as one name and does not match"
+                        + " href - the payload is html()-encoded and the parser decodes the"
+                        + " attacker's javascript: URL straight back, and it is still one attribute"
+                        + " on one element");
         // This row used to be css.style-with-property / CSS_OVERLAY - "F4: a full-viewport overlay
         // with a beacon in it is one style attribute". R2 closed F4, so that template is now
         // byte-identical under attack and cannot demonstrate a blind spot at all; the row was
@@ -228,8 +232,12 @@ public class DomEquivalenceTest {
         assertBlindTo("url.script-src-prefix", Payloads.PROTOCOL_RELATIVE,
                 "F6: a protocol-relative script source that loads the attacker's JavaScript with"
                         + " full page privileges is still one src attribute on one <script>");
-        assertBlindTo("handler.onsubmit", Payloads.QUOTE_SINGLE_BREAKOUT,
-                "F1: the attribute name is unchanged; only the JavaScript inside it is not");
+        // ...and this row was handler.onsubmit / QUOTE_SINGLE_BREAKOUT - "F1: the attribute name is
+        // unchanged; only the JavaScript inside it is not" - until R4 closed F1 along with F2 and
+        // F19. Replaced with the other half of F3, which is the same statement about a different
+        // attribute: a forced navigation is one content attribute on one <meta>.
+        assertBlindTo("refresh.meta-content", Payloads.META_REFRESH,
+                "F3: the attribute name is unchanged; only the URL the browser navigates to is");
     }
 
     private static void assertBlindTo(String caseId, Payload payload, String why) {

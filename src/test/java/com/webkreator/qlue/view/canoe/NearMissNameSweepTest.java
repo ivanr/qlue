@@ -26,42 +26,59 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <h2>Why this file exists (T30)</h2>
  *
- * <p>{@code setTagAttributeContext()} and {@code detectAttributePrefix()} are hand-unrolled
+ * <p>{@code setTagAttributeContext()} and {@code detectAttributePrefix()} used to be hand-unrolled
  * comparison chains — {@code buf[0]=='b' && buf[1]=='a' && buf[2]=='c' && …} — and every one of
- * those {@code &&} operands is a branch with two outcomes. The rest of the suite drives the
- * <em>true</em> path of each chain exhaustively: {@code CanoeStateMachineTest} names all 24
+ * those {@code &&} operands was a branch with two outcomes. The rest of the suite drove the
+ * <em>true</em> path of each chain exhaustively: {@code CanoeStateMachineTest} named all 24
  * {@code on*} branches, {@code AttributeNameMatrixTest} partitions ninety names, and
  * {@code EventHandlerMatrixTest} probes every handler the HTML Standard defines. None of them
- * produces an input that reaches character <em>k</em> of a chain and then diverges, so before this
+ * produced an input that reached character <em>k</em> of a chain and then diverged, so before this
  * file the branch coverage of {@code setTagAttributeContext()} was <strong>65.6%</strong> — 135 of
  * 392 branch outcomes never taken. An unreached branch in either method is by definition an
  * untested security decision, which is the argument the coverage gate in {@code build.gradle}
  * rests on.
  *
+ * <p>R3 and R4 replaced both sets of chains with bounded string comparisons, so the branch counts
+ * are far smaller — but the sweep is what drives the <em>loop</em> of each comparison to its
+ * mismatching iteration, which is the same coverage argument against a different implementation,
+ * and the security question it asks is unchanged.
+ *
  * <p>The inputs are therefore generated rather than chosen: for each recognised name and each
  * index into it, the name truncated at that index with one character replaced. That is the
- * cheapest input that makes exactly one comparison in the chain evaluate false, and it is also a
- * real security question — {@code hreq}, {@code onclicq} and {@code javascripq:} are what an
- * attacker's near-miss looks like, and a chain that accepted one of them would be a sink Canoe
- * classified by accident.
+ * cheapest input that makes exactly one comparison evaluate false, and it is also a real security
+ * question — {@code hreq}, {@code onclicq} and {@code javascripq:} are what an attacker's near-miss
+ * looks like, and a comparison that accepted one of them would be a sink Canoe classified by
+ * accident.
  *
  * <p>The <em>other</em> direction — an attribute name that Canoe fails to recognise when it should
- * — is F2 and F3, and lives in {@code EventHandlerMatrixTest} and {@code AttributeNameMatrixTest}.
- * This file cannot see those, because it only ever asserts that a non-name is not a name.
+ * — was F2 and F3, and lives in {@code EventHandlerMatrixTest} and {@code AttributeNameMatrixTest}.
+ * This file cannot see those, because it only ever asserts that a name is classified as what it is
+ * rather than as something else.
+ *
+ * <h2>The handler half is inverted (R4)</h2>
+ *
+ * <p>The {@code on*} rows used to assert that {@code onclicq} was <em>not</em> classified as
+ * JavaScript, which was true and was the wrong thing to want: a near miss of a handler name is
+ * overwhelmingly likely to be another handler name, and every one the table missed was F2. R4
+ * replaced the table with a prefix rule, so {@link #aNearMissOfAHandlerNameIsAHandlerToo} asserts
+ * the opposite and asserts something stronger — the classification depends on the first two
+ * characters and on nothing else, so no near miss of any length can fall out of it. The non-handler
+ * names keep the original sweep, because {@code href} and {@code hreq} genuinely are different
+ * sinks.
  *
  * <h2>What it deliberately does not reach</h2>
  *
- * <p>Three groups of branch outcome survive this sweep and are excluded from the gate rather than
+ * <p>Two groups of branch outcome survive this sweep and are excluded from the gate rather than
  * chased, each with the test that proves it dead:
  *
  * <ul>
- *   <li>the whole {@code onselect}/{@code onsubmit} block, which sits inside {@code buf[0]=='o' &&
- *       buf[1]=='n'} and then tests {@code buf[0]=='s'} — <strong>F1</strong>, asserted by
- *       {@code CanoeStateMachineTest.everyDeclaredOnStarBranchNameIsClassified};
- *   <li>nothing in {@code detectAttributePrefix()} any more. The {@code buf[10]=='\0'} terminator of
- *       the three ten-character value prefixes used to be here, because making it evaluate false
+ *   <li>nothing in the {@code on*} table any more, and nothing in {@code detectAttributePrefix()}.
+ *       The 25 outcomes of the {@code onselect}/{@code onsubmit} block were unreachable because the
+ *       block sat inside {@code buf[0]=='o' && buf[1]=='n'} and then tested {@code buf[0]=='s'}
+ *       (<strong>F1</strong>); R4 deleted the whole table. The {@code buf[10]=='\0'} terminator of
+ *       the three ten-character value prefixes was here too, because making it evaluate false
  *       required buffer residue at index 10 and no near miss could produce it (F5, owned by
- *       {@code BufferResidueTest}). R3 replaced it with a length check against {@code bufLen}, which
+ *       {@code BufferResidueTest}); R3 replaced it with a length check against {@code bufLen}, which
  *       this sweep's truncation rows reach in both directions; and
  *   <li>{@code "Internal error #1001"} and the {@code attrQuotes} default arm, neither of which has
  *       a reachable input — see {@code CanoeRobustnessTest}.
@@ -70,15 +87,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class NearMissNameSweepTest {
 
     /**
-     * The attribute names {@code setTagAttributeContext()} has a comparison chain for, mapped to
-     * the {@code ATTR_*} that chain assigns.
+     * The attribute names {@code setTagAttributeContext()} compares in full, mapped to the
+     * {@code ATTR_*} each one assigns.
      *
-     * <p>Two entries are not the names their comments claim, and both are findings rather than
-     * transcription errors here. {@code onredystatechange} is the seventeen characters the
-     * {@code onreadystatechange} chain actually compares (<strong>F19</strong>), so it is the name
-     * whose near misses exercise that chain. {@code onselect} and {@code onsubmit} are absent,
-     * because their block cannot be entered at all (<strong>F1</strong>) and a near miss of an
-     * unreachable chain proves nothing.
+     * <p>Handler names used to be in here too, taken from
+     * {@code CanoeStateMachineTest.declaredOnStarBranches} so that a branch added to
+     * {@code Canoe.java} could not be missed. R4 deleted the table those names came from, and a
+     * prefix rule has no per-name comparison for a near miss to fall off — so the handler half moved
+     * to {@link #handlerNameNearMisses}, which asserts the opposite outcome. What is left here is
+     * the seven names that are still matched whole.
+     *
+     * <p>{@code data} yields {@code ATTR_CONTENT} because the branch commented {@code // content}
+     * compares the characters of {@code data}; that is F7 and it is asserted in
+     * {@code AttributeNameMatrixTest.theSourceDeclaresExactlyTheNonHandlerBranchesTheMatrixExpects}.
      *
      * <p>The exact names and their expected contexts are asserted elsewhere — this map is used for
      * its <em>keys</em>, and the values are carried so that a near miss can be checked against the
@@ -87,9 +108,6 @@ public class NearMissNameSweepTest {
     private static Map<String, Integer> recognisedAttributeNames() {
         Map<String, Integer> names = new LinkedHashMap<>();
 
-        // Non-handler chains. `data` yields ATTR_CONTENT because the branch commented `// content`
-        // compares the characters of `data`; that is F7 and it is asserted in
-        // AttributeNameMatrixTest.theSourceDeclaresExactlyTheNonHandlerBranchesTheMatrixExpects.
         names.put("background", Canoe.ATTR_URI);
         names.put("data", Canoe.ATTR_CONTENT);
         names.put("dynsrc", Canoe.ATTR_URI);
@@ -98,18 +116,25 @@ public class NearMissNameSweepTest {
         names.put("src", Canoe.ATTR_URI);
         names.put("style", Canoe.ATTR_CSS);
 
-        // The event handlers, taken from the table CanoeStateMachineTest asserts against the source
-        // so that a branch added to Canoe.java cannot be missed here.
-        for (Arguments row : (Iterable<Arguments>) CanoeStateMachineTest.declaredOnStarBranches()
-                ::iterator) {
-            String name = (String) row.get()[0];
-            int expected = (Integer) row.get()[1];
-            if (expected == Canoe.ATTR_JS) {
-                names.put(name, Canoe.ATTR_JS);
-            }
-        }
-        names.put("onredystatechange", Canoe.ATTR_JS);
+        return names;
+    }
 
+    /**
+     * The handler names the deleted {@code on*} table declared, taken from
+     * {@code CanoeStateMachineTest} so that the two files cannot disagree about what it held.
+     *
+     * <p>{@code onredystatechange} is added because it is the seventeen characters the
+     * {@code onreadystatechange} chain actually compared (<strong>F19</strong>), and its near misses
+     * used to be the only inputs that exercised that chain. Both spellings are the same case now,
+     * and the pair is kept because a rule that ever distinguishes them again is a table.
+     */
+    private static Set<String> handlerNames() {
+        Set<String> names = new LinkedHashSet<>();
+        for (Arguments row : (Iterable<Arguments>)
+                CanoeStateMachineTest.namesTheOldOnStarTableDeclared()::iterator) {
+            names.add((String) row.get()[0]);
+        }
+        names.add("onredystatechange");
         return names;
     }
 
@@ -171,6 +196,30 @@ public class NearMissNameSweepTest {
     }
 
     /**
+     * Every one-character divergence from each of the 24 names the deleted {@code on*} table
+     * declared, with the classification the prefix rule gives it.
+     *
+     * <p>The expectation is computed from the near miss itself rather than tabled, and that is the
+     * assertion: {@code ATTR_JS} when the first two characters survive the divergence,
+     * {@code ATTR_HTML} when they do not. Truncating {@code onclick} at index 0 or 1 gives {@code q}
+     * and {@code oq}, which are not handler names and must not be treated as any; every other row —
+     * {@code onq}, {@code onclicq}, {@code onclickq} — is a handler as far as Canoe is concerned and
+     * must suppress. Those are the rows that used to fail, one per name per index, and they are F2
+     * in miniature.
+     */
+    public static Stream<Arguments> handlerNameNearMisses() {
+        Set<String> handlers = handlerNames();
+        List<Arguments> rows = new ArrayList<>();
+        for (String name : handlers) {
+            for (String nearMiss : nearMissesOf(name, handlers)) {
+                int expected = nearMiss.startsWith("on") ? Canoe.ATTR_JS : Canoe.ATTR_HTML;
+                rows.add(Arguments.of(name, nearMiss, expected));
+            }
+        }
+        return rows.stream();
+    }
+
+    /**
      * The value-prefix near misses that {@code detectAttributePrefix()} can actually see.
      *
      * <p>The extension row is generated only for prefixes shorter than ten characters. Canoe stops
@@ -201,8 +250,8 @@ public class NearMissNameSweepTest {
      * A near miss of a recognised attribute name gets the {@code ATTR_HTML} default.
      *
      * <p>{@code ATTR_HTML} is the right expectation today and it is also the finding: fail-open on
-     * an unknown name is F3, and remediation item 3 proposes inverting it. If that lands, this
-     * sweep flips wholesale to {@code CTX_SUPPRESS}, which is a loud and correct failure.
+     * an unknown name is F3, and R5 inverts it. If that lands, this sweep flips wholesale to
+     * {@code CTX_SUPPRESS}, which is a loud and correct failure.
      */
     @ParameterizedTest(name = "{1} is not {0}")
     @MethodSource("attributeNameNearMisses")
@@ -213,12 +262,40 @@ public class NearMissNameSweepTest {
 
         assertNotEquals(nameContext, observed,
                 () -> nearMiss + " was classified as " + CanoeStateProbe.attributeContextName(nameContext)
-                        + ", the context " + name + " gets. The comparison chain for " + name
+                        + ", the context " + name + " gets. The comparison for " + name
                         + " matches a name it was not written for, which is the F1/F19 defect shape"
                         + " in the opposite direction.");
         assertEquals(Canoe.ATTR_HTML, observed,
                 () -> nearMiss + " must fall through to the ATTR_HTML default, but got "
                         + CanoeStateProbe.attributeContextName(observed));
+    }
+
+    /**
+     * Inverted by R4. Was the {@code on*} half of
+     * {@link #aNearMissOfAnAttributeNameIsNotClassifiedAsThatName}, which required {@code onclicq},
+     * {@code onmouseoveq} and 170-odd siblings to fall through to {@code ATTR_HTML}.
+     *
+     * <p>Every one of those rows was F2: a name one character away from a handler is a handler, or
+     * is the handler the standard will define next year, and {@code html()}'s character references
+     * are decoded by the HTML parser before an event handler value is compiled as JavaScript. The
+     * rows are kept and their expectation flipped, because they are the densest available
+     * demonstration that the classification survives every possible divergence — no truncation, no
+     * substitution and no extension of a handler name can produce anything but {@code ATTR_JS},
+     * unless it destroys the two characters the rule reads.
+     */
+    @ParameterizedTest(name = "{1} is a handler like {0}")
+    @MethodSource("handlerNameNearMisses")
+    public void aNearMissOfAHandlerNameIsAHandlerToo(String name, String nearMiss, int expected)
+            throws IOException {
+        int observed = new CanoeStateProbe().feed("<img " + nearMiss + "=\"").attributeContext();
+
+        assertEquals(expected, observed,
+                () -> nearMiss + " is a near miss of " + name + " and must classify as "
+                        + CanoeStateProbe.attributeContextName(expected) + " but got "
+                        + CanoeStateProbe.attributeContextName(observed)
+                        + ". The prefix rule reads the first two characters and nothing else, so a"
+                        + " divergence that leaves 'on' intact cannot change the answer and one that"
+                        + " destroys it must.");
     }
 
     /**
@@ -263,6 +340,12 @@ public class NearMissNameSweepTest {
                     new CanoeStateProbe().feed("<img " + entry.getKey() + "=\"").attributeContext(),
                     () -> entry.getKey() + " must still be recognised, or its near misses are"
                             + " passing for a reason that has nothing to do with the chain");
+        }
+        for (String name : handlerNames()) {
+            assertEquals(Canoe.ATTR_JS,
+                    new CanoeStateProbe().feed("<img " + name + "=\"").attributeContext(),
+                    () -> name + " must classify as JavaScript, or its near misses are agreeing with"
+                            + " it for a reason that has nothing to do with the prefix rule");
         }
         for (Map.Entry<String, Integer> entry : recognisedValuePrefixes().entrySet()) {
             assertEquals(entry.getValue(),

@@ -181,8 +181,38 @@ one outcome for all 20; `AttributePrefixTest.aPrecedingAttributeNameDecidesWheth
 
 ---
 
-**R4 — Replace the `on*` table with a prefix rule**
+**R4 — Replace the `on*` table with a prefix rule** — ✅ **DONE**
 *Closes:* F1, F2, F19. *Depends on:* R2.
+*Landed:* the ~200-line table is gone; `setTagAttributeContext()` opens with "any name beginning
+`on` is `ATTR_JS`" and compares the remaining eight names as bounded strings against `bufLen`, so
+neither attribute-classification method reads a fixed buffer index any more. (One fixed-index read
+survives elsewhere in the class: `TAG_NAME`'s `<script>`/`<style>` detection at `Canoe.java:608-618`.
+It is residue-safe — the buffer is zero-filled on every `<` and the tag name is NUL-terminated —
+and R8, which restructures tag-name handling anyway, is where it should become a bounded compare.) Ledger: KNOWN_VULNERABLE 233→135
+(F2 92→0, F1 4→0, F19 2→0), SUPPRESSED_BY_DESIGN 123→224, SAFE 566→563 — the three `SAFE` rows
+were the `ENTITY_PRE_ENCODED` overrides on `handler.onsubmit`, `.onselect` and `.onfocus`, which
+were safe because `html()` escaped their ampersands and are suppressed like everything else now.
+All 98 re-verdicted rows keep their `finding()` citation for traceability and lose their
+`notBrowserObservable` flags, which the corpus only permits on `KNOWN_VULNERABLE` rows.
+`CanoeStateMachineTest`'s 24-branch table and `EventHandlerMatrixTest`'s 21/91 split are inverted
+rather than deleted, and both files now assert the halves *agree*; the new
+`theSourceClassifiesHandlersByPrefixAndNotByName` reads `Canoe.java` and requires exactly one
+`ATTR_JS` assignment and no handler name at all, which is what stops an allowlist coming back
+under another name. `NearMissNameSweepTest`'s ~180 `on*` rows are inverted the same way and now
+assert the stronger property that only the first two characters decide.
+`everySpecEventHandlerAttributeHasACorpusCase` still passes and is permanently satisfiable.
+Three tests that used an unrecognised handler as a *demonstration* rather than as their subject —
+`CanoeTestSupportTest.decodedAttrExposesWhatAStringAssertionWouldMiss`,
+`CanoeCorpusTest.theLedgerOracleDetectsAWrongVerdict` and two `DomEquivalenceTest` blind-spot rows
+— moved their sink to F3's `xlink:href` and `meta content`, which is the same asymmetry at a sink
+Phase A has not reached yet. `VelocityIntegrationTest.doubleEncodingAccidentallyNeutralisesAn`
+`UnrecognisedHandler` is renamed `…AnUnrecognisedUrlAttribute` and half-inverted: **trap 2 in §1
+still stands**, because the accident still covers F3's unrecognised URL names, which is R5 and R6's
+half. Coverage gate: Canoe 588/625 → 247/259 (94.08% → 95.37%), `setTagAttributeContext()`
+366/392 → 17/18 (93.37% → 94.44%); floors raised to 0.95 and 0.94, and the dead-branch inventory
+falls from 37 outcomes to 12 — the 25 `onselect`/`onsubmit` outcomes are gone with the block, and
+F7's unreachable `data` comparison is the only finding-related one left. Both suites green;
+browser tier 103/18/45/58 on Chromium (130 tests, 0 failures, 2 skipped).
 
 Delete the ~200 lines of hand-unrolled comparisons at `Canoe.java:334-539` and put a prefix rule at
 the top of `setTagAttributeContext()`: any attribute whose name begins `on` is `ATTR_JS`. There is no

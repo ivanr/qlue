@@ -133,17 +133,19 @@ public class AttributePrefixTest {
      * <p>The reset did not only widen {@code ATTR_CSS} and {@code ATTR_URI} — it widened
      * {@code ATTR_JS} too, which was a hole in the one guarantee Canoe genuinely delivers.
      *
-     * <p>F1 and F2 are about event handlers Canoe fails to <em>recognise</em>. This is about one it
-     * recognises perfectly: {@code onclick} resolves to {@code ATTR_JS}, and the first colon in the
+     * <p>F1 and F2 were about event handlers Canoe failed to <em>recognise</em>, and R4 closed them.
+     * This is about one it recognised perfectly all along: {@code onclick} resolves to
+     * {@code ATTR_JS}, and the first colon in the
      * handler body used to throw that away and leave {@code html()} encoding a value that the HTML
      * parser decodes before the JavaScript parser compiles it. A colon in the first eleven
      * characters of a handler is not exotic — an object literal ({@code f({a:1})}), a ternary
      * ({@code a?b:c}) or a label all produce one, which is why the five bodies below are ordinary
      * JavaScript rather than attacks.
      *
-     * <p>Worth keeping the note that R4 does not reach this: replacing the {@code on*} table with a
-     * prefix rule would not have helped at all, because the name was already classified correctly
-     * and the value scan discarded the answer afterwards. Only deleting the reset closed it.
+     * <p>Worth keeping the note that R4 did not reach this: replacing the {@code on*} table with a
+     * prefix rule did not help here at all, because the name was already classified correctly and
+     * the value scan discarded the answer afterwards. Only deleting the reset closed it, which is
+     * why R2 led the phase and R4 followed.
      */
     @Test
     public void theJavascriptSuppressionSurvivesAColonInTheHandlerBody() throws IOException {

@@ -32,12 +32,18 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The event-handler matrix: every {@code on*} attribute name, and which side of Canoe's
- * hand-unrolled allowlist it falls on.
+ * The event-handler matrix: every {@code on*} attribute name, and the one rule that now classifies
+ * all of them.
  *
- * <p>This is the highest-severity group in the suite. F1, F2 and F19 all live here, and all three
- * yield arbitrary script execution against an attacker who controls only data. It is also the group
- * whose absence let three dead branches survive a hand review that found two of them.
+ * <p>This was the highest-severity group in the suite. F1, F2 and F19 all lived here, and all three
+ * yielded arbitrary script execution against an attacker who controls only data. It is also the
+ * group whose absence let three dead branches survive a hand review that found two of them.
+ *
+ * <p><strong>R4 closed all three</strong> by deleting the hand-unrolled allowlist and putting a
+ * prefix rule in its place: any attribute whose name begins {@code on} is {@code ATTR_JS}. Every
+ * test below that measured which side of the allowlist a name fell on has been inverted rather than
+ * deleted, because the names are the regression net — an allowlist re-introduced under any name
+ * fails on the 91 rows it forgets.
  *
  * <h2>What this file does that the corpus does not</h2>
  *
@@ -46,24 +52,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * things a ledger cannot state about itself:
  *
  * <ul>
- *   <li><strong>The partition.</strong> Exactly 21 names classify as {@code ATTR_JS} and every other
- *       {@code on*} name in the matrix classifies as {@code ATTR_HTML}, with nothing in between and
- *       nothing else anywhere. A ledger of 115 individually-correct rows does not say that.
+ *   <li><strong>The partition.</strong> Every {@code on*} name in the matrix classifies as
+ *       {@code ATTR_JS}, with nothing on the other side and nothing else anywhere. It used to be a
+ *       21/94 split; it is a partition of 115 real names (116 corpus rows, counting F19's
+ *       {@code onredystatechange} evidence) into "all handlers" and "nothing" now, and a ledger of
+ *       115 individually-correct rows does not say either.
  *   <li><strong>The completeness guard.</strong>
  *       {@link #everySpecEventHandlerAttributeHasACorpusCase} enumerates the HTML Standard's event
  *       handler content attributes from a checked-in resource file and fails if any of them has no
  *       corpus case. Without it the group is "the handlers we thought of", which is exactly what
- *       {@code setTagAttributeContext()} is, and repeating a component's own mistake in the test
- *       that is supposed to catch it is how F2 stayed open for fifteen years.
+ *       {@code setTagAttributeContext()} used to be, and repeating a component's own mistake in the
+ *       test that is supposed to catch it is how F2 stayed open for fifteen years. The prefix rule
+ *       is what makes the guard permanently satisfiable rather than a list to catch up with.
  * </ul>
  *
  * <h2>Where the arithmetic lives</h2>
  *
- * <p>The "24 declared, 21 reachable" count belongs to {@code CanoeStateMachineTest}, which asserts
- * all 24 branches by name and reads the leaf branches back out of {@code Canoe.java} so its table
- * cannot drift from the source. This file does not repeat that scan; it asserts the same 21 names
- * from the other direction — by probing every name in the matrix and partitioning the results — so
- * that the two would have to be wrong in the same way at the same time to agree.
+ * <p>The "24 declared, 21 reachable" count belonged to {@code CanoeStateMachineTest}, which asserted
+ * all 24 branches by name and read the leaf branches back out of {@code Canoe.java} so its table
+ * could not drift from the source. There are no branches to count now, and that file's inverted
+ * version asserts the source contains no per-name comparison at all. This file asserts the same
+ * thing from the other direction — by probing every name in the matrix and partitioning the results
+ * — so that the two would have to be wrong in the same way at the same time to agree.
  */
 public class EventHandlerMatrixTest {
 
@@ -84,13 +94,33 @@ public class EventHandlerMatrixTest {
     private static final String IDL_ONLY_MARKER = "#!idl-only";
 
     /**
-     * The three names {@code setTagAttributeContext()} declares a branch for and can never reach.
-     * They are separated from the other 87 misses throughout this file because the defect is a
-     * different one: F2 is an omission, F1 and F19 are branches that were written, reviewed, and are
-     * wrong at the character level.
+     * The three names the deleted {@code on*} table declared a branch for and could never reach.
+     * They are kept separate from the other 91 misses throughout this file because the defect was a
+     * different one: F2 was an omission, F1 and F19 were branches that had been written, reviewed,
+     * and were wrong at the character level.
      */
     private static final List<String> DECLARED_BUT_DEAD =
             List.of("onreadystatechange", "onselect", "onsubmit");
+
+    /**
+     * The 21 names the deleted table could reach, taken from
+     * {@code CanoeStateMachineTest.namesTheOldOnStarTableDeclared} minus {@link #DECLARED_BUT_DEAD}.
+     *
+     * <p>The split is derived rather than duplicated, and it is derived from the file that used to
+     * read the branches back out of {@code Canoe.java}, so the two halves of the old partition
+     * cannot drift apart now that the source no longer says what they are.
+     */
+    private static Set<String> namesTheOldTableCouldReach() {
+        Set<String> reachable = new LinkedHashSet<>();
+        for (Object[] row : CanoeStateMachineTest.namesTheOldOnStarTableDeclared()
+                .map(a -> a.get()).toList()) {
+            String name = (String) row[0];
+            if (!DECLARED_BUT_DEAD.contains(name)) {
+                reachable.add(name);
+            }
+        }
+        return reachable;
+    }
 
     // ------------------------------------------------------------------
     // The corpus, consumed
@@ -100,16 +130,28 @@ public class EventHandlerMatrixTest {
         return CanoeCorpus.inSection(SECTION);
     }
 
-    static Stream<XssCase> recognisedHandlerCases() {
+    /**
+     * The 21 the old table reached, selected by name rather than by verdict.
+     *
+     * <p>It used to select on {@code defaultVerdict().isSuppression()}, which was the same set while
+     * the two halves had different verdicts. Every handler case is a suppression now, so a
+     * verdict-based filter would silently widen this stream to all 115 and the inverted sibling
+     * below would run on nothing — the failure mode where a parameterised test passes because its
+     * source is empty.
+     */
+    static Stream<XssCase> casesTheOldTableReached() {
+        Set<String> reachable = namesTheOldTableCouldReach();
         return handlerCases().stream()
-                .filter(c -> c.defaultVerdict().isSuppression())
-                .filter(c -> !"onredystatechange".equals(c.attribute()));
+                .filter(c -> reachable.contains(c.attribute()));
     }
 
-    static Stream<XssCase> unrecognisedHandlerCases() {
+    /** The 91 the old table had never heard of: everything but the 21 and the three dead ones. */
+    static Stream<XssCase> casesTheOldTableMissed() {
+        Set<String> reachable = namesTheOldTableCouldReach();
         return handlerCases().stream()
-                .filter(c -> c.defaultVerdict() == Verdict.KNOWN_VULNERABLE)
-                .filter(c -> !DECLARED_BUT_DEAD.contains(c.attribute()));
+                .filter(c -> !reachable.contains(c.attribute()))
+                .filter(c -> !DECLARED_BUT_DEAD.contains(c.attribute()))
+                .filter(c -> !"onredystatechange".equals(c.attribute()));
     }
 
     static Stream<XssCase> declaredButDeadHandlerCases() {
@@ -118,27 +160,66 @@ public class EventHandlerMatrixTest {
     }
 
     // ------------------------------------------------------------------
-    // The 21 that work
+    // The 21 the old table reached
     // ------------------------------------------------------------------
 
     /**
-     * Every recognised handler suppresses, end to end through a real render.
+     * Every handler the old table reached suppresses, end to end through a real render.
      *
      * <p>Asserted against the render with an <em>empty</em> value rather than against a literal
      * expected string, so the test says "the payload contributed nothing" rather than "the output
      * looked like this", and so it keeps working if the surrounding template shape ever changes.
+     *
+     * <p>Unchanged by R4 in outcome. It is kept as a separate stream from the 91 below so that a
+     * change which suppresses one half and not the other fails on the half it broke rather than
+     * somewhere in a 115-row sweep.
      */
     @ParameterizedTest(name = "{0}")
-    @MethodSource("recognisedHandlerCases")
-    public void everyRecognisedHandlerSuppressesTheValue(XssCase testCase) {
+    @MethodSource("casesTheOldTableReached")
+    public void everyHandlerTheOldTableReachedSuppressesTheValue(XssCase testCase) {
+        assertSuppresses(testCase, "one of the 21 names the old on* table could reach");
+    }
+
+    /**
+     * {@code ondragdrop}, inverted by R4. Was
+     * {@code canoeSuppressesADeadNetscapeEventAndMissesTheThreeThatReplacedIt}.
+     *
+     * <p>It was the single clearest marker of the table's age. {@code ondragdrop} is a Netscape 4
+     * event, removed from Gecko in Firefox 3; Canoe spent one of its twenty-one branches suppressing
+     * a handler no engine has fired this century, while HTML5's {@code ondrop} and
+     * {@code ondragstart} — which every engine fires — took the {@code ATTR_HTML} fall-through. The
+     * observation was never about those four names: it was that a hand-maintained table ages, and
+     * that the direction it ages in is towards suppressing what cannot run and passing what can.
+     *
+     * <p>All four are one statement now, which is the answer to the observation rather than a repair
+     * of it. The four names are kept because they are the cheapest demonstration in the suite that
+     * the rule is not a table with better contents.
+     */
+    @Test
+    public void theDeadNetscapeEventAndTheThreeThatReplacedItAreOneStatementNow() {
+        assertEquals(Canoe.ATTR_JS, attributeContextOf("ondragdrop"),
+                "ondragdrop was one of the 21 the old table reached");
+        for (String replacement : List.of("ondrop", "ondragstart", "ondragend")) {
+            assertEquals(Canoe.ATTR_JS, attributeContextOf(replacement),
+                    replacement + " is an HTML5 event the old table missed - ondrop failed the"
+                            + " ondblclick chain at buf[3]=='r' and the ondragdrop chain at"
+                            + " buf[4]=='o' - and the prefix rule classifies it like every other"
+                            + " name beginning 'on'.");
+        }
+    }
+
+    /**
+     * The render-and-compare the suppression assertions share: the payload must contribute nothing
+     * to the output, and must not appear in the decoded attribute value.
+     */
+    private static void assertSuppresses(XssCase testCase, String why) {
         Payload payload = testCase.payloads().get(0);
         String rendered = VerdictEvaluator.render(testCase, payload.value()).output();
         String withNothing = VerdictEvaluator.render(testCase, "").output();
 
         assertEquals(withNothing, rendered,
-                () -> testCase.attribute() + " is one of the 21 names Canoe recognises and must"
-                        + " therefore emit nothing at all into the handler body. Rendered: "
-                        + CanoeTestSupport.quote(rendered));
+                () -> testCase.attribute() + " is " + why + " and must emit nothing at all into the"
+                        + " handler body. Rendered: " + CanoeTestSupport.quote(rendered));
 
         String decoded = VerdictEvaluator.render(testCase, payload.value())
                 .decodedAttr(testCase.selector(), testCase.attribute());
@@ -146,169 +227,163 @@ public class EventHandlerMatrixTest {
                 () -> testCase.attribute() + " let the payload through: " + decoded);
     }
 
-    /**
-     * {@code ondragdrop}, as a curiosity rather than as a defect.
-     *
-     * <p>It is the single clearest marker of the table's age. {@code ondragdrop} was a Netscape 4
-     * event, removed from Gecko in Firefox 3; Canoe spends one of its twenty-one branches suppressing
-     * a handler no engine has fired this century, while HTML5's {@code ondrop} and
-     * {@code ondragstart} — which every engine fires — take the {@code ATTR_HTML} fall-through.
-     *
-     * <p>Note what is <em>not</em> done here: the corpus case is not flagged
-     * {@code notBrowserObservable}, because that axis may only be set where it changes an
-     * expectation, and a {@code SUPPRESSED_BY_DESIGN} row already expects browser silence. See
-     * {@code CanoeCorpus.ONDRAGDROP_IS_DEAD}.
-     */
-    @Test
-    public void canoeSuppressesADeadNetscapeEventAndMissesTheThreeThatReplacedIt() {
-        assertEquals(Canoe.ATTR_JS, attributeContextOf("ondragdrop"),
-                "ondragdrop is recognised");
-        for (String replacement : List.of("ondrop", "ondragstart", "ondragend")) {
-            assertEquals(Canoe.ATTR_HTML, attributeContextOf(replacement),
-                    replacement + " is the HTML5 event that replaced it, and is not recognised."
-                            + " ondrop fails the ondblclick chain at buf[3]=='r' and the ondragdrop"
-                            + " chain at buf[4]=='o'.");
-        }
-    }
-
     // ------------------------------------------------------------------
-    // The three that are written and cannot be taken (F1, F19)
+    // The three that were written and could not be taken (F1, F19)
     // ------------------------------------------------------------------
 
     /**
-     * F1. The {@code onS} block at {@code Canoe.java:513-530} sits inside the guard
-     * {@code if ((buf[0] == 'o') && (buf[1] == 'n'))} at line 334, and then opens with
-     * {@code if (buf[0] == 's')}. Every sibling branch tests {@code buf[2]}, {@code buf[3]}, …; this
-     * one restarts at {@code buf[0]}, so it asks whether the attribute is named {@code select} or
-     * {@code submit} — impossible, because {@code buf[0] == 'o'} is already established.
+     * F1, inverted by R4. Was {@code onselectAndOnsubmitTestTheWrongBufferIndex}.
      *
-     * <p>The comparison that fails, spelled out so the next reader does not have to re-derive it:
-     * for {@code onsubmit}, {@code buf[0]} holds {@code 'o'} and the branch tests it against
-     * {@code 's'}.
+     * <p>The {@code onS} block sat inside the guard
+     * {@code if ((buf[0] == 'o') && (buf[1] == 'n'))} and then opened with
+     * {@code if (buf[0] == 's')}. Every sibling branch tested {@code buf[2]}, {@code buf[3]}, …;
+     * that one restarted at {@code buf[0]}, so it asked whether the attribute was named
+     * {@code select} or {@code submit} — impossible, because {@code buf[0] == 'o'} was already
+     * established. For {@code onsubmit}, {@code buf[0]} held {@code 'o'} and the branch tested it
+     * against {@code 's'}.
+     *
+     * <p>Both names classify as JavaScript now. The buffer probe is kept and inverted: {@code buf[0]}
+     * still holds the {@code 'o'} that made the branch dead, and the point is that nothing compares
+     * it against anything.
      */
     @Test
-    public void onselectAndOnsubmitTestTheWrongBufferIndex() {
+    public void onselectAndOnsubmitAreClassifiedByThePrefixRuleNow() {
         for (String name : List.of("onselect", "onsubmit")) {
-            assertEquals(Canoe.ATTR_HTML, attributeContextOf(name),
-                    "F1: " + name + " falls through to the ATTR_HTML default");
+            assertEquals(Canoe.ATTR_JS, attributeContextOf(name),
+                    "R4: " + name + " is classified by the on-prefix rule");
             assertEquals('o', bufferAt(name, 0),
-                    "F1: the onS branch tests buf[0] == 's', and buf[0] is provably 'o' here because"
-                            + " the enclosing block already required it. The branch is dead code.");
+                    "buf[0] still holds the 'o' that made the onS branch dead code; the branch that"
+                            + " tested it against 's' is gone with the rest of the table");
         }
 
-        // ...and the names the dead branch would match, which are not attribute names at all.
+        // ...and the names the dead branch would have matched, which are not event handlers at all.
+        // R5 owns what an unrecognised name like this should get; R4 must not have moved it.
         assertEquals(Canoe.ATTR_HTML, attributeContextOf("select"),
-                "not that it helps: a bare 'select' attribute never enters the on* block either,"
-                        + " because the guard at line 334 requires buf[0]=='o' && buf[1]=='n'. The"
-                        + " branch matches nothing whatsoever.");
+                "a bare 'select' attribute is not a handler and must keep the ATTR_HTML default"
+                        + " until R5 inverts it. The prefix rule is a rule about names beginning"
+                        + " 'on', not about the words the dead branch happened to spell.");
     }
 
     /**
-     * F19. The third dead branch, and the one no amount of reading found: its guard is
-     * {@code buf[2]=='r' && buf[3]=='e'} and its body then demands {@code buf[4]=='d'}, so the
-     * comparands spell {@code on} + {@code re} + {@code dystatechange}. The {@code a} of "ready" is
-     * missing.
+     * F19, inverted by R4. Was {@code onreadystatechangeSpellsItsNameWithoutTheA}.
      *
-     * <p>Not unreachable — reachable by the wrong input, which is why a coverage tool would have
-     * reported the line as covered had anything ever exercised it.
+     * <p>The third dead branch, and the one no amount of reading found: its guard was
+     * {@code buf[2]=='r' && buf[3]=='e'} and its body then demanded {@code buf[4]=='d'}, so the
+     * comparands spelled {@code on} + {@code re} + {@code dystatechange}. The {@code a} of "ready"
+     * was missing. Not unreachable — reachable by the wrong input, which is why a coverage tool
+     * would have reported the line as covered had anything ever exercised it.
+     *
+     * <p>The real name and the misspelling are indistinguishable now: the prefix rule reads two
+     * characters, and {@code buf[4]} is not one of them.
      */
     @Test
-    public void onreadystatechangeSpellsItsNameWithoutTheA() {
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("onreadystatechange"),
-                "F19: the real attribute name is not recognised");
+    public void onreadystatechangeAndItsMisspellingAreClassifiedAlike() {
+        assertEquals(Canoe.ATTR_JS, attributeContextOf("onreadystatechange"),
+                "R4: the real attribute name is classified by the on-prefix rule");
         assertEquals(Canoe.ATTR_JS, attributeContextOf("onredystatechange"),
-                "F19: the misspelling the branch does match, which no document contains");
+                "R4: and so is the misspelling the dead branch matched, which no document contains");
         assertEquals('a', bufferAt("onreadystatechange", 4),
-                "F19: buf[4] holds the 'a' of 'ready' and the branch at Canoe.java:483-491 tests it"
-                        + " against 'd'");
+                "buf[4] still holds the 'a' of 'ready' that the dead branch tested against 'd'; the"
+                        + " comparison is gone, so the character decides nothing");
     }
 
     /**
-     * All three dead branches, end to end: the attacker's quote reaches the JavaScript parser.
+     * All three dead branches, inverted end to end. Was
+     * {@code aDeclaredButDeadHandlerLetsTheQuoteThrough}, which required the attacker's quote to
+     * reach the JavaScript parser.
      *
-     * <p>The assertion is on the <em>jsoup-decoded</em> attribute value, which is the whole point of
-     * the review: a string assertion on Canoe's output would see
-     * {@code &#39;&#41;&#59;__canoePwned…} and call it safe, and the HTML parser decodes every one of
-     * those references back to the attacker's original characters before the value is compiled as
-     * JavaScript.
+     * <p>The assertion still runs on the <em>jsoup-decoded</em> attribute value, because that is
+     * what makes it mean anything: a string assertion on Canoe's output would have seen
+     * {@code &#39;&#41;&#59;__canoePwned…} and called it safe when the HTML parser was about to
+     * decode every one of those references back before the value was compiled as JavaScript. The
+     * decoded value must now be free of the payload entirely.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("declaredButDeadHandlerCases")
-    public void aDeclaredButDeadHandlerLetsTheQuoteThrough(XssCase testCase) {
+    public void aDeadBranchNameIsSuppressedLikeEveryOtherHandler(XssCase testCase) {
         Payload quoteBreakout = testCase.payloads().stream()
                 .filter(p -> "QUOTE_BREAKOUT".equals(p.family()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError(testCase.id()
                         + " must carry a QUOTE_BREAKOUT payload; without one it cannot show that the"
-                        + " string literal closes"));
+                        + " string literal stays closed"));
 
         String decoded = VerdictEvaluator.render(testCase, quoteBreakout.value())
                 .decodedAttr(testCase.selector(), testCase.attribute());
-
-        assertTrue(decoded.contains(quoteBreakout.value()),
-                () -> testCase.finding() + ": " + testCase.attribute() + " must hand the payload to"
-                        + " the JavaScript parser verbatim. Decoded value: " + decoded);
-        assertTrue(decoded.indexOf('\'') >= 0,
-                () -> testCase.finding() + ": the apostrophe that closes the string literal must"
-                        + " survive the parser's one decode. Decoded value: " + decoded);
-    }
-
-    // ------------------------------------------------------------------
-    // The 87 the table has never heard of (F2)
-    // ------------------------------------------------------------------
-
-    /**
-     * Every unrecognised handler is injectable, end to end, for the same reason and by the same
-     * mechanism.
-     *
-     * <p>One payload per name, deliberately. The 91 names reach the identical fall-through and the
-     * per-payload distinctions are properties of {@code html()} and of the JavaScript parser rather
-     * than of the name, so they are pinned exhaustively on the four headline handlers — which carry
-     * {@code QUOTE_BREAKOUT} and {@code ENTITY_BREAKOUT} together, the pairing that shows the parser
-     * decodes exactly once. Multiplying 87 names by the payload catalogue would add run time and no
-     * information.
-     */
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("unrecognisedHandlerCases")
-    public void everyUnrecognisedHandlerReachesTheJavaScriptParser(XssCase testCase) {
-        Payload payload = testCase.payloads().get(0);
-        String decoded = VerdictEvaluator.render(testCase, payload.value())
+        String benign = VerdictEvaluator.render(testCase, "")
                 .decodedAttr(testCase.selector(), testCase.attribute());
 
-        assertTrue(decoded.contains(payload.value()),
-                () -> "F2: " + testCase.attribute() + " takes the ATTR_HTML fall-through, so the"
-                        + " payload must arrive at the JavaScript parser verbatim once the HTML"
-                        + " parser has decoded the character references. Decoded value: " + decoded);
-        assertTrue(decoded.indexOf('\'') >= 0,
-                () -> "F2: the apostrophe must survive, or the string literal does not close and the"
-                        + " row is not the vulnerability it claims to be. Decoded value: " + decoded);
+        assertFalse(decoded.contains(quoteBreakout.value()),
+                () -> testCase.finding() + ", closed by R4: " + testCase.attribute() + " must hand"
+                        + " the JavaScript parser nothing of the payload. Decoded value: " + decoded);
+        assertEquals(benign, decoded,
+                () -> testCase.finding() + ", closed by R4: the decoded handler body must be the"
+                        + " template's own text and nothing else. The apostrophes it contains are"
+                        + " the template's; the payload's must not add any. Decoded value: "
+                        + decoded);
+    }
+
+    // ------------------------------------------------------------------
+    // The 91 the table had never heard of (F2)
+    // ------------------------------------------------------------------
+
+    /**
+     * F2, inverted by R4 across all 91 rows. Was
+     * {@code everyUnrecognisedHandlerReachesTheJavaScriptParser}, which required the payload to
+     * arrive at the JavaScript parser verbatim once the HTML parser had decoded the character
+     * references {@code html()} wrote.
+     *
+     * <p>The 91 names reached the identical {@code ATTR_HTML} fall-through and now reach the
+     * identical prefix rule, so the suppression is asserted the same way for all of them: the render
+     * with the payload must be byte-identical to the render with an empty value, and the decoded
+     * attribute must not contain the payload.
+     *
+     * <p>One payload per name, deliberately, as before. The per-payload distinctions are properties
+     * of {@code html()} and of the JavaScript parser rather than of the name, and they are pinned
+     * exhaustively on the four headline handlers — which carry {@code QUOTE_BREAKOUT} and
+     * {@code ENTITY_BREAKOUT} together. Multiplying 91 names by the payload catalogue would add run
+     * time and no information.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("casesTheOldTableMissed")
+    public void everyHandlerTheOldTableMissedIsSuppressedToo(XssCase testCase) {
+        assertSuppresses(testCase, "F2, closed by R4: one of the 91 names the old on* table had"
+                + " never heard of, and classified by the prefix rule that replaced it");
     }
 
     /**
-     * The near misses, which are what make the table impossible to audit by reading.
+     * The near misses, inverted by R4. Was
+     * {@code theSuppressedAndInjectableSetsAreSeparatedByOneOrTwoCharacters}.
      *
-     * <p>Each pair below differs by one or two characters and lands on opposite sides of the
-     * allowlist. A reviewer who checks the left-hand name concludes the mechanism works.
+     * <p>Each pair below differs by one or two characters and used to land on opposite sides of the
+     * allowlist, which is what made the table impossible to audit by reading: a reviewer who checked
+     * the left-hand name concluded the mechanism worked. The pairs are kept, with the comparison
+     * that separated them still named, because a rule that ever starts distinguishing them again is
+     * a table by another name — and these six are where that would show first.
      */
     @Test
-    public void theSuppressedAndInjectableSetsAreSeparatedByOneOrTwoCharacters() {
-        assertNearMiss("onmouseover", "onmouseenter", "onmouse enters the group branch and then"
-                + " matches none of d/m/o/u at buf[7]");
-        assertNearMiss("onmousemove", "onmouseleave", "same branch, same index");
-        assertNearMiss("ondragdrop", "ondrag", "ondrag is a prefix of ondragdrop, and the branch"
-                + " demands buf[6]=='d' where ondrag has its NUL terminator");
-        assertNearMiss("onchange", "onratechange", "the group branch keys on buf[2], so a name that"
-                + " merely ends in 'change' never reaches the onChange comparison");
-        assertNearMiss("onload", "onloadstart", "onLoad demands buf[6]=='\\0'");
-        assertNearMiss("onreset", "onscroll", "nothing under 'on' + 's' is reachable at all,"
-                + " because the onS block tests buf[0]; see F1");
+    public void theNearMissPairsAreNoLongerSeparatedAtAll() {
+        assertNoLongerANearMiss("onmouseover", "onmouseenter", "onmouseenter entered the onmouse"
+                + " group branch and matched none of d/m/o/u at buf[7]");
+        assertNoLongerANearMiss("onmousemove", "onmouseleave", "same branch, same index");
+        assertNoLongerANearMiss("ondragdrop", "ondrag", "ondrag is a prefix of ondragdrop, and the"
+                + " branch demanded buf[6]=='d' where ondrag has its NUL terminator");
+        assertNoLongerANearMiss("onchange", "onratechange", "the group branch keyed on buf[2], so a"
+                + " name that merely ends in 'change' never reached the onChange comparison");
+        assertNoLongerANearMiss("onload", "onloadstart", "onLoad demanded buf[6]=='\\0'");
+        assertNoLongerANearMiss("onreset", "onscroll", "nothing under 'on' + 's' was reachable at"
+                + " all, because the onS block tested buf[0]; see F1");
     }
 
-    private static void assertNearMiss(String recognised, String missed, String why) {
-        assertEquals(Canoe.ATTR_JS, attributeContextOf(recognised),
-                recognised + " is recognised");
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf(missed),
-                missed + " is not, and is one or two characters away from " + recognised + ": " + why);
+    private static void assertNoLongerANearMiss(String wasRecognised, String wasMissed, String why) {
+        assertEquals(Canoe.ATTR_JS, attributeContextOf(wasRecognised),
+                wasRecognised + " was on the recognised side of the old table and must stay"
+                        + " suppressed");
+        assertEquals(Canoe.ATTR_JS, attributeContextOf(wasMissed),
+                wasMissed + " was one or two characters away from " + wasRecognised + " and on the"
+                        + " other side of the allowlist: " + why + ". Under the prefix rule the two"
+                        + " are the same case, and if they ever differ again the rule has grown a"
+                        + " table.");
     }
 
     // ------------------------------------------------------------------
@@ -316,27 +391,36 @@ public class EventHandlerMatrixTest {
     // ------------------------------------------------------------------
 
     /**
-     * The matrix partitions into exactly two classifications, and the recognised half is exactly 21
-     * names.
+     * The partition, inverted by R4. Was
+     * {@code theMatrixPartitionsIntoTwentyOneRecognisedNamesAndEverythingElse}: exactly 21 names
+     * classified as {@code ATTR_JS} and the other 94 as {@code ATTR_HTML}.
+     *
+     * <p>It is a partition of 115 real names into "all handlers" and "nothing" now. The assertion
+     * below counts 116, and the difference is one deliberate row: {@code onredystatechange}, F19's
+     * evidence, is a name no document contains but the corpus carries, and it must land in the
+     * {@code ATTR_JS} half like everything else — so the arithmetic is the 21 the old table
+     * reached, the 3 it declared and could not, the 91 it had never heard of, plus the misspelling.
+     * That is the whole of F1, F2 and F19 in one assertion: the empty half is the one that used to
+     * hold 94 names, three of them with a branch written for them that could not be taken.
      *
      * <p>Asserted by probing every name the corpus carries, which is the opposite direction from
-     * {@code CanoeStateMachineTest.everyDeclaredOnStarBranchNameIsClassified} — that one starts from
-     * the branches the source declares and asks what each resolves to, this one starts from the names
-     * that exist in the world and asks which of them the source catches. Both would have to be wrong
-     * in the same way to agree.
+     * {@code CanoeStateMachineTest.everyNameTheOldOnStarTableDeclaredIsClassifiedAsJavascript} —
+     * that one starts from the names the deleted table declared and asks what each resolves to, this
+     * one starts from the names that exist in the world and asks whether the source catches all of
+     * them. Both would have to be wrong in the same way to agree.
      */
     @Test
-    public void theMatrixPartitionsIntoTwentyOneRecognisedNamesAndEverythingElse() {
-        Set<String> recognised = new LinkedHashSet<>();
-        Set<String> unrecognised = new LinkedHashSet<>();
+    public void theMatrixPartitionsIntoAllHandlersAndNothing() {
+        Set<String> javascript = new LinkedHashSet<>();
+        Set<String> plainText = new LinkedHashSet<>();
 
         for (XssCase testCase : handlerCases()) {
             String name = testCase.attribute();
             int classification = attributeContextOf(name);
             if (classification == Canoe.ATTR_JS) {
-                recognised.add(name);
+                javascript.add(name);
             } else if (classification == Canoe.ATTR_HTML) {
-                unrecognised.add(name);
+                plainText.add(name);
             } else {
                 throw new AssertionError("on* name " + name + " classifies as "
                         + CanoeStateProbe.attributeContextName(classification)
@@ -346,30 +430,41 @@ public class EventHandlerMatrixTest {
             }
         }
 
-        // onredystatechange is F19's evidence rather than a real attribute name, so it is counted
-        // out of the recognised set: it is a name no document contains.
-        assertTrue(recognised.remove("onredystatechange"),
-                "handler.onredystatechange is F19's evidence and must classify as ATTR_JS; if it"
-                        + " stopped doing so, the F19 diagnosis was wrong");
+        assertEquals(handlerCases().size(), javascript.size(),
+                () -> "every name in the matrix must classify as ATTR_JS. Missing: "
+                        + plainText);
+        assertEquals(116, javascript.size(),
+                () -> "the matrix is the 21 the old table reached, the three it declared and could"
+                        + " not, onredystatechange and the 91 it had never heard of. If that total"
+                        + " changed, a name was added or dropped and the split"
+                        + " theOldRecognisedListMatchesTheStateMachineTable checks needs updating"
+                        + " with it. Found: " + javascript.size());
+        assertEquals(Set.of(), plainText,
+                () -> "the ATTR_HTML half of this partition held 94 names before R4 and must now be"
+                        + " empty. A name here is F2 re-opened for it: html()'s character references"
+                        + " are decoded by the HTML parser before the value is compiled as"
+                        + " JavaScript. Found: " + plainText);
 
-        assertEquals(21, recognised.size(),
-                () -> "Canoe must recognise exactly 21 event handler names. Recognised: "
-                        + recognised);
-        assertEquals(91 + DECLARED_BUT_DEAD.size(), unrecognised.size(),
-                () -> "the matrix must carry 91 unrecognised names plus the three declared-but-dead"
-                        + " ones. Unrecognised: " + unrecognised);
-        assertTrue(unrecognised.containsAll(DECLARED_BUT_DEAD),
-                "F1 and F19: onselect, onsubmit and onreadystatechange are declared and must still"
-                        + " land in the unrecognised half");
+        // The three the old table declared and could never reach, and the misspelling its
+        // onreadystatechange chain did match, are all in the matrix and all in the ATTR_JS half.
+        assertTrue(javascript.containsAll(DECLARED_BUT_DEAD),
+                "F1 and F19: onselect, onsubmit and onreadystatechange were declared and dead, and"
+                        + " the prefix rule must reach all three");
+        assertTrue(javascript.contains("onredystatechange"),
+                "handler.onredystatechange is F19's evidence - the name the misspelt chain did"
+                        + " match - and must be classified like its real twin now");
     }
 
     /**
-     * The measured arithmetic behind F2, stated as numbers rather than as "roughly forty".
+     * The measured arithmetic behind F2, inverted by R4. Was
+     * {@code canoeRecognisesEighteenOfTheNinetyFourSpecEventHandlers}.
      *
      * <p>F2's title said "roughly 40 modern event handlers" and its body listed 64 by hand. Measured
-     * against the HTML Standard's own list, Canoe recognises <strong>18 of the 94</strong> event
-     * handler content attributes the standard defines, and the three extra names it does recognise —
-     * {@code ondragdrop}, {@code onend}, {@code onmove} — are not in that list.
+     * against the HTML Standard's own list, Canoe recognised <strong>18 of the 94</strong> event
+     * handler content attributes the standard defines, and the three extra names it did recognise —
+     * {@code ondragdrop}, {@code onend}, {@code onmove} — are not in that list. It classifies all 94
+     * now, and the ratio is worth keeping in the javadoc because "18 of 94" is the number the
+     * finding is remembered by.
      *
      * <p>The 94 is itself a correction. The first transcription of section 8.1.8.2 said 92: it
      * dropped the four {@code -webkit-} prefixed names table 1 defines (on the mistaken belief that
@@ -384,99 +479,112 @@ public class EventHandlerMatrixTest {
      * this list is derived from the HTML Standard, not because it is dead.
      */
     @Test
-    public void canoeRecognisesEighteenOfTheNinetyFourSpecEventHandlers() throws IOException {
+    public void canoeNowClassifiesAllNinetyFourSpecEventHandlers() throws IOException {
         List<String> spec = specEventHandlerAttributes();
         assertEquals(94, spec.size(),
                 "the checked-in HTML Standard list has changed size; if that is a deliberate"
                         + " refresh, update this count and the numbers quoted in F2");
 
-        List<String> recognised = new ArrayList<>();
+        List<String> missed = new ArrayList<>();
         for (String name : spec) {
-            if (attributeContextOf(name) == Canoe.ATTR_JS) {
-                recognised.add(name);
+            if (attributeContextOf(name) != Canoe.ATTR_JS) {
+                missed.add(name);
             }
         }
 
-        assertEquals(18, recognised.size(),
-                () -> "Canoe recognises " + recognised.size() + " of the 94 event handler content"
-                        + " attributes the HTML Standard defines: " + recognised);
-        assertEquals(94 - 18, spec.size() - recognised.size(),
-                "...and misses 76, which is the number F2's table carries");
+        assertEquals(List.of(), missed,
+                () -> "F2: Canoe recognised 18 of these 94 before R4 and missed 76. The prefix rule"
+                        + " must reach all 94, and it reaches them without knowing any of their"
+                        + " names. Missed: " + missed);
 
+        // The three names Canoe classified that the standard's tables do not list. They used to be
+        // three of the 21, and 18 + 3 was the arithmetic; they are unremarkable now, and that is
+        // the point - the rule does not have a list for a name to be surprising against.
         for (String extra : List.of("ondragdrop", "onend", "onmove")) {
             assertEquals(Canoe.ATTR_JS, attributeContextOf(extra),
-                    extra + " is recognised by Canoe");
+                    extra + " must be classified like every other on* name");
             assertFalse(spec.contains(extra),
-                    extra + " is recognised by Canoe and is not in the HTML Standard's event handler"
-                            + " content attribute tables, which is how 18 spec names plus 3 others"
-                            + " make the 21");
+                    extra + " is not in the HTML Standard's event handler content attribute tables,"
+                            + " which is how 18 spec names plus these 3 made the old 21");
         }
 
-        // The two IDL-only names are excluded from the count and are not excluded from the corpus.
-        // Both are unrecognised, so counting them would have made the miss 78 of 96 rather than
-        // 76 of 94 - the same mechanism, a number that does not match the standard's own tables.
+        // The two IDL-only names are excluded from the count of 94 and not from the corpus. Both
+        // were unrecognised, so counting them would have made the miss 78 of 96 rather than 76 of
+        // 94 - the same mechanism, a number that does not match the standard's own tables.
         List<String> idlOnly = specIdlOnlyAttributes();
         assertEquals(List.of("onreadystatechange", "onvisibilitychange"), idlOnly,
                 "table 4 of section 8.1.8.2 is these two names and nothing else");
         for (String name : idlOnly) {
-            assertEquals(Canoe.ATTR_HTML, attributeContextOf(name),
-                    name + " is not recognised either, so excluding it from the 94 changes the"
-                            + " denominator and not the ratio");
+            assertEquals(Canoe.ATTR_JS, attributeContextOf(name),
+                    name + " is classified by the prefix rule too, so whether it is inside or"
+                            + " outside the 94 changes the denominator and nothing else");
         }
     }
 
     /**
-     * The 21 names the corpus records as recognised are exactly the names
-     * {@code CanoeStateMachineTest}'s source-derived table says can be taken.
+     * The 21 names the corpus files as "the old table reached" are exactly the names
+     * {@code CanoeStateMachineTest}'s table records it as declaring, minus the three dead branches.
      *
      * <p>{@code CanoeCorpus.RECOGNISED_HANDLERS}'s javadoc has claimed this since T15 and cited this
      * test by name; the test did not exist. The claim was true and nothing asserted it, which is the
      * shape &sect;8 warns about — a cross-reference between two hand-maintained lists, where the
      * whole value is that they cannot drift apart.
      *
+     * <p>Reworked by R4 rather than retired. The corpus side used to be derived from the verdicts —
+     * "the handler cases that record suppression" — and every handler case records suppression now,
+     * so that derivation would compare 21 names against 115 and fail for the right reason at the
+     * wrong place. Both sides are name-derived instead, which is what the cross-reference was always
+     * about: the failure it guards against is somebody adding {@code ondrop} to one list and
+     * deleting {@code ondragdrop} from the other, and that is still worth catching because the two
+     * halves are what {@link #casesTheOldTableMissed} splits the 115 rows by.
+     *
      * <p>Asserted as <strong>membership</strong> rather than as a count. Two lists of 21 names can
-     * agree on their size and disagree on a name, and a name is what a security decision is made of:
-     * the failure this guards against is somebody adding {@code ondrop} to one list and deleting
-     * {@code ondragdrop} from the other.
+     * agree on their size and disagree on a name, and a name is what a security decision is made of.
      */
     @Test
-    public void theRecognisedListMatchesTheStateMachineTable() {
-        Set<String> fromTheStateMachineTable = new LinkedHashSet<>();
-        for (Object[] row : CanoeStateMachineTest.declaredOnStarBranches()
-                .map(a -> a.get()).toList()) {
-            if ((Integer) row[1] == Canoe.ATTR_JS) {
-                fromTheStateMachineTable.add((String) row[0]);
-            }
-        }
+    public void theOldRecognisedListMatchesTheStateMachineTable() {
+        Set<String> fromTheStateMachineTable = namesTheOldTableCouldReach();
 
         Set<String> fromTheCorpus = new LinkedHashSet<>();
-        for (XssCase testCase : handlerCases()) {
-            if (testCase.defaultVerdict().isSuppression()
-                    && !"onredystatechange".equals(testCase.attribute())) {
-                fromTheCorpus.add(testCase.attribute());
-            }
+        for (XssCase testCase : (Iterable<XssCase>) casesTheOldTableReached()::iterator) {
+            fromTheCorpus.add(testCase.attribute());
         }
 
         assertEquals(fromTheStateMachineTable, fromTheCorpus,
-                "The corpus's recognised-handler list and CanoeStateMachineTest's declared-branch"
-                        + " table disagree. The second is read back out of Canoe.java by"
-                        + " theSourceDeclaresExactlyTheOnStarBranchesTheTableLists, so it is the one"
-                        + " that tracks the source; a difference here means either a branch changed"
-                        + " and CanoeCorpus.RECOGNISED_HANDLERS was not updated, or a corpus verdict"
-                        + " was changed without the classification changing.");
+                "The corpus's RECOGNISED_HANDLERS list and CanoeStateMachineTest's table of the"
+                        + " names the deleted on* table declared disagree. A name in one and not the"
+                        + " other means the 21/91 split this file partitions the matrix by no longer"
+                        + " describes the same rows, and the F2 regression net is measuring a"
+                        + " different set from the one the finding was about.");
         assertEquals(21, fromTheCorpus.size(),
                 () -> "and there must be 21 of them: " + fromTheCorpus);
+
+        // ...and the split must be exhaustive over the matrix, or a name could fall out of both
+        // halves and be asserted by neither parameterised sweep.
+        assertEquals(handlerCases().size(),
+                fromTheCorpus.size() + DECLARED_BUT_DEAD.size() + 1
+                        + (int) casesTheOldTableMissed().count(),
+                "the 21, the three declared-but-dead, onredystatechange and the 91 must account for"
+                        + " every case in " + SECTION + " exactly once");
     }
 
-    /** Every case in this group records either suppression or a cited vulnerability, never SAFE. */
+    /**
+     * Every case in this group records suppression, and none records a live sink.
+     *
+     * <p>Was "either suppression or a cited vulnerability, never SAFE". R4 removed the second
+     * alternative: an event handler value is either suppressed or compiled as JavaScript, there is
+     * no third outcome, and Canoe now suppresses all of them. A {@code KNOWN_VULNERABLE} row here
+     * would be F1, F2 or F19 re-opened, and a {@code SAFE} row would mean the sink was mis-declared.
+     */
     @Test
-    public void noHandlerCaseIsMerelySafe() {
+    public void everyHandlerCaseRecordsSuppression() {
         for (XssCase testCase : handlerCases()) {
             Verdict verdict = testCase.defaultVerdict();
-            assertTrue(verdict.isSuppression() || verdict == Verdict.KNOWN_VULNERABLE,
-                    () -> testCase.id() + " records " + verdict + ". An event handler value is"
-                            + " either suppressed or compiled as JavaScript; there is no third"
-                            + " outcome, and a SAFE row here would mean the sink was mis-declared.");
+            assertTrue(verdict.isSuppression(),
+                    () -> testCase.id() + " records " + verdict + ". Since R4 every on* name"
+                            + " classifies as ATTR_JS, so every case in this group must record"
+                            + " suppression; KNOWN_VULNERABLE here is F1, F2 or F19 re-opened and"
+                            + " SAFE here would mean the sink was mis-declared.");
             if (verdict == Verdict.KNOWN_VULNERABLE) {
                 assertNotNull(testCase.finding(), testCase.id() + " cites no finding");
             }
@@ -491,14 +599,21 @@ public class EventHandlerMatrixTest {
      * Every event handler content attribute the HTML Standard defines has a corpus case.
      *
      * <p>This is the point of the task. Without it the group is "the handlers we happened to think
-     * of" — which is exactly what {@code setTagAttributeContext()} is, and repeating the mistake
-     * inside the test that exists to catch it would be worse than having no test, because it would
-     * look like coverage.
+     * of" — which is exactly what {@code setTagAttributeContext()} used to be, and repeating the
+     * mistake inside the test that exists to catch it would be worse than having no test, because it
+     * would look like coverage.
      *
      * <p>The list is checked in at {@code src/test/resources/canoe/html-event-handler-attributes.txt}
      * with its provenance and transcription date in the header. When it is next refreshed against a
      * newer revision of the standard, this test fails until every new name has been classified and
      * ledgered — which is the failure the guard exists to produce.
+     *
+     * <p><strong>Still passing after R4, and that is the substance of the task.</strong> The guard
+     * used to be satisfiable only by somebody writing a case for each new name and reviewing which
+     * side of the allowlist it fell on; a name added to the standard was an open finding until then.
+     * The prefix rule classifies it before anybody notices it exists, so what the guard now demands
+     * is a ledger entry rather than a security decision — which is the difference between a list
+     * that can fall behind the standard and a rule that cannot.
      */
     @Test
     public void everySpecEventHandlerAttributeHasACorpusCase() throws IOException {
@@ -508,10 +623,10 @@ public class EventHandlerMatrixTest {
         assertTrue(missing.isEmpty(),
                 () -> "The HTML Standard defines these event handler content attributes and the"
                         + " corpus has no case for them: " + missing
-                        + "\nAdd each to CanoeCorpus.RECOGNISED_HANDLERS or"
-                        + " CanoeCorpus.UNRECOGNISED_HANDLERS after checking which side of"
-                        + " setTagAttributeContext()'s allowlist it falls on. A name with no case is"
-                        + " an unreviewed security decision.");
+                        + "\nAdd each to CanoeCorpus.UNRECOGNISED_HANDLERS. There is no allowlist"
+                        + " to check it against any more - R4's prefix rule already classifies it as"
+                        + " ATTR_JS - so the case records the suppression rather than a decision."
+                        + " A name with no case is still an unledgered sink.");
 
         // The two IDL-only names are out of the count and in the corpus, which is the point of
         // carrying them: F19 is about onreadystatechange, which an author can still write as an

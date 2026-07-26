@@ -87,14 +87,23 @@ public class CanoeStateProbe extends Canoe {
     }
 
     /**
-     * A copy of the shared name/value buffer, including the residue an earlier tag left behind.
-     * The buffer is a field of the whole render and is never cleared — only {@code bufLen} is reset.
+     * A copy of the shared name/value buffer. It is a field of the whole render, and since R3 it is
+     * cleared at every reuse, so anything above what the current name or value wrote is a NUL -
+     * which is itself what {@code BufferResidueTest.theBufferHoldsNothingTheCurrentNameOrValueWrote}
+     * asserts through this accessor.
      */
     public char[] buffer() {
         return buf.clone();
     }
 
-    /** The character at one buffer index, as the hand-unrolled comparisons in Canoe read it. */
+    /**
+     * The character at one buffer index. Canoe no longer classifies attribute names or values by
+     * fixed buffer index - R3 and R4 replaced both sets of hand-unrolled comparisons with bounded
+     * string comparisons - so this accessor exists for the tests that record what those comparisons
+     * used to read, and that nothing reads it now. (The one fixed-index read left in the class is
+     * TAG_NAME's script/style detection, which is residue-safe because the buffer is cleared on
+     * every {@code '<'}; R8 owns restructuring it.)
+     */
     public char bufferAt(int index) {
         return buf[index];
     }

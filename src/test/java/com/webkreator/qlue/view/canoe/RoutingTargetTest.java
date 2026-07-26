@@ -36,11 +36,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * highest-impact task of the phase — is precisely the claim that a colon in the value must stop
  * changing the answers this table records.
  *
- * <p><strong>Landed so far:</strong> R2. Its two rows — the recognised handler with a colon in its
- * body, and {@code style} after a property name — have had their current column moved onto their
- * target and their {@code flippedBy} cleared, so they are now rows no later task may change. Three
- * rows remain to flip: R4's unrecognised handler, R5's policy attribute, and R5+R6's unrecognised
- * URL attribute.
+ * <p><strong>Landed so far:</strong> R2 and R4. R2's two rows — the recognised handler with a colon
+ * in its body, and {@code style} after a property name — and R4's row for a handler the old
+ * {@code on*} table did not list have had their current column moved onto their target and their
+ * {@code flippedBy} cleared, so they are now rows no later task may change. Two rows remain to
+ * flip: R5's policy attribute and R5+R6's unrecognised URL attribute.
  *
  * <p>Rows are asserted at the {@code CTX_*} level rather than the {@code ATTR_*} level, because the
  * context is what picks the encoder and the encoder is what Phase A is really about;
@@ -82,10 +82,10 @@ public class RoutingTargetTest {
 
     static Stream<Row> rows() {
         return Stream.of(
-                // A recognised event handler. onclick is in the on* table and resolves to ATTR_JS,
-                // so CTX_JS - suppression - is both current and target. R2 and R4 must preserve it:
-                // R4 replaces the table this name is recognised by, and the prefix rule that
-                // replaces it classifies the same name the same way.
+                // An event handler the old on* table listed. onclick resolved to ATTR_JS then and
+                // resolves to ATTR_JS now, so CTX_JS - suppression - is both current and target.
+                // R2 and R4 both had to preserve it, and R4 is why it is no longer a special case:
+                // the prefix rule that replaced the table classifies this name like every other.
                 new Row("recognised handler",
                         "<a onclick=\"", Canoe.CTX_JS, Canoe.CTX_JS, null),
 
@@ -97,12 +97,13 @@ public class RoutingTargetTest {
                 new Row("recognised handler, colon in the body (F17)",
                         "<a onclick=\"f({a:1,b:'", Canoe.CTX_JS, Canoe.CTX_JS, null),
 
-                // An unrecognised event handler (F2). onpointerdown is one of the 76 of 94 spec
-                // handlers the on* table misses, so today it falls to ATTR_HTML and html(). R4's
-                // prefix rule - any name beginning "on" is ATTR_JS - makes it suppress like
-                // onclick does.
-                new Row("unrecognised handler (F2)",
-                        "<button onpointerdown=\"", Canoe.CTX_HTML_ATTR, Canoe.CTX_JS, "R4"),
+                // An event handler the old on* table did not list (F2). onpointerdown was one of
+                // the 76 of 94 spec handlers that table missed, so it fell to ATTR_HTML and html().
+                // R4 replaced the table with a prefix rule - any name beginning "on" is ATTR_JS -
+                // and this row reached its target: it suppresses exactly as onclick does, and no
+                // later Phase A task may move it.
+                new Row("handler outside the old table (F2)",
+                        "<button onpointerdown=\"", Canoe.CTX_JS, Canoe.CTX_JS, null),
 
                 // A URL attribute Canoe knows. href is one of the five ATTR_URI names and gets
                 // url(); that is correct routing and every Phase A task must leave it alone.

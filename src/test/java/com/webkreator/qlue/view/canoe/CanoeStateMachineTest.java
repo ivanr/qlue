@@ -17,8 +17,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -381,189 +379,241 @@ public class CanoeStateMachineTest {
     }
 
     // ------------------------------------------------------------------
-    // The on* table, exhaustively (F1, F19)
+    // The on* prefix rule (F1, F2, F19 — closed by R4)
     // ------------------------------------------------------------------
 
     /**
-     * Every event-handler name {@code setTagAttributeContext()} declares a leaf branch for, against
-     * the context that name <em>actually</em> resolves to.
+     * The names the deleted {@code on*} table used to declare a leaf branch for, all of which must
+     * now classify as JavaScript through the prefix rule that replaced it.
      *
-     * <p>Twenty-four branches are written. Twenty-one of them work. The three that do not are
-     * {@code onselect} and {@code onsubmit}, whose branch reads {@code buf[0]}/{@code buf[1]} where
-     * every sibling reads {@code buf[2]}/{@code buf[3]} (F1), and {@code onreadystatechange}, whose
-     * comparison chain spells {@code onredystatechange} (F19).
+     * <p>Was {@code declaredOnStarBranches}, and it was the F1/F19 evidence table: twenty-four
+     * branches were written and twenty-one of them worked. {@code onselect} and {@code onsubmit}
+     * read {@code buf[0]}/{@code buf[1]} where every sibling read {@code buf[2]}/{@code buf[3]},
+     * inside a block that had already established {@code buf[0] == 'o'} (F1); and the
+     * {@code onreadystatechange} chain's comparands spelled {@code onredystatechange}, missing the
+     * {@code a} of "ready" (F19). Both are recorded here rather than deleted with the branches,
+     * because the reasoning is what says why a table was the wrong structure: F1 was findable by
+     * reading the source, F19 was not — its indices are consecutive, its terminator index matches
+     * the number of characters it compares, its comment says the right thing, and it is only wrong
+     * if you read thirteen comparands back as a word.
      *
-     * <p>The expectations are literals, one row per name, and that is the whole point of the test.
-     * F1 was found by reading the source; F19 was not, and could not reasonably have been — its
-     * indices are consecutive, its terminator index matches the number of characters it compares,
-     * and its comment says the right thing. It is only wrong if you read the thirteen comparands
-     * back as a word. A table of literal expectations makes each branch state its own answer in a
-     * form nobody can skim, and it is the reason the count of working branches cannot drift again.
+     * <p>R4's prefix rule cannot have either defect: there is one comparison, of two characters, and
+     * every name below reaches it identically. The table is kept as the list of names that used to
+     * be special so that a change which reintroduces per-name handling fails on all twenty-four at
+     * once, and so that {@code onredystatechange} — the misspelling F19's branch did match — is
+     * still probed alongside the name it should have matched.
      */
-    public static Stream<Arguments> declaredOnStarBranches() {
+    public static Stream<Arguments> namesTheOldOnStarTableDeclared() {
         return Stream.of(
-                onStar("onabort", Canoe.ATTR_JS, null),
-                onStar("onblur", Canoe.ATTR_JS, null),
-                onStar("onchange", Canoe.ATTR_JS, null),
-                onStar("onclick", Canoe.ATTR_JS, null),
-                onStar("ondblclick", Canoe.ATTR_JS, null),
-                onStar("ondragdrop", Canoe.ATTR_JS, null),
-                onStar("onend", Canoe.ATTR_JS, null),
-                onStar("onerror", Canoe.ATTR_JS, null),
-                onStar("onkeydown", Canoe.ATTR_JS, null),
-                onStar("onkeypress", Canoe.ATTR_JS, null),
-                onStar("onkeyup", Canoe.ATTR_JS, null),
-                onStar("onload", Canoe.ATTR_JS, null),
-                onStar("onmousedown", Canoe.ATTR_JS, null),
-                onStar("onmousemove", Canoe.ATTR_JS, null),
-                onStar("onmouseout", Canoe.ATTR_JS, null),
-                onStar("onmouseover", Canoe.ATTR_JS, null),
-                onStar("onmouseup", Canoe.ATTR_JS, null),
-                onStar("onmove", Canoe.ATTR_JS, null),
-                onStar("onreadystatechange", Canoe.ATTR_HTML, "F19"),
-                onStar("onreset", Canoe.ATTR_JS, null),
-                onStar("onresize", Canoe.ATTR_JS, null),
-                onStar("onselect", Canoe.ATTR_HTML, "F1"),
-                onStar("onsubmit", Canoe.ATTR_HTML, "F1"),
-                onStar("onunload", Canoe.ATTR_JS, null));
+                onStar("onabort", null),
+                onStar("onblur", null),
+                onStar("onchange", null),
+                onStar("onclick", null),
+                onStar("ondblclick", null),
+                onStar("ondragdrop", null),
+                onStar("onend", null),
+                onStar("onerror", null),
+                onStar("onkeydown", null),
+                onStar("onkeypress", null),
+                onStar("onkeyup", null),
+                onStar("onload", null),
+                onStar("onmousedown", null),
+                onStar("onmousemove", null),
+                onStar("onmouseout", null),
+                onStar("onmouseover", null),
+                onStar("onmouseup", null),
+                onStar("onmove", null),
+                onStar("onreadystatechange", "F19"),
+                onStar("onreset", null),
+                onStar("onresize", null),
+                onStar("onselect", "F1"),
+                onStar("onsubmit", "F1"),
+                onStar("onunload", null));
     }
 
-    private static Arguments onStar(String name, int expected, String finding) {
-        return Arguments.of(name, expected, finding);
+    /** {@code finding} names the finding whose dead branch used to own the name, or null. */
+    private static Arguments onStar(String name, String finding) {
+        return Arguments.of(name, finding);
     }
 
     /**
-     * Each name is probed on a fresh {@link Canoe}, so the only thing in the buffer is the attribute
-     * name itself and its terminator. F5's residue was a separate axis, owned by
-     * {@code AttributePrefixTest}; mixing it in here would have made a failure ambiguous between "the
-     * branch is dead" and "an earlier name armed the buffer". R3 clears the buffer on every reuse, so
-     * the ambiguity is gone and the fresh Canoe is now a convention rather than a precaution.
+     * F1, F2 and F19, inverted by R4. Was {@code everyDeclaredOnStarBranchNameIsClassified}, whose
+     * expectation column carried {@code ATTR_HTML} for the three names no branch could reach.
+     *
+     * <p>All twenty-four resolve to {@code ATTR_JS} now, and by the same two-character comparison,
+     * so there is no longer a per-name expectation to get wrong. Each name is probed on a fresh
+     * {@link Canoe}, which since R3's buffer clearing is a convention rather than a precaution.
      */
-    @ParameterizedTest(name = "{0} -> {1}{2}")
-    @MethodSource("declaredOnStarBranches")
-    public void everyDeclaredOnStarBranchNameIsClassified(String name, int expected, String finding)
+    @ParameterizedTest(name = "{0}{1}")
+    @MethodSource("namesTheOldOnStarTableDeclared")
+    public void everyNameTheOldOnStarTableDeclaredIsClassifiedAsJavascript(String name,
+                                                                          String finding)
             throws IOException {
-        assertEquals(expected, attributeContextOf("<img " + name + "=\""),
+        assertEquals(Canoe.ATTR_JS, attributeContextOf("<img " + name + "=\""),
                 () -> (finding == null
-                        ? name + " is declared and must classify as JavaScript"
-                        : finding + ": " + name + " is declared but its branch cannot be taken"));
+                        ? name + " must classify as JavaScript"
+                        : finding + ": " + name + " used to be a branch that could not be taken and"
+                                + " must classify as JavaScript through the prefix rule now"));
 
-        int expectedContext = expected == Canoe.ATTR_JS ? Canoe.CTX_JS : Canoe.CTX_HTML_ATTR;
-        assertEquals(expectedContext, CanoeTestSupport.contextAfter("<img " + name + "=\""),
-                () -> (finding == null
-                        ? name + " must be suppressed"
-                        : finding + ": " + name + " gets html(), which the parser decodes before"
-                                + " the value is compiled as JavaScript"));
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<img " + name + "=\""),
+                () -> name + " must be suppressed; html() here is what the HTML parser decodes"
+                        + " before the value is compiled as JavaScript");
     }
 
     /**
-     * The arithmetic the table above is really about, stated as a number so that it appears in the
-     * review and in the failure message rather than having to be counted by hand: 24 branches are
-     * declared, 21 can be taken.
+     * The arithmetic, inverted. Was
+     * {@code onlyTwentyOneOfTheTwentyFourDeclaredOnStarBranchesCanBeTaken}: 24 branches declared,
+     * 21 reachable, three dead. There are no branches to count now — one prefix rule replaces all
+     * twenty-four — so the number worth stating is that the dead set is empty.
      */
     @Test
-    public void onlyTwentyOneOfTheTwentyFourDeclaredOnStarBranchesCanBeTaken() {
+    public void noNameTheOldOnStarTableDeclaredIsUnreachableAnyMore() throws IOException {
         List<String> declared = new ArrayList<>();
         List<String> dead = new ArrayList<>();
-        for (Arguments row : (Iterable<Arguments>) declaredOnStarBranches()::iterator) {
-            declared.add((String) row.get()[0]);
-            if ((Integer) row.get()[1] != Canoe.ATTR_JS) {
-                dead.add((String) row.get()[0]);
+        for (Arguments row : (Iterable<Arguments>) namesTheOldOnStarTableDeclared()::iterator) {
+            String name = (String) row.get()[0];
+            declared.add(name);
+            if (attributeContextOf("<img " + name + "=\"") != Canoe.ATTR_JS) {
+                dead.add(name);
             }
         }
 
-        assertEquals(24, declared.size(), "the number of declared on* branches");
-        assertEquals(List.of("onreadystatechange", "onselect", "onsubmit"), dead,
-                "the on* branches that are written but cannot be taken: onselect and onsubmit are"
-                        + " F1, onreadystatechange is F19. If this list shrank, a finding has been"
-                        + " fixed and the ledger needs updating.");
-        assertEquals(21, declared.size() - dead.size(),
-                "the number of on* names Canoe genuinely recognises");
+        assertEquals(24, declared.size(), "the number of names the old on* table declared");
+        assertEquals(List.of(), dead,
+                "F1 and F19 were the three of these the table declared and could never reach:"
+                        + " onselect, onsubmit and onreadystatechange. R4's prefix rule reaches"
+                        + " every name that begins 'on', so this list must stay empty. A name"
+                        + " appearing here means something has started special-casing names again.");
     }
 
     /**
-     * F19, at the character that causes it.
+     * F19's misspelling, inverted by R4. Was {@code onreadystatechangeIsSpeltWithoutItsA}.
      *
-     * <p>The branch at {@code Canoe.java:483-491} sits inside {@code buf[2]=='r' && buf[3]=='e'} and
-     * then demands {@code buf[4]=='d'}. Concatenate the indices and the name it matches is
-     * {@code on} + {@code re} + {@code dystatechange} — seventeen characters, with no {@code a}
-     * after the {@code re}. So the branch recognises {@code onredystatechange}, an attribute that
-     * does not exist, and cannot recognise {@code onreadystatechange}, which does.
+     * <p>The dead branch's guard was {@code buf[2]=='r' && buf[3]=='e'} and its body then demanded
+     * {@code buf[4]=='d'}, so the comparands spelled {@code on} + {@code re} + {@code dystatechange}
+     * and the real attribute could never match. It was the inverse of the usual bug shape and worth
+     * keeping the record of: the branch was not unreachable, it was reachable by the wrong input, so
+     * a coverage tool would have reported it covered had anything ever exercised it.
      *
-     * <p>This is the inverse of the usual bug shape and worth stating plainly: the branch is not
-     * unreachable, it is reachable by the wrong input. A coverage tool that could reach it would
-     * report the line as covered.
+     * <p>Both names classify as JavaScript now, because the prefix rule reads two characters and
+     * neither the fifth character nor the spelling of the rest can matter. The buffer probes are
+     * kept and inverted too: {@code buf[4]} still differs between the two names, and the point is
+     * that nothing reads it.
      */
     @Test
-    public void onreadystatechangeIsSpeltWithoutItsA() throws IOException {
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<img onreadystatechange=\""),
-                "F19: the real attribute name falls through to the ATTR_HTML default");
+    public void theMisspeltNameAndTheRealOneAreNowTheSameStatement() throws IOException {
+        assertEquals(Canoe.ATTR_JS, attributeContextOf("<img onreadystatechange=\""),
+                "R4: the real attribute name is classified by the prefix rule");
         assertEquals(Canoe.ATTR_JS, attributeContextOf("<img onredystatechange=\""),
-                "F19: and the misspelling the branch actually matches is suppressed");
+                "R4: and so is the misspelling F19's branch used to match, for the same reason");
 
-        // The comparison that fails. buf[4] is the fifth character of the attribute name; the
-        // branch demands 'd' there, and onreadystatechange has 'a'. Probed at the '=' rather than
-        // after the opening quote since R3: the quote starts the attribute value, and the value
-        // scan now clears the buffer before it writes into it, so a probe fed one character further
-        // would read a cleared buffer and assert nothing about the name.
+        // The comparison that used to fail. buf[4] is the fifth character of the attribute name and
+        // it still differs between the two names; what changed is that nothing looks at it. Probed
+        // at the '=' rather than after the opening quote since R3: the quote starts the attribute
+        // value, and the value scan clears the buffer before writing into it.
         assertEquals('a', new CanoeStateProbe().feed("<img onreadystatechange=").bufferAt(4),
-                "F19: buf[4] holds the 'a' of 'ready', and the branch tests it against 'd'");
+                "buf[4] still holds the 'a' of 'ready'; the branch that tested it against 'd' is"
+                        + " gone");
         assertEquals('d', new CanoeStateProbe().feed("<img onredystatechange=").bufferAt(4),
-                "the misspelling puts a 'd' at buf[4], which is why that one matches");
+                "and the misspelling still puts a 'd' there, which no longer decides anything");
 
-        // Nothing downstream picks it up either: onRes fails on the same index, onUnLoad fails on
-        // buf[2], and the onS block tests buf[0], which is 'o'.
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<img onreadystatechange=\""),
-                "F19: html(), so an entity-encoded payload reaches the JavaScript parser intact");
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<img onreadystatechange=\""),
+                "R4: suppressed, so no entity-encoded payload reaches the JavaScript parser");
     }
 
     /**
-     * The table in {@link #declaredOnStarBranches} must list exactly the branches the source
-     * declares, read out of {@code Canoe.java} rather than trusted.
+     * The rule's deliberate cost, pinned so nobody "fixes" it: <em>every</em> name beginning
+     * {@code on} is suppressed, including names that are not and never will be event handlers.
      *
-     * <p>A leaf branch is a {@code // onXxx} comment whose block assigns {@code ATTR_JS} before the
-     * next {@code // on} comment; the grouping comments ({@code // onC}, {@code // onMouse},
-     * {@code // onRe}, …) assign nothing and are skipped by the same rule. A branch added or removed
-     * in the tokenizer therefore fails here, which is the only way the "24 declared, 21 working"
-     * arithmetic stays true without someone re-counting it.
+     * <p>R4's words in the plan are "there is no benign exception worth the risk", and this test is
+     * that decision made concrete. A bare {@code on}, a hyphenated {@code on-click} (the shape a
+     * framework's custom attribute takes), a nonsense {@code onx}, and ordinary English words like
+     * {@code only} and {@code once} all classify as {@code ATTR_JS} and emit nothing. The cost is
+     * real — a template author with {@code <div only="$x">} silently loses the value — and it is
+     * accepted, because the alternative is an exception list, and an exception list is the
+     * structure whose 76 misses were F2. If one of these rows ever stops classifying as
+     * {@code ATTR_JS}, an exception has been carved and this file is where its risk gets argued.
+     *
+     * <p>The contrast row keeps the rule honest in the other direction: a name that does not begin
+     * {@code on} — here the single letter {@code o} — must not be caught, or the rule has become a
+     * one-character prefix and every attribute starting with {@code o} is vanishing.
      */
     @Test
-    public void theSourceDeclaresExactlyTheOnStarBranchesTheTableLists() throws IOException {
+    public void everyNameBeginningOnIsSuppressedIncludingBenignOnes() throws IOException {
+        for (String name : List.of("on", "onx", "on-click", "only", "once")) {
+            assertEquals(Canoe.ATTR_JS, attributeContextOf("<div " + name + "=\""),
+                    () -> name + " begins 'on' and must classify as ATTR_JS. This is the accepted"
+                            + " cost of the prefix rule, not a bug: an exception for it would be"
+                            + " the start of the allowlist R4 deleted.");
+            assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<div " + name + "=\""),
+                    () -> name + " must be suppressed, benign or not");
+        }
+
+        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<div o=\""),
+                "a name that does not begin 'on' must fall through to the ATTR_HTML default (R5's"
+                        + " to invert); the rule reads two characters, not one");
+    }
+
+    /**
+     * The prefix rule is a <em>prefix</em> rule, and the source says so.
+     *
+     * <p>Was {@code theSourceDeclaresExactlyTheOnStarBranchesTheTableLists}, which read the 24
+     * {@code // onXxx} leaf branches back out of {@code Canoe.java} so that the table above could
+     * not drift from the source. There is nothing to enumerate now, and the property that replaces
+     * it is the stronger one: {@code setTagAttributeContext()} must contain no per-handler-name
+     * comparison at all, so no name can be added to or dropped from an allowlist that does not
+     * exist.
+     *
+     * <p>Asserted against the source text as well as against behaviour, because the behavioural
+     * sweeps ({@code EventHandlerMatrixTest}, {@code NearMissNameSweepTest}) can only probe names
+     * somebody thought of, and a re-introduced special case for a name nobody listed would pass
+     * every one of them.
+     */
+    @Test
+    public void theSourceClassifiesHandlersByPrefixAndNotByName() throws IOException {
         Path source = Path.of("src/main/java/com/webkreator/qlue/view/Canoe.java");
         assertTrue(Files.isReadable(source),
                 "cannot read " + source.toAbsolutePath() + "; this test must run with the project"
                         + " directory as its working directory");
         String text = Files.readString(source, StandardCharsets.UTF_8);
 
-        // Every "// onXxx" comment, and the source between it and the next one.
-        Matcher matcher = Pattern.compile("//\\s*(on[A-Za-z]*)\\b").matcher(text);
-        List<String> declared = new ArrayList<>();
-        String pendingName = null;
-        int pendingStart = -1;
-        while (matcher.find()) {
-            if (pendingName != null && assignsJavascriptContext(text, pendingStart, matcher.start())) {
-                declared.add(pendingName.toLowerCase());
-            }
-            pendingName = matcher.group(1);
-            pendingStart = matcher.end();
-        }
-        if (pendingName != null && assignsJavascriptContext(text, pendingStart, text.length())) {
-            declared.add(pendingName.toLowerCase());
-        }
+        int start = text.indexOf("protected void setTagAttributeContext()");
+        assertTrue(start > 0, "setTagAttributeContext() has been renamed");
+        int end = text.indexOf("\n    /**", start);
+        assertTrue(end > start, "cannot find the end of setTagAttributeContext()");
+        String body = text.substring(start, end);
 
-        List<String> tabled = new ArrayList<>();
-        for (Arguments row : (Iterable<Arguments>) declaredOnStarBranches()::iterator) {
-            tabled.add((String) row.get()[0]);
-        }
+        // Exactly one comparison assigns ATTR_JS, and it is the two-character prefix test.
+        assertEquals(1, countOccurrences(body, "attributeContext = ATTR_JS;"),
+                "setTagAttributeContext() must reach ATTR_JS through exactly one comparison. More"
+                        + " than one means a handler name is being special-cased again, which is the"
+                        + " structure R4 deleted: a table of 24 comparison chains of which 3 were"
+                        + " silently dead.");
+        assertTrue(body.contains("bufferedNameStartsWith(\"on\")"),
+                "the ATTR_JS assignment must be guarded by the on-prefix test");
 
-        assertEquals(tabled, declared,
-                "the on* branches Canoe.java declares no longer match the table in"
-                        + " declaredOnStarBranches(). Add or remove a row, and update the counts in"
-                        + " onlyTwentyOneOfTheTwentyFourDeclaredOnStarBranchesCanBeTaken.");
+        // ...and no handler name appears in the method at all. onselect and onreadystatechange are
+        // the two the old table got wrong; onclick and onmouseover are two it got right.
+        for (String name : List.of("onclick", "onmouseover", "onselect", "onsubmit",
+                "onreadystatechange", "onredystatechange")) {
+            assertTrue(!body.contains(name),
+                    "setTagAttributeContext() mentions " + name + ". The prefix rule needs no"
+                            + " handler name, and a name in the source is an allowlist entry"
+                            + " whatever it is called.");
+        }
     }
 
-    private static boolean assignsJavascriptContext(String text, int from, int to) {
-        return text.substring(from, to).contains("attributeContext = ATTR_JS;");
+    private static int countOccurrences(String text, String needle) {
+        int count = 0;
+        int from = 0;
+        while (true) {
+            int at = text.indexOf(needle, from);
+            if (at < 0) {
+                return count;
+            }
+            count++;
+            from = at + needle.length();
+        }
     }
 
     /** Attribute names are lower-cased before comparison, so case cannot be used to evade the table. */

@@ -275,17 +275,25 @@ public final class CanoeCorpus {
      * wrong under &sect;2.1 — a raw {@code "} does reach the JavaScript parser, which is more than
      * the {@code ENTITY_BREAKOUT} control manages — but no engine will ever act on it, so the flag
      * rather than a re-litigated verdict is the right record.
+     *
+     * <p>Retained as history after R4 suppressed every row it qualified. The flag is gone with the
+     * verdicts — the corpus only permits it on {@link Verdict#KNOWN_VULNERABLE} rows, and a
+     * suppressed row already expects browser silence — but what it records is a fact about the
+     * JavaScript parser rather than about Canoe, so it is still true and it is what would bound the
+     * impact again if output into a handler were ever re-enabled.
      */
     private static final String A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL =
-            "QUOTE_BREAKOUT/double-quote is flagged not-browser-observable. Every template in this"
-                    + " group puts the reference inside a SINGLE-quoted JavaScript string literal,"
-                    + " and a double quote cannot close one: the payload arrives live, stays one"
-                    + " string argument, and no engine parses a single new token of it as code. The"
-                    + " single-quote sibling of the same row is the one that runs. The verdict stays"
-                    + " KNOWN_VULNERABLE because the raw quote does reach the JavaScript parser and"
-                    + " because VerdictEvaluator is deliberately not quote-aware (plan item 6);"
-                    + " BrowserCorpusTest is what turned that documented over-report into a list of"
-                    + " named rows instead of a sentence.";
+            "QUOTE_BREAKOUT/double-quote used to be flagged not-browser-observable here. Every"
+                    + " template in this group puts the reference inside a SINGLE-quoted JavaScript"
+                    + " string literal, and a double quote cannot close one: the payload arrived"
+                    + " live, stayed one string argument, and no engine parsed a single new token of"
+                    + " it as code. The single-quote sibling of the same row was the one that ran."
+                    + " The verdict stayed KNOWN_VULNERABLE because the raw quote did reach the"
+                    + " JavaScript parser and because VerdictEvaluator is deliberately not"
+                    + " quote-aware (plan item 6); BrowserCorpusTest is what turned that documented"
+                    + " over-report into a list of named rows instead of a sentence. Neither quote"
+                    + " payload is emitted at all now, so the distinction records nothing and the"
+                    + " flag has gone with the verdict it qualified.";
 
     /**
      * The bound T28 put on F4, in the same shape T16 put one on F6.
@@ -813,78 +821,105 @@ public final class CanoeCorpus {
 
     private static void eventHandlers(List<XssCase> cases) {
 
-        // F1: the onS branch tests buf[0]=='s', but buf[0] is provably 'o' inside the on* block, so
-        // onselect and onsubmit are unreachable and fall through to ATTR_HTML.
+        // F1, closed by R4. The onS branch tested buf[0]=='s' inside a block that had already
+        // established buf[0]=='o', so onselect and onsubmit fell through to ATTR_HTML.
         cases.add(XssCase.id("handler.onsubmit")
                 .section(A3)
                 .template("<form onsubmit=\"v('$data')\"></form>")
                 .sink(SinkKind.JAVASCRIPT, "form", "onsubmit")
                 .payloads(Payloads.families("QUOTE_BREAKOUT", "ENTITY_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F1")
-                .override(Payloads.ENTITY_PRE_ENCODED, Verdict.SAFE)
-                .notBrowserObservable(Payloads.QUOTE_DOUBLE_BREAKOUT)
-                .note("Dead branch at Canoe.java:514. html() entity-encodes the payload and the HTML"
-                        + " parser decodes it back before the value is compiled as JavaScript."
-                        + " " + ENTITY_BREAKOUT_IS_THE_CONTROL
-                        + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL)
+                .note("Re-verdicted by R4, from KNOWN_VULNERABLE. The dead branch at"
+                        + " Canoe.java:536-552 is gone with the whole table, and the prefix rule that"
+                        + " replaced it classifies onsubmit like any other name beginning 'on'."
+                        + " Reviewed against the sink: all three payloads render"
+                        + " <form onsubmit=\"v('')\"></form>, byte-identical to a render with an"
+                        + " empty value, so the JavaScript parser is handed one empty string literal"
+                        + " and the attacker contributes no character to it. SUPPRESSED_BY_DESIGN"
+                        + " rather than SAFE: nothing is emitted, which is what CTX_JS means. "
+                        + ENTITY_BREAKOUT_IS_THE_CONTROL
+                        + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL
+                        + " The ENTITY_PRE_ENCODED override to SAFE is gone with it - that payload"
+                        + " was safe because html() escaped its ampersands, and it is suppressed now"
+                        + " like every other. The finding stays cited so the row remains traceable"
+                        + " to F1; the not-browser-observable flag on the double-quote payload is"
+                        + " gone with the KNOWN_VULNERABLE verdict it qualified, since a suppressed"
+                        + " row expects browser silence anyway.")
                 .browserRelevant()
                 .build());
 
-        // The contrast that makes F1 dangerous: a reviewer who spot-checks onclick concludes the
-        // mechanism works.
+        // The contrast that used to make F1 dangerous: a reviewer who spot-checked onclick concluded
+        // the mechanism worked. After R4 the two rows are the same statement, which is the fix.
         cases.add(XssCase.id("handler.onclick")
                 .section(A3)
                 .template("<a onclick=\"v('$data')\">x</a>")
                 .sink(SinkKind.JAVASCRIPT, "a", "onclick")
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
-                .note("Recognised, so suppressed. Spot-checking this one is how the F1 miss survives.")
+                .note("One of the eighteen spec handlers the old table did recognise, and"
+                        + " spot-checking it is how the F1 and F2 misses survived fifteen years."
+                        + " Unchanged by R4 in outcome and entirely changed in reason: it is"
+                        + " suppressed by the same two-character comparison as every other handler"
+                        + " now, so there is nothing left for a spot check to be unrepresentative"
+                        + " of.")
                 .build());
 
-        // F19: the third dead on* branch. Its guard is buf[2]=='r' && buf[3]=='e' and its body then
-        // tests buf[4]=='d', so the comparands spell on+re+dystatechange - the 'a' of "ready" is
-        // missing. The branch matches onredystatechange and can never match the real attribute.
+        // F19, closed by R4. The chain's guard was buf[2]=='r' && buf[3]=='e' and its body then
+        // tested buf[4]=='d', so the comparands spelled on+re+dystatechange - the 'a' of "ready" was
+        // missing, and the branch could only ever match a name no document contains.
         cases.add(XssCase.id("handler.onreadystatechange")
                 .section(A3)
                 .template("<img src=\"x\" onreadystatechange=\"f('$data')\">")
                 .sink(SinkKind.JAVASCRIPT, "img", "onreadystatechange")
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F19")
-                .notBrowserObservableFamily("QUOTE_BREAKOUT")
-                .note("Dead branch at Canoe.java:483-491. Same mechanism as F1: html() entity-encodes"
-                        + " the payload and the HTML parser decodes it back before the value is"
-                        + " compiled as JavaScript. " + NO_ELEMENT_HOSTS_IT)
+                .note("Re-verdicted by R4, from KNOWN_VULNERABLE. The misspelt chain at"
+                        + " Canoe.java:505-534 is gone and the prefix rule reads two characters, so"
+                        + " neither the fifth character nor the spelling of the rest can decide"
+                        + " anything. Reviewed against the sink: both payloads render"
+                        + " <img src=\"x\" onreadystatechange=\"f('')\">, so no attacker character"
+                        + " reaches the attribute. The finding stays cited for traceability; the"
+                        + " not-browser-observable flag on the QUOTE_BREAKOUT family is gone with"
+                        + " the KNOWN_VULNERABLE verdict it qualified - it said that no element"
+                        + " hosts this attribute, which is still true and is now beside the point.")
                 .browserRelevant()
                 .build());
 
-        // The name the branch does match, which no document contains. Ledgered because it is the
-        // evidence for F19 rather than a vulnerability: it is the misspelling working correctly, and
-        // if this case ever stops being suppressed the F19 diagnosis was wrong.
+        // The name the dead branch did match, which no document contains. Kept because it is F19's
+        // evidence: before R4 it was the one spelling of the name that suppressed, and after R4 it
+        // is indistinguishable from the real one - which is the fix stated in one pair of rows.
         cases.add(XssCase.id("handler.onredystatechange")
                 .section(A3)
                 .template("<img src=\"x\" onredystatechange=\"f('$data')\">")
                 .sink(SinkKind.JAVASCRIPT, "img", "onredystatechange")
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
-                .note("F19's evidence: the branch works, for an attribute name that does not exist."
-                        + " Suppressed here, injectable one letter away.")
+                .note("F19's evidence. The branch worked, for an attribute name that does not exist,"
+                        + " and its real twin one letter away was injectable. Both are suppressed"
+                        + " now, by the prefix rule, and the pair is kept so that any change which"
+                        + " separates them again fails here.")
                 .build());
 
-        // F2: there is no "any attribute starting with on is a JS context" rule, and the hand-written
-        // table predates most of the modern DOM event set.
+        // F2, closed by R4: there was no "any attribute starting with on is a JS context" rule, and
+        // the hand-written table predated most of the modern DOM event set.
         cases.add(XssCase.id("handler.onfocus")
                 .section(A3)
                 .template("<input value=\"search\" onfocus=\"h('$data')\">")
                 .sink(SinkKind.JAVASCRIPT, "input", "onfocus")
                 .payloads(Payloads.families("QUOTE_BREAKOUT", "ENTITY_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F2")
-                .override(Payloads.ENTITY_PRE_ENCODED, Verdict.SAFE)
-                .notBrowserObservable(Payloads.QUOTE_DOUBLE_BREAKOUT)
-                .note(ENTITY_BREAKOUT_IS_THE_CONTROL
-                        + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL)
+                .note("Re-verdicted by R4, from KNOWN_VULNERABLE. onfocus is one of the 76 spec"
+                        + " handlers the table had never heard of; the prefix rule that replaced the"
+                        + " table has heard of all of them, including the ones the standard has not"
+                        + " defined yet. Reviewed against the sink: all three payloads render"
+                        + " <input value=\"search\" onfocus=\"h('')\">, byte-identical to a render"
+                        + " with an empty value. " + ENTITY_BREAKOUT_IS_THE_CONTROL
+                        + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL
+                        + " The finding stays cited for traceability, and the double-quote payload's"
+                        + " not-browser-observable flag is gone with the verdict it qualified.")
                 .browserRelevant()
                 .build());
     }
@@ -894,13 +929,18 @@ public final class CanoeCorpus {
     // ------------------------------------------------------------------
 
     /**
-     * The 21 {@code on*} names {@code setTagAttributeContext()} genuinely recognises.
+     * The 21 {@code on*} names the deleted {@code on*} table could actually reach.
      *
-     * <p>The list is not maintained here: {@code CanoeStateMachineTest.declaredOnStarBranches} owns
-     * the 24 declared branches and reads them back out of {@code Canoe.java} so the table cannot
-     * drift, and {@code EventHandlerMatrixTest.theRecognisedListMatchesTheStateMachineTable} asserts
-     * that this list is exactly that table minus the three dead branches. Duplicating the source
-     * scan here would give two places to update and no extra assurance.
+     * <p>Every {@code on*} name classifies as {@code ATTR_JS} since R4, so this list no longer
+     * partitions anything — it is kept because the two halves of the old partition are the two
+     * halves of F1, F2 and F19, and a group where every row now says the same thing needs the record
+     * of which rows used to say something else. {@code EventHandlerMatrixTest} asserts the halves
+     * agree in outcome rather than that they differ.
+     *
+     * <p>The list is not maintained here:
+     * {@code CanoeStateMachineTest.namesTheOldOnStarTableDeclared} owns the 24 names the table
+     * declared, and {@code EventHandlerMatrixTest.theOldRecognisedListMatchesTheStateMachineTable}
+     * asserts that this list is exactly that table minus the three dead branches.
      *
      * <p>Three of the 21 — {@code ondragdrop}, {@code onend} and {@code onmove} — are not event
      * handler content attributes in any version of the HTML Standard. See {@link #ONDRAGDROP_IS_DEAD}.
@@ -911,20 +951,23 @@ public final class CanoeCorpus {
             "onmouseout", "onmouseover", "onmouseup", "onmove", "onreset", "onresize", "onunload"};
 
     /**
-     * Every {@code on*} name Canoe does <em>not</em> recognise, from two sources: the HTML Standard's
-     * event handler content attributes (the checked-in list at
+     * Every {@code on*} name the deleted {@code on*} table had never heard of, from two sources: the
+     * HTML Standard's event handler content attributes (the checked-in list at
      * {@code src/test/resources/canoe/html-event-handler-attributes.txt}, which
      * {@code EventHandlerMatrixTest}'s completeness guard reads) and the handlers F2 enumerates that
      * the HTML Standard defines elsewhere or not at all — UI Events' {@code onfocusin}, CSS
      * Animations' {@code onanimationstart}, Pointer Events, Touch Events, and the two Selection
      * handlers.
      *
-     * <p>Every one of them takes the {@code ATTR_HTML} fall-through, which the HTML parser undoes
-     * before the value is compiled as JavaScript. That is F2, and the count is the part of F2 worth
-     * reading twice: the finding's title says "roughly 40", and there are 91 here.
+     * <p>Every one of them used to take the {@code ATTR_HTML} fall-through, which the HTML parser
+     * undoes before the value is compiled as JavaScript. That was F2, and the count is the part of
+     * F2 worth reading twice: the finding's title says "roughly 40", and there are 91 here. R4's
+     * prefix rule closed all 91 at once, and the list is kept because 91 rows that were injectable
+     * and now suppress are the regression net for the whole finding — a name reappearing on the
+     * wrong side of the old partition fails here rather than being noticed by nobody.
      *
      * <p>{@code onselect}, {@code onsubmit} and {@code onreadystatechange} are deliberately absent —
-     * Canoe declares branches for all three and cannot take any of them, which is a different
+     * Canoe declared branches for all three and could not take any of them, which is a different
      * finding (F1 and F19) and a different class of defect, so they are declared by hand above with
      * the failing comparison named.
      */
@@ -978,11 +1021,13 @@ public final class CanoeCorpus {
      * lands. The classification Canoe applies is identical either way — it discards the tag name
      * once attribute parsing begins — so moving the element costs nothing and makes the sink real.
      *
-     * <p>{@code onunload} is a Window handler too and is deliberately <em>not</em> here. It is one of
-     * the 21 names Canoe recognises, so its row is {@code SUPPRESSED_BY_DESIGN} and its claim is
-     * "nothing was emitted" — which is true on any element and asks nothing of the browser tier. The
-     * list is the handlers whose row claims a <em>live</em> sink, because that is the claim an
-     * element can falsify.
+     * <p>{@code onunload} is a Window handler too and is deliberately <em>not</em> here. It was one
+     * of the 21 names the old table reached, so its row was already {@code SUPPRESSED_BY_DESIGN}
+     * and generated on the default element. The list was drawn up as "the handlers whose row claims
+     * a <em>live</em> sink", because that was the claim an element could falsify; since R4 every
+     * handler row records suppression, but the {@link SinkKind#JAVASCRIPT} declaration is still a
+     * claim about what the sink <em>would</em> compile, so these names stay on {@code <body>} where
+     * that claim is true.
      */
     private static final List<String> WINDOW_REFLECTING_HANDLERS = Arrays.asList(
             "onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange",
@@ -996,49 +1041,65 @@ public final class CanoeCorpus {
      * <p>No element hosts them. Writing {@code <div onvisibilitychange="...">} produces an attribute
      * the parser stores and no engine ever registers a listener from, which is exactly the shape
      * {@code WINDOW_REFLECTING_HANDLERS} exists to avoid — except that here there is no element to
-     * move to, so the flag is the only honest record. The Canoe defect is real and unchanged: the
-     * name takes the {@code ATTR_HTML} fall-through and the attacker's characters arrive live at
-     * whatever reads the attribute. What will not happen is a browser firing the handler.
+     * move to, so the flag was the only honest record while the rows were live.
+     *
+     * <p>Retained as history after R4 suppressed both. The flag is gone with the verdicts it
+     * qualified, and the fact it records — that markup cannot register a listener for either name —
+     * is a property of the HTML Standard rather than of Canoe, so it is unchanged and it is what
+     * would bound these two rows again if output into a handler were ever re-enabled.
      */
     private static final String NO_ELEMENT_HOSTS_IT =
             "No element hosts this attribute. It is an IDL attribute on Document (HTML Standard"
                     + " section 8.1.8.2, table 4), so it has no content-attribute form and no"
                     + " shipping engine registers a listener from markup -- <div "
                     + "onvisibilitychange=...> and <body onreadystatechange=...> are both inert."
-                    + " The row stays KNOWN_VULNERABLE because Canoe classified it as plain text and"
-                    + " the attacker's characters arrive live, which is the ledger's subject; it is"
-                    + " flagged not-browser-observable because the browser tier must expect a"
-                    + " detector miss rather than report a divergence. Contrast handler.ontoggle,"
-                    + " which is one click away, and the four onwebkit* handlers, which need no"
-                    + " interaction at all.";
+                    + " While the row was KNOWN_VULNERABLE that mattered: Canoe classified the name"
+                    + " as plain text and the attacker's characters arrived live, which is the"
+                    + " ledger's subject, so the row was flagged not-browser-observable to tell the"
+                    + " browser tier to expect a detector miss rather than report a divergence."
+                    + " R4 suppresses it, so the browser tier expects silence anyway and the flag"
+                    + " has been removed. Contrast handler.ontoggle, which is one click away, and"
+                    + " the four onwebkit* handlers, which need no interaction at all -- both of"
+                    + " those were reachable sinks and are suppressed by the same prefix rule.";
 
     /** Elements that take no closing tag, so the generated template does not emit one. */
     private static final List<String> VOID_ELEMENTS =
             Arrays.asList("input", "img", "br", "meta", "link");
 
     private static final String RECOGNISED_HANDLERS_ARE_THE_DESIGN_WORKING =
-            "One of the 21 names setTagAttributeContext() genuinely recognises: ATTR_JS ->"
-                    + " CTX_JS -> the empty string. These cases are what stops the group from being"
-                    + " a list of 90 failures with nothing to compare them against - the encoder is"
-                    + " not broken, the table is incomplete, and only having both halves in the"
-                    + " ledger shows which. Note also that they are suppressed only while the value"
-                    + " has no colon in its first eleven characters; prefix.colon-in-a-recognised-"
-                    + "handler is this same classification thrown away by F17.";
+            "One of the 21 names the deleted on* table could actually reach: ATTR_JS -> CTX_JS ->"
+                    + " the empty string. These cases are what stopped the group from being a list"
+                    + " of 90 failures with nothing to compare them against - the encoder was not"
+                    + " broken, the table was incomplete, and only having both halves in the ledger"
+                    + " showed which. Reviewed against the sink after R4 and unchanged: the rendered"
+                    + " handler body is the template's own text with an empty string literal in it."
+                    + " Two qualifications this note used to carry are gone. They are no longer one"
+                    + " of 21 names out of 115 - every on* name reaches the same two-character"
+                    + " comparison now - and they are no longer suppressed only while the value has"
+                    + " no colon in its first eleven characters, which was F17 and which R2 closed;"
+                    + " prefix.colon-in-a-recognised-handler is that row.";
 
     private static final String UNRECOGNISED_HANDLERS_ARE_F2 =
-            "The name is not in the hand-unrolled table, so it takes the ATTR_HTML default. html()"
-                    + " turns the payload into character references, the HTML parser decodes them"
-                    + " while building the attribute value, and the JavaScript parser is handed the"
-                    + " attacker's original characters. Identical mechanism to F1, reached by an"
-                    + " omission rather than by a wrong buffer index.";
+            "Re-verdicted by R4, from KNOWN_VULNERABLE. The name was not in the hand-unrolled table,"
+                    + " so it took the ATTR_HTML default: html() turned the payload into character"
+                    + " references, the HTML parser decoded them while building the attribute value,"
+                    + " and the JavaScript parser was handed the attacker's original characters -"
+                    + " the identical mechanism to F1, reached by an omission rather than by a wrong"
+                    + " buffer index. R4 replaced the table with a prefix rule, so there is no"
+                    + " allowlist for a name to be missing from. Reviewed against the sink: the"
+                    + " rendered handler body is f('') for the payload, byte-identical to a render"
+                    + " with an empty value, so no attacker character reaches the JavaScript parser."
+                    + " SUPPRESSED_BY_DESIGN rather than SAFE: nothing is emitted, which is what"
+                    + " CTX_JS means. The finding stays cited so the row remains traceable to F2.";
 
     /**
      * Why {@code ondragdrop} is a curiosity rather than a flagged row.
      *
-     * <p>It is the clearest single marker of the table's age: {@code ondragdrop} was a Netscape 4
-     * event, removed from Gecko in Firefox 3, and no engine has fired it this century — while HTML5's
-     * {@code ondrop} and {@code ondragstart}, which every engine fires, are missing. Canoe spends a
-     * branch suppressing a handler that cannot run and lets the two that can through.
+     * <p>It was the clearest single marker of the deleted table's age: {@code ondragdrop} was a
+     * Netscape 4 event, removed from Gecko in Firefox 3, and no engine has fired it this century —
+     * while HTML5's {@code ondrop} and {@code ondragstart}, which every engine fires, were missing.
+     * Canoe spent a branch suppressing a handler that cannot run and let the two that can through.
+     * R4's prefix rule covers all three, which is the general form of the observation.
      *
      * <p>It is deliberately <em>not</em> marked {@code notBrowserObservable}. That axis exists to
      * stop a {@link Verdict#KNOWN_VULNERABLE} row from becoming a guaranteed browser-tier failure,
@@ -1050,10 +1111,13 @@ public final class CanoeCorpus {
      */
     private static final String ONDRAGDROP_IS_DEAD =
             "A Netscape 4 event, removed from Gecko in Firefox 3 and fired by no engine since."
-                    + " Canoe spends one of its 21 branches suppressing a handler that cannot run,"
-                    + " while ondrop and ondragstart - which every engine fires - fall through to"
-                    + " html(). Suppressed, so browser-observability says nothing here and the flag"
-                    + " is deliberately not set; see the field javadoc.";
+                    + " Canoe used to spend one of its 21 branches suppressing a handler that cannot"
+                    + " run, while ondrop and ondragstart - which every engine fires - fell through"
+                    + " to html(). R4's prefix rule suppresses all three, so the observation is now"
+                    + " about why a hand-maintained table was the wrong structure rather than about"
+                    + " which names it happened to hold. Suppressed here as it always was, so"
+                    + " browser-observability says nothing and the flag is deliberately not set; see"
+                    + " the field javadoc.";
 
     /**
      * The shape shared by every generated event-handler case.
@@ -1132,7 +1196,7 @@ public final class CanoeCorpus {
                         + "<div style=\"animation:canoefade 1s\" " + name + "=\"f('$data')\">x</div>")
                 .sink(SinkKind.JAVASCRIPT, "div", name)
                 .payloads(Payloads.QUOTE_SINGLE_BREAKOUT)
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F2")
                 .browserRelevant();
     }
@@ -1146,15 +1210,22 @@ public final class CanoeCorpus {
     }
 
     /**
-     * The event-handler matrix: all 21 recognised names, the three declared-but-dead ones, and the
-     * 87 the table has never heard of.
+     * The event-handler matrix: the 21 names the deleted {@code on*} table could reach, the three it
+     * declared and could not, and the 91 it had never heard of.
+     *
+     * <p>Every one of the 115 is {@code SUPPRESSED_BY_DESIGN} since R4, and the group's value is in
+     * the split rather than in the verdicts: 97 of these rows were {@code KNOWN_VULNERABLE} against
+     * F1, F2 and F19, and keeping them named and grouped is what makes a re-introduced allowlist
+     * fail loudly instead of quietly re-opening the finding on whichever names it forgets.
      *
      * <p>{@code EventHandlerMatrixTest} (T15) is the test side of this, and its completeness guard is
      * the reason the group is exhaustive rather than representative: the guard reads the HTML
      * Standard's event handler content attributes from a checked-in resource file and fails if any
-     * name has no case here. That converts "we listed the ones we thought of" — which is exactly what
-     * {@code setTagAttributeContext()} itself is — into "we cover the spec", and it will fail
-     * usefully the next time the list is refreshed against a newer revision of the standard.
+     * name has no case here. That converted "we listed the ones we thought of" — which is exactly
+     * what {@code setTagAttributeContext()} used to be — into "we cover the spec", and it will fail
+     * usefully the next time the list is refreshed against a newer revision of the standard. R4's
+     * prefix rule is what makes it permanently satisfiable: a handler name the standard adds is
+     * already classified before anybody writes its case.
      */
     private static void eventHandlerMatrix(List<XssCase> cases) {
 
@@ -1175,16 +1246,22 @@ public final class CanoeCorpus {
                 .template("<input value=\"text\" onselect=\"v('$data')\">")
                 .sink(SinkKind.JAVASCRIPT, "input", "onselect")
                 .payloads(Payloads.families("QUOTE_BREAKOUT", "ENTITY_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F1")
-                .override(Payloads.ENTITY_PRE_ENCODED, Verdict.SAFE)
-                .notBrowserObservable(Payloads.QUOTE_DOUBLE_BREAKOUT)
-                .note("The onS block at Canoe.java:513-530 tests buf[0]=='s', and buf[0] is provably"
-                        + " 'o' inside the block guarded by (buf[0]=='o' && buf[1]=='n') at line 334."
-                        + " So it asks whether the attribute is named 'select', which it cannot be."
-                        + " onselect fires on any text input the user selects text in, which needs"
-                        + " no script and no unusual interaction. " + ENTITY_BREAKOUT_IS_THE_CONTROL
-                        + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL)
+                .note("Re-verdicted by R4, from KNOWN_VULNERABLE. The onS block at"
+                        + " Canoe.java:536-552 tested buf[0]=='s', and buf[0] was provably 'o'"
+                        + " inside the block guarded by (buf[0]=='o' && buf[1]=='n'), so it asked"
+                        + " whether the attribute was named 'select' - which it could not be. The"
+                        + " reachability of the sink is why the row mattered: onselect fires on any"
+                        + " text input the user selects text in, needing no script and no unusual"
+                        + " interaction. Reviewed against the sink: all three payloads now render"
+                        + " <input value=\"text\" onselect=\"v('')\">, byte-identical to a render"
+                        + " with an empty value, so the handler body contains one empty string"
+                        + " literal and no attacker character. " + ENTITY_BREAKOUT_IS_THE_CONTROL
+                        + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL
+                        + " The finding stays cited for traceability; the ENTITY_PRE_ENCODED"
+                        + " override and the double-quote payload's not-browser-observable flag are"
+                        + " both gone with the KNOWN_VULNERABLE verdict they qualified.")
                 .browserRelevant()
                 .build());
         alreadyDeclared.add("onselect");
@@ -1217,7 +1294,7 @@ public final class CanoeCorpus {
                 continue;
             }
             XssCase.Builder builder = handler(name)
-                    .verdict(Verdict.KNOWN_VULNERABLE)
+                    .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                     .finding("F2")
                     .note(UNRECOGNISED_HANDLERS_ARE_F2);
             switch (name) {
@@ -1225,7 +1302,7 @@ public final class CanoeCorpus {
                     // <details> toggles on a plain click, so this is one of the cheapest of the 91
                     // to demonstrate in a browser and one worth loading.
                     builder = handler(name, "details", "", "<summary>x</summary>y")
-                            .verdict(Verdict.KNOWN_VULNERABLE)
+                            .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                             .finding("F2")
                             .note(UNRECOGNISED_HANDLERS_ARE_F2
                                     + " ontoggle fires when a <details> element is opened, which is"
@@ -1234,13 +1311,14 @@ public final class CanoeCorpus {
                     break;
                 case "onmouseenter":
                     builder = handler(name, "div", "", "hover me")
-                            .verdict(Verdict.KNOWN_VULNERABLE)
+                            .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                             .finding("F2")
                             .note(UNRECOGNISED_HANDLERS_ARE_F2
-                                    + " onmouseenter enters the onmouse branch and matches none of"
-                                    + " d/m/o/u at buf[7], which is the near-miss shape that makes"
-                                    + " the hand-unrolled table hard to audit: onmouseout and"
-                                    + " onmouseover are one letter away and both suppressed. "
+                                    + " onmouseenter used to enter the onmouse branch and match none"
+                                    + " of d/m/o/u at buf[7], which is the near-miss shape that made"
+                                    + " the hand-unrolled table impossible to audit: onmouseout and"
+                                    + " onmouseover were one letter away and both suppressed. The"
+                                    + " three are one statement now. "
                                     + HOVER_NEEDS_A_TARGET)
                             .browserRelevant();
                     break;
@@ -1269,27 +1347,29 @@ public final class CanoeCorpus {
                     break;
                 case "onvisibilitychange":
                     builder.note(UNRECOGNISED_HANDLERS_ARE_F2 + " " + NO_ELEMENT_HOSTS_IT)
-                            .browserRelevant()
-                            .notBrowserObservable(Payloads.QUOTE_SINGLE_BREAKOUT);
+                            .browserRelevant();
                     break;
                 case "onshow":
                     builder.note(UNRECOGNISED_HANDLERS_ARE_F2
-                                    + " Flagged not-browser-observable. It is the only"
-                                    + " browser-RELEVANT handler in this group that carries the flag"
-                                    + " for a dead event rather than for a missing element: the"
-                                    + " 'show' event was removed from the HTML Standard in 2022 and"
-                                    + " Gecko's <menuitem>, the other thing that fired it, went with"
-                                    + " Firefox 85, so no shipping engine will dispatch it. (The two"
-                                    + " Document IDL names, onreadystatechange and"
-                                    + " onvisibilitychange, are also flagged, for the different"
-                                    + " reason that no element hosts them at all.) The ledger entry"
-                                    + " is about what Canoe emitted and stays KNOWN_VULNERABLE; the"
-                                    + " flag is how the browser tier is told to expect a detector"
-                                    + " miss rather than a divergence. Compare handler.ondragdrop,"
-                                    + " which is the same observation about a handler Canoe DOES"
-                                    + " recognise and which therefore cannot carry the flag.")
-                            .browserRelevant()
-                            .notBrowserObservable(Payloads.QUOTE_SINGLE_BREAKOUT);
+                                    + " This row used to be flagged not-browser-observable, and it"
+                                    + " was the only browser-RELEVANT handler in the group that"
+                                    + " carried the flag for a dead event rather than for a missing"
+                                    + " element: the 'show' event was removed from the HTML Standard"
+                                    + " in 2022 and Gecko's <menuitem>, the other thing that fired"
+                                    + " it, went with Firefox 85, so no shipping engine will"
+                                    + " dispatch it. (The two Document IDL names,"
+                                    + " onreadystatechange and onvisibilitychange, were also"
+                                    + " flagged, for the different reason that no element hosts them"
+                                    + " at all.) The flag is gone with the KNOWN_VULNERABLE verdict"
+                                    + " it qualified - a suppressed row expects browser silence"
+                                    + " anyway, and the corpus only permits the flag where it"
+                                    + " changes an expectation. The dead-event observation is kept"
+                                    + " here because it is what would bound this row again if"
+                                    + " output into a handler were ever re-enabled. Compare"
+                                    + " handler.ondragdrop, which is the same observation about a"
+                                    + " handler the old table DID recognise and which therefore"
+                                    + " never carried the flag either.")
+                            .browserRelevant();
                     break;
                 default:
                     break;
@@ -1299,24 +1379,35 @@ public final class CanoeCorpus {
     }
 
     /**
-     * Why the {@code ENTITY_BREAKOUT} family belongs in a live JavaScript sink and nowhere else.
+     * Why the {@code ENTITY_BREAKOUT} family was carried into the three headline handler cases, and
+     * what it measured while those cases were live.
      *
      * <p>It was declared for exactly this and then used only at {@code body.paragraph} and {@code
      * rcdata.textarea} — two plain-text sinks where the mechanism it probes cannot fire either way,
      * so the family was carried by the corpus without ever being exercised.
+     *
+     * <p>Retained as history after R4 made all three of those cases suppressions, for the same
+     * reason {@link #CSS_BACKSLASH_IS_AN_ESCAPE} and {@link #THE_CSS_CONTAINER_DECIDES} are kept:
+     * what it describes is a property of the HTML parser rather than of Canoe, it is unchanged, and
+     * it is the reasoning that would decide the pair's verdicts again if anything ever re-enabled
+     * output into a handler. The payloads stay in the cases so that a regression is measured against
+     * the same inputs that measured the finding.
      */
     private static final String ENTITY_BREAKOUT_IS_THE_CONTROL =
-            "The two payloads here are a matched pair, and together they are the corpus's only direct"
-                    + " evidence for the claim the whole review turns on. QUOTE_BREAKOUT carries a"
-                    + " raw apostrophe: html() writes &#39;, the HTML parser decodes it while"
-                    + " building the attribute value, and the JavaScript parser is handed a real"
-                    + " quote - one decode, and the string literal is escaped. ENTITY_PRE_ENCODED"
-                    + " carries the SAME payload already spelled as character references: html()"
-                    + " escapes its ampersands, so the parser's one decode returns the literal text"
-                    + " &#39;&#41; and the JavaScript parser sees eight harmless characters inside"
-                    + " the string. Same sink, same encoder, opposite outcomes - which shows the"
-                    + " parser decodes exactly once. If a second decode ever appeared anywhere in the"
-                    + " chain, this row flips to vulnerable and says so.";
+            "The two payloads here were a matched pair while this sink was live, and together they"
+                    + " were the corpus's only direct evidence for the claim the whole review turns"
+                    + " on. QUOTE_BREAKOUT carries a raw apostrophe: html() wrote &#39;, the HTML"
+                    + " parser decoded it while building the attribute value, and the JavaScript"
+                    + " parser was handed a real quote - one decode, and the string literal was"
+                    + " escaped. ENTITY_PRE_ENCODED carries the SAME payload already spelled as"
+                    + " character references: html() escaped its ampersands, so the parser's one"
+                    + " decode returned the literal text &#39;&#41; and the JavaScript parser saw"
+                    + " eight harmless characters inside the string. Same sink, same encoder,"
+                    + " opposite outcomes - which is what showed the parser decodes exactly once."
+                    + " Neither payload is emitted at all now, so the pair no longer distinguishes"
+                    + " anything here; the reasoning is kept because it is a statement about the"
+                    + " HTML parser rather than about Canoe, and it is what would decide these rows"
+                    + " again if output into a handler were ever re-enabled.";
 
     // ------------------------------------------------------------------
     // A.2 Attribute names

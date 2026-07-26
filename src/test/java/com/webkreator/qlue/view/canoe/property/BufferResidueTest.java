@@ -287,9 +287,12 @@ public class BufferResidueTest {
      * <p>The comparison in {@code detectAttributePrefix()} is length-checked now, so it would be
      * correct even over a dirty buffer. This asserts the other half of R3: the buffer is not dirty.
      * Every index above what the current name or value has written holds a NUL, at each of the three
-     * points where the buffer is reused. That is the property the rest of Canoe's fixed-index
-     * comparisons — the {@code on*} table and the name chains, which R4 still owns — are relying on
-     * without saying so, and it is worth one test that says so.
+     * points where the buffer is reused. That used to be the property the rest of Canoe's
+     * fixed-index comparisons - the {@code on*} table and the name chains - were relying on without
+     * saying so; R4 replaced those with bounded string comparisons too, leaving TAG_NAME's
+     * script/style detection as the one fixed-index read in the class (R8's to restructure). The
+     * invariant is kept and asserted anyway, because it is exactly what keeps that read - and any
+     * future fixed-index read - safe rather than a residue bug waiting to be rediscovered.
      */
     @Test
     public void theBufferHoldsNothingTheCurrentNameOrValueWrote() throws IOException {

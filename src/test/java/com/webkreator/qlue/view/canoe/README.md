@@ -73,17 +73,22 @@ indistinguishable from "the oracle notices any change at all". Examples:
 
 ```java
 // Wrong: asserts on Canoe's bytes.
-assertFalse(rendered.contains("');alert("));
+assertFalse(rendered.contains("javascript:"));
 
-// Right: asserts on what the JavaScript parser receives.
-String value = result.decodedAttr("form", "onsubmit");
-assertFalse(value.contains("');alert("));
+// Right: asserts on what the URL parser receives.
+String value = result.decodedAttr("a", "xlink:href");
+assertFalse(value.contains("javascript:"));
 ```
 
-`html()` turns `');alert(1)` into `&#39;&#41;;alert&#40;1&#41;`, which a naive string assertion calls
-safe. The HTML parser decodes it back before the value is compiled. That single asymmetry is what the
-whole review is about; `RenderResult.decodedAttr()` and `decodedText()` exist so tests get it right by
-default.
+`html()` turns `javascript:alert(1)` into `javascript&#58;alert&#40;1&#41;`, which a naive string
+assertion calls safe. The HTML parser decodes it back before the value is used. That single asymmetry
+is what the whole review is about; `RenderResult.decodedAttr()` and `decodedText()` exist so tests get
+it right by default.
+
+The example used to be `decodedAttr("form", "onsubmit")` against `');alert(1)`, which was F1 and is
+the sharper illustration — an event handler value is *compiled*. R4 suppresses every `on*` value, so
+that example no longer renders anything to decode. `xlink:href` is the same asymmetry at a sink R5
+and R6 still own.
 
 ### Pure ASCII in source
 

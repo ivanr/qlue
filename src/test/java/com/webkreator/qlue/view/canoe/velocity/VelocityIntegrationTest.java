@@ -468,39 +468,60 @@ public class VelocityIntegrationTest {
     }
 
     /**
-     * The one direction F12 moves that is worth recording as a mitigation rather than a defect:
-     * against an <strong>unrecognised event handler</strong> — F2's territory, the largest
-     * vulnerability class in the review — the double encoding neutralises the payload.
+     * The one direction F12 moves that is worth recording as a mitigation rather than a defect: the
+     * double encoding neutralises a payload aimed at an attribute Canoe classifies as plain text
+     * when it should not.
      *
-     * <p>{@code onmouseenter} is not in Canoe's {@code on*} table, so it is {@code ATTR_HTML} and its
-     * value is {@code html()}-encoded, which F2 shows is not enough: the parser decodes exactly once
-     * and the attacker's apostrophe becomes an apostrophe inside a JavaScript string literal. Route
-     * the same value through an interpolated {@code #set} first and it is encoded twice, so the one
-     * decode leaves the literal text {@code &#39;} and the string literal is never closed.
+     * <p><strong>Half-inverted by R4.</strong> This was
+     * {@code doubleEncodingAccidentallyNeutralisesAnUnrecognisedHandler}, and the sink was
+     * {@code onmouseenter} — F2's territory, the largest vulnerability class in the review.
+     * {@code onmouseenter} was not in Canoe's {@code on*} table, so it was {@code ATTR_HTML} and its
+     * value was {@code html()}-encoded, which F2 showed was not enough: the parser decodes exactly
+     * once and the attacker's apostrophe became an apostrophe inside a JavaScript string literal.
+     * Routing the same value through an interpolated {@code #set} first encoded it twice, so the one
+     * decode left the literal text {@code &#39;} and the string literal was never closed.
      *
-     * <p>This is not a reason to keep F12. It is here because a fix to F12 changes the outcome of
-     * this template from safe to injectable, and a suite that only recorded F12 as double encoding
-     * would let that land unremarked.
+     * <p>R4 suppresses every {@code on*} value, so the handler half of the template is inert by
+     * design on both paths and the accident has nothing left to neutralise there. The first
+     * assertion below is inverted to say exactly that. <strong>Trap 2 in the plan's &sect;1 is not
+     * closed by it</strong>: the same accident still covers F3's unrecognised URL-bearing names,
+     * which is R5 and R6's territory, so the sink moves to {@code formaction} and the warning stands
+     * unchanged — a fix to F12 before those land turns this template from safe to injectable with no
+     * other change.
+     *
+     * <p>This is not a reason to keep F12. It is here because a suite that only recorded F12 as
+     * double encoding would let that land unremarked.
      */
     @Test
-    public void doubleEncodingAccidentallyNeutralisesAnUnrecognisedHandler() {
+    public void doubleEncodingAccidentallyNeutralisesAnUnrecognisedUrlAttribute() {
         String payload = Payloads.QUOTE_SINGLE_BREAKOUT.value();
 
-        CanoeTestSupport.RenderResult direct = CanoeTestSupport.render(
+        // R4: the handler this test used to be about is suppressed on both paths now, so the
+        // double encoding neither helps nor is needed.
+        CanoeTestSupport.RenderResult handlerDirect = CanoeTestSupport.render(
                 "<div onmouseenter=\"v('$data')\">x</div>", payload);
-        assertTrue(direct.decodedAttr("div", "onmouseenter").contains("');"),
-                () -> "F2: html() is not enough, and the parser hands the JavaScript parser a closed"
-                        + " string literal. Decoded: " + direct.decodedAttr("div", "onmouseenter"));
+        assertEquals("v('')", handlerDirect.decodedAttr("div", "onmouseenter"),
+                "R4: onmouseenter is classified by the on-prefix rule, so nothing is emitted and"
+                        + " there is no payload for F12's double encoding to neutralise");
+
+        // ...and the class the accident still covers, which is why trap 2 stands until R5 and R6.
+        String urlPayload = Payloads.JS_URL.value();
+        CanoeTestSupport.RenderResult direct = CanoeTestSupport.render(
+                "<button formaction=\"$data\">go</button>", urlPayload);
+        assertEquals(urlPayload, direct.decodedAttr("button", "formaction"),
+                () -> "F3: formaction is not a name Canoe recognises, so html() applies and the"
+                        + " parser decodes the attacker's URL straight back. Decoded: "
+                        + direct.decodedAttr("button", "formaction"));
 
         CanoeTestSupport.RenderResult viaSet = CanoeTestSupport.render(
-                "#set($v = \"$data\")<div onmouseenter=\"v('$v')\">x</div>", payload);
-        assertFalse(viaSet.decodedAttr("div", "onmouseenter").contains("');"),
+                "#set($v = \"$data\")<button formaction=\"$v\">go</button>", urlPayload);
+        assertFalse(viaSet.decodedAttr("button", "formaction").contains("javascript:"),
                 () -> "F12's double encoding survives the parser's single decode, so the same"
-                        + " payload arrives as inert text. Decoded: "
-                        + viaSet.decodedAttr("div", "onmouseenter"));
-        assertTrue(viaSet.decodedAttr("div", "onmouseenter").contains("&#39;"),
-                "the decoded value still carries a character reference, which is what inert looks"
-                        + " like here");
+                        + " payload arrives with no scheme colon at all. Decoded: "
+                        + viaSet.decodedAttr("button", "formaction"));
+        assertTrue(viaSet.decodedAttr("button", "formaction").contains("&#58;"),
+                "the decoded value still carries a character reference where the colon was, which"
+                        + " is what inert looks like here");
     }
 
     // ------------------------------------------------------------------

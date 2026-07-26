@@ -79,16 +79,20 @@ public class CanoeCorpusTest {
         assertEquals(Verdict.SAFE, safeReality.verdict());
         assertFalse(safeReality.matches(Verdict.KNOWN_VULNERABLE));
 
-        // onsubmit is vulnerable; claiming it is safe must also be caught.
+        // xlink:href is vulnerable; claiming it is safe must also be caught. This half used to use
+        // <form onsubmit="v('$data')"> and F1, which R4 closed - the template emits nothing now, so
+        // the oracle would agree with the wrong verdict and the self-test would pass vacuously. F3's
+        // xlink:href is the replacement: the same shape, an attribute Canoe classifies as plain text
+        // whose decoded value a second parser consumes.
         XssCase wronglySafe = XssCase.id("oracle-selftest-safe")
                 .section("self-test")
-                .template("<form onsubmit=\"v('$data')\"></form>")
-                .sink(SinkKind.JAVASCRIPT, "form", "onsubmit")
-                .payloads(Payloads.QUOTE_SINGLE_BREAKOUT)
+                .template("<svg><a xlink:href=\"$data\"><text>go</text></a></svg>")
+                .sink(SinkKind.URL, "a", "xlink:href")
+                .payloads(Payloads.JS_URL)
                 .verdict(Verdict.SAFE)
                 .build();
         VerdictEvaluator.Observation vulnerableReality =
-                VerdictEvaluator.observe(wronglySafe, Payloads.QUOTE_SINGLE_BREAKOUT);
+                VerdictEvaluator.observe(wronglySafe, Payloads.JS_URL);
         assertEquals(Verdict.KNOWN_VULNERABLE, vulnerableReality.verdict());
         assertFalse(vulnerableReality.matches(Verdict.SAFE));
 

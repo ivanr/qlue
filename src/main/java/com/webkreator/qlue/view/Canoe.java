@@ -300,16 +300,49 @@ public class Canoe extends Writer {
 
     /**
      * Determines context for tag attributes based on the attribute name.
+     *
+     * <p>The event-handler rule is a <em>prefix</em> rule: any attribute whose
+     * name begins "on" is JavaScript. It replaces a table of twenty-four
+     * hand-unrolled comparison chains that recognised eighteen of the ninety-four
+     * event handler content attributes the HTML Standard defines, and three of
+     * whose branches could never be taken at all - onselect and onsubmit tested
+     * buf[0] == 's' inside a block that had already established buf[0] == 'o',
+     * and the onreadystatechange chain spelled "onredystatechange", missing the
+     * "a" of "ready". Every name the table missed took the ATTR_HTML default, and
+     * html()'s character references are decoded by the HTML parser before the
+     * value is compiled as JavaScript, so each miss handed the attacker's
+     * original characters to the script engine.
+     *
+     * <p>There is no benign exception worth carving out of the rule. An attribute
+     * whose name begins "on" and which no engine will ever fire is inert either
+     * way, so suppressing it costs a template author nothing; a name that is
+     * missed is arbitrary script execution. The rule also cannot go stale: every
+     * handler the standard adds in future is already covered, which is what makes
+     * EventHandlerMatrixTest's completeness guard permanently satisfiable rather
+     * than a list to catch up with.
+     *
+     * <p>Every comparison here is made against the buffered name as a bounded
+     * string rather than against fixed buf indices, for the reason R3 gave for
+     * the value side: buf is a field of the whole render, and a comparison that
+     * reads an index the current name did not write is reading residue. The name
+     * scan does write a NUL terminator, so the old chains were not wrong in the
+     * way detectAttributePrefix()'s were - but "correct because a terminator
+     * happens to be there" is the property that failed on the value side, and it
+     * is not worth keeping on this one.
      */
     protected void setTagAttributeContext() {
         // Use HTML by default
         attributeContext = ATTR_HTML;
 
+        // Any event handler. The prefix rule replaces the on* table entirely; see
+        // the method javadoc for why there is no exception list.
+        if (bufferedNameStartsWith("on")) {
+            attributeContext = ATTR_JS;
+            return;
+        }
+
         // background
-        if ((buf[0] == 'b') && (buf[1] == 'a') && (buf[2] == 'c')
-                && (buf[3] == 'k') && (buf[4] == 'g') && (buf[5] == 'r')
-                && (buf[6] == 'o') && (buf[7] == 'u') && (buf[8] == 'n')
-                && (buf[9] == 'd') && (buf[10] == '\0')) {
+        if (bufferedNameIs("background")) {
             attributeContext = ATTR_URI;
             return;
         }
@@ -317,267 +350,86 @@ public class Canoe extends Writer {
         // XXX The following two cases are the same, which one is correct?
 
         // content
-        if ((buf[0] == 'd') && (buf[1] == 'a') && (buf[2] == 't')
-                && (buf[3] == 'a') && (buf[4] == '\0')) {
+        if (bufferedNameIs("data")) {
             attributeContext = ATTR_CONTENT;
             return;
         }
 
         // data
-        if ((buf[0] == 'd') && (buf[1] == 'a') && (buf[2] == 't')
-                && (buf[3] == 'a') && (buf[4] == '\0')) {
+        if (bufferedNameIs("data")) {
             attributeContext = ATTR_URI;
             return;
         }
 
         // dynsrc
-        if ((buf[0] == 'd') && (buf[1] == 'y') && (buf[2] == 'n')
-                && (buf[3] == 's') && (buf[4] == 'r') && (buf[5] == 'c')
-                && (buf[6] == '\0')) {
+        if (bufferedNameIs("dynsrc")) {
             attributeContext = ATTR_URI;
             return;
         }
 
         // lowsrc
-        if ((buf[0] == 'l') && (buf[1] == 'o') && (buf[2] == 'w')
-                && (buf[3] == 's') && (buf[4] == 'r') && (buf[5] == 'c')
-                && (buf[6] == '\0')) {
+        if (bufferedNameIs("lowsrc")) {
             attributeContext = ATTR_URI;
             return;
         }
 
         // href
-        if ((buf[0] == 'h') && (buf[1] == 'r') && (buf[2] == 'e')
-                && (buf[3] == 'f') && (buf[4] == '\0')) {
+        if (bufferedNameIs("href")) {
             attributeContext = ATTR_URI;
             return;
         }
 
-        // on
-        if ((buf[0] == 'o') && (buf[1] == 'n')) {
-            // onAbort
-            if ((buf[2] == 'a') && (buf[3] == 'b') && (buf[4] == 'o')
-                    && (buf[5] == 'r') && (buf[6] == 't') && (buf[7] == '\0')) {
-                attributeContext = ATTR_JS;
-                return;
-            }
+        // src
+        if (bufferedNameIs("src")) {
+            attributeContext = ATTR_URI;
+            return;
+        }
 
-            // onBlur
-            if ((buf[2] == 'b') && (buf[3] == 'l') && (buf[4] == 'u')
-                    && (buf[5] == 'r') && (buf[6] == '\0')) {
-                attributeContext = ATTR_JS;
-                return;
-            }
+        // style
+        if (bufferedNameIs("style")) {
+            attributeContext = ATTR_CSS;
+            return;
+        }
+    }
 
-            // onC
-            if (buf[2] == 'c') {
-                // onChange
-                if ((buf[3] == 'h') && (buf[4] == 'a') && (buf[5] == 'n')
-                        && (buf[6] == 'g') && (buf[7] == 'e')
-                        && (buf[8] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
+    /**
+     * Whether the attribute name the name scan has buffered is exactly the given
+     * name. The scan lower-cases as it buffers, so the comparison is against a
+     * lower-case literal and no case variant evades it.
+     *
+     * @param name the name to compare against, in lower case
+     * @return true when the buffered name equals name
+     */
+    private boolean bufferedNameIs(String name) {
+        // bufLen counts the NUL terminator TAG_ATTR_NAME writes when the name
+        // ends, so a buffered name of n characters leaves bufLen at n + 1.
+        if (bufLen != name.length() + 1) {
+            return false;
+        }
 
-                // onClick
-                if ((buf[3] == 'l') && (buf[4] == 'i') && (buf[5] == 'c')
-                        && (buf[6] == 'k') && (buf[7] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-            }
+        return bufferedNameStartsWith(name);
+    }
 
-            // onD
-            if (buf[2] == 'd') {
-                // onDblClick
-                if ((buf[3] == 'b') && (buf[4] == 'l') && (buf[5] == 'c')
-                        && (buf[6] == 'l') && (buf[7] == 'i')
-                        && (buf[8] == 'c') && (buf[9] == 'k')
-                        && (buf[10] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
+    /**
+     * Whether the attribute name the name scan has buffered begins with the given
+     * prefix. Only the prefix's own characters are read, so nothing this method
+     * looks at can have been written by an earlier name or value.
+     *
+     * @param prefix the prefix to compare against, in lower case
+     * @return true when the buffered name starts with prefix
+     */
+    private boolean bufferedNameStartsWith(String prefix) {
+        if (bufLen - 1 < prefix.length()) {
+            return false;
+        }
 
-                // onDragDrop
-                if ((buf[3] == 'r') && (buf[4] == 'a') && (buf[5] == 'g')
-                        && (buf[6] == 'd') && (buf[7] == 'r')
-                        && (buf[8] == 'o') && (buf[9] == 'p')
-                        && (buf[10] == '\0')) {
-
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-            }
-
-            // onE
-            if (buf[2] == 'e') {
-                // onEnd
-                if ((buf[3] == 'n') && (buf[4] == 'd') && (buf[5] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-
-                // onError
-                if ((buf[3] == 'r') && (buf[4] == 'r') && (buf[5] == 'o')
-                        && (buf[6] == 'r') && (buf[7] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-            }
-
-            // onKey
-            if ((buf[2] == 'k') && (buf[3] == 'e') && (buf[4] == 'y')) {
-                // onKeyDown
-                if ((buf[5] == 'd') && (buf[6] == 'o') && (buf[7] == 'w')
-                        && (buf[8] == 'n') && (buf[9] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-
-                // onKeyPress
-                if ((buf[5] == 'p') && (buf[6] == 'r') && (buf[7] == 'e')
-                        && (buf[8] == 's') && (buf[9] == 's')
-                        && (buf[10] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-
-                // onKeyUp
-                if ((buf[5] == 'u') && (buf[6] == 'p') && (buf[7] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-            }
-
-            // onLoad
-            if ((buf[2] == 'l') && (buf[3] == 'o') && (buf[4] == 'a')
-                    && (buf[5] == 'd') && (buf[6] == '\0')) {
-                attributeContext = ATTR_JS;
-                return;
-            }
-
-            // onMo
-            if ((buf[2] == 'm') && (buf[3] == 'o')) {
-                // onMouse
-                if ((buf[4] == 'u') && (buf[5] == 's') && (buf[6] == 'e')) {
-                    // onMouseDown
-                    if ((buf[7] == 'd') && (buf[8] == 'o') && (buf[9] == 'w')
-                            && (buf[10] == 'n') && (buf[11] == '\0')) {
-                        attributeContext = ATTR_JS;
-                        return;
-                    }
-
-                    // onMouseMove
-                    if ((buf[7] == 'm') && (buf[8] == 'o') && (buf[9] == 'v')
-                            && (buf[10] == 'e') && (buf[11] == '\0')) {
-                        attributeContext = ATTR_JS;
-                        return;
-                    }
-
-                    // onMouseOut
-                    if ((buf[7] == 'o') && (buf[8] == 'u') && (buf[9] == 't')
-                            && (buf[10] == '\0')) {
-                        attributeContext = ATTR_JS;
-                        return;
-                    }
-
-                    // onMouseOver
-                    if ((buf[7] == 'o') && (buf[8] == 'v') && (buf[9] == 'e')
-                            && (buf[10] == 'r') && (buf[11] == '\0')) {
-                        attributeContext = ATTR_JS;
-                        return;
-                    }
-
-                    // onMouseUp
-                    if ((buf[7] == 'u') && (buf[8] == 'p') && (buf[9] == '\0')) {
-                        attributeContext = ATTR_JS;
-                        return;
-                    }
-                }
-
-                // onMove
-                if ((buf[4] == 'v') && (buf[5] == 'e') && (buf[6] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-            }
-
-            // onRe
-            if ((buf[2] == 'r') && (buf[3] == 'e')) {
-                // onReadyStateChange
-                if ((buf[4] == 'd') && (buf[5] == 'y') && (buf[6] == 's')
-                        && (buf[7] == 't') && (buf[8] == 'a')
-                        && (buf[9] == 't') && (buf[10] == 'e')
-                        && (buf[11] == 'c') && (buf[12] == 'h')
-                        && (buf[13] == 'a') && (buf[14] == 'n')
-                        && (buf[15] == 'g') && (buf[16] == 'e')
-                        && (buf[17] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-
-                // onRes
-                if (buf[4] == 's') {
-                    // onReset
-                    if ((buf[5] == 'e') && (buf[6] == 't') && (buf[7] == '\0')) {
-                        attributeContext = ATTR_JS;
-                        return;
-                    }
-
-                    // onResize
-                    if ((buf[5] == 'i') && (buf[6] == 'z') && (buf[7] == 'e')
-                            && (buf[8] == '\0')) {
-                        attributeContext = ATTR_JS;
-                        return;
-                    }
-                }
-            }
-
-            // onS
-            if (buf[0] == 's') {
-                // onSelect
-                if ((buf[1] == 'e') && (buf[2] == 'l') && (buf[3] == 'e')
-                        && (buf[4] == 'c') && (buf[5] == 't')
-                        && (buf[6] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-
-                // onSubmit
-                if ((buf[1] == 'u') && (buf[2] == 'b') && (buf[3] == 'm')
-                        && (buf[4] == 'i') && (buf[5] == 't')
-                        && (buf[6] == '\0')) {
-                    attributeContext = ATTR_JS;
-                    return;
-                }
-            }
-
-            // onUnLoad
-            if ((buf[2] == 'u') && (buf[3] == 'n') && (buf[4] == 'l')
-                    && (buf[5] == 'o') && (buf[6] == 'a') && (buf[7] == 'd')
-                    && (buf[8] == '\0')) {
-                attributeContext = ATTR_JS;
-                return;
+        for (int i = 0; i < prefix.length(); i++) {
+            if (buf[i] != prefix.charAt(i)) {
+                return false;
             }
         }
 
-        // s
-        if (buf[0] == 's') {
-            // src
-            if ((buf[1] == 'r') && (buf[2] == 'c') && (buf[3] == '\0')) {
-                attributeContext = ATTR_URI;
-                return;
-            }
-
-            // style
-            if ((buf[1] == 't') && (buf[2] == 'y') && (buf[3] == 'l')
-                    && (buf[4] == 'e') && (buf[5] == '\0')) {
-                attributeContext = ATTR_CSS;
-                return;
-            }
-        }
-
-        return;
+        return true;
     }
 
     /**
