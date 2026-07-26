@@ -138,6 +138,16 @@ public abstract class VelocityViewFactory implements ViewFactory {
         properties.setProperty("resource.loader.string.class", "org.apache.velocity.runtime.resource.loader.StringResourceLoader");
         properties.setProperty("resource.loader.string.repository.name", QLUE_STRING_RESOURCE_LOADER_KEY);
 
+        // R22 (F22): the class loader is declared above and its caching is configured below, so it
+        // also has to say which loader it is. Velocity 2.4.1 ships no default for this key and
+        // ResourceManagerImpl.initialize() throws without it, which meant these properties did not
+        // start an engine and only ClasspathVelocityViewFactory -- which sets the key in its own
+        // override -- worked. The plain ClasspathResourceLoader is the default because the class
+        // loader reads from the classpath; a subclass that wants the reloading variant overrides it,
+        // as ClasspathVelocityViewFactory does.
+        properties.setProperty("resource.loader.class.class",
+                "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+
         if (qlueApp.getPriorityTemplatePath() != null) {
             properties.setProperty(RuntimeConstants.RESOURCE_LOADERS, "file,class,string");
             properties.setProperty("resource.loader.file.class", "org.apache.velocity.runtime.resource.loader.FileResourceLoader");

@@ -63,7 +63,7 @@ by application code calling `setAutoEscaping(false)`.
 | F19 | Critical | `onreadystatechange=` never classified as JavaScript (the branch spells `onredystatechange`) |
 | F20 | Medium | Policy-bearing attributes — `sandbox`, `rel`, `integrity`, `nonce` — arrive verbatim, and encoding is inapplicable rather than insufficient |
 | F21 | Low (latent) | `currentContext()` can never return `CTX_CSS`, so the CSS arm of `encode()` is dead and enabling a CSS encoder there would change nothing |
-| F22 | Low | `VelocityViewFactory` declares a `class` resource loader it never configures, so its own default properties do not start an engine |
+| F22 | Low | `VelocityViewFactory` declares a `class` resource loader it never configures, so its own default properties do not start an engine — **fixed in R22** |
 | F23 | Low | A `style` attribute is decoded twice — HTML character references, then CSS escapes — so `html()`'s output is re-read as CSS syntax; it corrupts author data and bounds F4's blast radius to the CSS container |
 | F24 | Medium | `url()` passes an `http://`/`https://` prefix through with its colon intact, which re-runs `detectAttributePrefix()` and downgrades every later reference in the same attribute value from `url()` to `html()` — **the corollary below is false** |
 
@@ -1859,6 +1859,22 @@ mapping table in [the systemic flaw](#the-systemic-flaw) should stop listing six
 
 *Added 2026-07-26, found while writing the production-path test (T20).*
 
+> **Resolved — R22 (2026-07-26).** The recommended fix, taken as written and not the alternative:
+> `buildDefaultVelocityProperties()` now sets `resource.loader.class.class` to
+> `org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader`, beside the `string` loader's
+> own `.class` key, so an engine built from the base class's properties alone starts. The `class`
+> loader stays declared in the base class because that is where `resource.loaders` names it — moving
+> the declaration down into the subclass would leave the caching lines below it stranded.
+> `ClasspathVelocityViewFactory` keeps its override, so a Qlue application still runs
+> `NonCachingClasspathResourceLoader` and nothing about the shipped configuration changes; that is
+> asserted, not assumed. One thing the fix deliberately does **not** touch, recorded here because
+> reading the override is how it was found: the override selects between the two loaders on
+> `RuntimeConstants.FILE_RESOURCE_LOADER_CACHE`, which is `resource.loader.file.cache` — the *file*
+> loader's key, not the `class` loader's — so its caching arm is reachable only through a
+> `qlue.velocity.raw.` passthrough. That is a question about the subclass rather than about F22, and
+> it is left open. The reasoning below stands as the record of why the half-configured loader was
+> worth writing down.
+
 **Location:** `VelocityViewFactory.java:76-97` (`buildDefaultVelocityProperties`) and
 `ClasspathVelocityViewFactory.java:71-82` (the override that repairs it).
 
@@ -1901,10 +1917,14 @@ let `ClasspathVelocityViewFactory` keep overriding it with the non-caching varia
 move the whole `class` loader declaration down into the subclass that owns it, so the base class
 stops making a claim it does not honour.
 
-> **Verified.** `ViewFactoryRenderTest.theBaseFactorysDefaultPropertiesDeclareAClassLoaderItNever`
-> `Configures` asserts the missing key on the property map the production method returns — not on a
-> hand-written copy of it — and then builds an engine from those properties and requires `init()` to
-> throw. Adding the one line makes the same engine start, which is the last assertion in the test.
+> **Verified (as found), now inverted by R22.** `ViewFactoryRenderTest.theBaseFactorysDefaultProperties`
+> `DeclareAClassLoaderItNeverConfigures` asserted the missing key on the property map the production
+> method returns — not on a hand-written copy of it — and then built an engine from those properties
+> and required `init()` to throw. R22 added the one line, so the successor
+> `.theBaseFactorysDefaultPropertiesConfigureTheClassLoaderTheyDeclare` inverts both halves: the map
+> must now carry `ClasspathResourceLoader`, and the same engine must start. A third assertion is new
+> — `ClasspathVelocityViewFactory`'s properties must still name `NonCachingClasspathResourceLoader`
+> — so that giving the base class a working default cannot quietly change what production runs.
 
 ---
 

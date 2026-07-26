@@ -9,7 +9,6 @@ import com.webkreator.qlue.view.canoe.corpus.Payloads;
 import com.webkreator.qlue.view.canoe.corpus.XssCase;
 import com.webkreator.qlue.view.velocity.ProductionRenderProbe;
 import org.apache.velocity.app.VelocityEngine;
-import org.apache.velocity.exception.VelocityException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -35,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -705,50 +703,57 @@ public class ViewFactoryRenderTest {
     // ------------------------------------------------------------------
 
     /**
-     * <strong>F22</strong>, found while building this file's classpath engine: the properties
-     * {@code VelocityViewFactory.buildDefaultVelocityProperties()} returns do not start an engine.
+     * <strong>F22, closed by R22.</strong> The properties
+     * {@code VelocityViewFactory.buildDefaultVelocityProperties()} returns now start an engine.
      *
-     * <p>The method declares {@code resource.loaders = class,string} and configures the string
-     * loader's implementation class, its repository name, and the <em>class</em> loader's cache
-     * setting — but never {@code resource.loader.class.class}. Velocity 2.4.1 ships no default for
-     * that key, so {@code ResourceManagerImpl.initialize()} throws
+     * <p>Was {@code theBaseFactorysDefaultPropertiesDeclareAClassLoaderItNeverConfigures}, found
+     * while building this file's classpath engine. The method declared
+     * {@code resource.loaders = class,string} and configured the string loader's implementation
+     * class, its repository name, and the <em>class</em> loader's cache setting — but never
+     * {@code resource.loader.class.class}. Velocity 2.4.1 ships no default for that key, so
+     * {@code ResourceManagerImpl.initialize()} threw
      * {@code "Unable to find 'resource.loader.class.class' specification in configuration. This is a
-     * critical value."} Only {@code ClasspathVelocityViewFactory} supplies it, in its own override.
+     * critical value."} and only {@code ClasspathVelocityViewFactory}, which supplies the key in its
+     * own override, produced a working engine.
      *
      * <p>{@code VelocityViewFactory} is {@code public abstract} and its class comment says it "needs
      * subclassing to provide initialization and decide where to look for template files", so a
-     * subclass that does exactly that — supplies {@code init()} and {@code constructView()} and
-     * inherits the properties — cannot start. Availability only, and it fails loudly at startup
-     * rather than silently at request time, which is why it is Low. It is recorded because it is a
-     * documented extension point that does not work, and because the half-configured
-     * {@code resource.loader.class.cache} line is the sort of thing that makes a reader believe the
-     * class loader is configured when it is not.
+     * subclass that did exactly that — supplied {@code init()} and {@code constructView()} and
+     * inherited the properties — could not start. Availability only, and it failed loudly at startup
+     * rather than silently at request time, which is why it was Low. It was recorded because it was
+     * a documented extension point that did not work, and because the half-configured
+     * {@code resource.loader.class.cache} line was the sort of thing that makes a reader believe the
+     * class loader is configured when it was not.
      *
-     * <p>The assertion is on the property map rather than on the exception, so it states the cause;
-     * the second half builds an engine to show the consequence. Both flip when the missing line is
-     * added to the base class.
+     * <p>The first assertions are on the property map rather than on the outcome, so they state the
+     * cause — the key and the value it now carries; the second half builds an engine to show the
+     * consequence, and it is the half that would fail if the value named a class Velocity cannot
+     * instantiate, since {@code init()} loads every declared loader. The third states that the shipped
+     * subclass still overrides the inherited default with the reloading loader, so that closing F22
+     * in the base class cannot quietly change what a Qlue application actually runs.
      */
     @Test
-    public void theBaseFactorysDefaultPropertiesDeclareAClassLoaderItNeverConfigures() {
+    public void theBaseFactorysDefaultPropertiesConfigureTheClassLoaderTheyDeclare() {
         Properties properties = ProductionRenderProbe.defaultVelocityProperties();
 
         assertEquals("class,string", properties.getProperty("resource.loaders"),
                 "the base class declares a class loader...");
         assertEquals("false", properties.getProperty("resource.loader.class.cache"),
                 "...and configures its caching...");
-        assertNull(properties.getProperty("resource.loader.class.class"),
-                "F22: ...but never says which loader it is. Velocity has no default for this key.");
+        assertEquals("org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader",
+                properties.getProperty("resource.loader.class.class"),
+                "R22: ...and now says which loader it is. Velocity has no default for this key.");
 
-        VelocityEngine engine = new VelocityEngine(properties);
-        VelocityException thrown = assertThrows(VelocityException.class, engine::init,
-                "F22: an engine built from the base class's own properties does not start");
-        assertTrue(thrown.getMessage().contains("resource.loader.class.class"),
-                () -> "and says so: " + thrown.getMessage());
-
-        // The one shipped subclass that works, and the line that makes it work.
-        properties.setProperty("resource.loader.class.class",
-                "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");
+        // The consequence: a subclass that supplies init() and constructView() and inherits these
+        // properties -- which is what the class comment invites -- starts.
         new VelocityEngine(properties).init();
+
+        // And the shipped subclass still asks for the reloading variant on top of the new default,
+        // which is what a default Qlue application runs.
+        assertEquals("com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader",
+                ProductionRenderProbe.classpathFactoryVelocityProperties()
+                        .getProperty("resource.loader.class.class"),
+                "ClasspathVelocityViewFactory keeps its override");
     }
 
     // ------------------------------------------------------------------

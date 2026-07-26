@@ -72,6 +72,10 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
     protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
         Properties properties = super.buildDefaultVelocityProperties(qlueApp);
 
+        // The base class now sets resource.loader.class.class itself (R22, F22), to the plain
+        // ClasspathResourceLoader, so this override is only about the reloading variant: the
+        // else-branch restates the inherited default and is kept because the choice between the two
+        // loaders reads as one decision.
         String caching = properties.getProperty(RuntimeConstants.FILE_RESOURCE_LOADER_CACHE);
         if ((caching == null) || (!Boolean.valueOf(caching))) {
             properties.setProperty("resource.loader.class.class", "com.webkreator.qlue.view.velocity.NonCachingClasspathResourceLoader");

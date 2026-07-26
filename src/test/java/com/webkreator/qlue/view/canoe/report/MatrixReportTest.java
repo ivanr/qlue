@@ -127,8 +127,13 @@ public class MatrixReportTest {
                 + " so there is no CSS context for a case to produce - style still classifies as"
                 + " ATTR_CSS and suppresses. The source-level fact is asserted by"
                 + " AttributeNameMatrixTest.thereIsNoCtxCssAndStyleStillSuppresses");
-        gaps.put("F22", "a Velocity engine configuration defect that fails at init(), before any"
-                + " template exists - ViewFactoryRenderTest");
+        gaps.put("F22", "closed by R22: the base factory now sets resource.loader.class.class, so an"
+                + " engine built from its own properties starts. The exemption stays because the"
+                + " finding is a Velocity engine configuration defect and the corpus is still the"
+                + " wrong instrument for it - it was decided at init(), before any template exists,"
+                + " and a case is a template plus a payload -"
+                + " ViewFactoryRenderTest.theBaseFactorysDefaultPropertiesConfigureTheClassLoader"
+                + "TheyDeclare");
         gaps.put("F23", "the CSS double decode is a browser behaviour; the three templates it bounds"
                 + " are corpus cases cited against F4 - SinkSpecificBrowserTest");
         gaps.put("F24", "needs two references in one attribute value, which the shared-payload"

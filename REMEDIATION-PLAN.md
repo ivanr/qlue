@@ -1284,8 +1284,68 @@ input in the rejection table through the real `render()` via `ProductionRenderPr
 
 ---
 
-**R22 — Configure the `class` resource loader in the base factory**
+**R22 — Configure the `class` resource loader in the base factory** — ✅ **DONE**
 *Closes:* F22. *Depends on:* nothing.
+*Landed:* one line, where the finding said it should go —
+`buildDefaultVelocityProperties()` now sets `resource.loader.class.class` to
+`org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader`, next to the `string` loader's
+own `.class` key and above the caching lines that were the only thing it had ever configured about
+the `class` loader. The plain loader is the right default because the key names *which* loader reads
+the `class` entry in `resource.loaders`, and that entry is the classpath; the reloading variant is a
+development convenience and belongs to the subclass that wants it, not to every subclass.
+
+**`ClasspathVelocityViewFactory` keeps its override**, checked rather than assumed, and what the check
+found is worth recording: the override picks
+`NonCachingClasspathResourceLoader` or `ClasspathResourceLoader` on the value of
+`RuntimeConstants.FILE_RESOURCE_LOADER_CACHE`, which in Velocity 2.4.1 is
+`resource.loader.file.cache` — the **file** loader's cache key, not the class loader's. The base class
+sets that key only when the application declares a priority template path, and sets it to `false`
+there, so for every shipped configuration the test reads `null` or `false` and the non-caching loader
+is what a Qlue application actually runs. The caching arm is therefore reachable only through a raw
+`qlue.velocity.raw.` passthrough, and it is the arm that now restates the inherited default. It is
+kept, with a comment saying so, because the choice between the two loaders reads as one decision and
+splitting it across two classes would hide half of it; whether that arm should key off
+`resource.loader.class.cache` instead is a separate question about the subclass, not about F22, and is
+not in this task's package. No other shipped factory is affected — `ClasspathVelocityViewFactory` is
+the only subclass of `VelocityViewFactory` in `src/main`.
+
+*Tests:* `ViewFactoryRenderTest.theBaseFactorysDefaultPropertiesDeclareAClassLoaderItNeverConfigures`
+is inverted to `.theBaseFactorysDefaultPropertiesConfigureTheClassLoaderTheyDeclare`, keeping its
+former name and F22's mechanism — Velocity's `"Unable to find 'resource.loader.class.class'
+specification in configuration"` — in its javadoc. The assertion on the property map flips from
+`assertNull` to the loader's name, and the `assertThrows` around `engine.init()` becomes a bare
+`init()` that has to succeed: a subclass that supplies `init()` and `constructView()` and inherits the
+properties starts, which is what the class comment invites. A third assertion is added, because the
+new default could otherwise silently change what production runs — the shipped subclass's properties
+still name `NonCachingClasspathResourceLoader`, read through a new
+`ProductionRenderProbe.classpathFactoryVelocityProperties()` (the method is `protected`, so the probe
+is where a test can reach it, for the same reason `defaultVelocityProperties()` lives there).
+`ProductionRenderProbe.createClasspathEngine()`'s comment, which said in so many words that the base
+class's properties alone do not produce a working engine, is corrected rather than left to rot.
+*Ledger:* **unchanged**, verified rather than assumed — 1,012 invocations, SAFE 481,
+KNOWN_VULNERABLE 68, SUPPRESSED_BY_DESIGN 415, SUPPRESSED_UNINTENDED 12, REJECTED 36, re-tallied from
+`build/reports/canoe/matrix.csv` after the change. This is engine configuration: it decides whether an
+engine starts, not what any template renders, and no corpus template is loaded through the `class`
+loader by a factory built from the base properties.
+*Coverage:* **unchanged** — Canoe 292/303 = 96.37% (floor 95), HtmlEncoder 315/320 = 98.44%
+(floor 98), `reallyProcessChar()` 169/174 = 97.13% (floor 96), `setTagAttributeContext()` 10/10,
+`normalisePlainTextAttributeNames()` 20/20. No branch was added or removed; the changed line is a
+straight-line `setProperty()` in a class the gate does not cover, and the eleven dead outcomes are the
+same eleven. No floor moves and `build.gradle` needs no edit.
+*F22's exemption in `MatrixReportTest.FINDINGS_WITHOUT_CASES` is kept and reworded*, not deleted:
+that map fails for a *stale* exemption only when the finding has acquired corpus cases, and F22 cannot
+— it was decided at `init()`, before any template exists, and a case is a template plus a payload. The
+entry now says the finding is closed by R22 and names the test, in the shape F21's entry uses.
+*Review:* F22's section in `CANOE-SECURITY-REVIEW-2026-07-25.md` carries a `Resolved — R22` note, its
+glance-table row says **fixed in R22**, and its `Verified` block — which named the test by its former
+name and said `init()` must throw — is rewritten to the successor, in the shape F21's is. The
+`resource.loader.file.cache` observation above is recorded there too, as an open question about the
+subclass rather than a second finding.
+*Gates:* `./gradlew test` (6,128 tests, 0 failures, 0 skipped) and `canoeCoverageGate` green.
+`browserTest` was **not** run: there is a known hang in this environment, owned by R28, and R22 changes
+nothing the browser tier renders — it renders through `CanoeTestSupport`, whose engine declares the
+`string` loader only and never calls `buildDefaultVelocityProperties()`, so no browser-tier
+configuration is touched at all.
 
 `buildDefaultVelocityProperties()` declares `resource.loader.class` in the loader list
 (`VelocityViewFactory.java:76`) and configures that loader's *caching*
@@ -1441,7 +1501,7 @@ figure in this plan was measured in: 91 passed, 2 skipped.
 | F19 — `onreadystatechange` dead branch | Critical | R4 |
 | F20 — policy-bearing attributes arrive verbatim | Medium | R5 |
 | F21 — `currentContext()` can never return `CTX_CSS` | Low (latent) | R14 ✅ (constant + dead arm deleted) |
-| F22 — base factory declares an unconfigured loader | Low | R22 |
+| F22 — base factory declares an unconfigured loader | Low | R22 ✅ (`resource.loader.class.class` set to `ClasspathResourceLoader` in `buildDefaultVelocityProperties()`, so an engine built from the base class's own properties starts; `ClasspathVelocityViewFactory` keeps its override of the reloading variant) |
 | F23 — `style` values are decoded twice | Low | R2 closes the exposure; R13, R14 record the rest |
 | F24 — `url()` emits a raw scheme colon | Medium | R11, R12 (R2 mitigates) |
 

@@ -185,13 +185,14 @@ public final class ProductionRenderProbe {
         properties.setProperty("resource.default_encoding", "UTF-8");
 
         // Exactly what buildDefaultVelocityProperties() sets for an application with no priority
-        // template path, plus the one property ClasspathVelocityViewFactory adds on top of it.
-        // That property is not optional: Velocity 2.4.1 ships no default for
-        // resource.loader.class.class and fails initialisation without it ("Unable to find
-        // 'resource.loader.class.class' specification in configuration"), so the base class's
-        // properties alone do not produce a working engine. Which loader it names depends on
-        // resource.loader.file.cache, which is set only when the application declares a priority
-        // template path -- so the non-caching loader is what a default Qlue application runs.
+        // template path, with resource.loader.class.class carrying the value
+        // ClasspathVelocityViewFactory overrides it to. Since R22 the base class sets that key
+        // itself, to the plain ClasspathResourceLoader -- before then it set no value at all and
+        // Velocity 2.4.1, which ships no default, failed initialisation ("Unable to find
+        // 'resource.loader.class.class' specification in configuration"). Which loader the subclass
+        // names depends on resource.loader.file.cache, which is set only when the application
+        // declares a priority template path -- so the non-caching loader is what a default Qlue
+        // application runs, and it is what this engine uses.
         properties.setProperty(RuntimeConstants.RESOURCE_LOADERS, "class,string");
         properties.setProperty("resource.loader.string.class",
                 "org.apache.velocity.runtime.resource.loader.StringResourceLoader");
@@ -227,6 +228,19 @@ public final class ProductionRenderProbe {
      */
     public static java.util.Properties defaultVelocityProperties() {
         return new ProbeViewFactory().buildDefaultVelocityProperties(new CanoeProbePage().getApp());
+    }
+
+    /**
+     * The properties {@link ClasspathVelocityViewFactory} produces for a default application — the
+     * base class's, plus its own override of {@code resource.loader.class.class}.
+     *
+     * <p>Exposed for the same reason {@link #defaultVelocityProperties()} is, and so that a test can
+     * state what the shipped subclass runs now that R22 gives the base class a working default of
+     * its own: the two answers differ, and the difference is the point.
+     */
+    public static java.util.Properties classpathFactoryVelocityProperties() {
+        return new ClasspathVelocityViewFactory()
+                .buildDefaultVelocityProperties(new CanoeProbePage().getApp());
     }
 
     /**
