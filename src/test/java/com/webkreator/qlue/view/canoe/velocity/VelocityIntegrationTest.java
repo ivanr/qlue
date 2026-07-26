@@ -30,15 +30,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * model, and it is independent of context: a bypass bypasses in body text exactly as it does in an
  * event handler.
  *
- * <p>Three things in here are traps rather than tests, and each has a test named after the trap:
+ * <p>Two things in here are traps rather than tests, and each has a test named after the trap. A
+ * third was one until R23 closed it: <strong>formal notation used to defeat the bypass</strong>,
+ * because the handler matched only the literal prefixes {@code $_x.} and {@code $!_x.} against the
+ * reference's source text and <code>${_x.</code> starts with neither, so a developer switching notation
+ * for readability silently changed the security behaviour of the line. All four spellings now
+ * bypass; {@code everySpellingOfTheBypassBypassesIncludingFormalNotation} is the inverted test and
+ * carries the mechanism.
  *
  * <ul>
- *   <li><strong>Formal notation defeats the bypass.</strong> {@code $_x.asis($data)} bypasses
- *       encoding and {@code ${_x.asis($data)}} does not, because the handler matches the literal
- *       prefixes {@code $_x.} and {@code $!_x.} against the reference's source text and
- *       {@code ${_x.} starts with neither. A developer switching notation for readability silently
- *       changes the security behaviour of the line, in the safe direction here and in the unsafe
- *       direction for anything that was relying on the raw output.
  *   <li><strong>F12: an interpolated string literal double-encodes.</strong> {@code #set($msg =
  *       "Hello $data")} fires the handler while the <em>main</em> writer is wherever the
  *       {@code #set} happens to sit, so the value is encoded once for that position and again where
@@ -227,14 +227,20 @@ public class VelocityIntegrationTest {
     // ------------------------------------------------------------------
 
     /**
-     * The bypass works, in both spellings the handler declares.
+     * The bypass works, in the two short spellings.
+     *
+     * <p>Formerly {@code theTwoDeclaredBypassPrefixesBypass}, renamed by R23: the handler declared
+     * two prefixes when this was written and now declares four, so "the two declared prefixes" named
+     * the wrong set. The other two are
+     * {@link #everySpellingOfTheBypassBypassesIncludingFormalNotation}, kept separate because that is
+     * where the inverted mechanism lives; between them the four spellings are covered once each.
      *
      * <p>Per &sect;2.5 a template author who calls this is outside the threat model; what is inside it
      * is that the bypass does what it says, because a bypass that silently stopped bypassing would
      * push developers to worse workarounds.
      */
     @Test
-    public void theTwoDeclaredBypassPrefixesBypass() {
+    public void theTwoShortBypassPrefixesBypass() {
         assertEquals("<p><b></p>",
                 CanoeTestSupport.render("<p>$_x.asis($data)</p>", MARKUP).output(),
                 "$_x. is SAFE_REFERENCE_PREFIX1");
@@ -244,53 +250,110 @@ public class VelocityIntegrationTest {
     }
 
     /**
-     * <strong>The trap.</strong> Formal notation is not a bypass, and nothing says so at the point of
-     * use.
+     * All four of Velocity's reference spellings bypass, including the two formal ones.
      *
-     * <p>{@code CanoeReferenceInsertionHandler.referenceInsert()} is handed the reference's
-     * <em>source text</em> and tests {@code startsWith("$_x.")} and {@code startsWith("$!_x.")}. The
-     * formal spellings begin <code>${_x.</code> and <code>$!{_x.</code>; neither starts with either
-     * prefix, so the handler does not return early and Canoe encodes the tool's output a second time.
+     * <p>Formerly {@code formalNotationSilentlyDefeatsTheBypassBecauseThePrefixIsMatchedLiterally},
+     * inverted by R23. The mechanism it pinned:
+     * {@code CanoeReferenceInsertionHandler.referenceInsert()} is handed the reference's
+     * <em>source text</em>, and the handler tested only {@code startsWith("$_x.")} and
+     * {@code startsWith("$!_x.")}. The formal spellings begin <code>${_x.</code> and
+     * <code>$!{_x.</code>; neither started with either prefix, so the handler did not return early
+     * and Canoe encoded the tool's output a second time. The direction was safe — more encoding, not
+     * less — but the failure was silent, and the two spellings are interchangeable everywhere else in
+     * Velocity. What a developer saw was that wrapping a working reference in braces broke the page's
+     * markup, with no diagnostic; the likely next step is to reach for something worse, which is the
+     * same dynamic F12 creates. The old test's sharpest assertion was that the formal form's output
+     * was byte-identical to never having called the tool at all: the bypass was not partially
+     * applied, it was absent.
      *
-     * <p>The direction of the change is safe — more encoding, not less — but the failure is silent
-     * and the two spellings are interchangeable everywhere else in Velocity. What a developer sees is
-     * that wrapping a working reference in braces breaks the page's markup, with no diagnostic; the
-     * likely next step is to reach for something worse, which is the same dynamic F12 creates.
+     * <p>R23 added <code>${_x.</code> and <code>$!{_x.</code> to the prefix list, so this now asserts
+     * the opposite. The literals Velocity 2.4.1 actually passes were measured rather than assumed —
+     * <code>$_x.asis($data)</code>, <code>$!_x.asis($data)</code>, <code>${_x.asis($data)}</code> and
+     * <code>$!{_x.asis($data)}</code>, each the reference's source text verbatim, braces included.
      *
-     * <p>The second assertion is the one that makes this a test rather than an anecdote: the formal
-     * form's output is byte-identical to the output of not using the tool at all. The bypass is not
-     * partially applied, it is absent.
+     * <p>The last assertion inverts the old one's shape: the formal form's output is now
+     * byte-identical to the short form's, and <em>differs</em> from not using the tool at all.
      */
     @Test
-    public void formalNotationSilentlyDefeatsTheBypassBecauseThePrefixIsMatchedLiterally() {
-        assertEquals("<p>&lt;b&gt;</p>",
+    public void everySpellingOfTheBypassBypassesIncludingFormalNotation() {
+        assertEquals("<p><b></p>",
                 CanoeTestSupport.render("<p>${_x.asis($data)}</p>", MARKUP).output(),
-                "${_x. does not start with $_x.");
-        assertEquals("<p>&lt;b&gt;</p>",
+                "${_x. is SAFE_REFERENCE_PREFIX3");
+        assertEquals("<p><b></p>",
                 CanoeTestSupport.render("<p>$!{_x.asis($data)}</p>", MARKUP).output(),
-                "$!{_x. does not start with $!_x. either - the same trap in the quiet spelling,"
-                        + " which the review does not mention");
+                "$!{_x. is SAFE_REFERENCE_PREFIX4 - the quiet formal spelling, which the review does"
+                        + " not mention and which failed the same way");
 
-        assertEquals(CanoeTestSupport.render("<p>$data</p>", MARKUP).output(),
+        assertEquals(CanoeTestSupport.render("<p>$_x.asis($data)</p>", MARKUP).output(),
                 CanoeTestSupport.render("<p>${_x.asis($data)}</p>", MARKUP).output(),
-                "and the result is byte-identical to never having called the tool: asis() returned"
-                        + " the raw value and Canoe encoded it exactly as it encodes anything else");
+                "the formal form is byte-identical to the short form: braces are notation, not"
+                        + " semantics");
+        assertNotEquals(CanoeTestSupport.render("<p>$data</p>", MARKUP).output(),
+                CanoeTestSupport.render("<p>${_x.asis($data)}</p>", MARKUP).output(),
+                "and no longer byte-identical to never having called the tool, which is what the"
+                        + " former name recorded");
     }
 
     /**
-     * A longer name beginning with the same letters is not a bypass.
+     * Whitespace inside the braces is not a fifth spelling, because it is not a reference.
+     *
+     * <p>The natural next question after R23 is whether <code>${ _x.asis($v) }</code> is a spelling
+     * the four-prefix list still misses. It is not: Velocity's lexer enters the reference state only
+     * on the exact token <code>${</code> or <code>$!{</code>, so a space or newline after the brace
+     * makes the whole construct literal template text. The handler never fires for the tool call at
+     * all — only for the inner {@code $data}, which is an ordinary reference and is encoded — and
+     * what reaches the page includes the braces the author typed.
+     *
+     * <p>Asserted rather than reasoned about, because "is there a spelling we missed" is exactly the
+     * question a prefix list has to be able to answer, and because the answer is a property of
+     * Velocity's grammar that a version bump could change.
+     */
+    @Test
+    public void whitespaceInsideTheBracesIsNotAReferenceAtAll() {
+        assertEquals("<p>${ _x.asis(&lt;b&gt;) }</p>",
+                CanoeTestSupport.render("<p>${ _x.asis($data) }</p>", MARKUP).output(),
+                "the braces are text; only the inner $data is a reference, and it is encoded");
+        assertEquals("<p>$!{ _x.asis(&lt;b&gt;) }</p>",
+                CanoeTestSupport.render("<p>$!{ _x.asis($data) }</p>", MARKUP).output(),
+                "the quiet spelling behaves the same way");
+    }
+
+    /**
+     * A longer name beginning with the same letters is not a bypass — in any of the four spellings.
      *
      * <p>{@code $_xy.} shares three characters with {@code $_x.} and differs at the fourth, which is
      * the dot. Worth an assertion because a prefix match on a name is the shape that most often
      * turns out to be a prefix match on a <em>prefix of a name</em> — which is F1's mechanism one
      * level up.
+     *
+     * <p>R23 doubled the size of the list this has to hold for, and the risk it guards is the
+     * asymmetric one: a bypass that over-matches emits attacker data unencoded. The dot is what
+     * makes the list safe, so every prefix is checked against a name that starts with
+     * {@code CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME} and continues.
      */
     @Test
     public void aLongerToolNameIsNotABypass() {
+        Map<String, Object> model = model("data", MARKUP, "_xy", new HtmlEncoder(),
+                "_xtra", new HtmlEncoder());
+
         assertEquals("<p>&lt;b&gt;</p>",
-                CanoeTestSupport.render("<p>$_xy.asis($data)</p>",
-                        model("data", MARKUP, "_xy", new HtmlEncoder())).output(),
+                CanoeTestSupport.render("<p>$_xy.asis($data)</p>", model).output(),
                 "$_xy. differs from $_x. at the dot, so the handler encodes normally");
+        assertEquals("<p>&lt;b&gt;</p>",
+                CanoeTestSupport.render("<p>$!_xy.asis($data)</p>", model).output(),
+                "and the quiet spelling differs from $!_x. in the same place");
+        assertEquals("<p>&lt;b&gt;</p>",
+                CanoeTestSupport.render("<p>${_xy.asis($data)}</p>", model).output(),
+                "${_xy. differs from ${_x. at the dot - R23's new prefix must not widen the match");
+        assertEquals("<p>&lt;b&gt;</p>",
+                CanoeTestSupport.render("<p>$!{_xtra.asis($data)}</p>", model).output(),
+                "$!{_xtra. differs from $!{_x. at the dot too, with more characters after it");
+
+        assertEquals("<p><b>|&lt;b&gt;</p>",
+                CanoeTestSupport.render("<p>${_x.asis($data)}|${_xy}</p>",
+                        model("data", MARKUP, "_xy", MARKUP)).output(),
+                "a bare ${_xy} beside a real formal bypass is still encoded: the bypass is decided"
+                        + " per reference, not per template");
     }
 
     /**

@@ -1083,6 +1083,26 @@ developers to the `$_x` escape hatch.
 > `VelocityIntegrationTest.formalNotationSilentlyDefeatsTheBypassBecauseThePrefixIsMatchedLiterally`,
 > which also asserts that the formal form's output is byte-identical to never having called the tool
 > at all: the bypass is absent, not partially applied.
+>
+> **Resolved — R23 (2026-07-26): the `${_x.` trap in the paragraph above, and only that.** F12 itself
+> is untouched and still live; it belongs to R24, which must land after R4 and R5 for the reason the
+> preceding paragraph gives. What R23 changed is the two-prefix list: `SAFE_REFERENCE_PREFIX3`
+> (`${_x.`) and `SAFE_REFERENCE_PREFIX4` (`$!{_x.`) join the two that were already there, so all four
+> of the reference spellings Velocity accepts bypass identically. The literals were measured against
+> velocity-engine-core 2.4.1 rather than assumed: `ASTReference` hands `referenceInsert()` the
+> reference's source text verbatim, braces included, and `ASTReference.getRoot()` recognises exactly
+> four openings — `$name`, `$!name`, `${name}`, `$!{name}` — so there is no fifth spelling for the
+> list to miss. Whitespace inside the braces is not one: the lexer enters the reference state only on
+> the exact token `${` or `$!{`, so `${ _x.asis($v) }` is literal template text and the handler never
+> sees it. The list stays a list of literal prefixes deliberately — this is the one match in Canoe
+> whose *true* branch emits attacker-reachable data unencoded, so a missed spelling costs a double
+> encoding while a spurious match is XSS, and the trailing dot is what keeps `$_xy.` and `${_xtra.`
+> off it. The test is inverted to
+> `VelocityIntegrationTest.everySpellingOfTheBypassBypassesIncludingFormalNotation`, keeping the
+> former name and this mechanism in its javadoc; `whitespaceInsideTheBracesIsNotAReferenceAtAll` pins
+> the non-spelling, and `aLongerToolNameIsNotABypass` now checks all four prefixes against a name
+> that merely starts with `_x`, because that is the direction in which this change could have done
+> harm.
 
 ---
 

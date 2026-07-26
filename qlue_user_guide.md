@@ -103,11 +103,17 @@ both are worth fixing in the template and neither is worth failing a request ove
 `QlueApplication.allowDirectOutput()` returns true — it returns `false` by default, so an
 application has to override it deliberately.
 
-A reference written as `$_x.method(...)` or `$!_x.method(...)` is **skipped by Canoe entirely**:
-whatever the method returns goes to the response verbatim. The match is on those two literal
-prefixes, so the formal spellings `${_x.method(...)}` and `$!{_x.method(...)}` do **not** bypass —
-they are encoded like any other reference, and `asis()` written that way silently does nothing.
-Use the short form.
+A reference written as `$_x.method(...)`, `$!_x.method(...)`, `${_x.method(...)}` or
+`$!{_x.method(...)}` is **skipped by Canoe entirely**: whatever the method returns goes to the
+response verbatim. Those are all four of the reference spellings Velocity accepts, and they behave
+identically — the notation you choose does not change the security behaviour of the line.
+
+The match is on those four literal prefixes, including the trailing dot, and nothing else is a
+bypass. A name that merely begins with `_x` — `$_xy.method(...)`, `${_xtra.method(...)}` — is
+encoded like any other reference. Whitespace inside the braces, as in `${ _x.asis($value) }`, is not
+a Velocity reference at all: the braces and the `_x.asis(...)` around it reach the page as literal
+text, and the only thing substituted is the inner `$value`, which is encoded — so the line renders as
+`${ _x.asis(&lt;b&gt;) }` rather than bypassing anything.
 
 - `$_x.asis($value)` — emit unencoded. The supported bypass, for when the template author has
   encoded the value themselves or knows it is safe.

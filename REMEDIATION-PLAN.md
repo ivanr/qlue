@@ -1364,20 +1364,84 @@ requires `init()` to succeed once the key is present.
 
 ---
 
-**R23 — Make the `$_x` bypass recognise formal notation**
+**R23 — Make the `$_x` bypass recognise formal notation** — ✅ **DONE**
 *Closes:* a footgun recorded in F12's notes. *Depends on:* nothing.
+*Landed:* the recommended fix and not the alternative — matching, not a diagnostic.
+`CanoeReferenceInsertionHandler` gains `SAFE_REFERENCE_PREFIX3` (`${_x.`) and `SAFE_REFERENCE_PREFIX4`
+(`$!{_x.`) beside the two public constants that were already there, kept public because those two are
+API, and the four are collected into one private `SAFE_REFERENCE_PREFIXES` list that
+`referenceInsert()` walks. All four spellings now behave identically.
 
-`CanoeReferenceInsertionHandler` matches the literal prefixes `$_x.` and `$!_x.`
-(`CanoeReferenceInsertionHandler.java:29-33`). Velocity's formal notation — `${_x.asis($data)}` and
-`$!{_x.asis($data)}` — starts with neither, so the bypass silently does not apply and the output is
-byte-identical to never having called the tool.
+**What Velocity actually passes was measured, not assumed.** `ASTReference.render()` calls
+`EventHandlerUtil.referenceInsert(rsvc, context, literal, value)` with the node's `literal` — the
+reference's source text verbatim — so velocity-engine-core 2.4.1 hands the handler `$_x.asis($data)`,
+`$!_x.asis($data)`, `${_x.asis($data)}` and `$!{_x.asis($data)}` respectively, braces included and
+nothing else attached. Leading schmoo is stripped before the literal is built (`#$_x.asis($v)` arrives
+as `$_x.asis($v)`, `\\${_x.asis($v)}` as `${_x.asis($v)}`) and a preceding block comment contributes
+nothing, so neither can hide the prefix.
 
-Fail-safe, but silent, and the developer's next move is to work around it. Either match the formal
-forms too, or detect them and raise a diagnostic. Matching is the smaller change and the one
-developers expect.
+**There is no fifth spelling.** `ASTReference.getRoot()` branches on the opening token in one chain
+— `startsWith("$!{")`, `startsWith("$!")`, `equals("${")`, `startsWith("$")`, and a RUNT fallback for
+text that is not a reference at all — so `$name`, `$!name`, `${name}` and `$!{name}` are the whole
+grammar and the four-prefix list is not a sample of it. Whitespace inside the braces is *not* a missed spelling: Velocity's lexer enters the
+reference state only on the exact token `${` or `$!{`, so `${ _x.asis($v) }`, `$!{ _x.asis($v) }` and
+a newline after the brace are literal template text and the handler never fires for the tool call at
+all (it fires for the inner `$data`, which is encoded, and the braces reach the page). `${_x .asis($v)}`
+is a parse error. Both are asserted rather than reasoned about, in
+`whitespaceInsideTheBracesIsNotAReferenceAtAll`.
+
+**A list, deliberately, and not a matcher.** This is the one comparison in Canoe whose *true* branch
+emits attacker-reachable data unencoded, so the two error directions are not comparable: a missed
+spelling costs a second encoding pass, which is visible and harmless, while a spurious match is XSS.
+Trimming, a regular expression or a lenient name comparison would buy convenience with the asymmetry
+pointing the wrong way. The trailing dot carries the safety — it is what keeps `$_xy.`, `${_xyz.}`
+and `${_xtra.` off the list, since each differs from the bypass exactly where the dot would be — and
+the reasoning is in `SAFE_REFERENCE_PREFIXES`'s javadoc where a future editor will meet it.
+
+*Tests:* `VelocityIntegrationTest.formalNotationSilentlyDefeatsTheBypassBecauseThePrefixIsMatched`
+`Literally` is inverted to `.everySpellingOfTheBypassBypassesIncludingFormalNotation`, keeping the
+former name and the mechanism in its javadoc. Its last assertion inverts in shape as well as in
+sense: the old one asserted the formal form was byte-identical to *never having called the tool*, the
+new one asserts it is byte-identical to the *short form* and `assertNotEquals` to the plain
+reference. `aLongerToolNameIsNotABypass` is extended from one spelling to all four, against `_xy` and
+`_xtra`, because over-matching is the only way this change could have done harm; a new
+`whitespaceInsideTheBracesIsNotAReferenceAtAll` pins the non-spelling above.
+`theTwoDeclaredBypassPrefixesBypass` is renamed `theTwoShortBypassPrefixesBypass`, former name in its
+javadoc: the handler declared two prefixes when that test was written and declares four now, so the
+old name pointed at the wrong set. The class javadoc's "three traps" list becomes two, with the
+closed one recorded as closed rather than dropped.
+*Ledger:* **unchanged**, verified rather than assumed — 1,012 invocations, SAFE 481,
+KNOWN_VULNERABLE 68, SUPPRESSED_BY_DESIGN 415, SUPPRESSED_UNINTENDED 12, REJECTED 36, re-tallied from
+`build/reports/canoe/matrix.csv` after the change. No corpus template uses `$_x` in any spelling: the
+corpus is about what the encoder does to a payload, and a case that bypassed the encoder would be
+measuring nothing. The three mentions of `$_x.asis()` in `CanoeCorpus.java` are prose about why a
+suppressed value drives developers to it.
+*Coverage:* **unchanged** — Canoe 292/303 = 96.37% (floor 95), HtmlEncoder 315/320 = 98.44%
+(floor 98), `reallyProcessChar()` 169/174 = 97.13% (floor 96), `setTagAttributeContext()` 10/10,
+`normalisePlainTextAttributeNames()` 20/20. `CanoeReferenceInsertionHandler` is not a gated class, and
+the change replaces a two-term `||` with a loop, so the gate's own branch inventory is untouched and
+`build.gradle` needs no edit.
+*F12's exemption in `MatrixReportTest.FINDINGS_WITHOUT_CASES` is left alone*, checked rather than
+assumed: it says F12 is "about Velocity reference forms rather than about a sink", which is still
+true and still names `VelocityIntegrationTest`. R23 closed a footgun recorded in F12's notes, not
+F12; **F12's status does not move** and R24 still owns it.
+*Docs:* `qlue_user_guide.md`'s `$_x` section said in so many words that the formal spellings "are
+encoded like any other reference, and `asis()` written that way silently does nothing". That sentence
+is now false, so it is rewritten — all four spellings listed as bypasses, plus the two things a reader
+now needs instead: that a name merely beginning with `_x` is not a bypass, and that whitespace inside
+the braces is not a reference. The edit is confined to the paragraph R23 falsifies; **R25 still owns
+the documentation rewrite**.
+*Review:* F12's `Verified` block in `CANOE-SECURITY-REVIEW-2026-07-25.md` carries a `Resolved — R23`
+note scoped explicitly to its `${_x.` paragraph, saying that F12 itself is untouched and still live.
+The glance-table row for F12 still points at R24 and adds the same scoping.
+*Gates:* `./gradlew test` (6,129 tests, 0 failures, 0 errors, 0 skipped) and `canoeCoverageGate`
+green. `browserTest` was **not** run: there is a known hang in this environment, owned by R28, and
+R23 changes nothing the browser tier renders. The browser tier replays corpus templates, and no
+corpus template uses `$_x` in any spelling — a case that bypassed the encoder would be measuring
+nothing — so the bytes handed to Chromium are identical before and after.
 
 *Done when:* `VelocityIntegrationTest.formalNotationSilentlyDefeatsTheBypassBecauseThePrefixIs`
-`MatchedLiterally` is inverted.
+`MatchedLiterally` is inverted. ✅
 
 ---
 
@@ -1491,7 +1555,7 @@ figure in this plan was measured in: 91 passed, 2 skipped.
 | F9 — `write(char[],int,int)` length/end confusion | Low (latent) | R15 |
 | F10 — `SCRIPT_END` accepts `</scriptfoo>` | Low (latent) | R17 ✅ (delimiter required, mismatch re-processed, fold bounded to ASCII) |
 | F11 — unquoted attribute references vanish | Low | R19 ✅ (`TAG_ATTR_VALUE_BEFORE` shares `TAG_ATTR_VALUE`'s case label); the `COMMENT_*`/`DOCTYPE_*` half of the finding is deliberately left suppressing |
-| F12 — `#set` interpolation uses the wrong context | Low | R24 |
+| F12 — `#set` interpolation uses the wrong context | Low | R24; the `${_x.` footgun recorded in F12's notes is closed separately by R23 ✅ (all four Velocity reference spellings bypass) |
 | F13 — `[Encoding Error]` branch unreachable | Medium | R21 ✅ (typed `CanoeEncodingException` found on the cause chain; the marker is gone, the flush is suppressed and the response is reset so the request can fail cleanly) + R20 ✅ (the rejection table triaged: `<br/>`, names to 127 characters and a second DOCTYPE render; the literal `<`, `</ p>`, `</>` and C0 controls stay rejected, each with its reason recorded) |
 | F14 — comment ending in three dashes never closes | Low | R16 |
 | F15 — `url()` corrupts legitimate URLs five ways | Low | R11, R12 |
