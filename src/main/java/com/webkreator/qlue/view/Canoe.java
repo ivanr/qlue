@@ -65,6 +65,23 @@ public class Canoe extends Writer {
      */
     public static final int CTX_URI_RESOURCE = 6;
 
+    /**
+     * The prefix every encoding error's message carries.
+     *
+     * <p><strong>Kept, deliberately, but no longer load-bearing (R21).</strong> It used to be how an
+     * encoding error was <em>recognised</em>: {@code VelocityViewFactory.render()} tested
+     * {@code e.getMessage().startsWith(ERROR_PREFIX)} on the exception it caught, which was always
+     * Velocity's wrapper and never Canoe's, so the test could never be true (F13). Recognition is now
+     * {@link CanoeEncodingException#findIn(Throwable)}, a type in the cause chain, and nothing in
+     * {@code src/main} matches on this string any more.
+     *
+     * <p>It survives because the <em>message</em> is a compatibility surface of its own: this
+     * constant is public API, it is what an application's log lines and any operator's grep have been
+     * seeing since Canoe was written, and {@link CanoeEncodingException} still builds its message with
+     * it. Retiring it would have changed every diagnostic in the field to close a defect that was
+     * never about the string. A caller wanting the error without the decoration should use
+     * {@link CanoeEncodingException#getReason()} rather than stripping this prefix.
+     */
     public static final String ERROR_PREFIX = "Encoding Error: ";
 
     public static final int MAX_TAGNAME_LEN = 36;
@@ -1624,16 +1641,23 @@ public class Canoe extends Writer {
     }
 
     /**
-     * Raise an error.
+     * Raise an error: put the parser in {@link #INVALID} and throw.
      *
-     * @param errorMessage
-     * @throws IOException
+     * <p>The exception is a {@link CanoeEncodingException} rather than a bare {@link IOException}
+     * (R21, closing F13). Nothing about <em>when</em> Canoe raises changed with it; what changed is
+     * that the thing thrown can still be recognised after Velocity has wrapped it, and that it
+     * carries the line and position as fields rather than only inside the message. The message
+     * itself is byte for byte what it was.
+     *
+     * @param errorMessage the error, without the prefix and without the coordinates
+     * @throws CanoeEncodingException always
      */
-    private void raiseError(String errorMessage) throws IOException {
+    private void raiseError(String errorMessage) throws CanoeEncodingException {
         state = INVALID;
-        this.errorMessage = ERROR_PREFIX + errorMessage + " (line: "
-                + currentLine + ", pos: " + currentPos + ")";
-        throw new IOException(this.errorMessage);
+        CanoeEncodingException error =
+                new CanoeEncodingException(errorMessage, currentLine, currentPos);
+        this.errorMessage = error.getMessage();
+        throw error;
     }
 
     /**

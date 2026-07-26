@@ -450,6 +450,30 @@ jacocoTestReport {
  *   Canoe                             278 / 289 branches   96.19%   (unchanged by R19; the shared
  *                                                                    case label adds no target)
  *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14 - R19)
+ *
+ * RE-MEASURED after R21 (make encoding errors catchable, F13). Nothing moved in either gated class,
+ * and this time the reason is that the change is almost entirely outside them. In Canoe, R21 touches
+ * one method: raiseError() now builds a CanoeEncodingException instead of an IOException, and it is
+ * straight-line code before and after - JaCoCo reports NO branch counter for it in either run, so
+ * there is nothing there to cover or to miss. Canoe stays at 278/289 = 96.19%, reallyProcessChar at
+ * 163/168 = 97.02%, currentContext() at 11/13, and the eleven dead outcomes are the same eleven
+ * (5 reallyProcessChar + 2 currentContext + 4 inBuf), re-read from the XML. HtmlEncoder is untouched.
+ * No floor moves.
+ *
+ * The branches R21 does add are in two ungated classes, and they are recorded here rather than in the
+ * gate because the gate is about Canoe's tokenizer and these are not it - but they are fully covered,
+ * which is the thing worth writing down: CanoeEncodingException.findIn() is 6/6 (the type match, the
+ * null terminator and the depth bound, from both sides -
+ * CanoeEncodingExceptionTest.findInIsBoundedAtThirtyTwoLinks), VelocityViewFactory
+ * .discardPartialResponse() is 4/4 (null response, committed, uncommitted) and
+ * VelocityViewFactory.render(Page, VelocityView, Writer) is 13/14, up from 11/14, because
+ * ViewFactoryRenderTest.theProductionEntryPointWiresTheResponseReset now drives the two-argument
+ * entry point with a real TransactionContext and so reaches the `context != null` arm for the first
+ * time. That entry point itself went from 0 instructions covered to all 19.
+ *
+ *   Canoe                             278 / 289 branches   96.19%   (unchanged by R21; raiseError()
+ *                                                                    is straight-line either way)
+ *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14 - R21)
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],

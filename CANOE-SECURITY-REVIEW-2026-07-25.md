@@ -54,7 +54,7 @@ by application code calling `setAutoEscaping(false)`.
 | F10 | Low (latent) | `SCRIPT_END` accepts `</scriptfoo>` as a script terminator — **fixed in R17** |
 | F11 | Low | Unquoted attribute references silently render as the empty string — **the attribute-value half fixed in R19** |
 | F12 | Low | References inside `#set` and interpolated strings use the wrong context |
-| F13 | Medium | The `[Encoding Error]` recovery branch is unreachable; every encoding error is an unhandled 500 |
+| F13 | Medium | The `[Encoding Error]` recovery branch is unreachable; every encoding error is an unhandled 500 — **fixed in R21** |
 | F14 | Low | A comment ending in three or more dashes never closes, suppressing the rest of the page |
 | F15 | Low | `url()` silently corrupts legitimate URLs five different ways |
 | F16 | Low | `js()` truncates astral code points; `css()` emits unterminated hex escapes and drops everything above U+00FF |
@@ -1150,6 +1150,50 @@ known-good tag boundary, or failing the request outright, would both be more hon
 > `Page`, a real `QlueApplication`, a real `VelocityView` and a real `Template` — and asserts on what
 > a caller observes: an exception escapes, and no `[Encoding Error]` reaches the response. Both flip
 > when the fix lands.
+
+> **Resolved — R21 (2026-07-26).** `Canoe.raiseError()` throws a `CanoeEncodingException extends
+> IOException` carrying the reason, the line and the position as fields; `VelocityViewFactory.render()`
+> finds it with `CanoeEncodingException.findIn(e)` — a bounded walk of the cause chain, matching on
+> the type — and rethrows it unwrapped, so a caller catches Canoe's exception rather than pattern-matching
+> Velocity's message. `ERROR_PREFIX` is kept, because the *message* is its own compatibility surface,
+> but nothing in `src/main` matches on it any more.
+>
+> **The recovery is to fail the request outright**, and the two alternatives were rejected on the
+> record. The marker branch is deleted: the response ends inside an element, so `[Encoding Error]`
+> would land in an attribute list under a 200. Truncation to the last tag boundary was rejected as
+> worse than the 500 it replaces — a truncated document is one a browser renders as though it were
+> whole, so the reader gets a page silently missing its content, and Canoe would have to buffer from
+> the last boundary onwards to be able to rewind to it. What R21 adds instead is the part that was
+> actually broken and is not in the table above: `render()`'s `finally` block flushed
+> **unconditionally**, which committed the half-written page, and `QlueApplication.service()` only
+> sends its 500 `!response.isCommitted()`. So the 500 the finding describes could not in fact be sent.
+> The flush is now suppressed on the error path and the production entry point calls
+> `response.resetBuffer()` while the response is still uncommitted, which is also what stops a
+> `page.handleException()` view being appended to the fragment — that view has no `isCommitted()`
+> guard of its own, so the reset rather than the suppressed flush is what protects it.
+>
+> **The residual, which is a bound on the fix rather than a defect in it.** A servlet response commits
+> when its buffer fills, and the buffer is a few kilobytes — the specification sets no size, Tomcat
+> defaults to 8KB — so a template that raises an encoding error after that much output has already put
+> a fragment on the wire, and nothing can withdraw it. That case is logged at error level and the
+> exception still propagates; truncation would not have recovered it either. `setBufferSize()` is the
+> only lever an application has over where the bound sits.
+>
+> Two things the table understated. Velocity's wrapper is not one message but at least four: a
+> rejection inside a `#parse`d fragment surfaces as `Exception rendering #parse(...)` and one inside a
+> macro body as `VelocimacroProxy.render() : exception VM = #m()`, and **neither contains `IO Error`
+> nor Canoe's message at all**, so no repair of the message test could have found them
+> (`CanoeEncodingExceptionTest.velocityWrapsCanoesExceptionInMessagesThatShareNoCommonPrefix`). And
+> the reported line and position are coordinates in the *rendered output*, not in any template file —
+> the `/` of a `<br/>` in an included fragment is reported at its position in the response. That is
+> the right answer to the question Canoe can answer and not the question a developer asks, which is
+> worth knowing before R20 reports these to anyone.
+>
+> `CanoeRobustnessTest.noErrorCanoeRaisesIsSwallowedInProduction` is inverted to
+> `.everyErrorCanoeRaisesEscapesRenderAsACatchableCanoeEncodingException`, keeping its former name and
+> this mechanism in its javadoc, and joined by `.aRejectedTemplateIsNotFlushedSoTheResponseCanStillBeReset`.
+> Which templates are rejected did not change, so the ledger's 44 `REJECTED` invocations are unmoved;
+> that triage is R20, which now has a typed exception with structured coordinates to build on.
 
 ---
 

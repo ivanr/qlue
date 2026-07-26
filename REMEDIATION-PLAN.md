@@ -1109,8 +1109,84 @@ land first so the failure is a diagnosable error rather than a 500 on a half-wri
 
 ---
 
-**R21 — Make encoding errors catchable**
+**R21 — Make encoding errors catchable** — ✅ **DONE**
 *Closes:* F13. *Depends on:* nothing.
+*Landed:* `Canoe.raiseError()` throws a `CanoeEncodingException extends IOException` carrying the
+reason, the line and the position as **fields** (`getReason()`, `getLine()`, `getPosition()`) as well
+as in the message, and `VelocityViewFactory.render()` recognises it with
+`CanoeEncodingException.findIn(e)` — a depth-bounded walk of the cause chain, matching on the **type**
+— then rethrows it unwrapped, so a caller catches Canoe's exception instead of pattern-matching
+Velocity's message. `ERROR_PREFIX` is **kept** and its javadoc says why: the message is its own
+compatibility surface (public constant, every log line and operator grep in the field), the defect was
+never about the string, and `CanoeEncodingException` is now the single place that builds it — but
+nothing in `src/main` matches on it any more.
+
+**The recovery is to fail the request outright**, decided on the record with both alternatives
+rejected in `discardPartialResponse()`'s javadoc. The `[Encoding Error]` marker is deleted: the
+response ends *inside* an element, so the marker would land in an attribute list under a 200 and the
+client would get a page that looks served and is not. Truncation to the last known-good tag boundary
+was rejected as worse than the 500 it replaces — a truncated document is one a browser renders as
+though it were whole, so the reader silently loses the content and the footer with nothing saying so,
+and Canoe would have to buffer from the last boundary onwards to be able to rewind to it, giving up
+the streaming property.
+
+**What was actually broken, and is not in the finding's table:** `render()`'s `finally` block flushed
+**unconditionally**, which committed the half-written page, and `QlueApplication.service()` only sends
+its 500 while `!response.isCommitted()` (`QlueApplication.java:666`) — so the unhandled 500 F13
+describes could not in fact be sent. The flush is now suppressed on the error path, and the production
+entry point `render(Page, VelocityView)` calls `response.resetBuffer()` while the response is still
+uncommitted, which is also what stops a `page.handleException()` view being appended to the fragment
+of the broken page. The two halves of `service()`'s recovery need the uncommitted response in
+different ways, and `discardPartialResponse()`'s javadoc now says which is which: `sendError()` is
+skipped outright by an explicit `isCommitted()` guard, whereas a `handleException()` view has no guard
+at all and would simply be appended to the broken page. The residual is stated rather than hidden: a
+response commits when its buffer fills, and the buffer is a few kilobytes — the servlet specification
+sets no size, Tomcat defaults to 8KB, other containers pick their own and `setBufferSize()` is the
+application's only lever — so a template that raises after that much output has already put bytes on
+the wire; that case is logged at error level and the exception still propagates. Truncation would not
+have recovered it either.
+
+**Two things the finding understated.** Velocity's wrapper is not one message but at least four — a
+rejection inside a `#parse`d fragment surfaces as `Exception rendering #parse(...)` and one inside a
+macro body as `VelocimacroProxy.render() : exception VM = #m()`, and **neither contains `IO Error` nor
+Canoe's message at all**, so no repair of the message test could have found them
+(`CanoeEncodingExceptionTest.velocityWrapsCanoesExceptionInMessagesThatShareNoCommonPrefix`). And the
+reported line and position are coordinates in the **rendered output**, not in any template file: the
+`/` of a `<br/>` inside an included fragment is reported at its position in the response. That is the
+right answer to the question Canoe can answer and not the question a developer asks — worth knowing
+before R20 reports these to anyone.
+
+*Tests:* `CanoeRobustnessTest.noErrorCanoeRaisesIsSwallowedInProduction` is inverted to
+`.everyErrorCanoeRaisesEscapesRenderAsACatchableCanoeEncodingException`, keeping its former name and
+F13's mechanism in its javadoc, and joined by
+`.aRejectedTemplateIsNotFlushedSoTheResponseCanStillBeReset`; a new `CanoeEncodingExceptionTest` owns
+the type (the cause-chain walk, the four wrapper shapes — measured against real Velocity renders, not
+against hand-built exceptions — the structured coordinates, the cycle bound);
+`ViewFactoryRenderTest` and `ProductionRenderProbe` learned the typed path and the reset.
+`ViewFactoryRenderTest.theProductionEntryPointWiresTheResponseReset` **drives** the two-argument
+`render(Page, VelocityView)` rather than reading the source for it: `ProductionRenderProbe
+.renderThroughResponse()` builds a real `TransactionContext` over four `Proxy`-stubbed servlet
+interfaces — its constructor needs a remote address, a request URI and a session that remembers
+attributes, and nothing else — so the reset is asserted by its effect (an empty response body) and
+the committed residual by its effect too (the partial page still there, and still Canoe's exception
+rather than an `IllegalStateException` from `resetBuffer()`).
+*Ledger:* **unchanged** — which templates Canoe rejects did not change, only how the rejection is
+delivered, so the 44 `REJECTED` invocations and every other verdict stand (1008 invocations: SAFE 469,
+KNOWN_VULNERABLE 68, SUPPRESSED_BY_DESIGN 415, SUPPRESSED_UNINTENDED 12, REJECTED 44). `Verdict`'s
+`REJECTED` javadoc and the matrix scoreboard now say what a rejection *does* since R21.
+*Coverage:* Canoe 278/289 = 96.19% (floor 95), HtmlEncoder 315/320 = 98.44% (floor 98),
+`reallyProcessChar()` 163/168 = 97.02% (floor 96) — `raiseError()` carries no branch counter at all in
+the JaCoCo XML, before or after, so no branch moved and no floor moved; the eleven dead outcomes are
+the same eleven. The branches R21 adds are outside the gated classes and are fully covered:
+`CanoeEncodingException.findIn()` 6/6, `discardPartialResponse()` 4/4, and
+`render(Page, VelocityView, Writer)` 13/14 (was 11/14 — the `context != null` arm is reached for the
+first time), with `render(Page, VelocityView)` itself going from 0 of 19 instructions to all 19.
+`build.gradle`'s inventory records the re-measurement. `./gradlew test` (6,096 tests, 0 failures) and
+`canoeCoverageGate` green; `browserTest` green on Chromium — 91 passed, 2 skipped (Firefox and WebKit
+are not installed here), unchanged by R21, which touches nothing the browser tier renders.
+**R20 now has** a typed exception with a stable `getReason()` to group rejections by, structured
+coordinates to report, and a recovery that fails the request cleanly — so its triage is a decision
+about *which* inputs to reject, with the delivery mechanism already settled.
 
 `VelocityViewFactory.java:218-224` tests `e.getMessage().startsWith(Canoe.ERROR_PREFIX)` on the
 **top-level** exception, but Velocity always wraps: the production `Template.merge()` path yields
@@ -1262,7 +1338,7 @@ a page with an author nonce and a real CSP), and §A.3 of the test plan is missi
 | F10 — `SCRIPT_END` accepts `</scriptfoo>` | Low (latent) | R17 ✅ (delimiter required, mismatch re-processed, fold bounded to ASCII) |
 | F11 — unquoted attribute references vanish | Low | R19 ✅ (`TAG_ATTR_VALUE_BEFORE` shares `TAG_ATTR_VALUE`'s case label); the `COMMENT_*`/`DOCTYPE_*` half of the finding is deliberately left suppressing |
 | F12 — `#set` interpolation uses the wrong context | Low | R24 |
-| F13 — `[Encoding Error]` branch unreachable | Medium | R21, R20 |
+| F13 — `[Encoding Error]` branch unreachable | Medium | R21 ✅ (typed `CanoeEncodingException` found on the cause chain; the marker is gone, the flush is suppressed and the response is reset so the request can fail cleanly); R20 triages which inputs are rejected at all |
 | F14 — comment ending in three dashes never closes | Low | R16 |
 | F15 — `url()` corrupts legitimate URLs five ways | Low | R11, R12 |
 | F16 — `js()` truncates astral; `css()` escapes unterminated | Low | R13 |

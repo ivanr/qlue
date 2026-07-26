@@ -2,6 +2,7 @@ package com.webkreator.qlue.view.canoe;
 
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.Canoe;
+import com.webkreator.qlue.view.CanoeEncodingException;
 import com.webkreator.qlue.view.velocity.CanoeReferenceInsertionHandler;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
@@ -12,7 +13,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.LinkedHashMap;
@@ -123,17 +123,17 @@ public final class CanoeTestSupport {
      * <p>Never throws. An encoding error is reported through {@link RenderResult#isError()} together
      * with whatever output reached the writer before the error.
      *
-     * <p>Note what a real caller observes, which is <em>not</em> the same thing:
-     * {@code VelocityViewFactory.render()} intends to swallow encoding errors and append
-     * {@code [Encoding Error]}, but it tests {@code startsWith(Canoe.ERROR_PREFIX)} on the top-level
-     * exception, and Velocity always wraps the {@code IOException} — the production
-     * {@code Template.merge()} path yields {@code "IO Error rendering template '...'"}. That branch
-     * is unreachable, so production propagates the exception as an unhandled 500. That is F13, and
-     * this class deliberately does <em>not</em> model it: a predicate here would be a copy of the
-     * check under test and would keep passing after the check is fixed.
+     * <p>Note what a real caller observes, which is <em>not</em> quite the same thing.
+     * {@code VelocityViewFactory.render()} used to intend to swallow encoding errors and append
+     * {@code [Encoding Error]}, and tested {@code startsWith(Canoe.ERROR_PREFIX)} on the top-level
+     * exception to decide — a test Velocity's wrapper made permanently false (F13). R21 replaced it
+     * with the type in the cause chain and chose the other recovery: the request fails outright, with
+     * the {@code CanoeEncodingException} unwrapped and the partial output left unflushed. This class
+     * deliberately does <em>not</em> model the factory's decision either way: a predicate here would
+     * be a copy of the check under test and would keep answering the same after the check changed.
      * {@code ProductionRenderProbe} drives the real {@code render()} instead, and
-     * {@code CanoeRobustnessTest.noErrorCanoeRaisesIsSwallowedInProduction} asserts on what it
-     * observes.
+     * {@code CanoeRobustnessTest.everyErrorCanoeRaisesEscapesRenderAsACatchableCanoeEncodingException}
+     * asserts on what it observes.
      */
     public static RenderResult render(String template, Map<String, Object> model,
                                       RenderOptions options) {
@@ -215,27 +215,31 @@ public final class CanoeTestSupport {
     }
 
     /**
-     * Walks the cause chain looking for the {@link IOException} Canoe raises. Velocity wraps it in
-     * its own exception types and the nesting depth varies with whichever directive was rendering,
-     * so matching on the top-level message alone misses most of them.
+     * Walks the cause chain looking for the exception Canoe raises. Velocity wraps it in its own
+     * exception types and the message varies with whichever directive was rendering — {@code "IO
+     * Error in writer: ..."}, {@code "Exception rendering #parse(...)"}, {@code "VelocimacroProxy
+     * .render() : ..."} — so matching on the top-level message alone misses most of them.
      *
-     * <p>The match is deliberately strict — an {@code IOException} whose message <em>starts with</em>
-     * the prefix, rather than any throwable whose message merely contains it. The corpus is a
-     * catalogue of hostile strings that Velocity quotes back in its own parse and
-     * method-invocation errors; a loose match would eventually classify one of those as an encoding
-     * error and record a bogus REJECTED verdict.
+     * <p><strong>The match is on the type</strong> ({@link CanoeEncodingException}, R21), which is
+     * strictly stronger than the {@code IOException}-plus-message-prefix test it replaces and no
+     * looser: every one of those exceptions carries the prefix, and nothing else can carry the type.
+     * Strictness matters more here than in most places. The corpus is a catalogue of hostile strings
+     * that Velocity quotes back in its own parse and method-invocation errors; a loose match would
+     * eventually classify one of those as an encoding error and record a bogus REJECTED verdict,
+     * which is a ledger entry nobody can reproduce.
      *
      * <p>The depth bound guards against a cause cycle. {@code Throwable.getCause()} returns null for
      * a self-cycle, but an overridden {@code getCause()} can produce a two-cycle that would spin
-     * forever.
+     * forever. It is the same walk {@link CanoeEncodingException#findIn(Throwable)} performs, and
+     * deliberately a separate copy of it: this one has to answer with the <em>message</em> so that
+     * the rest of the suite can assert coordinates, and a harness that called the production helper
+     * would stop being able to tell the reader what it saw.
      */
     private static String findEncodingError(Throwable t) {
         Throwable current = t;
         for (int depth = 0; current != null && depth < 32; depth++) {
-            String message = current.getMessage();
-            if (current instanceof IOException && message != null
-                    && message.startsWith(Canoe.ERROR_PREFIX)) {
-                return message;
+            if (current instanceof CanoeEncodingException) {
+                return current.getMessage();
             }
             current = current.getCause();
         }

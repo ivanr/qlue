@@ -21,6 +21,7 @@ import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.QlueSession;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.view.Canoe;
+import com.webkreator.qlue.view.CanoeEncodingException;
 import com.webkreator.qlue.view.ViewFactory;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
@@ -30,6 +31,7 @@ import org.apache.velocity.runtime.RuntimeConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.servlet.http.HttpServletResponse;
 import java.io.Writer;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -203,14 +205,41 @@ public abstract class VelocityViewFactory implements ViewFactory {
     /**
      * Generate output, given page and view.
      *
+     * <p>This is the production entry point — the only caller is {@code VelocityView.render()} — and
+     * it is where the writer is known to be the response's own. That is what lets it do the one part
+     * of R21's recovery the {@link #render(Page, VelocityView, Writer)} overload cannot: throw away
+     * the half-written page instead of leaving it in the response buffer. See
+     * {@link #discardPartialResponse(HttpServletResponse, CanoeEncodingException)}.
+     *
      * @param page
      * @param view
      * @throws Exception
      */
     public void render(Page page, VelocityView view) throws Exception {
-        render(page, view, page.getContext().getResponse().getWriter());
+        HttpServletResponse response = page.getContext().getResponse();
+
+        try {
+            render(page, view, response.getWriter());
+        } catch (CanoeEncodingException e) {
+            discardPartialResponse(response, e);
+            throw e;
+        }
     }
 
+    /**
+     * Renders into an arbitrary writer.
+     *
+     * <p><strong>What happens when Canoe refuses (R21, closing F13).</strong> The request fails
+     * outright: the {@link CanoeEncodingException} is pulled out of Velocity's wrapper and rethrown
+     * as itself, so a caller can catch the type rather than pattern-match a message, and the partial
+     * output <em>is not flushed</em>. Both halves are deliberate and both are argued in
+     * {@link #discardPartialResponse(HttpServletResponse, CanoeEncodingException)}.
+     *
+     * <p>An exception that is not an encoding error is rethrown unchanged, and the output is flushed
+     * as it always was. That is a scope boundary rather than a judgement: F13 is about encoding
+     * errors, and what a failed {@code #parse} or a throwing model object should leave in the response
+     * is a different question with different answers.
+     */
     public void render(Page page, VelocityView view, Writer writer) throws Exception {
         final Map<String, Object> model = page.getModel();
 
@@ -264,6 +293,12 @@ public abstract class VelocityViewFactory implements ViewFactory {
             }
         });
 
+        // R21: an encoding error must not reach the client. Everything Canoe accepted before it gave
+        // up has already been written through to this writer -- Canoe.write(char[],int,int) emits the
+        // good characters and then rethrows -- so the only thing still under our control is whether
+        // those bytes are committed. Flushing them is what used to make the failure unrecoverable.
+        boolean flushOutput = true;
+
         try {
             Canoe qlueWriter = new Canoe(writer, plainTextAttributes, trustedResourceOrigins);
 
@@ -280,19 +315,106 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
             template.merge(velocityContext, qlueWriter);
         } catch (Exception e) {
-            String message = e.getMessage();
-            if ((message != null) && (message.startsWith(Canoe.ERROR_PREFIX))) {
-                writer.append("[Encoding Error]");
-            } else {
+            CanoeEncodingException encodingError = CanoeEncodingException.findIn(e);
+            if (encodingError == null) {
                 throw e;
             }
+
+            flushOutput = false;
+
+            // Logged here rather than thrown on, because this is where the context is: the wrapper
+            // names the template the error was raised in, and the wrapper is what the caller stops
+            // seeing. What the caller gets instead is the exception it can do something with.
+            // view.getTemplate() cannot be null here: an encoding error means merge() ran, and it
+            // ran on that template. No guard, because a guard nothing can trigger is a branch
+            // nothing can test.
+            log.error("Canoe refused to render template {}: {}",
+                    view.getTemplate().getName(), encodingError.getMessage(), e);
+
+            throw encodingError;
         } finally {
-            writer.flush();
+            if (flushOutput) {
+                writer.flush();
+            }
 
             // We don't close the stream here in order
             // to enable Qlue to append to output as needed
             // (which is done in development mode)
         }
+    }
+
+    /**
+     * Throws away whatever of the page has already been written, after Canoe has refused to render
+     * the rest of it. R21's recovery, and the reasoning for it.
+     *
+     * <p><strong>What the response holds at this point.</strong> Canoe streams: it writes every
+     * character it accepted straight through to the writer it wraps, and on the character it refuses
+     * it writes the good ones and rethrows ({@code Canoe.write(char[], int, int)}). In production
+     * that writer is {@code response.getWriter()}, so the prefix of the page is already in the
+     * response buffer. For an error inside a tag that prefix ends mid-element — an unterminated
+     * {@code <img}, with the browser still waiting for the {@code >}.
+     *
+     * <p><strong>Why the request fails outright.</strong> Three candidates, and the first was the
+     * shipped one:
+     *
+     * <ul>
+     *   <li><em>Append {@code [Encoding Error]} and serve the page.</em> This is what the unreachable
+     *       branch intended, and it was the worst of the three even had it run: the marker lands
+     *       inside an attribute list rather than in the document, the status code stays 200, and the
+     *       client gets a page that looks served and is not. It is gone.</li>
+     *   <li><em>Truncate to the last known-good tag boundary.</em> More honest than the marker and
+     *       still not honest enough. A truncated document is one a browser renders happily — the
+     *       reader sees a page missing its content and its footer, with a 200 and nothing in it
+     *       saying so, which is precisely the silent-corruption failure mode the rest of this work is
+     *       about removing. It would also cost the streaming property: Canoe would have to buffer
+     *       from the last boundary onwards to be able to rewind to it, and the bytes it must
+     *       un-write are already past the writer in any case.</li>
+     *   <li><em>Fail the request.</em> The rejections are template-authoring errors, not attacker
+     *       input, so the person who needs to know is the developer and the honest report is an
+     *       error. Qlue already knows how to turn one into a response: {@code QlueApplication.service()}
+     *       catches it, offers it to {@code page.handleException()} first, and falls back to
+     *       {@code sendError(500)}. Both of those want the response <strong>uncommitted</strong>, in
+     *       two different ways — {@code sendError()} is skipped outright by an explicit
+     *       {@code !response.isCommitted()} guard, and a {@code handleException()} view has no guard
+     *       at all, so on a committed response it is simply appended to the broken page. That is what
+     *       this method and the suppressed flush protect.</li>
+     * </ul>
+     *
+     * <p><strong>Why not flushing is not enough on its own.</strong> Skipping the flush is what keeps
+     * the response uncommitted, and that alone restores {@code sendError(500)}. But an application
+     * whose page handles the exception renders its error view into the <em>same</em> response, and
+     * without this reset that view would be appended to the fragment of the broken page.
+     * {@code resetBuffer()} discards the unsent body and keeps the status and headers, so the error
+     * view is the whole response.
+     *
+     * <p><strong>The residual, which is real.</strong> A servlet response commits when its buffer
+     * fills, and the buffer is a few kilobytes — the servlet specification sets no size, Tomcat
+     * defaults to 8KB and other containers pick their own — so a template that raises after that much
+     * output has already put a fragment on the wire and nothing here can take it back. That case is
+     * logged at error level and the exception still propagates; there is no recovery for it, and
+     * there is no recovery for it under truncation either. It is a bound on the fix rather than a
+     * defect in it, and {@code response.setBufferSize()} is the only lever an application has over
+     * where the bound sits.
+     *
+     * @param response the response being rendered into. Never null from
+     *                 {@link #render(Page, VelocityView)}, which has already dereferenced it to reach
+     *                 the writer; the guard is for a subclass or a direct caller
+     * @param error    the rejection, for the diagnostic
+     */
+    protected void discardPartialResponse(HttpServletResponse response,
+                                          CanoeEncodingException error) {
+        if (response == null) {
+            return;
+        }
+
+        if (response.isCommitted()) {
+            log.error("Canoe raised an encoding error after the response was committed, so the"
+                            + " client has already received a partial page that cannot be"
+                            + " withdrawn: {}", error.getMessage());
+            return;
+        }
+
+        response.resetBuffer();
     }
 
     /**

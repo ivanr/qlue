@@ -1,6 +1,7 @@
 package com.webkreator.qlue.view.canoe.velocity;
 
 import com.webkreator.qlue.view.Canoe;
+import com.webkreator.qlue.view.CanoeEncodingException;
 import com.webkreator.qlue.view.canoe.CanoeTestSupport;
 import com.webkreator.qlue.view.canoe.corpus.CanoeCorpus;
 import com.webkreator.qlue.view.canoe.corpus.Payload;
@@ -13,11 +14,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Proxy;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -28,6 +33,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -69,12 +75,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code setAutoEscaping(false)} (the cartridge is never attached, so nothing is encoded — but Canoe
  * still parses), {@code allowDirectOutput()} (which decides whether {@code $_x} is in the model at
  * all), and F13's error path, where an encoding error escapes {@code render()} as an exception
- * instead of degrading the page to {@code [Encoding Error]}.
+ * rather than degrading the page to {@code [Encoding Error]} — which after R21 is the decision rather
+ * than the defect.
  *
- * <p>F13 itself is owned by {@code CanoeRobustnessTest}, which drives all thirteen rejection messages
- * through {@code ProductionRenderProbe}. What is here is the part that belongs to this file: that the
+ * <p>F13 itself is owned by {@code CanoeRobustnessTest}, which drives every rejection message through
+ * {@code ProductionRenderProbe}. What is here is the part that belongs to this file: that the
  * <em>partial output</em> the two paths leave behind before giving up is byte-identical too, which is
- * the half a caller of {@code render()} actually receives.
+ * the half a caller of {@code render()} actually receives — and R21's response reset, which is the
+ * step that stops that half being served.
  *
  * <h2>Why there are no mocks</h2>
  *
@@ -483,8 +491,12 @@ public class ViewFactoryRenderTest {
      * {@code RenderResult.output()} is a faithful model of what a real response contains after an
      * encoding error, and the response ends mid-element with no marker of any kind.
      *
-     * <p>The last two assertions are the ledger pin. They fail when F13 is fixed, and that failure is
-     * the signal to update this test rather than a regression.
+     * <p>The last two assertions were the ledger pin, and R21 is what they were waiting for. They
+     * still read the same way — an exception escapes, no marker appears — but they now assert a
+     * decision rather than record a defect: the recovery is to <strong>fail the request outright</strong>,
+     * so the exception escaping is the fix and not the symptom, and the marker is gone because
+     * appending it to a response that ends inside an attribute list was never a recovery. What
+     * changed is the third assertion: the exception a caller gets is Canoe's own, by type.
      */
     @Test
     public void anEncodingErrorLeavesIdenticalPartialOutputOnBothPathsAndNoMarker() {
@@ -501,13 +513,149 @@ public class ViewFactoryRenderTest {
                 "and the production response contains exactly the same bytes");
 
         assertTrue(production.exceptionEscaped(),
-                () -> "F13: the recovery branch tests startsWith(ERROR_PREFIX) on the top-level"
-                        + " exception, and Template.merge() wraps it as \"IO Error rendering"
-                        + " template '...'\", so the branch never runs and the caller gets an"
-                        + " exception. " + production);
+                () -> "R21: the request fails outright, which is the recovery. " + production);
+        assertInstanceOf(CanoeEncodingException.class, production.escaped(),
+                () -> "R21: and it fails with the exception Canoe threw, unwrapped, so a caller can"
+                        + " catch the type instead of matching a message. " + production);
         assertFalse(production.recoveryBranchRan(),
-                "F13: no [Encoding Error] marker reaches the response. When this fails, F13 has"
-                        + " been fixed and the ledger needs updating.");
+                "R21: no [Encoding Error] marker reaches the response, on any path. The branch that"
+                        + " appended it is deleted rather than repaired.");
+    }
+
+    /**
+     * R21's response reset, driven directly against a stub {@code HttpServletResponse}.
+     *
+     * <p>This is the step {@code render(Page, VelocityView)} — the production entry point, and the
+     * one place the writer is known to be the response's own — takes when Canoe refuses. Not
+     * flushing keeps the response uncommitted; this is what makes the half-written page go away, so
+     * that a {@code page.handleException()} view is the whole response rather than an error page
+     * appended to a broken one. {@code sendError()} would clear the buffer by itself, so the reset
+     * earns its keep on the handled path rather than on the 500.
+     *
+     * <p>The committed case is the residual, and it is asserted rather than assumed: a response whose
+     * buffer has already gone out (8KB by default) cannot be withdrawn, and R21 does not pretend
+     * otherwise — it logs and lets the exception through. {@code resetBuffer()} on a committed
+     * response throws {@code IllegalStateException} per the servlet contract, so calling it anyway
+     * would turn an encoding error into a different exception entirely.
+     *
+     * <p>Driven through a {@link Proxy} rather than a mock: mockito's inline mock
+     * maker cannot instrument a class on this JDK (see this file's header), and a proxy over the
+     * interface is exactly as much of a servlet container as this needs.
+     */
+    @Test
+    public void theResponseIsResetWhenItStillCanBeAndNotWhenItCannot() {
+        List<String> uncommittedCalls = new ArrayList<>();
+        ProductionRenderProbe.discardPartialResponse(
+                stubResponse(false, uncommittedCalls),
+                new CanoeEncodingException("Invalid character after tag name", 1, 4));
+        assertEquals(List.of("isCommitted", "resetBuffer"), uncommittedCalls,
+                "R21: an uncommitted response is asked whether it is committed and then emptied, so"
+                        + " the half-written page cannot be part of whatever is served instead");
+
+        List<String> committedCalls = new ArrayList<>();
+        ProductionRenderProbe.discardPartialResponse(
+                stubResponse(true, committedCalls),
+                new CanoeEncodingException("Invalid character after tag name", 1, 4));
+        assertEquals(List.of("isCommitted"), committedCalls,
+                "R21: a committed response is left alone - the bytes are on the wire and"
+                        + " resetBuffer() would throw IllegalStateException. That is the residual,"
+                        + " and no recovery closes it");
+
+        // Null is the "no response to reset" case, which is every caller of the three-argument
+        // render() that supplied its own writer. It must not throw.
+        ProductionRenderProbe.discardPartialResponse(
+                null, new CanoeEncodingException("Invalid tag", 1, 3));
+    }
+
+    /**
+     * That the production entry point actually calls the step above — <strong>driven</strong>, not
+     * read.
+     *
+     * <p>This test used to assert the wiring by reading {@code VelocityViewFactory.java} and looking
+     * for {@code catch (CanoeEncodingException e)} and {@code discardPartialResponse(response, e)} in
+     * the entry point's body, on the reasoning that a {@code TransactionContext} could not be
+     * constructed without a live servlet stack. That reasoning was too pessimistic and the assertion
+     * was too weak: reading the source proves somebody wrote the call, not that calling it does
+     * anything. {@code TransactionContext}'s constructor needs a remote address, a request URI and a
+     * session that remembers attributes, and nothing else — so
+     * {@link ProductionRenderProbe#renderThroughResponse} builds a <em>real</em> context over four
+     * {@link Proxy} stubs and drives {@code render(Page, VelocityView)} itself. The source-reading
+     * assertions that survive are the two that are genuinely about the text: that the marker literal
+     * and the message-prefix constant are gone from the file rather than commented out.
+     *
+     * <p>What the driven half shows, end to end: the request fails with Canoe's own exception, and
+     * the half-written page is not merely unflushed but <em>gone</em>, so whatever
+     * {@code QlueApplication.service()} does next — a {@code handleException()} view or a
+     * {@code sendError(500)} — starts from an empty body.
+     */
+    @Test
+    public void theProductionEntryPointWiresTheResponseReset() throws IOException {
+        ProductionRenderProbe.ResponseOutcome outcome =
+                ProductionRenderProbe.renderThroughResponse("<p>ok</p><br/>", false);
+
+        assertInstanceOf(CanoeEncodingException.class, outcome.escaped(),
+                () -> "R21: the entry point rethrows Canoe's exception unwrapped. " + outcome);
+        assertEquals("Invalid character after tag name", outcome.encodingError().getReason());
+        assertTrue(outcome.calls().contains("resetBuffer"),
+                () -> "R21: ...after resetting the response buffer. " + outcome);
+        assertEquals("", outcome.body(),
+                "R21: and the half-written page is gone, so a handleException() view is the whole"
+                        + " response rather than an error page appended to a broken one");
+
+        // The control: a template Canoe accepts is served, and nothing is reset.
+        ProductionRenderProbe.ResponseOutcome clean =
+                ProductionRenderProbe.renderThroughResponse("<p>ok</p>", false);
+        assertFalse(clean.exceptionEscaped(), () -> "the control: " + clean);
+        assertFalse(clean.calls().contains("resetBuffer"),
+                () -> "a page that renders is not reset: " + clean);
+        assertEquals("<p>ok</p>", clean.body());
+
+        // The residual, on the real path: a response that has already gone out cannot be withdrawn,
+        // and the entry point must not turn that into an IllegalStateException from resetBuffer().
+        ProductionRenderProbe.ResponseOutcome committed =
+                ProductionRenderProbe.renderThroughResponse("<p>ok</p><br/>", true);
+        assertInstanceOf(CanoeEncodingException.class, committed.escaped(),
+                () -> "R21: still Canoe's exception, not the servlet container's. " + committed);
+        assertEquals("<p>ok</p><br", committed.body(),
+                "and the partial page is still there, because there is no recovery for it");
+
+        Path source = Path.of(
+                "src/main/java/com/webkreator/qlue/view/velocity/VelocityViewFactory.java");
+        assertTrue(Files.isReadable(source),
+                "cannot read " + source.toAbsolutePath() + "; this test must run with the project"
+                        + " directory as its working directory");
+        String text = Files.readString(source, StandardCharsets.UTF_8);
+
+        // The marker as a Java string literal, not as the phrase: the reasoning for deleting it is
+        // written out in discardPartialResponse()'s javadoc, and that prose is the point.
+        assertFalse(text.contains("\"[Encoding Error]\""),
+                "R21: the marker branch is deleted, not commented out");
+        assertFalse(text.contains("ERROR_PREFIX"),
+                "R21: and nothing in the factory matches on the message prefix any more - the type"
+                        + " in the cause chain is the whole recognition rule");
+    }
+
+    /**
+     * A stub {@code HttpServletResponse} that records the calls R21's reset makes.
+     *
+     * @param committed what {@code isCommitted()} should answer
+     * @param calls     the list every invoked method name is appended to, in order
+     */
+    private static HttpServletResponse stubResponse(boolean committed, List<String> calls) {
+        return (HttpServletResponse) Proxy.newProxyInstance(
+                ViewFactoryRenderTest.class.getClassLoader(),
+                new Class<?>[]{HttpServletResponse.class},
+                (proxy, method, args) -> {
+                    calls.add(method.getName());
+                    if ("isCommitted".equals(method.getName())) {
+                        return committed;
+                    }
+                    if (method.getReturnType().isPrimitive()
+                            && method.getReturnType() != void.class) {
+                        return 0;
+                    }
+                    return null;
+                });
     }
 
     /**
@@ -518,6 +666,12 @@ public class ViewFactoryRenderTest {
      * is raised from inside {@code merge()} either way; if a loader ever buffered the template
      * differently, the number of characters that reached the writer before the error would change,
      * and that is a real difference a caller would see.
+     *
+     * <p>Which is why the coordinates are compared and not only the presence of an error. R21 made
+     * them readable — {@code getLine()} and {@code getPosition()} rather than a substring of the
+     * message — and the position <em>is</em> "how many characters reached the writer", so asserting
+     * the two loaders agree on it is the direct form of the claim this test has always made
+     * indirectly.
      */
     @Test
     public void theFileBackedAndStringBackedTemplatesFailIdentically() {
@@ -529,8 +683,19 @@ public class ViewFactoryRenderTest {
                 "the resource loader does not change what reaches the response");
         assertEquals(fromString.exceptionEscaped(), fromFile.exceptionEscaped());
         assertTrue(causeChainMentions(fromFile.escaped(), Canoe.ERROR_PREFIX),
-                () -> "and Canoe's own IOException is in the cause chain either way: "
+                () -> "and Canoe's own exception is in the cause chain either way: "
                         + fromFile.escaped());
+
+        assertInstanceOf(CanoeEncodingException.class, fromFile.escaped(),
+                () -> "R21: by type, from a file-backed template too. " + fromFile);
+        assertEquals(fromString.encodingError().getReason(),
+                fromFile.encodingError().getReason(), "the same rejection");
+        assertEquals(fromString.encodingError().getLine(),
+                fromFile.encodingError().getLine(), "on the same line");
+        assertEquals(fromString.encodingError().getPosition(),
+                fromFile.encodingError().getPosition(),
+                "at the same position, which is the count of characters that reached the writer"
+                        + " before Canoe gave up - the thing a buffering loader would move");
     }
 
     // ------------------------------------------------------------------

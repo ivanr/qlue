@@ -18,7 +18,9 @@ package com.webkreator.qlue;
  * production input that is absent is the {@code TransactionContext}: {@code getContext()} returns
  * null on a page that was never routed, which makes {@code render()} skip the block publishing
  * {@code _ctx}, {@code _req}, {@code _res} and the session. No template under test refers to any of
- * those, and supplying them would mean mocking the servlet stack to no purpose.
+ * those, and supplying them would mean mocking the servlet stack to no purpose — except for R21's
+ * production entry point, which reaches the response through the context and therefore cannot be
+ * driven without one. {@link #setTransactionContext} is the door for that one case.
  */
 public class CanoeProbePage extends Page {
 
@@ -37,6 +39,20 @@ public class CanoeProbePage extends Page {
      */
     public CanoeProbePage(boolean allowDirectOutput) {
         setApp(new ProbeApplication(allowDirectOutput));
+    }
+
+    /**
+     * Attaches a {@link TransactionContext}, which routing would normally do.
+     *
+     * <p>Exists because {@code Page.setContext()} is package-private, and because R21's production
+     * entry point {@code VelocityViewFactory.render(Page, VelocityView)} reaches the response through
+     * {@code page.getContext().getResponse()} — so a page with no context cannot drive it at all. See
+     * {@code ProductionRenderProbe.renderThroughResponse()}, which builds a real context over stub
+     * servlet interfaces; the paragraph above about the context being "the one production input that
+     * is absent" is still true of every other entry point here.
+     */
+    public void setTransactionContext(TransactionContext context) {
+        setContext(context);
     }
 
     /**

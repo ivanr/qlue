@@ -2,15 +2,27 @@ package com.webkreator.qlue.view.velocity;
 
 import com.webkreator.qlue.CanoeProbePage;
 import com.webkreator.qlue.Page;
+import com.webkreator.qlue.TransactionContext;
+import com.webkreator.qlue.view.CanoeEncodingException;
 import org.apache.velocity.Template;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.StringResourceLoader;
 import org.apache.velocity.runtime.resource.util.StringResourceRepository;
 
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.lang.reflect.Array;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -20,13 +32,20 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p><strong>Why this exists.</strong> The rest of the Canoe suite renders through
  * {@code VelocityEngine.evaluate()}, which is fast, needs no {@code .vm} files and no mocks, and
- * exercises Canoe identically. It does not exercise <em>the factory</em>, and F13 is a defect in the
- * factory rather than in Canoe: {@code render()} means to catch an encoding error and degrade the
- * page to {@code [Encoding Error]}, and the test it uses can never be true. A test that re-implements
- * that test over an exception the harness produced is asserting against a copy of the bug, and will
- * still pass after the bug is fixed — which is exactly the failure mode the ledger rule in
- * {@code PLAN.md} §2.1 exists to prevent. So the F13 assertions go through the production method and
- * observe its actual effects: either an exception escapes, or the marker appears in the response.
+ * exercises Canoe identically. It does not exercise <em>the factory</em>, and F13 was a defect in the
+ * factory rather than in Canoe: {@code render()} meant to catch an encoding error and degrade the
+ * page to {@code [Encoding Error]}, and the test it used could never be true. A test that
+ * re-implements that test over an exception the harness produced is asserting against a copy of the
+ * bug, and would still pass after the bug is fixed — which is exactly the failure mode the ledger
+ * rule in {@code PLAN.md} §2.1 exists to prevent. So the F13 assertions go through the production
+ * method and observe its actual effects: what escaped, and what reached the response.
+ *
+ * <p><strong>R21 changed what those effects are, not the reason for observing them here.</strong>
+ * {@code render()} now recognises an encoding error by its type in the cause chain
+ * ({@link CanoeEncodingException#findIn}), fails the request outright with that typed exception, and
+ * leaves the partial output unflushed so the response can still be reset. {@link
+ * Outcome#encodingError()} is what the tests assert on; {@link Outcome#recoveryBranchRan()} survives
+ * as the standing check that no marker was reintroduced.
  *
  * <p>It also closes the second half of that gap. {@code evaluate()} and {@code Template.merge()}
  * wrap Canoe's {@code IOException} in <em>different</em> messages — {@code "IO Error in writer: ..."}
@@ -43,14 +62,25 @@ import java.util.concurrent.atomic.AtomicLong;
  * unmodified, and so are the {@link Page} and the {@code QlueApplication} behind it — see
  * {@link CanoeProbePage}. Nothing here is mocked: Mockito's inline mock maker cannot instrument a
  * class on this JDK, and a real page turned out to need less scaffolding than a mocked one would.
- * The one production input that is absent is the {@code TransactionContext}, which is null on a page
- * that was never routed, so {@code render()} skips the block publishing {@code _ctx}, {@code _req},
- * {@code _res} and the session into the model. No template under test refers to any of those.
- * Everything on the path between the template text and the response writer is real.
+ * On the {@code render(page, view, writer)} entry points the one production input that is absent is
+ * the {@code TransactionContext}, which is null on a page that was never routed, so {@code render()}
+ * skips the block publishing {@code _ctx}, {@code _req}, {@code _res} and the session into the
+ * model. No template under test refers to any of those. Everything on the path between the template
+ * text and the response writer is real.
+ *
+ * <p>{@link #renderThroughResponse(String, boolean)} is the exception, and it is R21's: it drives the
+ * two-argument {@code render(Page, VelocityView)} with a real {@code TransactionContext} built over
+ * stub servlet interfaces, because that entry point exists only to reach the response and reset it.
  */
 public final class ProductionRenderProbe {
 
-    /** What {@code render()} appends when it believes it has caught an encoding error. */
+    /**
+     * What {@code render()} used to append when it believed it had caught an encoding error.
+     *
+     * <p>Kept after R21 deleted the branch that wrote it, because "no marker reaches the response"
+     * is now a property worth holding rather than an observation about a branch that could not run.
+     * See {@link Outcome#recoveryBranchRan()}.
+     */
     public static final String ENCODING_ERROR_MARKER = "[Encoding Error]";
 
     private static final String REPOSITORY_NAME = "CANOE_PRODUCTION_PROBE_REPOSITORY";
@@ -264,6 +294,18 @@ public final class ProductionRenderProbe {
         return merge(template, model, options);
     }
 
+    /**
+     * Publishes a fragment the probe's templates can {@code #parse} or {@code #include}.
+     *
+     * <p>Added by R21. A rejection inside a {@code #parse}d fragment is an ordinary production shape —
+     * layouts are assembled that way — and it is the case that shows Velocity's wrapper message is not
+     * one string but several: {@code "Exception rendering #parse(...)"} mentions neither
+     * {@code "IO Error"} nor Canoe's prefix, so no test on the top-level message could have found it.
+     */
+    public static void publishFragment(String name, String content) {
+        StringResourceLoader.getRepository(REPOSITORY_NAME).putStringResource(name, content);
+    }
+
     /** Renders a template with no references bound. */
     public static Outcome render(String templateText) {
         return render(templateText, new LinkedHashMap<>());
@@ -287,6 +329,20 @@ public final class ProductionRenderProbe {
 
     /** As {@link #render(String, Map)}, with the production switches under the caller's control. */
     public static Outcome render(String templateText, Map<String, Object> model, Options options) {
+        return render(templateText, model, options, new StringWriter());
+    }
+
+    /**
+     * As {@link #render(String, Map, Options)}, rendering into a writer the caller supplies.
+     *
+     * <p>Exists for R21's second half. Whether {@code render()} <em>flushes</em> the partial output
+     * is invisible through a plain {@link StringWriter} — Canoe has already written those characters
+     * through to it before it rethrows, so the bytes are there either way — and it is the whole
+     * difference between a response that can still be reset and one that is on the wire. A
+     * {@link FlushCountingWriter} makes the flush observable; nothing else about the path changes.
+     */
+    public static Outcome render(String templateText, Map<String, Object> model, Options options,
+                                 StringWriter response) {
         String name = "canoe-production-probe-" + TEMPLATE_COUNTER.incrementAndGet() + ".vm";
         StringResourceRepository repository = StringResourceLoader.getRepository(REPOSITORY_NAME);
         repository.putStringResource(name, templateText);
@@ -297,7 +353,262 @@ public final class ProductionRenderProbe {
         } catch (Exception e) {
             throw new IllegalStateException("Could not build a Template from " + templateText, e);
         }
-        return merge(template, model, options);
+        return merge(template, model, options, response);
+    }
+
+    /**
+     * A {@link StringWriter} that counts the calls {@code render()} makes to {@code flush()} and
+     * {@code close()}, standing in for the servlet response writer whose flush commits the response.
+     */
+    public static final class FlushCountingWriter extends StringWriter {
+
+        private int flushes;
+
+        private int closes;
+
+        @Override
+        public void flush() {
+            flushes++;
+            super.flush();
+        }
+
+        @Override
+        public void close() throws IOException {
+            closes++;
+            super.close();
+        }
+
+        /** How many times {@code render()} flushed. In production, "did the response commit". */
+        public int flushes() {
+            return flushes;
+        }
+
+        /** How many times {@code render()} closed. Production relies on it never doing so. */
+        public int closes() {
+            return closes;
+        }
+    }
+
+    /**
+     * Calls {@code VelocityViewFactory.discardPartialResponse(...)} — R21's response reset — on a
+     * response the caller controls, in isolation from a render.
+     *
+     * <p>Exposed here because the method is {@code protected} on a class in this package. It is the
+     * unit-sized view of the decision — reset when the response can still be reset, log and give up
+     * when it cannot; {@link #renderThroughResponse(String, boolean)} is the whole-path view of it.
+     */
+    public static void discardPartialResponse(HttpServletResponse response,
+                                             CanoeEncodingException error) {
+        new ProbeViewFactory().discardPartialResponse(response, error);
+    }
+
+    /**
+     * Drives {@code VelocityViewFactory.render(Page, VelocityView)} — the <strong>production entry
+     * point</strong>, the two-argument one {@code VelocityView.render()} calls — rather than the
+     * three-argument overload the rest of this class uses.
+     *
+     * <p><strong>Why it is worth the scaffolding.</strong> R21's recovery has two halves and only one
+     * of them lives in the three-argument method. The other half — {@code response.resetBuffer()} —
+     * is in this entry point, because this is the only place that knows the writer is the response's
+     * own. Asserting it by reading the source would be asserting that somebody wrote the call, not
+     * that calling it does anything; this drives the real method and observes the real effect.
+     *
+     * <p><strong>What is stubbed and what is not.</strong> The factory, the view, the template,
+     * {@code merge()}, Canoe, the {@link Page}, the {@code QlueApplication} and the
+     * {@link com.webkreator.qlue.TransactionContext} are all real — the context is built by its own
+     * public constructor, so it generates a transaction id, opens a session and parses the proxy
+     * headers exactly as a routed request does. Only the four servlet interfaces underneath it are
+     * stubs, and they are {@link java.lang.reflect.Proxy} instances rather than mocks because
+     * mockito's inline mock maker cannot instrument a class on this JDK (see
+     * {@code ViewFactoryRenderTest}'s header). The response stub models the one behaviour the
+     * assertion is about: {@code resetBuffer()} empties the body it has not sent, and
+     * {@code isCommitted()} answers what the caller asked for.
+     *
+     * <p>Note that this also brings the {@code context != null} arm of the three-argument method
+     * under test — {@code _ctx}, {@code _req}, {@code _res}, the nonce, the public session id and the
+     * message source — which every other caller here skips, because a page that was never routed has
+     * no context.
+     *
+     * @param templateText the template to render
+     * @param committed    what the response should report from {@code isCommitted()}: false is the
+     *                     ordinary case, true is the residual R21 cannot close
+     */
+    public static ResponseOutcome renderThroughResponse(String templateText, boolean committed) {
+        String name = "canoe-production-entry-" + TEMPLATE_COUNTER.incrementAndGet() + ".vm";
+        StringResourceLoader.getRepository(REPOSITORY_NAME).putStringResource(name, templateText);
+
+        Template template;
+        try {
+            template = ENGINE.getTemplate(name);
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not build a Template from " + templateText, e);
+        }
+
+        StubResponse response = new StubResponse(committed);
+        CanoeProbePage page = new CanoeProbePage();
+
+        try {
+            page.setTransactionContext(new TransactionContext(
+                    page.getApp(), null, null, stubRequest(), response.asServletResponse()));
+        } catch (ServletException e) {
+            throw new IllegalStateException("Could not build a TransactionContext", e);
+        }
+
+        VelocityViewFactory factory = new ProbeViewFactory();
+        VelocityView view = new VelocityView(factory, template);
+
+        try {
+            factory.render(page, view);
+            return new ResponseOutcome(response, null);
+        } catch (Exception e) {
+            return new ResponseOutcome(response, e);
+        }
+    }
+
+    /**
+     * A container's response, reduced to the two things R21 depends on: a writer that accumulates a
+     * body, and a buffer that {@code resetBuffer()} throws away while the response is uncommitted.
+     */
+    public static final class StubResponse {
+
+        private final boolean committed;
+
+        private final StringWriter buffer = new StringWriter();
+
+        private final PrintWriter writer = new PrintWriter(buffer);
+
+        private final List<String> calls = new ArrayList<>();
+
+        StubResponse(boolean committed) {
+            this.committed = committed;
+        }
+
+        HttpServletResponse asServletResponse() {
+            return (HttpServletResponse) Proxy.newProxyInstance(
+                    StubResponse.class.getClassLoader(),
+                    new Class<?>[]{HttpServletResponse.class},
+                    (proxy, method, args) -> {
+                        calls.add(method.getName());
+                        switch (method.getName()) {
+                            case "getWriter":
+                                return writer;
+                            case "isCommitted":
+                                return committed;
+                            case "resetBuffer":
+                                if (committed) {
+                                    throw new IllegalStateException(
+                                            "the response has already been committed");
+                                }
+                                buffer.getBuffer().setLength(0);
+                                return null;
+                            default:
+                                return defaultValue(method.getReturnType());
+                        }
+                    });
+        }
+
+        /** The body the client would receive. Empty once {@code resetBuffer()} has run. */
+        public String body() {
+            writer.flush();
+            return buffer.toString();
+        }
+
+        /** Every method the factory called on the response, in order. */
+        public List<String> calls() {
+            return calls;
+        }
+    }
+
+    /** What {@code render(Page, VelocityView)} did, and what it left in the response. */
+    public static final class ResponseOutcome {
+
+        private final StubResponse response;
+
+        private final Exception escaped;
+
+        ResponseOutcome(StubResponse response, Exception escaped) {
+            this.response = response;
+            this.escaped = escaped;
+        }
+
+        public String body() {
+            return response.body();
+        }
+
+        public List<String> calls() {
+            return response.calls();
+        }
+
+        public boolean exceptionEscaped() {
+            return escaped != null;
+        }
+
+        public Exception escaped() {
+            return escaped;
+        }
+
+        public CanoeEncodingException encodingError() {
+            return CanoeEncodingException.findIn(escaped);
+        }
+
+        @Override
+        public String toString() {
+            return "ResponseOutcome[body=\"" + response.body() + "\", calls=" + response.calls()
+                    + ", escaped=" + escaped + "]";
+        }
+    }
+
+    /**
+     * The request a routed transaction would carry, reduced to what
+     * {@code TransactionContext}'s constructor reads: a remote address, a URI, no query string, no
+     * content type, and a session that remembers what is put in it.
+     */
+    private static HttpServletRequest stubRequest() {
+        Map<String, Object> sessionAttributes = new LinkedHashMap<>();
+
+        HttpSession session = (HttpSession) Proxy.newProxyInstance(
+                ProductionRenderProbe.class.getClassLoader(),
+                new Class<?>[]{HttpSession.class},
+                (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "getAttribute":
+                            return sessionAttributes.get((String) args[0]);
+                        case "setAttribute":
+                            sessionAttributes.put((String) args[0], args[1]);
+                            return null;
+                        default:
+                            return defaultValue(method.getReturnType());
+                    }
+                });
+
+        return (HttpServletRequest) Proxy.newProxyInstance(
+                ProductionRenderProbe.class.getClassLoader(),
+                new Class<?>[]{HttpServletRequest.class},
+                (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "getSession":
+                            return session;
+                        case "getRemoteAddr":
+                            return "127.0.0.1";
+                        case "getRequestURI":
+                            return "/canoe-production-entry";
+                        default:
+                            return defaultValue(method.getReturnType());
+                    }
+                });
+    }
+
+    /**
+     * The boxed zero of a primitive return type, or null for a reference one. Built through a
+     * one-element array so that every width is right — an {@code Integer} handed back for a
+     * {@code long} method is a {@code ClassCastException} inside the proxy, which is a confusing way
+     * for a test to fail.
+     */
+    private static Object defaultValue(Class<?> returnType) {
+        if (!returnType.isPrimitive() || returnType == void.class) {
+            return null;
+        }
+        return Array.get(Array.newInstance(returnType, 1), 0);
     }
 
     /**
@@ -305,6 +616,11 @@ public final class ProductionRenderProbe {
      * {@code VelocityViewFactory.render(page, view, writer)}.
      */
     private static Outcome merge(Template template, Map<String, Object> model, Options options) {
+        return merge(template, model, options, new StringWriter());
+    }
+
+    private static Outcome merge(Template template, Map<String, Object> model, Options options,
+                                 StringWriter response) {
         VelocityViewFactory factory = new ProbeViewFactory();
         factory.setAutoEscaping(options.autoEscaping);
         factory.addPlainTextAttributes(options.plainTextAttributes);
@@ -314,7 +630,6 @@ public final class ProductionRenderProbe {
         Page page = new CanoeProbePage(options.directOutput);
         page.getModel().putAll(model);
 
-        StringWriter response = new StringWriter();
         try {
             factory.render(page, view, response);
             return new Outcome(response.toString(), null);
@@ -371,9 +686,26 @@ public final class ProductionRenderProbe {
         }
 
         /**
-         * True when {@code render()}'s recovery branch ran, that is when the response carries the
-         * {@code [Encoding Error]} marker instead of an exception. This is the observation that
-         * flips when F13 is fixed.
+         * The {@link CanoeEncodingException} in whatever escaped, or null if what escaped was not an
+         * encoding error at all.
+         *
+         * <p>Deliberately a search of the cause chain rather than a cast, because that is the claim:
+         * an application can find Canoe's exception no matter what wrapped it. After R21 the escaping
+         * exception <em>is</em> the {@link CanoeEncodingException}, so the search terminates at depth
+         * zero; before R21 it was reachable at depth one and nothing looked for it.
+         */
+        public CanoeEncodingException encodingError() {
+            return CanoeEncodingException.findIn(escaped);
+        }
+
+        /**
+         * True when the response carries the {@code [Encoding Error]} marker.
+         *
+         * <p>Before R21 this was the observation that would flip when F13 was fixed: the marker was
+         * what the unreachable branch meant to append. R21 fixed it in the other direction — the
+         * branch is deleted, because appending a marker to a response that ends inside an attribute
+         * list is not a recovery — so this now reads as a standing assertion that no marker was
+         * reintroduced, on any path, ever.
          */
         public boolean recoveryBranchRan() {
             return output.contains(ENCODING_ERROR_MARKER);

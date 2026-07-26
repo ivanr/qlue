@@ -109,7 +109,12 @@ public class MatrixReportTest {
                 + " AttributeNameMatrixTest.theSourceDeclaresTheTwoNameListsTheMatrixExpects, which"
                 + " asserts the ATTR_CONTENT constant and the author's XXX marker are both gone");
         gaps.put("F13", "about what escapes VelocityViewFactory.render(), which the corpus harness"
-                + " deliberately does not model - CanoeRobustnessTest via ProductionRenderProbe");
+                + " deliberately does not model - CanoeRobustnessTest via ProductionRenderProbe."
+                + " Closed by R21: the rejection arrives as a catchable CanoeEncodingException on an"
+                + " unflushed response. The 44 REJECTED rows are unmoved by it - R21 changed how a"
+                + " rejection is delivered, not which templates are rejected, which is R20 -"
+                + " so the finding still has no corpus case and CanoeEncodingExceptionTest is where"
+                + " the cause-chain evidence lives");
         gaps.put("F15", "url() corrupting legitimate URLs is an author-data defect with no attacker"
                 + " payload - HtmlEncoderUrlTest");
         gaps.put("F16", "js() and css() are unreachable from Canoe.encode() today, so no case can"
@@ -445,7 +450,8 @@ public class MatrixReportTest {
             case SUPPRESSED_UNINTENDED:
                 return "Canoe emits nothing where it should have encoded; fail-safe, still a defect";
             case REJECTED:
-                return "Canoe raises an encoding error, which per F13 escapes as a 500";
+                return "Canoe raises an encoding error; since R21 it escapes render() as a"
+                        + " catchable CanoeEncodingException and the request fails";
             default:
                 return "";
         }

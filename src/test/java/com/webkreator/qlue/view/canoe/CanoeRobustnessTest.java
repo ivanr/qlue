@@ -1,6 +1,7 @@
 package com.webkreator.qlue.view.canoe;
 
 import com.webkreator.qlue.view.Canoe;
+import com.webkreator.qlue.view.CanoeEncodingException;
 import com.webkreator.qlue.view.CanoeStateProbe;
 import com.webkreator.qlue.view.velocity.ProductionRenderProbe;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,6 +24,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -38,23 +41,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * coordinates are the part most likely to rot silently, because nothing else in the system reads
  * them and they are the only diagnostic a developer gets.
  *
- * <p><strong>F13 is the point of this file.</strong> {@code VelocityViewFactory.render()} contains a
- * recovery branch meant to turn an encoding error into an {@code [Encoding Error]} marker in an
- * otherwise-served page. It tests {@code startsWith(Canoe.ERROR_PREFIX)} against the message of the
- * <em>top-level</em> exception, and Velocity always wraps Canoe's {@code IOException} — the
+ * <p><strong>F13 is the point of this file.</strong> {@code VelocityViewFactory.render()} used to
+ * carry a recovery branch meant to turn an encoding error into an {@code [Encoding Error]} marker in
+ * an otherwise-served page. It tested {@code startsWith(Canoe.ERROR_PREFIX)} against the message of
+ * the <em>top-level</em> exception, and Velocity always wraps Canoe's {@code IOException} — the
  * production {@code Template.merge()} path yields {@code "IO Error rendering template '...'"}, and
  * this harness's {@code evaluate()} path yields {@code "IO Error in writer: ..."}. Neither starts
- * with the prefix, so the branch has never run: every error below is an unhandled exception, which
- * in production means a 500 on top of a response that is already half written.
- * {@link #noErrorCanoeRaisesIsSwallowedInProduction} pins that for every input in the table,
- * and {@link #aRejectedTemplateLeavesAHalfWrittenResponse} pins what the client has already received.
+ * with the prefix, so the branch never ran: every error below was an unhandled exception, which in
+ * production meant a 500 on top of a response that had already been flushed — and, because it had
+ * been flushed, a 500 the container could no longer send.
  *
- * <p>That F13 test is the one file in this suite that does <em>not</em> use the fast harness. It
- * calls the real {@code VelocityViewFactory.render(page, view, writer)} through
- * {@link ProductionRenderProbe} and asserts on what escapes it, because a test that re-applied the
- * factory's own broken predicate to an exception the harness produced would keep passing after the
- * factory was fixed — and a {@code KNOWN_VULNERABLE} pin that survives the fix is worse than no pin
- * at all.
+ * <p>R21 closes it. {@code Canoe.raiseError()} throws a {@code CanoeEncodingException}, the factory
+ * finds it in the cause chain and rethrows it unwrapped, and the recovery is to <em>fail the request
+ * outright</em>: the marker branch is deleted and the partial output is left unflushed so the
+ * response can still be reset. {@link #everyErrorCanoeRaisesEscapesRenderAsACatchableCanoeEncodingException}
+ * asserts that for every input in the table,
+ * {@link #aRejectedTemplateIsNotFlushedSoTheResponseCanStillBeReset} asserts the flush half, and
+ * {@link #aRejectedTemplateLeavesAHalfWrittenResponse} pins what is in the writer regardless — which
+ * is why leaving it there was never a recovery.
+ *
+ * <p>Those tests are the one place in this suite that does <em>not</em> use the fast harness. They
+ * call the real {@code VelocityViewFactory.render(page, view, writer)} through
+ * {@link ProductionRenderProbe} and assert on what escapes it, because a test that re-applied the
+ * factory's own broken predicate to an exception the harness produced would have kept passing after
+ * the factory was fixed — and a pin that survives the fix is worse than no pin at all.
  */
 public class CanoeRobustnessTest {
 
@@ -453,62 +463,127 @@ public class CanoeRobustnessTest {
     }
 
     // ------------------------------------------------------------------
-    // F13 - the recovery branch that never runs
+    // F13 - the rejection a caller can catch (R21)
     // ------------------------------------------------------------------
 
     /**
-     * F13. For every error Canoe can raise, {@code VelocityViewFactory.render()}'s recovery branch
-     * does not fire — asserted by calling that method and watching the exception come back out.
+     * F13, inverted by R21. Formerly {@code noErrorCanoeRaisesIsSwallowedInProduction}, which
+     * recorded the defect: {@code VelocityViewFactory.render()}'s recovery branch read
+     * {@code e.getMessage().startsWith(Canoe.ERROR_PREFIX)} on the exception it <em>caught</em>, and
+     * the exception it caught was never Canoe's. Velocity wraps an {@code IOException} from the
+     * writer in a {@code VelocityException} of its own — {@code "IO Error rendering template '...'"}
+     * on the production {@code Template.merge()} path, {@code "IO Error in writer: ..."} on
+     * {@code evaluate()} — so the test was applied to the wrapper's message, could never be true, and
+     * every encoding error left {@code render()} as an unhandled exception on top of a response that
+     * had already been flushed.
      *
-     * <p>The branch reads {@code e.getMessage().startsWith(Canoe.ERROR_PREFIX)} on the exception it
-     * caught, and the exception it catches is never Canoe's. Velocity wraps the {@code IOException}
-     * in a {@code VelocityException} whose message begins {@code "IO Error"} — {@code "IO Error
-     * rendering template '...'"} on the production {@code Template.merge()} path. The test fails, the
-     * {@code else} branch rethrows, and the request becomes a 500 on top of a half-written response.
+     * <p>R21 replaces the message test with a type in the cause chain
+     * ({@code CanoeEncodingException.findIn}) and unwraps it, so what a caller of {@code render()}
+     * now sees is the {@link CanoeEncodingException} itself: catchable by type, carrying the reason
+     * and the coordinates as fields. This test asserts that for every input in the rejection table —
+     * the whole table rather than one example, because "no error is swallowed" was a claim about all
+     * of them and so is "every error arrives catchable".
+     *
+     * <p><strong>The old assertion, exactly inverted.</strong> The last check below is the one the
+     * broken branch performed: {@code getMessage().startsWith(ERROR_PREFIX)} on the top-level
+     * exception. It used to be false for every input, and the old test pinned it as false against the
+     * production wrapper message. It is now true for every input — and the point is that
+     * {@code render()} no longer needs to ask, because the type already answered.
      *
      * <p><strong>Why this goes through {@link ProductionRenderProbe} rather than the fast harness.</strong>
-     * The obvious way to write this test is to re-apply {@code startsWith(Canoe.ERROR_PREFIX)} to the
-     * exception the harness produced and assert it is false. That is a copy of the check under test:
-     * fixing F13 — by matching on the cause chain, or by catching a typed
-     * {@code CanoeEncodingException} — changes {@code render()} and leaves the copy answering exactly
-     * as before, so the test stays green and the ledger rule in {@code PLAN.md} §2.1 (a
-     * {@code KNOWN_VULNERABLE} pin must fail loudly when the vulnerability disappears) is violated
-     * silently. This version calls the real {@code render()} and asserts on the two things a caller
-     * can actually see: an exception escaped, and no {@code [Encoding Error]} reached the response.
-     * Both flip the moment the recovery branch starts working.
-     *
-     * <p>It also covers the path the rest of the suite cannot. Everything else here renders through
-     * {@code VelocityEngine.evaluate()}, whose wrapper message is {@code "IO Error in writer: ..."};
-     * production uses {@code Template.merge()}, whose message is {@code "IO Error rendering template
-     * '...'"}. Only the second is the string the unreachable branch is actually tested against, and
-     * only this test sees it.
-     *
-     * <p>Asserted over the whole rejection table rather than for one example, because "the branch is
-     * unreachable" is a claim about all errors and a single case would only show that one of them
-     * escapes.
+     * Unchanged from the original, and it is the reason the original was written that way: a test that
+     * re-applies the factory's own predicate to an exception the harness produced is a copy of the
+     * check under test and would answer identically before and after the fix. This version calls the
+     * real {@code render()} and asserts on what a caller observes. It also covers the path the rest of
+     * the suite cannot — everything else renders through {@code VelocityEngine.evaluate()}, and only
+     * {@code Template.merge()} is production.
      */
     @Test
-    public void noErrorCanoeRaisesIsSwallowedInProduction() {
+    public void everyErrorCanoeRaisesEscapesRenderAsACatchableCanoeEncodingException() {
         for (Arguments row : (Iterable<Arguments>) rejections()::iterator) {
             String description = (String) row.get()[0];
             String input = (String) row.get()[1];
+            String message = (String) row.get()[2];
+            int line = (Integer) row.get()[3];
+            int position = (Integer) row.get()[4];
 
             ProductionRenderProbe.Outcome outcome = ProductionRenderProbe.render(input);
 
             assertTrue(outcome.exceptionEscaped(),
-                    "F13: " + description + " must escape VelocityViewFactory.render() as an"
-                            + " unhandled exception; if it no longer does, F13 has been fixed and"
-                            + " this test is the notice. Was: " + outcome);
-            assertFalse(outcome.recoveryBranchRan(),
-                    "F13: " + description + " must not produce an [Encoding Error] marker, because"
-                            + " the branch that appends it cannot run. Was: " + outcome);
+                    "R21: " + description + " must still fail the request - the recovery is to fail"
+                            + " outright, not to serve a degraded page. Was: " + outcome);
 
-            assertTrue(outcome.escaped().getMessage().startsWith("IO Error rendering template"),
-                    "F13: the production wrapper message is what the branch actually tests, and it"
-                            + " begins \"IO Error rendering template\", not "
+            assertInstanceOf(CanoeEncodingException.class, outcome.escaped(),
+                    "R21: " + description + " must reach the caller as the exception Canoe threw,"
+                            + " not as Velocity's wrapper: that is what makes it catchable by type."
+                            + " Was: " + outcome);
+
+            CanoeEncodingException error = outcome.encodingError();
+            assertEquals(message, error.getReason(), description + ": the reason, as a field");
+            assertEquals(line, error.getLine(), description + ": the line, as a field");
+            assertEquals(position, error.getPosition(), description + ": the position, as a field");
+            assertEquals(expectedMessage(message, line, position), error.getMessage(),
+                    description + ": and the message is unchanged");
+
+            assertFalse(outcome.recoveryBranchRan(),
+                    "R21: " + description + " must not produce an [Encoding Error] marker. The"
+                            + " branch that appended it is deleted rather than repaired: the response"
+                            + " ends inside an element, so the marker would land in an attribute"
+                            + " list. Was: " + outcome);
+
+            // The check the broken branch performed, on the exception it actually caught. It was
+            // false for every input in this table, which is F13; it is true for every one of them
+            // now - and render() no longer asks.
+            assertTrue(outcome.escaped().getMessage().startsWith(Canoe.ERROR_PREFIX),
+                    "R21: the top-level message now does start with "
                             + CanoeTestSupport.quote(Canoe.ERROR_PREFIX) + " - was: "
                             + CanoeTestSupport.quote(outcome.escaped().getMessage()));
         }
+    }
+
+    /**
+     * The half of R21's recovery that a {@code StringWriter} cannot show: {@code render()} does not
+     * <strong>flush</strong> the partial page when Canoe refuses.
+     *
+     * <p>This is the load-bearing half. Canoe streams, so everything it accepted is already in the
+     * writer by the time it throws, and no catch block can take those characters back. What the catch
+     * block decides is whether they are <em>committed</em>: production's writer is
+     * {@code response.getWriter()}, a servlet response commits when its buffer is flushed, and
+     * {@code QlueApplication.service()} will only call {@code sendError(500)} — or let the page's own
+     * {@code handleException()} view replace the body — while the response is uncommitted. The old
+     * {@code finally} block flushed unconditionally, which committed a half-written page and left the
+     * container nothing to work with; a 500 that could not be sent is why F13 is worse than the
+     * unreachable branch alone suggests.
+     *
+     * <p>The successful render is the control: the flush is suppressed on the error path only, and a
+     * page that renders is still flushed exactly once.
+     */
+    @Test
+    public void aRejectedTemplateIsNotFlushedSoTheResponseCanStillBeReset() {
+        ProductionRenderProbe.FlushCountingWriter rejected =
+                new ProductionRenderProbe.FlushCountingWriter();
+        ProductionRenderProbe.Outcome outcome = ProductionRenderProbe.render(
+                "<p>ok</p><br/>", Map.of(),
+                ProductionRenderProbe.Options.defaults(), rejected);
+
+        assertTrue(outcome.exceptionEscaped(), () -> "the premise: " + outcome);
+        assertEquals(0, rejected.flushes(),
+                "R21: the partial page must not be flushed, or the response commits and Qlue's"
+                        + " sendError(500) is skipped by its own isCommitted() guard");
+        assertEquals("<p>ok</p><br", rejected.toString(),
+                "the characters Canoe accepted are in the writer either way - it wrote them"
+                        + " through before it threw - which is why the flush is the whole decision");
+
+        ProductionRenderProbe.FlushCountingWriter accepted =
+                new ProductionRenderProbe.FlushCountingWriter();
+        ProductionRenderProbe.Outcome clean = ProductionRenderProbe.render(
+                "<p>$data</p>", Map.of("data", "x"),
+                ProductionRenderProbe.Options.defaults(), accepted);
+
+        assertFalse(clean.exceptionEscaped(), () -> "the control: " + clean);
+        assertEquals(1, accepted.flushes(), "a page that renders is still flushed");
+        assertEquals(0, accepted.closes(),
+                "and still not closed - Qlue appends development information after render()");
     }
 
     /**
@@ -527,15 +602,21 @@ public class CanoeRobustnessTest {
     }
 
     /**
-     * The other half of F13, and the half that matters to whoever is looking at the response: the
-     * bytes already written.
+     * The other half of F13, and the half that decided R21's recovery: the bytes already written.
      *
-     * <p>{@code Canoe.write} flushes everything up to the offending character before rethrowing, so
-     * the client has already received a prefix of the page. For an error inside a tag that prefix
-     * ends mid-element — an unterminated {@code <img}, with the browser still waiting for the
-     * {@code >}. Appending {@code [Encoding Error]} to that, which is what the unreachable branch
-     * intends, would put the marker inside an attribute list rather than in the document; the review
-     * notes that the recovery is a poor one even if it were reachable, and this is why.
+     * <p>{@code Canoe.write} writes everything up to the offending character before rethrowing, so a
+     * prefix of the page is in the writer no matter what the catch block does. For an error inside a
+     * tag that prefix ends mid-element — an unterminated {@code <img}, with the browser still waiting
+     * for the {@code >}. Appending {@code [Encoding Error]} to that, which is what the unreachable
+     * branch intended, would have put the marker inside an attribute list rather than in the
+     * document. Truncating to the last {@code >} would have produced a document a browser renders
+     * happily, missing its content and its footer, under a 200. Neither is a recovery, which is why
+     * R21 fails the request and — the part this test cannot see, because a {@code StringWriter} has
+     * no buffer to commit — declines to flush what is here, so the response can still be replaced
+     * wholesale. See {@link #aRejectedTemplateIsNotFlushedSoTheResponseCanStillBeReset}.
+     *
+     * <p>The assertions are unchanged from before R21. They are about what Canoe leaves in the
+     * writer, and R21 changed nothing about that: no catch block can un-write a streamed character.
      */
     @Test
     public void aRejectedTemplateLeavesAHalfWrittenResponse() {

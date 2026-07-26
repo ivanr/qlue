@@ -57,12 +57,27 @@ public enum Verdict {
      * Canoe raises an encoding error. An availability failure rather than a security one, but it
      * takes the page down.
      *
-     * <p>Note what actually happens, which is worse than the review assumed: {@code
-     * VelocityViewFactory.render()} tests {@code e.getMessage().startsWith(Canoe.ERROR_PREFIX)} on
-     * the <em>top-level</em> exception, but Velocity always wraps the {@code IOException} — the
-     * production {@code Template.merge()} path yields {@code "IO Error rendering template '...'"}.
-     * The {@code [Encoding Error]} branch is therefore unreachable and the exception propagates as
-     * an unhandled 500. Recorded as F13.
+     * <p><strong>What that means to a caller, after R21.</strong> The rejection reaches
+     * {@code VelocityViewFactory.render()}'s caller as a {@code CanoeEncodingException} — Canoe's own
+     * exception, unwrapped from Velocity's, carrying the reason and the coordinates as fields — and
+     * the partial page is left unflushed so the response can still be replaced by an error page. The
+     * request fails, deliberately: a rejection is a template-authoring error, and the recoveries the
+     * alternative would have needed (a marker appended inside an attribute list, or a truncation a
+     * browser renders as if it were the whole page) are less honest than failing.
+     *
+     * <p>It used to be worse than the review assumed, and this verdict is what recorded it (F13).
+     * {@code render()} tested {@code e.getMessage().startsWith(Canoe.ERROR_PREFIX)} on the
+     * <em>top-level</em> exception, and Velocity always wraps — the production
+     * {@code Template.merge()} path yields {@code "IO Error rendering template '...'"} — so the
+     * {@code [Encoding Error]} branch was unreachable, the exception propagated as an unhandled 500,
+     * and the {@code finally} block had already flushed the half-written page, which committed the
+     * response and left the container unable to send the 500 at all.
+     *
+     * <p>None of that changes <em>which</em> inputs are rejected, and R21 changed none of them:
+     * {@code VerdictEvaluator} derives this verdict from the harness finding a
+     * {@code CanoeEncodingException} in the cause chain, which is the same set of renders it found
+     * an {@code IOException} carrying the prefix in before. Deciding which rejections should stop
+     * being rejections is R20.
      */
     REJECTED;
 

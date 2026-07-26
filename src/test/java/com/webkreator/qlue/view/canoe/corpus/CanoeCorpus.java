@@ -3137,8 +3137,14 @@ public final class CanoeCorpus {
      * <p>{@code CanoeRobustnessTest} (T11) owns the exact error messages and the line/position
      * reporting. These entries exist so the shapes are in the corpus: the generated report counts
      * them, T21's chunk-invariance property runs over them, and the browser tier can see what a
-     * half-written response looks like. Per F13 a rejection is not a degraded page — the
-     * {@code [Encoding Error]} recovery branch is unreachable, so it is an unhandled 500.
+     * half-written response looks like. A rejection is not a degraded page: after R21 it is a
+     * {@code CanoeEncodingException} the application can catch, on a response that has not been
+     * flushed and can still be replaced wholesale. Before R21 it was an unhandled 500 on a response
+     * that had been flushed and therefore could not be — F13, and the reason none of these rows is
+     * merely cosmetic.
+     *
+     * <p>R21 changed how a rejection is delivered and not which templates are rejected, so every
+     * verdict below is unchanged by it. Which of them <em>should</em> be rejections at all is R20.
      */
     private static void malformedTemplates(List<XssCase> cases) {
 
