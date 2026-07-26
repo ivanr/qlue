@@ -85,7 +85,13 @@ public class CanoeRobustnessTest {
 
                 // COMMENT_OPEN_OR_DOCTYPE.
                 rejected("DOCTYPE after another element", "<html><!DOCTYPE html>",
-                        "DOCTYPE declaration must be at the beginning", 1, 9),
+                        "DOCTYPE declaration must precede the first element", 1, 9),
+                rejected("DOCTYPE after an end tag", "</p><!DOCTYPE html>",
+                        "DOCTYPE declaration must precede the first element", 1, 7),
+                rejected("second DOCTYPE", "<!DOCTYPE html><!DOCTYPE html>",
+                        "Duplicate DOCTYPE declaration", 1, 18),
+                rejected("second DOCTYPE after a comment", "<!DOCTYPE html><!-- c --><!DOCTYPE html>",
+                        "Duplicate DOCTYPE declaration", 1, 28),
                 rejected("bang that is neither comment nor doctype", "<!x>", "Invalid tag", 1, 3),
                 rejected("CDATA section", "<p><![CDATA[x]]></p>", "Invalid tag", 1, 6),
 
@@ -147,6 +153,9 @@ public class CanoeRobustnessTest {
                 Arguments.of("legacy DOCTYPE with a public identifier",
                         "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\">"),
                 Arguments.of("DOCTYPE after leading text", "hello<!DOCTYPE html>"),
+                Arguments.of("DOCTYPE after a comment", "<!-- c --><!DOCTYPE html><html></html>"),
+                Arguments.of("DOCTYPE after several comments and text",
+                        "<!-- a -->\n<!-- b -->  x  <!DOCTYPE html><html></html>"),
                 Arguments.of("comment", "<!-- c -->"),
                 Arguments.of("tab, CR and LF in body text", "<p>a\tb\r\nc</p>"),
                 Arguments.of("DEL, which is not below 0x20", "<p>" + ch(0x7f) + "</p>"),
@@ -218,8 +227,8 @@ public class CanoeRobustnessTest {
      * is no reflective handle on a string literal inside a method, so the source is scanned.
      *
      * <p><strong>This is message coverage, not call-site coverage, and the name now says so.</strong>
-     * There are 15 {@code raiseError(...)} call sites and only 13 distinct message literals, so a set
-     * comparison is satisfied by 13 of the 15 — and a <em>new</em> call site added with an existing
+     * There are 16 {@code raiseError(...)} call sites and only 14 distinct message literals, so a set
+     * comparison is satisfied by 14 of the 16 — and a <em>new</em> call site added with an existing
      * message leaves the set unchanged and this test green, which is precisely the drift it is
      * supposed to catch. {@link #theNumberOfRaiseErrorCallSitesIsPinned} closes that gap by counting
      * occurrences; {@link #theTwoInvalidTagSitesAreBothReached} and
@@ -321,9 +330,9 @@ public class CanoeRobustnessTest {
      * How many {@code raiseError(...)} call sites {@code Canoe.java} contains, and how many distinct
      * messages they use. The gap between them is the whole reason both numbers are pinned.
      */
-    private static final int EXPECTED_RAISE_ERROR_CALL_SITES = 15;
+    private static final int EXPECTED_RAISE_ERROR_CALL_SITES = 16;
 
-    private static final int EXPECTED_DISTINCT_RAISE_ERROR_MESSAGES = 13;
+    private static final int EXPECTED_DISTINCT_RAISE_ERROR_MESSAGES = 14;
 
     /**
      * The count that {@link #everyRaiseErrorMessageIsReached} cannot check, because deduplicating is
@@ -594,30 +603,90 @@ public class CanoeRobustnessTest {
     }
 
     // ------------------------------------------------------------------
-    // F18 - the DOCTYPE that a comment makes illegal
+    // F18 - the DOCTYPE a comment used to make illegal
     // ------------------------------------------------------------------
 
     /**
-     * F18. {@code tagCount} is incremented for every {@code <} seen in {@code HTML} state, comments
-     * included, and the DOCTYPE check demands {@code tagCount == 1}. So a comment before the DOCTYPE
-     * — a licence header, an editor marker, a conditional comment — makes the DOCTYPE illegal and
-     * takes the page down.
+     * F18, inverted by R18. Formerly
+     * {@code aCommentBeforeTheDoctypeMakesTheDoctypeIllegal}, which recorded the defect: {@code
+     * tagCount} was incremented for every {@code <} seen in {@code HTML} state, comments included, and
+     * the DOCTYPE check demanded {@code tagCount == 1}, so a comment before the DOCTYPE — a licence
+     * header, an editor marker, a conditional comment — made the DOCTYPE illegal and took the page
+     * down with {@code DOCTYPE declaration must be at the beginning}. The check wanted "no
+     * <em>element</em> has been emitted yet" and asked "no {@code <} has been seen yet" instead.
      *
-     * <p>Leading text or whitespace is fine, because neither contains a {@code <}. It is specifically
-     * markup before the DOCTYPE that fails, and a comment is the only markup that is legal there.
+     * <p>R18 replaces the counter with {@code elementSeen}, set where TAG_NAME commits to a tag and
+     * not where the {@code '!'} of a bang declaration does, so comments — any number of them, with
+     * whitespace and text between — no longer stand between a template and its DOCTYPE.
+     *
+     * <p>The rejections that must survive are the point of the second half: this fix must not widen
+     * into "a DOCTYPE anywhere". They live in {@link #rejections()} as well, which is what makes them
+     * part of the message-and-position table; they are repeated here because they are the regression
+     * net for this specific change and belong beside the thing it made legal.
      */
     @Test
-    public void aCommentBeforeTheDoctypeMakesTheDoctypeIllegal() {
+    public void aCommentBeforeTheDoctypeIsNowLegal() {
         assertFalse(CanoeTestSupport.write("<!DOCTYPE html><html></html>").isError());
         assertFalse(CanoeTestSupport.write("\n  <!DOCTYPE html><html></html>").isError(),
-                "leading whitespace contains no '<', so tagCount is still 1");
+                "leading whitespace was always fine and stays fine");
 
-        assertEquals(expectedMessage("DOCTYPE declaration must be at the beginning", 1, 13),
-                CanoeTestSupport.write("<!-- c --><!DOCTYPE html><html></html>").errorMessage(),
-                "F18: a comment above the DOCTYPE is legal HTML and Canoe rejects it");
-        assertEquals(expectedMessage("DOCTYPE declaration must be at the beginning", 1, 9),
+        // The shape F18 was about.
+        assertFalse(CanoeTestSupport.write("<!-- licence --><!DOCTYPE html><html></html>").isError(),
+                "R18: a licence header above the DOCTYPE is legal HTML and now renders");
+
+        // Several comments, with whitespace and text between them.
+        assertFalse(CanoeTestSupport.write(
+                        "<!-- a -->\n<!-- b --> generated <!-- c --><!DOCTYPE html><html></html>")
+                .isError(), "R18: comments do not accumulate towards anything any more");
+
+        // A comment is markup that is legal before the DOCTYPE; an element is not.
+        assertEquals(expectedMessage("DOCTYPE declaration must precede the first element", 1, 9),
                 CanoeTestSupport.write("<html><!DOCTYPE html>").errorMessage(),
                 "the case the check was written for, which is a genuine error");
+        assertEquals(expectedMessage("DOCTYPE declaration must precede the first element", 1, 7),
+                CanoeTestSupport.write("</p><!DOCTYPE html>").errorMessage(),
+                "an end tag is a tag too: it moves a browser past the initial insertion mode"
+                        + " exactly as a start tag does");
+        assertEquals(expectedMessage("DOCTYPE declaration must precede the first element", 1, 16),
+                CanoeTestSupport.write("<!-- c --><p><!DOCTYPE html>").errorMessage(),
+                "a comment before the element does not buy the DOCTYPE a place after it");
+
+        // Two DOCTYPEs, with and without a comment between them. A browser ignores the second;
+        // Canoe rejects it, because a template emitting two of them is an authoring mistake and
+        // saying so is the whole value of the check. Both shapes were rejected before R18 too -
+        // tagCount was already past 1 by the second '<!' - so this is the old rejection under a
+        // message that names it, not a new one. R18 rejects nothing it used to accept.
+        assertEquals(expectedMessage("Duplicate DOCTYPE declaration", 1, 18),
+                CanoeTestSupport.write("<!DOCTYPE html><!DOCTYPE html>").errorMessage(),
+                "the second DOCTYPE is rejected, and by its own message");
+        assertEquals(expectedMessage("Duplicate DOCTYPE declaration", 1, 28),
+                CanoeTestSupport.write("<!DOCTYPE html><!-- c --><!DOCTYPE html>").errorMessage(),
+                "a comment after the DOCTYPE does not re-open the door");
+
+        // Body text before the DOCTYPE stays accepted, as it always was. The HTML Standard's
+        // "initial" insertion mode ignores whitespace and calls other text a parse error, so a
+        // browser would ignore this DOCTYPE and render in quirks mode. Canoe could tell whitespace
+        // from other text and deliberately does not act on the difference: turning an input that
+        // rendered yesterday into a 500 would be a new availability defect in a task whose whole
+        // subject is removing one. R20 triages the rejection table as a whole.
+        assertFalse(CanoeTestSupport.write("hello<!DOCTYPE html>").isError(),
+                "leading text is accepted, deliberately and unchanged");
+    }
+
+    /**
+     * The DOCTYPE rule reaches the encoder, not only the error path: a reference after a comment and
+     * a DOCTYPE renders in its real context now, where before the whole page was refused.
+     */
+    @Test
+    public void aReferenceAfterACommentAndADoctypeRendersInItsContext() {
+        assertEquals("<!-- c --><!DOCTYPE html><p>&lt;b&gt;</p>",
+                CanoeTestSupport.render("<!-- c --><!DOCTYPE html><p>$data</p>", "<b>").output(),
+                "R18: the text sink escapes the payload, which needs the page to render at all");
+
+        assertEquals("<!-- c --><!DOCTYPE html><a href=\"/p/PAYLOAD\">x</a>",
+                CanoeTestSupport.render("<!-- c --><!DOCTYPE html><a href=\"/p/$data\">x</a>",
+                        "PAYLOAD").output(),
+                "and the attribute contexts after it are unaffected by the DOCTYPE");
     }
 
     // ------------------------------------------------------------------

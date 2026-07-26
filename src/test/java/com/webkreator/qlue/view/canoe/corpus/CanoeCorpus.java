@@ -3159,18 +3159,49 @@ public final class CanoeCorpus {
                 .note("'Attribute name too long'.")
                 .build());
 
-        // DOCTYPE placement. tagCount counts every '<' seen in HTML state, comments included.
+        // DOCTYPE placement. The precondition used to be a tagCount that counted every '<' seen in
+        // HTML state, comments included (F18); R18 makes it "no element has been emitted yet", which
+        // is the question the check was always asking, plus "no DOCTYPE has been accepted yet".
         cases.add(rejected("reject.doctype-after-an-element", "<html><!DOCTYPE html><p>$data</p>")
-                .note("Correct to reject, and the message says so plainly.")
+                .note("Correct to reject, and the message says so plainly. R18 rewords it from"
+                        + " 'DOCTYPE declaration must be at the beginning' - which stopped being true"
+                        + " of the rule the moment a comment was allowed above the DOCTYPE - to"
+                        + " 'DOCTYPE declaration must precede the first element'.")
                 .build());
 
-        cases.add(rejected("reject.doctype-after-a-comment",
-                "<!-- c --><!DOCTYPE html><p>$data</p>")
+        cases.add(rejected("reject.second-doctype",
+                "<!DOCTYPE html><!-- c --><!DOCTYPE html><p>$data</p>")
+                .note("'Duplicate DOCTYPE declaration'. The second DOCTYPE is rejected even though"
+                        + " only comments separate it from the first, which is the bound on R18: the"
+                        + " comment stops blocking a DOCTYPE, it does not start permitting one"
+                        + " anywhere. A browser would ignore the second declaration (a parse error in"
+                        + " 'before html' and after it); Canoe rejects, because two DOCTYPEs in one"
+                        + " document is an authoring mistake - typically a layout and an included"
+                        + " fragment each declaring one - and telling the author is the only value"
+                        + " this check has. The rejection is not new: tagCount was already past 1 by"
+                        + " the second '<!', so this shape failed before R18 too, under the single"
+                        + " 'must be at the beginning' message. R18 gives it its own message and"
+                        + " rejects nothing that used to be accepted; whether to relax it is R20's.")
+                .build());
+
+        // F18, closed by R18. This row used to be reject.doctype-after-a-comment: a licence header,
+        // an editor marker or a generator stamp above the DOCTYPE is legal HTML and common in
+        // template files, and it took the whole page down.
+        cases.add(XssCase.id("doctype.after-a-comment")
+                .section(A7)
+                .template("<!-- c --><!DOCTYPE html><p>$data</p>")
+                .textSink("p")
+                .payloads(Payloads.family("TAG_BREAKOUT"))
+                .verdict(Verdict.SAFE)
                 .finding("F18")
-                .note("F18: a licence header, an editor marker or a generator stamp above the DOCTYPE"
-                        + " is legal HTML and common in template files, and it takes the whole page"
-                        + " down. The check wants 'no element has been emitted yet', not 'no < has"
-                        + " been seen yet'.")
+                .note("R18: the page renders. The precondition asks whether an element has been"
+                        + " emitted rather than whether a '<' has been seen, and a comment is not an"
+                        + " element - it does not move a browser out of the 'initial' insertion mode"
+                        + " either. So the reference reaches the <p> text context, where htmlWhite()"
+                        + " escapes TAG_BREAKOUT and the document's shape is the template's own. Was"
+                        + " REJECTED, citing F18 for the rejection; re-verdicted SAFE against the"
+                        + " rendered output, keeping the citation so F18 keeps a live regression"
+                        + " case.")
                 .build());
 
         cases.add(rejected("reject.doctype-misspelt", "<!DOCTYPX html><p>$data</p>")

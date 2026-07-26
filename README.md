@@ -35,10 +35,11 @@ centrepiece of the design and it is why `<script>var x = '$name';</script>` sile
 `var x = '';`. It is also worth knowing about before you debug an empty value for an hour.
 
 **What is rejected.** Canoe is a strict tokenizer and raises an encoding error on markup it will not
-parse — a DOCTYPE that is not the first thing in the document, a comment above the DOCTYPE, `<br/>`
-on a void element, an unexpected character after a tag name, and about a dozen other shapes. The
-error is **not** recovered: it propagates and the request fails with a 500. If a template renders in
-your browser today it will keep rendering; if you are writing new templates, expect strictness.
+parse — a DOCTYPE after the first element or a second DOCTYPE (a comment, or several, above the
+DOCTYPE is fine, and so is leading text), `<br/>` on a void element, an unexpected character after a
+tag name, and about a dozen other shapes. The error is **not** recovered: it propagates and the
+request fails with a 500. If a template renders in your browser today it will keep rendering; if you
+are writing new templates, expect strictness.
 
 **What is not covered.**
 

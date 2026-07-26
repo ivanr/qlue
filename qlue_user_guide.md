@@ -60,10 +60,11 @@ disappearing from your page, this is why.
 ### What Canoe rejects
 
 Canoe is a strict tokenizer and raises an encoding error rather than emitting markup it cannot
-parse: a DOCTYPE that is not the document's first tag, a comment above the DOCTYPE, `<br/>` (a
-slash straight after a tag name — `<br />` with a space is fine), an unexpected character after a
-tag name, a literal `<` in body text, an XML prolog, and about a dozen more. The error is **not**
-recovered into a partial page: it propagates out of the view factory and the request fails.
+parse: a DOCTYPE that follows the document's first tag or a second DOCTYPE (a comment above the
+DOCTYPE is legal HTML and is accepted, and so is leading text), `<br/>` (a slash straight after a tag
+name — `<br />` with a space is fine), an unexpected character after a tag name, a literal `<` in
+body text, an XML prolog, and about a dozen more. The error is **not** recovered into a partial page:
+it propagates out of the view factory and the request fails.
 
 ### What is not covered
 

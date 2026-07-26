@@ -192,7 +192,53 @@ public class Canoe extends Writer {
 
     protected String errorMessage;
 
-    protected int tagCount;
+    /**
+     * Whether a tag has been seen in this document, which is the precondition a DOCTYPE declaration
+     * is tested against (R18).
+     *
+     * <p>It used to be a {@code tagCount} incremented for every {@code '<'} the HTML state saw, with
+     * the DOCTYPE check demanding {@code tagCount == 1}. A comment is markup and so it counted, and
+     * that was F18: <code>&lt;!-- licence --&gt;&lt;!DOCTYPE html&gt;</code> — legal HTML, and the shape a
+     * licence header, an editor marker or a generator stamp gives an ordinary template file — took the
+     * whole page down. The check wants "no <em>element</em> has been emitted yet", which is what this
+     * field records; the counter it replaced answered "no {@code '<'} has been seen yet", which is a
+     * different question and the wrong one. Nothing else ever read the count, so it went with the
+     * check rather than being left as a field with no reader.
+     *
+     * <p>Set at the point TAG_NAME commits to a tag — a start tag's first name character, or the
+     * {@code '/'} of an end tag — and deliberately <em>not</em> set for the {@code '!'} that opens a
+     * comment or a DOCTYPE. That is exactly the HTML Standard's boundary: its "initial" insertion mode
+     * ignores a comment and stays there, and any tag moves the parser past it, after which a DOCTYPE
+     * token is a parse error a browser ignores.
+     *
+     * @see #doctypeSeen
+     */
+    protected boolean elementSeen;
+
+    /**
+     * Whether a DOCTYPE declaration has already been accepted in this document.
+     *
+     * <p>A second DOCTYPE is rejected. The HTML Standard ignores it — in "before html" it is a parse
+     * error, and later it is one too — so a browser silently keeps the first; Canoe raises instead,
+     * because a template that emits two DOCTYPEs is a template-authoring mistake (usually a layout and
+     * an included fragment both declaring one) and the whole value of this check is telling the author
+     * about it. Tracked separately from {@link #elementSeen} so the two rejections can say which of
+     * them fired: "must precede the first element" and "Duplicate DOCTYPE declaration" are different
+     * mistakes with different fixes.
+     *
+     * <p><strong>This rejection is not new, and R18 did not add it.</strong> {@code tagCount} was
+     * already 2 by the second {@code <!}, so the old check refused it as well — with the misleading
+     * "DOCTYPE declaration must be at the beginning", which described neither of the two things that
+     * can now go wrong. R18 only splits the message in two: it widens what Canoe accepts and rejects
+     * nothing it accepted before. Whether being stricter than a browser here is the right policy at
+     * all is a question about the rejection table rather than about F18, and R20 owns it.
+     *
+     * <p>Set where the declaration is <em>admitted</em> — the {@code d} of {@code <!d}, before
+     * DOCTYPE_TEST has spelt the rest of the word out. A misspelling raises from there and ends the
+     * render, so there is no path on which this field can be true for a declaration that never
+     * parsed.
+     */
+    protected boolean doctypeSeen;
 
     /**
      * The URL-bearing attribute names, whose values go through {@link HtmlEncoder#url(String)}.
@@ -1086,7 +1132,6 @@ public class Canoe extends Writer {
                         // error that abandons this tag mid-name leaves null, never
                         // the previous tag's name.
                         tagName = null;
-                        tagCount++;
                     } else {
                         // Non-markup character
 
@@ -1103,9 +1148,26 @@ public class Canoe extends Writer {
                     if (c == '-') {
                         state = COMMENT_OPEN_2;
                     } else if ((c == 'D') || (c == 'd')) {
-                        if (tagCount != 1) {
-                            raiseError("DOCTYPE declaration must be at the beginning");
+                        // The DOCTYPE has to come before the first element and there may
+                        // only be one of it. Comments before it are legal HTML and legal
+                        // here (R18/F18), and so is text - but for a different reason,
+                        // and it is worth being honest about which. The HTML Standard's
+                        // "initial" insertion mode ignores whitespace and calls any other
+                        // text a parse error that moves the parser on, so a browser would
+                        // ignore the DOCTYPE in "hello<!DOCTYPE html>" and render the page
+                        // in quirks mode. Canoe could tell the two apart and does not:
+                        // leading text was accepted before R18 and stays accepted, because
+                        // turning it into a rejection would be a new way for an ordinary
+                        // page to 500 - the opposite of what this task is for. R18 widens
+                        // what is accepted and narrows nothing; the rejection table as a
+                        // whole, including whether a second DOCTYPE should be refused at
+                        // all when a browser merely ignores it, is triaged in R20.
+                        if (elementSeen) {
+                            raiseError("DOCTYPE declaration must precede the first element");
+                        } else if (doctypeSeen) {
+                            raiseError("Duplicate DOCTYPE declaration");
                         } else {
+                            doctypeSeen = true;
                             bufLen = 1;
                             state = DOCTYPE_TEST;
                         }
@@ -1172,13 +1234,25 @@ public class Canoe extends Writer {
                     // On the first character, check if this is a closing tag,
                     // a comment, or a DOCTYPE declaration
                     if (bufLen == 0) {
+                        if (c == '!') {
+                            // A bang declaration - a comment or a DOCTYPE. Neither is an
+                            // element, so elementSeen is deliberately left alone: that is
+                            // the whole of R18's fix for F18, a comment above the DOCTYPE.
+                            state = COMMENT_OPEN_OR_DOCTYPE;
+                            continue;
+                        }
+
+                        // Anything else here begins a tag: a start tag's name, or the '/'
+                        // of an end tag. Either one moves a browser past the HTML
+                        // Standard's "initial" insertion mode, after which a DOCTYPE is
+                        // ignored - so this is where "an element has been emitted"
+                        // becomes true, whatever the rest of the name turns out to be.
+                        elementSeen = true;
+
                         if (c == '/') {
                             // Closing tag
                             buf[bufLen++] = '/';
                             closingTag = true;
-                            continue;
-                        } else if (c == '!') {
-                            state = COMMENT_OPEN_OR_DOCTYPE;
                             continue;
                         }
                     }

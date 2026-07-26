@@ -173,7 +173,17 @@ public class CanoeStateMachineTest {
                         Canoe.COMMENT, Canoe.CTX_SUPPRESS),
                 row("part-way through DOCTYPE", "<!DOC", Canoe.DOCTYPE_TEST, Canoe.CTX_SUPPRESS),
                 row("inside a doctype", "<!DOCTYPE ", Canoe.DOCTYPE, Canoe.CTX_SUPPRESS),
-                row("after a doctype", "<!DOCTYPE html>", Canoe.HTML, Canoe.CTX_HTML));
+                row("after a doctype", "<!DOCTYPE html>", Canoe.HTML, Canoe.CTX_HTML),
+
+                // R18: a comment does not consume the document's one DOCTYPE slot, so the
+                // declaration after it parses like any other. The rejections that must survive
+                // are in CanoeRobustnessTest, which is where the messages and positions live.
+                row("doctype after a comment", "<!-- c --><!DOC",
+                        Canoe.DOCTYPE_TEST, Canoe.CTX_SUPPRESS),
+                row("after a doctype that followed a comment", "<!-- c --><!DOCTYPE html>",
+                        Canoe.HTML, Canoe.CTX_HTML),
+                row("doctype after leading text", "hello<!DOCTYPE html>",
+                        Canoe.HTML, Canoe.CTX_HTML));
     }
 
     private static Arguments row(String description, String prefix, int state, int context) {

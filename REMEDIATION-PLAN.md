@@ -907,8 +907,44 @@ stops suppressing.
 
 ---
 
-**R18 — Fix the DOCTYPE precondition**
+**R18 — Fix the DOCTYPE precondition** — ✅ **DONE**
 *Closes:* F18. *Depends on:* nothing.
+*Landed:* `tagCount` is deleted — nothing else read it — and the precondition is two booleans with
+one meaning each. `elementSeen` is set in `TAG_NAME` at `bufLen == 0`, with the `'!'` test moved
+above the `'/'` test so that the assignment sits between them: a start tag's first name character
+and the `/` of an end tag set it, the `!` of a bang declaration does not. That is the HTML
+Standard's own boundary — "initial" insertion mode inserts a comment and *stays* there, while any
+tag, start or end, is "anything else" and moves the parser on, after which a DOCTYPE token is a
+parse error a browser ignores. `doctypeSeen` is set where the declaration is admitted, at the `d` of
+`<!d`, which is safe because a misspelling raises from `DOCTYPE_TEST` and ends the render. The two
+give the two rejections their own messages: `DOCTYPE declaration must precede the first element`
+(reworded from "must be at the beginning", which stopped describing the rule the moment a comment
+was allowed above the declaration) and `Duplicate DOCTYPE declaration`. **The reorder is
+behaviour-preserving and the task only widens what Canoe accepts**: `'/'` and `'!'` are mutually
+exclusive, `TAG_NAME` is entered from exactly one place (`HTML` on `<`), and `bufLen == 0` holds
+exactly once per tag, so the two orderings differ only by the assignment. Measured rather than
+argued as well — both tokenizers run over 8,420 generated documents give **29 newly accepted, 0
+newly rejected, 0 changes to any accepted output**, the 29 being the comment-above-the-DOCTYPE
+family. Neither surviving rejection is new: `tagCount` was already past 1 for both, so R18 splits
+one misleading message into two accurate ones rather than adding a refusal. Whether Canoe should
+reject a second DOCTYPE at all, where a browser merely ignores it, is a rejection-table question and
+is in R20's triage table below. Leading text before the DOCTYPE stays accepted, unchanged and
+deliberately: a browser would ignore that DOCTYPE and go quirks, but the input renders today and
+turning it into a 500 belongs to R20 too. Ledger: `reject.doctype-after-a-comment` (REJECTED ×2)
+becomes `doctype.after-a-comment` (**SAFE** ×3, `TAG_BREAKOUT` into a `<p>` text sink, verdict set
+against the rendered output — the payload arrives `htmlWhite()`-escaped), keeping its F18 citation
+so the finding keeps a live regression case, and a new `reject.second-doctype` (REJECTED ×2) bounds
+the fix. 1,002 → **1,005 invocations**, SAFE 459 → 462, REJECTED 44 unchanged. Tests:
+`CanoeRobustnessTest.aCommentBeforeTheDoctypeMakesTheDoctypeIllegal` is inverted to
+`.aCommentBeforeTheDoctypeIsNowLegal` with the former name and F18's mechanism in its javadoc, and
+carries the five surviving rejections — `<html><!DOCTYPE>`, `</p><!DOCTYPE>`,
+`<!-- c --><p><!DOCTYPE>`, `<!DOCTYPE><!DOCTYPE>`, `<!DOCTYPE><!-- c --><!DOCTYPE>` — as its net;
+three rows added to the rejection table and one reworded there, two added to the acceptance table;
+`CanoeStateMachineTest` gains three transition rows; `TemplateFuzzTest` now emits a comment above
+its DOCTYPE, a shape F18 had made unreachable. Coverage: the one condition became two, all four
+outcomes reached, Canoe 276/287 → 278/289 = 96.19%, `reallyProcessChar()` 161/166 → 163/168 =
+97.02%, the eleven dead outcomes unchanged, no floor moved. `./gradlew test` and
+`canoeCoverageGate` green; `browserTest` green on Chromium (88 passed, 2 skipped).
 
 `tagCount++` runs for every `<` in `HTML` state and `COMMENT_OPEN_OR_DOCTYPE` demands `tagCount == 1`,
 so a licence header or generator stamp above the DOCTYPE — legal HTML, common in template files —
@@ -947,6 +983,14 @@ Five ordinary inputs raise an encoding error, and per F13 each is currently an u
 | a 37-character tag or attribute name | `Tag name too long` / `Attribute name too long` | `MAX_TAGNAME_LEN` is 36 and the buffer is shared. Raise the cap or grow the buffer; custom-element and framework attribute names exceed it routinely. |
 | `</ p>`, `</>` | `Tag name too short` | Keep. |
 | a C0 control in body text | `Invalid character detected in output` | Keep. |
+
+**Added by R18**, which preserved these two rejections rather than deciding them, because F18 was
+about a comment above the DOCTYPE and nothing else:
+
+| Input | Error | Verdict to reach |
+|---|---|---|
+| `<!DOCTYPE html><!DOCTYPE html>` | `Duplicate DOCTYPE declaration` | Decide. A browser ignores the second declaration; Canoe refuses the page. Defensible as an authoring diagnostic — a layout and an included fragment each declaring one is the usual cause — but it is strictness a browser does not have, and the argument for keeping it is the same "must fail at build or dev time, not at request time" argument as `<p>5 < 6</p>` above. |
+| `hello<!DOCTYPE html>` | *accepted* | Decide, in the other direction. The HTML Standard ignores whitespace in "initial" and treats other text as a parse error that moves the parser past the point a DOCTYPE can be honoured, so a browser renders this in quirks mode and Canoe says nothing. Accepting it is the availability-safe choice and R18 kept it; a *warning* rather than a rejection is the shape that would close the gap without a new 500. |
 
 Fix the first, size the third, and record the decision for the rest. Whatever is decided, R21 has to
 land first so the failure is a diagnosable error rather than a 500 on a half-written response.
@@ -1115,7 +1159,7 @@ a page with an author nonce and a real CSP), and §A.3 of the test plan is missi
 | F15 — `url()` corrupts legitimate URLs five ways | Low | R11, R12 |
 | F16 — `js()` truncates astral; `css()` escapes unterminated | Low | R13 |
 | F17 — the reset defeats JS suppression | High | R2 |
-| F18 — a comment before the DOCTYPE is illegal | Low | R18 |
+| F18 — a comment before the DOCTYPE is illegal | Low | R18 ✅ (`elementSeen`/`doctypeSeen` replace `tagCount`; a comment above the DOCTYPE renders) |
 | F19 — `onreadystatechange` dead branch | Critical | R4 |
 | F20 — policy-bearing attributes arrive verbatim | Medium | R5 |
 | F21 — `currentContext()` can never return `CTX_CSS` | Low (latent) | R14 ✅ (constant + dead arm deleted) |

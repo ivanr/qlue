@@ -401,6 +401,33 @@ jacocoTestReport {
  *                                                                    isEndTagNameDelimiter() and
  *                                                                    asciiToLowerCase())
  *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14 - R17)
+ *
+ * RE-MEASURED after R18 (fix the DOCTYPE precondition, F18). One condition became two, and both are
+ * driven from both sides. COMMENT_OPEN_OR_DOCTYPE tested `tagCount != 1` (2 outcomes); it now tests
+ * `elementSeen` and then `doctypeSeen` (4 outcomes), which is what splits "a DOCTYPE after an
+ * element" from "a second DOCTYPE" and lets each have its own message. All four are reached, by
+ * CanoeRobustnessTest: the rejection table's rows "DOCTYPE after another element", "DOCTYPE after an
+ * end tag", "second DOCTYPE" and "second DOCTYPE after a comment" drive the two true outcomes, and
+ * every accepted DOCTYPE in the suite drives the two false ones. The TAG_NAME change is a reorder -
+ * the '!' test moved above the '/' test so that `elementSeen = true` sits between them - and neither
+ * condition's outcome count moved. So Canoe gains two covered branches and two total: 278/289 =
+ * 96.19% (was 276/287), reallyProcessChar 163/168 = 97.02% (was 161/166). Both stay above their 0.95
+ * and 0.96 floors, so no floor moves; R27 is where the accumulated slack gets reconciled.
+ *
+ * The eleven dead outcomes are unchanged and are still the same eleven (5 reallyProcessChar +
+ * 2 currentContext + 4 inBuf), verified line by line against the XML rather than inferred from the
+ * totals: switch(state)'s default, COMMENT_OPEN_OR_DOCTYPE's else, COMMENT_OPEN_2's else,
+ * switch(attrQuotes)'s default and "Internal error #1001" in reallyProcessChar; `case URL` and the
+ * inner default in currentContext(); the four in inBuf(). F18 was never in the inventory - its bug
+ * was a precondition that asked the wrong question, not an unreachable branch - and R18 adds nothing
+ * to it. Note that the two raiseError() arms R18 adds are measured *covered*, unlike the two
+ * UNMEASURABLE else-arms listed above: those are the failing outcome of a condition whose block
+ * falls through to `break` with no probe in between, whereas these two are if/else-if arms whose
+ * decision probe is emitted before the throwing call. HtmlEncoder is untouched.
+ *
+ *   Canoe                             278 / 289 branches   96.19%   (was 276 / 287; R18 split the
+ *                                                                    DOCTYPE precondition in two)
+ *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14 - R18)
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],

@@ -59,7 +59,7 @@ by application code calling `setAutoEscaping(false)`.
 | F15 | Low | `url()` silently corrupts legitimate URLs five different ways |
 | F16 | Low | `js()` truncates astral code points; `css()` emits unterminated hex escapes and drops everything above U+00FF |
 | F17 | High | The `detectAttributePrefix()` reset also defeats `ATTR_JS`, so a colon makes a *recognised* event handler injectable |
-| F18 | Low | A comment before the DOCTYPE makes the DOCTYPE illegal |
+| F18 | Low | A comment before the DOCTYPE makes the DOCTYPE illegal — **fixed in R18** |
 | F19 | Critical | `onreadystatechange=` never classified as JavaScript (the branch spells `onredystatechange`) |
 | F20 | Medium | Policy-bearing attributes — `sandbox`, `rel`, `integrity`, `nonce` — arrive verbatim, and encoding is inapplicable rather than insufficient |
 | F21 | Low (latent) | `currentContext()` can never return `CTX_CSS`, so the CSS arm of `encode()` is dead and enabling a CSS encoder there would change nothing |
@@ -1422,6 +1422,28 @@ Same class as the five availability defects in F13's table, and the same fix sha
 "no *element* has been emitted yet", not "no `<` has been seen yet".
 
 > **Verified.** `CanoeRobustnessTest.aCommentBeforeTheDoctypeMakesTheDoctypeIllegal`.
+
+> **Resolved — R18 (2026-07-26).** `tagCount` is gone, and with it the only thing that read it. The
+> precondition is now two booleans with one meaning each: `elementSeen`, set where `TAG_NAME` commits
+> to a tag — a start tag's first name character or the `/` of an end tag, and deliberately not the
+> `!` of a bang declaration — and `doctypeSeen`, set when a DOCTYPE is accepted. A comment above the
+> DOCTYPE is legal, any number of them are, and whitespace or text between them changes nothing.
+> The rejections that remain are `<html><!DOCTYPE html>` ("DOCTYPE declaration must precede the first
+> element", reworded from "must be at the beginning", which stopped describing the rule the moment a
+> comment was allowed above the declaration) and a second DOCTYPE ("Duplicate DOCTYPE declaration",
+> its own message: a browser ignores the second one, and a template that emits two is an authoring
+> mistake worth naming). **Neither rejection is new.** `tagCount` was already past 1 in both cases,
+> so both were refused before R18 under the single misleading message; R18 splits that message in two
+> and rejects nothing it used to accept — a differential run of both tokenizers over 8,420 generated
+> documents finds 29 newly accepted, 0 newly rejected, and no change to any accepted output. Whether
+> Canoe should be stricter than a browser about the second declaration at all is a question for R20's
+> rejection-table triage, not for F18. `hello<!DOCTYPE html>` stays accepted, as the table above
+> records it was:
+> the HTML Standard's "initial" insertion mode calls non-whitespace text a parse error there, but
+> text is not markup, and turning it into a 500 would be a new availability defect in the task that
+> exists to remove one. The verified test is inverted to
+> `CanoeRobustnessTest.aCommentBeforeTheDoctypeIsNowLegal`, which keeps the former name and this
+> reasoning in its javadoc and carries the surviving rejections as its regression net.
 
 ---
 

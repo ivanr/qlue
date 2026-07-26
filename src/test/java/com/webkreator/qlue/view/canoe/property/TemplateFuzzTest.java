@@ -300,16 +300,23 @@ public class TemplateFuzzTest {
      * fragment boundary is the only place a drop can leave something Canoe will still parse.
      *
      * <p>The shapes are constrained to what Canoe accepts, which is narrower than HTML: it rejects
-     * {@code <br/>} on a void element, rejects a comment above the DOCTYPE (F18), and rejects a
-     * DOCTYPE that is not the first tag. Generating those would turn the run into a rejection
-     * benchmark instead of an injection hunt. Some rejection is still generated deliberately — the
-     * unterminated shapes below — because property 1 is about rejected renders and property 2 has to
-     * hold in partial output.
+     * {@code <br/>} on a void element, and rejects a DOCTYPE that follows an element or a previous
+     * DOCTYPE. Generating those would turn the run into a rejection benchmark instead of an injection
+     * hunt. Some rejection is still generated deliberately — the unterminated shapes below — because
+     * property 1 is about rejected renders and property 2 has to hold in partial output.
+     *
+     * <p>A comment above the DOCTYPE <em>was</em> in that excluded list, because F18 rejected it. R18
+     * makes it legal, so the generator emits one, on the same reasoning the {@link #NOISE} javadoc
+     * gives for keeping F5's fragments: the shapes a fixed finding makes reachable are exactly the
+     * ones the fuzzer had never been able to explore.
      */
     private static List<String> generate(Random random) {
         List<String> fragments = new ArrayList<>();
 
         if (random.nextInt(4) == 0) {
+            if (random.nextInt(2) == 0) {
+                fragments.add("<!-- licence -->");
+            }
             fragments.add("<!DOCTYPE html>");
         }
 
