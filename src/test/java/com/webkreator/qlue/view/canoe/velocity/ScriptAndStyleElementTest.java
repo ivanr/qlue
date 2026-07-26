@@ -68,8 +68,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * written yet: the property that for every corpus template, the sequence of {@code currentContext()}
  * values observed at each reference position is identical whether the reference value is the inert
  * marker or any payload in the catalogue. That is the property F10's unexploitability rests on, and
- * the review asks explicitly that any relaxation of the encoders — the commented-out
- * {@code HtmlEncoder.js()} and {@code HtmlEncoder.css()} at {@code Canoe.java:1074-1081} — be checked
+ * the review asks explicitly that any relaxation of the encoders — wiring {@code HtmlEncoder.js()}
+ * into the {@code CTX_JS} arm, or a CSS encoder into the suppressed {@code style} route — be checked
  * against it before it lands. If T23 ever fails, every row in this file needs re-rating and F10 stops
  * being latent.
  */
@@ -102,11 +102,11 @@ public class ScriptAndStyleElementTest {
      * <p>Asserted against the render with an empty value rather than against a literal string, so the
      * claim is "the payload contributed nothing" rather than "the output looked like this".
      *
-     * <p>This is the row that flips when {@code Canoe.java:1074-1081} is uncommented, and it should:
-     * the day {@code CTX_JS} stops meaning the empty string, every one of these becomes a claim about
-     * {@code HtmlEncoder.js()} instead, and per F16 that encoder truncates astral code points to their
-     * low sixteen bits — {@code U+10027} silently becomes an apostrophe, inside the string literal
-     * these cases are testing. The failure is the point.
+     * <p>This is the row that flips the day {@code CTX_JS} is relaxed to real escaping, and it should:
+     * every one of these becomes a claim about {@code HtmlEncoder.js()} instead. R13 corrected
+     * {@code js()} (before it, per F16, an astral code point like {@code U+10027} was truncated to an
+     * apostrophe inside the string literal these cases test), but it is not wired in, so the row stays
+     * a suppression. The failure is the point.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("elementBodyInvocations")
@@ -126,11 +126,11 @@ public class ScriptAndStyleElementTest {
     /**
      * The four states involved, named, so that a failure above says which one changed.
      *
-     * <p>Note that {@code <style>} produces {@code CTX_SUPPRESS} and not {@code CTX_CSS}. That is
-     * <strong>F21</strong> and it is not a hole in the switch — the {@code CSS}/{@code CSS_END} states
-     * simply have no {@code CTX_CSS} arm, and nothing anywhere in {@code currentContext()} does. Both
-     * constants encode to the empty string today, which is why it is latent;
-     * {@code AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss} owns the finding.
+     * <p>Note that {@code <style>} produces {@code CTX_SUPPRESS}. There is no {@code CTX_CSS}: R14
+     * deleted the constant and its dead {@code encode()} arm (<strong>F21</strong>), so the
+     * {@code CSS}/{@code CSS_END} states, like every route a {@code style} value takes, suppress. That
+     * is a settled design decision, not a hole in the switch;
+     * {@code AttributeNameMatrixTest.thereIsNoCtxCssAndStyleStillSuppresses} owns it.
      */
     @Test
     public void theFourStatesAScriptOrStyleBodyCanBeIn() {
@@ -139,7 +139,7 @@ public class ScriptAndStyleElementTest {
         assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<script>x</scr"),
                 "SCRIPT_END, partway through the seven characters it matches");
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<style>"),
-                "CSS - and CTX_SUPPRESS rather than CTX_CSS, which is F21");
+                "CSS - CTX_SUPPRESS; there is no CTX_CSS since R14 (F21)");
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<style>a{}</sty"),
                 "CSS_END");
 
@@ -298,8 +298,8 @@ public class ScriptAndStyleElementTest {
      * and {@code CanoeStateMachineTest} is where source-shaped claims live; this is a claim about
      * behaviour, and the two states differ in one respect that could plausibly have changed the
      * answer — {@code SCRIPT} produces {@code CTX_JS} and {@code CSS} produces {@code CTX_SUPPRESS}
-     * (F21), so the observable effect of being stuck in one is not the observable effect of being
-     * stuck in the other.
+     * (there is no CTX_CSS; R14/F21), so the observable effect of being stuck in one is not the
+     * observable effect of being stuck in the other.
      */
     @Test
     public void bothDesyncsHaveExactCssTwins() {
@@ -336,8 +336,8 @@ public class ScriptAndStyleElementTest {
      * could create the desync itself, and F10 would stop being latent.
      *
      * <p>The general form is {@code ParserSteeringTest} (T23), quantified over the whole corpus rather
-     * than over this file's six templates, and it is the test that has to be re-run before the
-     * commented-out encoders at {@code Canoe.java:1074-1081} are enabled. Until T23 exists this is the
+     * than over this file's six templates, and it is the test that has to be re-run before any CSS or
+     * JavaScript encoder is wired into the suppressed routes. Until T23 exists this is the
      * only executable statement of the property in the {@code <script>}/{@code <style>} states
      * specifically, which is where it matters most: those are the states an encoder relaxation
      * changes.
@@ -391,8 +391,8 @@ public class ScriptAndStyleElementTest {
      * <p>Read as a group they are the reason F10 is worth keeping in the review at Low rather than
      * closing: two of them are {@code SAFE} and two are {@code SUPPRESSED_UNINTENDED}, so today the
      * finding costs availability and nothing else — and every one of the four would flip the moment
-     * {@code CTX_JS} or {@code CTX_CSS} stopped being the empty string, which is what the remediation
-     * path contemplates.
+     * {@code CTX_JS} or the suppressed {@code style} route stopped being the empty string, which is
+     * what the remediation path contemplates.
      *
      * <p>The verdicts are deliberately <em>not</em> {@code KNOWN_VULNERABLE}. Recording them that way
      * would say attacker data reaches a sink live (&sect;2.1's definition), and it does not: the

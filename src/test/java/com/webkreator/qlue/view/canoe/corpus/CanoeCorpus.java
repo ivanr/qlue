@@ -905,11 +905,12 @@ public final class CanoeCorpus {
                 .sink(SinkKind.JAVASCRIPT, "script", null)
                 .payloads(Payloads.families("QUOTE_BREAKOUT", "UNICODE_EDGE"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
-                .note("CTX_JS maps to the empty string. The commented-out code at Canoe.java:1074-1081"
-                        + " contemplates replacing that with HtmlEncoder.js(). R13 fixed js() (F16), so"
-                        + " the encoder is now correct, but wiring it in is a deliberate design"
-                        + " decision that has not been taken: refusing to interpolate into JavaScript"
-                        + " is the centrepiece of the design, and this row stays suppressed.")
+                .note("CTX_JS maps to the empty string. R13 fixed js() (F16), so the encoder is now"
+                        + " correct, but wiring it into the CTX_JS arm is a deliberate design decision"
+                        + " that has not been taken - and R14 deleted its CSS twin (CTX_CSS) rather"
+                        + " than route to a CSS encoder, for the same reason. Refusing to interpolate"
+                        + " into JavaScript is the centrepiece of the design, and this row stays"
+                        + " suppressed.")
                 .build());
 
         cases.add(XssCase.id("script.body-bare")
@@ -2471,6 +2472,12 @@ public final class CanoeCorpus {
      * that always sat on the safe side of it. The group is kept, verdicts flipped rather than rows
      * deleted, because it is the regression net for F4: if any one of these ever stops being
      * suppressed, the reset (or something with its shape) is back.
+     *
+     * <p>That every {@code style} value stays suppressed is also the settled R14 decision (F21), not a
+     * pending state: R14 kept suppressing and deleted the dead {@code CTX_CSS} arm rather than route
+     * {@code ATTR_CSS} to a CSS encoder. F23 shows a {@code style} value is decoded in series, so a
+     * correct CSS encoder is a project, not a line; R13 corrected {@code css()} as its precondition.
+     * These rows would need re-verdicting only if that project is ever undertaken.
      */
     private static void cssContexts(List<XssCase> cases) {
 

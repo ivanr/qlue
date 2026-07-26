@@ -719,8 +719,30 @@ contemplates promoting to automatic use.
 
 ---
 
-**R14 — Settle `CTX_CSS`**
+**R14 — Settle `CTX_CSS`** — ✅ **DONE**
 *Closes:* F21. *Depends on:* R13.
+*Landed:* the decision is **keep suppressing, and delete the trap.** The `CTX_CSS` constant is gone
+(its value 5 left as a documented gap so no old caller silently rebinds to it), the dead `CTX_CSS`
+arm of `encode()` is gone, and **both** commented-out contemplation lines are gone — the `CTX_CSS`
+one (dead: uncommenting it changed nothing) and its `CTX_JS` twin (a latent enable: uncommenting it
+*would* have taken effect). The `CTX_JS` arm stays a live suppression, but with no pre-written line to
+uncomment; the reasoning — Canoe refuses to interpolate into CSS, F23 shows a `style` value is
+decoded in series (HTML character references, then the CSS tokenizer), so a CSS encoder correct
+against all of it is a project not a line, R13 is its precondition and is now met, and this task is
+where the decision is recorded — sits on `currentContext()`'s `ATTR_CSS` case and, in pointer form,
+on `encode()` where the arm was. `ATTR_CSS` → `CTX_SUPPRESS` is unchanged: `style` values stay
+suppressed. `AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss` is retired as
+`.thereIsNoCtxCssAndStyleStillSuppresses`, carrying its reasoning and inverting its source assertion
+("`encode()` must still carry the arm" → "no `CTX_CSS` constant, arm or return may reappear"). The
+review's "systemic flaw" six-context table is corrected to five, and the R13 leftover is finalized:
+`ScriptAndStyleElementTest`, `CssContextTest` and `AttributeNameMatrixTest` now describe CSS
+suppression as R14's settled decision referencing R13's corrected `css()`, not F16 in present tense.
+The `css.*` corpus rows (SUPPRESSED_BY_DESIGN from R2/F4) are confirmed settled with an R14 note on
+`cssContexts()`; no verdict changed. Coverage: `encode()` lost the (test-covered) `CTX_CSS` branch, so
+Canoe is 250/261 = 95.79% (was 251/262), still above the 0.95 floor — no floor moved; the inventory's
+`currentContext` F21 tag and the `currentContextCanNeverReturnCtxCss` cross-reference are updated.
+`./gradlew test` and `canoeCoverageGate` green; `browserTest` green on Chromium (Firefox and WebKit
+not installed here).
 
 `encode()` maps six contexts; `currentContext()` can produce five. `ATTR_CSS` is grouped with
 `ATTR_DATA`, `ATTR_CONTENT` and `ATTR_ACTIONSCRIPT` and returns `CTX_SUPPRESS`, so the `CTX_CSS` arm
@@ -1012,7 +1034,7 @@ a page with an author nonce and a real CSP), and §A.3 of the test plan is missi
 | F18 — a comment before the DOCTYPE is illegal | Low | R18 |
 | F19 — `onreadystatechange` dead branch | Critical | R4 |
 | F20 — policy-bearing attributes arrive verbatim | Medium | R5 |
-| F21 — `currentContext()` can never return `CTX_CSS` | Low (latent) | R14 (after R13) |
+| F21 — `currentContext()` can never return `CTX_CSS` | Low (latent) | R14 ✅ (constant + dead arm deleted) |
 | F22 — base factory declares an unconfigured loader | Low | R22 |
 | F23 — `style` values are decoded twice | Low | R2 closes the exposure; R13, R14 record the rest |
 | F24 — `url()` emits a raw scheme colon | Medium | R11, R12 (R2 mitigates) |

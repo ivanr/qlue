@@ -325,8 +325,7 @@ public final class CanoeTestSupport {
                 return "CTX_URI";
             case Canoe.CTX_URI_RESOURCE:
                 return "CTX_URI_RESOURCE";
-            case Canoe.CTX_CSS:
-                return "CTX_CSS";
+            // There is no CTX_CSS since R14 (F21); value 5 is an unused gap.
             default:
                 return "CTX_UNKNOWN(" + context + ")";
         }

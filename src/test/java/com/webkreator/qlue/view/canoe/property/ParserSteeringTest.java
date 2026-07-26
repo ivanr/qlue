@@ -78,17 +78,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <h2>Why this is the test that gates the remediation</h2>
  *
- * <p><strong>Relaxing the {@code CTX_JS} or {@code CTX_CSS} suppression to real escaping — the
- * commented-out {@code HtmlEncoder.js()} and {@code HtmlEncoder.css()} calls at
- * {@code Canoe.java:1074-1081} — requires re-running this test first, and it must still pass.</strong>
+ * <p><strong>Relaxing Canoe's JavaScript or CSS suppression to real escaping — wiring
+ * {@code HtmlEncoder.js()} into the {@code CTX_JS} arm, or a CSS encoder into the {@code ATTR_CSS}
+ * route — requires re-running this test first, and it must still pass.</strong>
  * The review asks for exactly that, in the corollary section, and this is the executable form of the
- * request. Today those two contexts emit the empty string, so they cannot contribute a character of
- * any kind and the property holds trivially for every reference that lands in them. The moment they
- * emit something, the property becomes a real constraint on two encoders that F16 has already shown
- * to be defective: {@code js()} truncates astral code points to their low sixteen bits, so
- * {@code U+10027} becomes an apostrophe, and {@code css()} emits unterminated two-digit hex escapes.
- * Either could produce a character that steers the parser, and no other test in this suite would
- * notice.
+ * request. Today the JS context and the suppressed {@code style} route emit the empty string, so they
+ * cannot contribute a character of any kind and the property holds trivially for every reference that
+ * lands in them. The moment they emit something, the property becomes a real constraint on two
+ * encoders F16 showed to be defective and R13 corrected: before R13 {@code js()} truncated astral
+ * code points to their low sixteen bits ({@code U+10027} became an apostrophe) and {@code css()}
+ * emitted unterminated two-digit hex escapes. R13 fixed both, but neither is wired in — R14 deleted
+ * {@code CTX_CSS} rather than route to a CSS encoder — so relaxing either suppression is still an
+ * undecided change, and this is the test that gates it. No other test in this suite would notice a
+ * steering character one of them emitted.
  *
  * <p>Three findings depend on this property being true and would need re-rating if it ever failed:
  * <strong>F10</strong> (both desyncs are reachable only from template text — {@code
@@ -290,8 +292,9 @@ public class ParserSteeringTest {
      * immediately behind an allowlisted scheme name.
      *
      * <p>{@code html()} and {@code htmlWhite()} render {@code :} as {@code &#58;}; {@code CTX_JS} and
-     * {@code CTX_CSS} emit nothing; so no context but {@code CTX_URI} produces a colon at all, which
-     * is the first half of the property and is asserted below over the other five contexts.
+     * {@code CTX_SUPPRESS} (where a suppressed {@code style} value lands since R14 deleted
+     * {@code CTX_CSS}) emit nothing; so no context but {@code CTX_URI} produces a colon at all, which
+     * is the first half of the property and is asserted below over the other contexts.
      *
      * <p>The literal "no context can emit a raw colon" that R11's plan text asks for is not reachable
      * while an absolute {@code http(s)} URL is allowed to survive — and it must, or
@@ -304,13 +307,13 @@ public class ParserSteeringTest {
      * F24 by design: after R2 a colon cannot steer at all, and after R12 the only colon that reaches
      * the value scan is one behind a scheme name that {@code detectAttributePrefix()} matches none of.
      *
-     * <p>It is also the test that fails if somebody widens the scheme allowlist or enables the
-     * commented-out {@code css()} encoder — either of which could put a colon somewhere new.
+     * <p>It is also the test that fails if somebody widens the scheme allowlist or wires a CSS encoder
+     * into the suppressed {@code style} route — either of which could put a colon somewhere new.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("everyPayload")
     public void theOnlyRawColonAnyEncoderEmitsIsAnAllowlistedSchemeSeparator(Payload payload) {
-        int[] colonlessContexts = {Canoe.CTX_HTML, Canoe.CTX_HTML_ATTR, Canoe.CTX_JS, Canoe.CTX_CSS,
+        int[] colonlessContexts = {Canoe.CTX_HTML, Canoe.CTX_HTML_ATTR, Canoe.CTX_JS,
                 Canoe.CTX_SUPPRESS};
         for (int context : colonlessContexts) {
             String encoded = Canoe.encode(payload.value(), context);
@@ -389,14 +392,16 @@ public class ParserSteeringTest {
      * or emits nothing at all. That is a claim about five functions, so it is asserted against those
      * five functions over every payload, rather than inferred from the corpus sweep above.
      *
-     * <p>{@code CTX_HTML} and {@code CTX_HTML_ATTR} are the interesting rows; the other three are the
-     * empty string today, which is why relaxing them is the change this file exists to gate.
+     * <p>{@code CTX_HTML}, {@code CTX_HTML_ATTR} and {@code CTX_URI} are the rows that emit; the two
+     * suppressed rows ({@code CTX_JS} and {@code CTX_SUPPRESS}, where a {@code style} value lands since
+     * R14 deleted {@code CTX_CSS}) are the empty string today, which is why relaxing them is the change
+     * this file exists to gate.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("everyPayload")
     public void noEncoderCanEmitACharacterThatSteersTheParser(Payload payload) {
         int[] contexts = {Canoe.CTX_HTML, Canoe.CTX_HTML_ATTR, Canoe.CTX_JS, Canoe.CTX_URI,
-                Canoe.CTX_CSS, Canoe.CTX_SUPPRESS};
+                Canoe.CTX_SUPPRESS};
 
         for (int context : contexts) {
             String encoded = Canoe.encode(payload.value(), context);
@@ -415,22 +420,27 @@ public class ParserSteeringTest {
     }
 
     /**
-     * The two contexts that are suppressed today emit nothing at all, for every payload.
+     * The suppressed contexts emit nothing at all, for every payload.
      *
      * <p>Recorded separately from the sweep above so that the difference is explicit: {@code CTX_JS}
-     * and {@code CTX_CSS} pass the steering test <em>vacuously</em>, and the day
-     * {@code Canoe.java:1074-1081} is uncommented they stop doing so and start depending on
-     * {@code js()} and {@code css()} being correct. This test is the one that fails first when that
-     * happens, and it is the one whose failure means "now go and run everything above".
+     * passes the steering test <em>vacuously</em>, and the day it is relaxed to real escaping it stops
+     * doing so and starts depending on {@code js()} being correct. This test is the one that fails
+     * first when that happens, and it is the one whose failure means "now go and run everything
+     * above".
+     *
+     * <p>CSS is checked through the route that actually reaches it: {@code ATTR_CSS} (the {@code style}
+     * attribute) maps to {@code CTX_SUPPRESS}. R14 deleted {@code CTX_CSS}, so there is no separate CSS
+     * context to encode against; the suppression is the {@code CTX_SUPPRESS} arm, and relaxing it is
+     * the same undecided project (F23, R13) the {@code style} case in {@code Canoe.currentContext()}
+     * records.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("everyPayload")
-    public void theJsAndCssContextsPassVacuouslyBecauseTheyEmitNothing(Payload payload) {
+    public void theSuppressedContextsPassVacuouslyBecauseTheyEmitNothing(Payload payload) {
         assertEquals("", Canoe.encode(payload.value(), Canoe.CTX_JS),
-                "CTX_JS suppression; when this changes, re-run noPayloadMovesTheStateMachine before"
-                        + " shipping it");
-        assertEquals("", Canoe.encode(payload.value(), Canoe.CTX_CSS),
-                "CTX_CSS suppression - which per F21 no context path can currently reach anyway");
+                "CTX_JS suppression; when this changes, re-run the sweeps above before shipping it");
+        assertEquals("", Canoe.encode(payload.value(), Canoe.CTX_SUPPRESS),
+                "CTX_SUPPRESS is where a style (ATTR_CSS) value lands since R14 deleted CTX_CSS");
     }
 
     // ------------------------------------------------------------------

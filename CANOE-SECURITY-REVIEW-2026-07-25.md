@@ -183,24 +183,29 @@ with instructions to refute. The verdict note on each finding records what that 
 
 ## The systemic flaw
 
-`Canoe.encode()` maps six contexts to encoders:
+`Canoe.encode()` maps five contexts to encoders:
 
 ```java
 CTX_HTML       -> HtmlEncoder.htmlWhite(input)
 CTX_HTML_ATTR  -> HtmlEncoder.htmlAttr(input)   // == html()
 CTX_JS         -> ""                            // suppressed
 CTX_URI        -> HtmlEncoder.url(input)
-CTX_CSS        -> ""                            // suppressed -- and unreachable; see F21
 CTX_SUPPRESS   -> ""                            // default
 ```
 
-Six contexts are mapped and only **five** can be produced: `currentContext()` never returns
-`CTX_CSS`, because its `TAG_ATTR_VALUE` switch groups `ATTR_CSS` with `ATTR_DATA`, `ATTR_CONTENT` and
-`ATTR_ACTIONSCRIPT` and returns `CTX_SUPPRESS` for all four. `style` is therefore suppressed by a
-`case` arm shared with three unrelated contexts — not by the `default:` branch, which is a separate
-branch nothing in this path reaches, and not by the `CTX_CSS` arm the field names imply. That is
-[F21](#f21--low-latent-currentcontext-can-never-return-ctx_css), and it matters only when someone acts
-on this table.
+> **Update — R14 closed F21 by deletion.** As found, `encode()` mapped **six** contexts and
+> `currentContext()` could produce only five: the sixth, `CTX_CSS`, was never returned, because the
+> `TAG_ATTR_VALUE` switch grouped `ATTR_CSS` with `ATTR_DATA`, `ATTR_CONTENT` and `ATTR_ACTIONSCRIPT`
+> and returned `CTX_SUPPRESS` for all four. `style` was therefore suppressed by a `case` arm shared
+> with three unrelated contexts — not by the `CTX_CSS` arm the field names implied, whose commented-out
+> body would have changed nothing if enabled while its `CTX_JS` twin would have taken effect. That was
+> [F21](#f21--low-latent-currentcontext-can-never-return-ctx_css). R14 kept suppressing and deleted the
+> trap: the `CTX_CSS` constant, its dead `encode()` arm and both commented-out contemplation lines are
+> gone, so the table above lists the five contexts that were always the only ones reachable. `style`
+> values stay suppressed by design (F23: a `style` value is decoded in series, so a correct CSS encoder
+> is a project, not a line). *(Since this review, R9 also added a sixth **live** context,
+> `CTX_URI_RESOURCE`, for resource-loading URL sinks; it is not shown here because this section is the
+> as-found record of the flaw.)*
 
 `ATTR_HTML` is the **default** for any attribute name Canoe does not recognise
 (`setTagAttributeContext()`, `Canoe.java:283`), and it maps to `CTX_HTML_ATTR` → `HtmlEncoder.html()`.
@@ -1596,6 +1601,15 @@ below item 3 touches this finding, and no change to `HtmlEncoder` can.
 
 *Added 2026-07-26, found while writing the attribute-name matrix (T14).*
 
+> **Resolved — R14 (2026-07-26).** Recommendation taken: keep suppressing and delete the trap. The
+> `CTX_CSS` constant, its dead `encode()` arm, and **both** commented-out contemplation lines below
+> (the `CTX_CSS` one and its live-if-uncommented `CTX_JS` twin) are deleted; `ATTR_CSS` still routes to
+> `CTX_SUPPRESS`, so `style` values stay suppressed by design. The [systemic flaw](#the-systemic-flaw)
+> table now lists five contexts. `AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss` is
+> retired as `.thereIsNoCtxCssAndStyleStillSuppresses`, inverting its source assertion so no `CTX_CSS`
+> constant, arm or return may reappear without a deliberate decision. The reasoning below stands as the
+> record of why the trap was worth removing.
+
 **Location:** `Canoe.java:1034-1051` (`currentContext()`) and `Canoe.java:1079-1081` (`encode()`).
 
 `encode()` maps six contexts. `currentContext()` can produce five. The `TAG_ATTR_VALUE` arm groups
@@ -1657,11 +1671,13 @@ and replaces every code point above U+00FF with a literal `?`. Doing this before
 turn a suppression into a defective escaper, which is worse than either. Whichever is chosen, the
 mapping table in [the systemic flaw](#the-systemic-flaw) should stop listing six contexts.
 
-> **Verified.** `AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss`, which asserts it three
-> ways: measured, over `style`, the `<style>` body and `CSS_END`; by exhaustion, over every name in
-> the ~90-name attribute matrix; and against the source, which is the general form of the claim —
-> `currentContext()` does not contain the string `CTX_CSS` and `encode()` still carries the arm.
-> The last of the three is what fails if someone closes the finding from either end.
+> **Verified (as found), now retired by R14.** `AttributeNameMatrixTest.currentContextCanNeverReturn`
+> `CtxCss` asserted it three ways: measured, over `style`, the `<style>` body and `CSS_END`; by
+> exhaustion, over every name in the ~90-name attribute matrix; and against the source, which was the
+> general form of the claim — `currentContext()` did not contain the string `CTX_CSS` and `encode()`
+> still carried the arm. R14 closed the finding from the second end (deleting the arm), so the successor
+> `.thereIsNoCtxCssAndStyleStillSuppresses` inverts the source assertion: no `CTX_CSS` constant, arm or
+> `return` may reappear, and `style` still classifies as `ATTR_CSS` and suppresses.
 
 ---
 

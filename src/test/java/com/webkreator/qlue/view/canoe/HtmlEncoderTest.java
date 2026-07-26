@@ -1,6 +1,7 @@
 package com.webkreator.qlue.view.canoe;
 
 import com.webkreator.qlue.util.HtmlEncoder;
+import com.webkreator.qlue.view.Canoe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -80,9 +81,9 @@ public class HtmlEncoderTest {
      * the review's corollary says is impossible.
      *
      * <p>{@code js()} and {@code css()} are included even though {@code Canoe.encode()} does not
-     * currently call them: the commented-out code at {@code Canoe.java:1074-1081} contemplates
-     * turning JS and CSS suppression into real escaping, and this is the property that change would
-     * have to preserve.
+     * currently call them: turning JS or CSS suppression into real escaping (R14 kept both suppressed
+     * and deleted the dead {@code CTX_CSS} arm) is a change contemplated on the remediation path, and
+     * this is the property that change would have to preserve.
      */
     @Test
     public void noEncoderCanEverEmitAMarkupDelimiter() {
@@ -274,9 +275,10 @@ public class HtmlEncoderTest {
      * {@code js()} is an allowlist too, and lets exactly the ASCII alphanumerics through naked.
      *
      * <p>Two surfaces, and only one of them is latent. Neither encoder is reachable from
-     * {@code Canoe.encode()} — {@code CTX_JS} and {@code CTX_CSS} both map to the empty string — so
-     * the <em>injection</em> risk is latent, and becomes live only if the commented-out code at
-     * {@code Canoe.java:1074-1081} is uncommented. The <em>corruption</em> is live today:
+     * {@code Canoe.encode()} — {@code CTX_JS} maps to the empty string and there is no {@code CTX_CSS}
+     * (R14 deleted it; {@code ATTR_CSS} suppresses via {@code CTX_SUPPRESS}) — so the
+     * <em>injection</em> risk is latent, and becomes live only if a JS or CSS encoder is ever wired
+     * into those suppressed routes. The <em>corruption</em> is live today:
      * {@code HtmlEncoder implements QlueVelocityTool} with {@code getName()} returning {@code _x},
      * and {@code CanoeReferenceInsertionHandler} passes any {@code $_x.} reference through
      * unencoded, so {@code $_x.js(...)} and {@code $_x.css(...)} are callable from any template in
@@ -608,8 +610,10 @@ public class HtmlEncoderTest {
         assertEquals("ab", HtmlEncoder.htmlWhiteLineBreaks("a\rb"), "CR is dropped");
         assertEquals("a\tb", HtmlEncoder.htmlWhiteLineBreaks("a\tb"), "tab is preserved");
 
-        // Canoe.encode() maps its six contexts to htmlWhite, html, url and the empty string only.
-        for (int context : new int[]{0, 1, 2, 3, 4, 5}) {
+        // Canoe.encode() maps its contexts to htmlWhite, html, url, urlResource and the empty string
+        // only - never htmlWhiteLineBreaks. (Value 5 is the gap R14 left where CTX_CSS was.)
+        for (int context : new int[]{Canoe.CTX_SUPPRESS, Canoe.CTX_HTML, Canoe.CTX_HTML_ATTR,
+                Canoe.CTX_JS, Canoe.CTX_URI, Canoe.CTX_URI_RESOURCE}) {
             String encoded = CanoeTestSupport.encodeFor("a\nb", context);
             assertTrue(encoded.indexOf('<') < 0,
                     "Canoe.encode() must never route through htmlWhiteLineBreaks: context "

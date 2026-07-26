@@ -162,8 +162,9 @@ jacocoTestReport {
  *
  * An unreached branch in Canoe's tokenizer is, by definition, a security decision nobody tested:
  * every one of them classifies an attribute name, an attribute value prefix or a parser state, and
- * F1, F7, F19 and F21 are all "a branch that is never taken". So the gate is on *branch* coverage
- * and not on lines.
+ * F1, F7 and F19 were all "a branch that is never taken" (F21 was its sibling: a dead switch arm,
+ * though one reachable by a direct encode() call, closed by deletion in R14). So the gate is on
+ * *branch* coverage and not on lines.
  *
  * MEASURED 2026-07-26, and the numbers below are the real ones rather than round figures.
  * RE-MEASURED after R2 (delete detectAttributePrefix()'s unconditional reset): every figure was
@@ -253,7 +254,7 @@ jacocoTestReport {
  *      1  the default arm of switch(state) (Canoe.java:874). Nineteen states have a case; the two
  *         that do not are URL, which nothing ever assigns, and INVALID, which is only ever assigned
  *         immediately before raiseError() throws.
- *         -> AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss (URL is dead),
+ *         -> AttributeNameMatrixTest.thereIsNoCtxCssAndStyleStillSuppresses (URL is dead),
  *            CanoeRobustnessTest (every raiseError message, each of which escapes)
  *      1  the default arm of switch(attrQuotes) (Canoe.java:1184). attrQuotes is assigned exactly
  *         one of QUOTE_NONE/QUOTE_SINGLE/QUOTE_DOUBLE and nowhere else.
@@ -285,7 +286,9 @@ jacocoTestReport {
  *   currentContext(), 2 outcomes  (not gated individually; part of the class figure)
  *      1  `case URL` - the URL state is declared and never assigned.
  *      1  the inner `default:` - all seven ATTR_* constants have a case above it, ATTR_UNKNOWN
- *         included since R5. F21.
+ *         included since R5, so it is unreachable. (This was tagged F21; R14 closed F21 by deleting
+ *         CTX_CSS, and the inner default stays dead for the unrelated reason that every ATTR_* is
+ *         matched.)
  *
  *   inBuf(), 4 outcomes  (not gated individually; part of the class figure)
  *      4  the method is called only from commented-out debug statements (Canoe.java:995, 1107).
@@ -339,6 +342,18 @@ jacocoTestReport {
  * js()'s and css()'s new/changed arms are all reached by HtmlEncoderTest (BMP, astral and non-Latin-1
  * are all swept), the private css(String, StringBuilder) null guard is still the only css dead outcome,
  * and no finding is in the inventory.
+ * RE-MEASURED after R14 (settle CTX_CSS, F21). encode() lost the CTX_CSS switch arm - it was a live
+ * branch, covered by tests calling Canoe.encode(value, CTX_CSS) directly, not a dead one - so the
+ * Canoe class figure drops by exactly one covered branch and one total: 250/261 = 95.79% (was
+ * 251/262), still above the 0.95 floor, so no floor moves. HtmlEncoder is untouched. The eleven dead
+ * outcomes are unchanged (5 reallyProcessChar + 2 currentContext + 4 inBuf); F21 was never in the
+ * inventory (its CTX_CSS arm was covered by a direct call, and its unreachable half - currentContext's
+ * inner default - stays dead for the ATTR_* reason above), so removing the constant left the inventory
+ * as it was.
+ *
+ *   Canoe                             250 / 261 branches   95.79%   (was 251 / 262; R14 removed the
+ *                                                                    encode() CTX_CSS arm)
+ *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14)
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],

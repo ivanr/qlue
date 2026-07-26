@@ -22,7 +22,6 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -287,11 +286,11 @@ public class CssContextTest {
      * misunderstand through: {@code color:$x} suppresses in a stylesheet and is injectable in an
      * attribute, and the two templates look equivalent to whoever wrote them.
      *
-     * <p>{@code <style>} producing {@code CTX_SUPPRESS} rather than {@code CTX_CSS} is
-     * <strong>F21</strong>, which {@code AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss}
-     * owns. It has no consequence here — both encode to the empty string — and it is worth knowing
+     * <p>{@code <style>} produces {@code CTX_SUPPRESS}; there is no {@code CTX_CSS}, because R14
+     * deleted the constant and its dead {@code encode()} arm (<strong>F21</strong>), which
+     * {@code AttributeNameMatrixTest.thereIsNoCtxCssAndStyleStillSuppresses} owns. It is worth knowing
      * while reading these assertions, because {@code CTX_SUPPRESS} in a stylesheet looks like a hole
-     * in the switch and is in fact the intended answer arriving by the wrong route.
+     * in the switch and is in fact the intended answer: Canoe suppresses CSS by design.
      */
     @Test
     public void aColonInsideAStyleElementBodyDoesNothingAtAll() {
@@ -356,10 +355,12 @@ public class CssContextTest {
      * this group.
      *
      * <p>Worth stating because it is what makes F4 a routing bug rather than an encoder bug, and
-     * because it is the property that has to be re-checked before the commented-out
-     * {@code HtmlEncoder.css()} at {@code Canoe.java:1074-1081} is ever enabled — per F16 that encoder
-     * emits unterminated two-digit hex escapes, so the day it is switched on this test's two-valued
-     * answer becomes three-valued and every row here needs re-deciding.
+     * because it is the property that has to be re-checked before any CSS encoder is ever wired into
+     * the suppressed {@code style} route. R13 corrected {@code HtmlEncoder.css()} (before it, per F16,
+     * that encoder emitted unterminated two-digit hex escapes), but R14 kept suppressing and deleted
+     * {@code CTX_CSS} rather than route to it — F23 shows a {@code style} value is decoded in series,
+     * so a correct CSS encoder is a project, not a line. The day one is switched on, this test's
+     * two-valued answer becomes three-valued and every row here needs re-deciding.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("cssInvocations")

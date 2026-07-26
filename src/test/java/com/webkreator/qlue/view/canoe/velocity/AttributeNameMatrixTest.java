@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -257,7 +258,7 @@ public class AttributeNameMatrixTest {
      * {@code ATTR_UNKNOWN}, {@code ATTR_DATA} and {@code ATTR_ACTIONSCRIPT} all collapse to
      * {@code CTX_SUPPRESS}, so a context-only assertion cannot tell a {@code style} attribute Canoe
      * classified correctly from one it fell through on — which since R5 is the difference between a
-     * decision and the fail-closed default. See {@link #currentContextCanNeverReturnCtxCss}.
+     * decision and the fail-closed default. See {@link #thereIsNoCtxCssAndStyleStillSuppresses}.
      */
     @ParameterizedTest(name = "{0} ({1})")
     @MethodSource("matrix")
@@ -284,7 +285,7 @@ public class AttributeNameMatrixTest {
                 return Canoe.CTX_URI;
             default:
                 // ATTR_CSS, ATTR_DATA, ATTR_UNKNOWN and ATTR_ACTIONSCRIPT share one outcome of the
-                // switch. Note in particular that ATTR_CSS does NOT produce CTX_CSS.
+                // switch. Note in particular that ATTR_CSS suppresses: there is no CTX_CSS (R14/F21).
                 return Canoe.CTX_SUPPRESS;
         }
     }
@@ -534,23 +535,23 @@ public class AttributeNameMatrixTest {
     }
 
     /**
-     * {@code currentContext()} can never return {@code CTX_CSS}, so the {@code CTX_CSS} arm of
-     * {@code Canoe.encode()} is dead code. Recorded as <strong>F21</strong>.
+     * There is no {@code CTX_CSS}: <strong>R14 closed F21 by deletion</strong>.
      *
-     * <p>The review's mapping table presents six contexts, of which {@code CTX_CSS} maps to the empty
-     * string; that is true of {@code encode()} and irrelevant, because {@code currentContext()}'s
-     * {@code TAG_ATTR_VALUE} switch groups {@code ATTR_CSS} with {@code ATTR_DATA},
-     * {@code ATTR_ACTIONSCRIPT} and — since R5, in an arm of its own so that it can carry the
-     * diagnostic — {@code ATTR_UNKNOWN}, and returns {@code CTX_SUPPRESS} for all four. Only five of
-     * the six contexts are reachable.
+     * <p>Was {@code currentContextCanNeverReturnCtxCss}, which asserted three ways over that
+     * {@code currentContext()} never produced {@code CTX_CSS} while {@code encode()} still carried a
+     * dead {@code CTX_CSS} arm — the review's mapping table listing six contexts of which only five
+     * could be produced. R14 removed the ambiguity at the root: the {@code CTX_CSS} constant and its
+     * {@code encode()} arm are gone, so "can never return {@code CTX_CSS}" becomes "there is no
+     * {@code CTX_CSS}". The regression intent is unchanged and is what this test guards: {@code style}
+     * still classifies as {@code ATTR_CSS} and still suppresses, and no {@code CTX_CSS} may reappear.
      *
-     * <p>No security impact today — both constants encode to the empty string — and it matters
-     * anyway, for the reason F16 matters: the commented-out code at {@code Canoe.java:1074-1081}
-     * contemplates replacing the CSS suppression with {@code HtmlEncoder.css()}, and uncommenting the
-     * {@code CTX_CSS} arm would change <strong>nothing at all</strong>. A reviewer would then believe
-     * {@code style} values were being CSS-escaped when they were still being dropped, and — worse —
-     * the same edit to the {@code CTX_JS} arm above it <em>would</em> take effect, so half of an
-     * apparently symmetrical change would land and half would not.
+     * <p>The decision R14 recorded is to keep suppressing. Canoe refuses to interpolate into CSS:
+     * F23 shows a {@code style} value is decoded in series — HTML character references first, then the
+     * CSS tokenizer — so a CSS encoder correct against all of it is a project, not a line. R13 (which
+     * corrected {@code HtmlEncoder.css()}) is that project's precondition and is now met, but wiring a
+     * CSS encoder in has not been decided; if it ever is, that is where {@code CTX_CSS} would come
+     * back, and this test would fail and point at the reasoning on {@code Canoe.currentContext()}'s
+     * {@code ATTR_CSS} case.
      *
      * <p>It is also the second reason the {@code ATTR_*} value is asserted alongside the context
      * throughout this file: at the context level a correctly-classified {@code style} attribute is
@@ -558,39 +559,46 @@ public class AttributeNameMatrixTest {
      * ambiguity F11 is made of.
      */
     @Test
-    public void currentContextCanNeverReturnCtxCss() throws IOException {
-        // Measured: the one attribute name that produces ATTR_CSS does not produce CTX_CSS.
+    public void thereIsNoCtxCssAndStyleStillSuppresses() throws IOException {
+        // Measured: style is classified as ATTR_CSS and suppresses; so do the CSS element states.
         assertEquals(Canoe.ATTR_CSS, attributeContextOf("style"));
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<div style=\""),
-                "F21: ATTR_CSS produces CTX_SUPPRESS, not CTX_CSS");
+                "R14/F21: ATTR_CSS produces CTX_SUPPRESS");
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<style>"),
-                "F21: the CSS element body produces CTX_SUPPRESS too, from the CSS state");
+                "R14/F21: the CSS element body produces CTX_SUPPRESS too, from the CSS state");
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<style>a{}</sty"),
-                "F21: and so does CSS_END");
+                "R14/F21: and so does CSS_END");
 
-        // ...and by exhaustion over the whole matrix, so that a new classification cannot introduce
-        // it unnoticed.
+        // ...and by exhaustion over the whole matrix: every name reaches one of the five contexts a
+        // name can produce, and never the deleted CTX_CSS slot (value 5).
+        Set<Integer> reachable = Set.of(Canoe.CTX_SUPPRESS, Canoe.CTX_HTML_ATTR, Canoe.CTX_JS,
+                Canoe.CTX_URI, Canoe.CTX_URI_RESOURCE);
         for (Arguments arguments : (Iterable<Arguments>) matrix()::iterator) {
             String name = (String) arguments.get()[0];
-            assertFalse(CanoeTestSupport.contextAfter("<x " + name + "=\"") == Canoe.CTX_CSS,
-                    "F21: " + name + " now reaches CTX_CSS, which nothing did when the finding was"
-                            + " recorded. If that is a fix, the encode() arm is live now and"
-                            + " HtmlEncoder.css() has to be fit for it - see F16.");
+            int context = CanoeTestSupport.contextAfter("<x " + name + "=\"");
+            assertNotEquals(5, context,
+                    "R14/F21: " + name + " reached context 5, the deleted CTX_CSS slot");
+            assertTrue(reachable.contains(context),
+                    "R14/F21: " + name + " reached " + CanoeTestSupport.contextName(context)
+                            + ", outside the five contexts a name can produce");
         }
 
-        // The source fact behind the two measurements, which is the general form of the claim: the
-        // string CTX_CSS does not appear in currentContext() at all, while encode() has an arm for it.
-        Path source = Path.of("src/main/java/com/webkreator/qlue/view/Canoe.java");
-        String text = Files.readString(source, StandardCharsets.UTF_8);
-        String currentContext = methodBody(text, "public int currentContext()");
-        String encode = methodBody(text, "public static String encode(String input, int ctx)");
-
-        assertFalse(currentContext.contains("CTX_CSS"),
-                "F21: currentContext() mentions CTX_CSS now. If it can return it, this finding is"
-                        + " fixed and the CTX_CSS arm of encode() is reachable for the first time.");
-        assertTrue(encode.contains("case CTX_CSS:"),
-                "encode() must still carry the arm that cannot be reached, or F21 has been closed"
-                        + " from the other end by deleting it");
+        // The source fact behind R14, asserted on code tokens rather than prose (the deletion is
+        // explained in comments that necessarily name CTX_CSS): the CTX_CSS constant is gone, nothing
+        // returns it, and encode() carries no case arm for it. So a reviewer cannot make the
+        // half-live/half-dead edit F21 warned about - uncommenting a CTX_CSS arm changing nothing
+        // while its CTX_JS twin took effect. If any of these tokens comes back, so does the trap.
+        String text = canoeSource();
+        assertFalse(text.contains("CTX_CSS ="),
+                "R14/F21: the CTX_CSS constant is declared again. It was deleted; re-adding a CSS"
+                        + " context means a CSS encoder must be fit for F23's series of decoders"
+                        + " (F16/R13) - do not reintroduce it without that decision.");
+        assertFalse(text.contains("case CTX_CSS"),
+                "R14/F21: encode() carries a CTX_CSS arm again. The dead arm was deleted; re-adding it"
+                        + " recreates the half-live/half-dead trap R14 removed.");
+        assertFalse(text.contains("return CTX_CSS"),
+                "R14/F21: currentContext() returns CTX_CSS. It never did, and R14 deleted the"
+                        + " constant, so this cannot compile without reintroducing it deliberately.");
     }
 
     private static String methodBody(String text, String signature) {

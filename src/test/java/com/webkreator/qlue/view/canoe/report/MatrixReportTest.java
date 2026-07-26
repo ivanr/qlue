@@ -114,8 +114,10 @@ public class MatrixReportTest {
                 + " payload - HtmlEncoderUrlTest");
         gaps.put("F16", "js() and css() are unreachable from Canoe.encode() today, so no case can"
                 + " route a payload through them - HtmlEncoderTest");
-        gaps.put("F21", "CTX_CSS is unreachable, so there is no case that produces it -"
-                + " AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss");
+        gaps.put("F21", "closed by R14: the CTX_CSS constant and its dead encode() arm are deleted,"
+                + " so there is no CSS context for a case to produce - style still classifies as"
+                + " ATTR_CSS and suppresses. The source-level fact is asserted by"
+                + " AttributeNameMatrixTest.thereIsNoCtxCssAndStyleStillSuppresses");
         gaps.put("F22", "a Velocity engine configuration defect that fails at init(), before any"
                 + " template exists - ViewFactoryRenderTest");
         gaps.put("F23", "the CSS double decode is a browser behaviour; the three templates it bounds"
@@ -564,8 +566,6 @@ public class MatrixReportTest {
                 return "url()";
             case "CTX_JS":
                 return "(suppressed)";
-            case "CTX_CSS":
-                return "(suppressed, and F21 says unreachable)";
             case "CTX_SUPPRESS":
                 return "(suppressed)";
             default:

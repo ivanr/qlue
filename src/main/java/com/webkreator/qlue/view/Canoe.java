@@ -50,7 +50,10 @@ public class Canoe extends Writer {
 
     public static final int CTX_URI = 4;
 
-    public static final int CTX_CSS = 5;
+    // Value 5 was CTX_CSS, deleted by R14 (F21). currentContext() never produced it - ATTR_CSS
+    // returns CTX_SUPPRESS - so the CTX_CSS arm of encode() was dead code. Canoe suppresses CSS
+    // by design; the decision is recorded on the ATTR_CSS case in currentContext() and in encode().
+    // The slot is left as a gap rather than reused, so no old caller silently rebinds to it.
 
     /**
      * A URL that loads a subresource or reroutes the page: {@code src} on {@code <script>},
@@ -1501,6 +1504,13 @@ public class Canoe extends Writer {
                                 unknownAttributeName, currentLine, currentPos);
                         return CTX_SUPPRESS;
 
+                    // ATTR_CSS (the `style` attribute) is suppressed, not CSS-escaped, and that is
+                    // the settled decision R14 records for F21. Canoe's design refuses to interpolate
+                    // into CSS: F23 shows a `style` value is decoded in series - HTML character
+                    // references first, then the CSS tokenizer - so an encoder correct against all of
+                    // it is a project, not a line. R13 (which corrected HtmlEncoder.css()) is that
+                    // project's precondition and is now met, but wiring it in has not been decided;
+                    // until it is, `style` values render empty. There is deliberately no CTX_CSS.
                     case ATTR_CSS:
                     case ATTR_DATA:
                     case ATTR_ACTIONSCRIPT:
@@ -1529,8 +1539,10 @@ public class Canoe extends Writer {
             case CTX_HTML_ATTR:
                 return HtmlEncoder.htmlAttr(input);
             case CTX_JS:
-                // Do not output anything into JS contexts
-                // return HtmlEncoder.encodeForJavaScript(input);
+                // Canoe does not interpolate into JavaScript: a JS context is suppressed by design.
+                // Relaxing this to real escaping (HtmlEncoder.js(), corrected by R13) is an undecided
+                // change that must re-run ParserSteeringTest first; there is deliberately no
+                // pre-written line here to uncomment.
                 return EMPTY_STRING;
             case CTX_URI:
                 return HtmlEncoder.url(input);
@@ -1539,10 +1551,11 @@ public class Canoe extends Writer {
                 // every off-origin authority. The instance path {@link #encode(String)} supplies the
                 // application's trusted origins.
                 return HtmlEncoder.urlResource(input, Collections.<HtmlEncoder.TrustedOrigin>emptyList());
-            case CTX_CSS:
-                // Do not output anything into CSS contexts
-                // return HtmlEncoder.encodeForCSS(input);
-                return EMPTY_STRING;
+            // There is no CTX_CSS. currentContext() routes ATTR_CSS to CTX_SUPPRESS, so a CSS context
+            // was never produced and the old CTX_CSS arm here was dead code (F21). R14 deleted the
+            // constant and this arm rather than wiring a CSS encoder in: see currentContext()'s
+            // ATTR_CSS case for the reasoning (Canoe refuses to interpolate into CSS; F23's series of
+            // decoders makes a correct CSS encoder a project, not a line; R13 is its precondition).
             case CTX_SUPPRESS:
             default:
                 // Do nothing -- suppressed output
