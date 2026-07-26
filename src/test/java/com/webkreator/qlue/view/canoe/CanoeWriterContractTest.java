@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -19,22 +18,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link Canoe} is a public {@link Writer} with no documented restriction on how it may be called,
  * so every inherited entry point is part of its contract whether or not Velocity happens to use it.
  *
- * <p>F9 lives here. {@code write(char[], int, int)} iterates {@code for (i = offset; i < len; i++)}
- * where the bound should be {@code offset + len}, and then writes the full requested range to the
- * underlying writer regardless. At {@code offset == 0} the two agree, which is why nothing has ever
- * noticed; at any other offset characters reach the response without passing through the state
- * machine, and the parser's idea of the current context goes stale.
+ * <p>F9 lived here, and R15 fixed it. {@code write(char[], int, int)} used to iterate
+ * {@code for (i = offset; i < len; i++)} where the bound must be {@code offset + len}, and then wrote
+ * the full requested range to the underlying writer regardless. At {@code offset == 0} the two agree,
+ * which is why nothing ever noticed; at any other offset characters reached the response without
+ * passing through the state machine — exactly {@code offset} of them — and the parser's idea of the
+ * current context went stale. The error path had the mirror defect: {@code len - (len - i)} is
+ * {@code i}, an absolute index handed back as a length. R15 corrected the bound to
+ * {@code i < offset + len} and the error-path length to {@code i - offset}.
+ *
+ * <p>These tests are the regression net for that fix, inverted from the assertions that used to pin
+ * the bug: every one now asserts the offset entry point parses <em>exactly</em> the requested range
+ * {@code [offset, offset + len)}, reaching the same state and context as feeding the same characters
+ * through {@code write(String)}. Each carries its former, bug-pinning assertion in this javadoc so the
+ * mechanism it guards is not lost.
  *
  * <p>These characterise F9 directly rather than through the corpus. There is deliberately no corpus
  * entry for F9: a case is a template rendered through Velocity, and no template can reach a
- * three-argument {@code write}, so the ledger has nothing to say about it.
+ * three-argument {@code write} at a non-zero offset, so the ledger has nothing to say about it.
  *
- * <p>F9 is <strong>latent</strong>: every
- * inherited {@code Writer} default funnels to {@code write(cbuf, 0, n)}, and Velocity's render path
- * uses only the one-argument forms, so nothing reaches the bug today. It is one buffering wrapper,
- * one {@code org.apache.velocity.io.Filter}, or one Velocity upgrade away from being live — and a
- * parser whose safety depends on nobody calling a standard method with a non-zero offset is not
- * safe, it is lucky.
+ * <p>F9 was <strong>latent</strong>: every inherited {@code Writer} default funnels to
+ * {@code write(cbuf, 0, n)}, and Velocity's render path uses only the one-argument forms, so nothing
+ * reached the bug — but {@code Canoe} is a public {@code Writer} with no documented restriction, one
+ * buffering wrapper, one {@code org.apache.velocity.io.Filter}, or one Velocity upgrade away from a
+ * non-zero offset. A parser whose safety depended on nobody calling a standard method that way was
+ * not safe, it was lucky; R15 removed the luck.
  */
 public class CanoeWriterContractTest {
 
@@ -86,136 +94,144 @@ public class CanoeWriterContractTest {
     }
 
     // ------------------------------------------------------------------
-    // F9: the offset bug
+    // R15: the offset entry point, now correct
     // ------------------------------------------------------------------
 
     /**
-     * F9, stated plainly. Three characters of a fifteen-character array reach the writer without
-     * ever entering the state machine, and the parser is left mid-tag when the document is closed.
+     * A non-zero offset now parses exactly the requested range and nothing else.
      *
-     * <p>F9. When the loop bound is fixed to {@code i < offset + len}, this test fails — update it
-     * then, and say so.
+     * <p>Inverted from {@code writeWithANonZeroOffsetSkipsTheTailOfTheRange}, which asserted the
+     * range {@code (buffer, 3, 12)} over {@code "XXX<b>hello</b>"} left the parser in {@code TAG_NAME}
+     * with a {@code CTX_SUPPRESS} context — three characters skipped by the truncated bound. With the
+     * bound corrected to {@code i < offset + len} the parser sees all twelve characters of
+     * {@code "<b>hello</b>"}, so it ends exactly where {@code write("<b>hello</b>")} does: back in
+     * {@code HTML} after the closing tag, with a {@code CTX_HTML} context.
      */
     @Test
-    public void writeWithANonZeroOffsetSkipsTheTailOfTheRange() throws IOException {
+    public void writeWithANonZeroOffsetParsesExactlyTheRequestedRange() throws IOException {
         char[] buffer = "XXX<b>hello</b>".toCharArray();
         CanoeStateProbe probe = new CanoeStateProbe();
         probe.feed(buffer, 3, 12);
 
         assertEquals("<b>hello</b>", probe.output(),
                 "the full requested range reaches the underlying writer");
-        assertEquals(Canoe.TAG_NAME, probe.state(),
-                "F9: the loop ran to index 11, so only the first 9 of 12 characters were parsed"
-                        + " and the parser stopped on the '<' of the closing tag");
-        assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext(),
-                "F9: three characters reached the response unparsed and the context is now wrong");
 
-        // The same characters written at offset 0 end where they should.
+        // The same characters written at offset 0 are the reference the range must match.
         CanoeStateProbe reference = new CanoeStateProbe().feed("<b>hello</b>");
-        assertEquals(Canoe.HTML, reference.state());
-        assertEquals(Canoe.CTX_HTML, reference.currentContext());
+        assertEquals(reference.state(), probe.state(),
+                "R15: every character of the range is now parsed, so the offset write ends in the"
+                        + " same state as the offset-0 write of the same characters");
+        assertEquals(reference.currentContext(), probe.currentContext(),
+                "R15: ...and in the same context; the machine no longer stalls three characters short");
+        assertEquals(Canoe.HTML, probe.state());
+        assertEquals(Canoe.CTX_HTML, probe.currentContext());
     }
 
     /**
-     * The degenerate case, and the dangerous one: when {@code offset >= len} the loop body never
-     * runs. Every character is written to the response, none is parsed, and the state machine
-     * freezes — so every subsequent reference on the page is encoded for a stale context.
+     * {@code offset == len} is an ordinary call once the bound is right: it writes {@code len}
+     * characters starting at {@code offset}, and parses every one of them.
+     *
+     * <p>Inverted from {@code writeWithOffsetAtOrPastTheLengthParsesNothing}, which read this as the
+     * degenerate case where the old {@code i < len} bound (already behind {@code offset}) skipped the
+     * loop body entirely: the script tag reached the response unparsed and Canoe believed it was still
+     * in body text. {@code len} is a count, not an end index, so {@code (buffer, 8, 8)} over
+     * {@code "XXXXXXXX<script>"} is the range {@code [8, 16)} — the eight characters {@code "<script>"}
+     * — and the fixed bound parses all of them, entering the {@code SCRIPT} state exactly as
+     * {@code write("<script>")} does.
      */
     @Test
-    public void writeWithOffsetAtOrPastTheLengthParsesNothing() throws IOException {
+    public void writeWithOffsetEqualToLenParsesTheWholeRange() throws IOException {
         char[] buffer = "XXXXXXXX<script>".toCharArray();
         CanoeStateProbe probe = new CanoeStateProbe();
         probe.feed(buffer, 8, 8);
 
-        assertEquals("<script>", probe.output(), "the requested range still reaches the writer");
-        assertEquals(Canoe.HTML, probe.state(),
-                "F9: offset >= len, so the loop never ran and the parser never saw the script tag");
-        assertEquals(Canoe.CTX_HTML, probe.currentContext(),
-                "F9: Canoe believes it is in body text while the browser is inside a script element."
-                        + " Every reference from here on is encoded with htmlWhite() and written"
-                        + " straight into script source.");
+        assertEquals("<script>", probe.output(), "the requested range reaches the writer");
+
+        CanoeStateProbe reference = new CanoeStateProbe().feed("<script>");
+        assertEquals(reference.state(), probe.state(),
+                "R15: the script tag is parsed, so the parser is inside the script element, not"
+                        + " still in body text");
+        assertEquals(reference.currentContext(), probe.currentContext());
+        assertEquals(Canoe.SCRIPT, probe.state());
     }
 
     /**
-     * And {@code offset > len} behaves no differently, which is worth pinning separately: an
-     * implementation that had merely mixed up its two arguments would throw
-     * {@link IndexOutOfBoundsException} somewhere in here, and the fact that nothing does is what
-     * makes the failure silent. The whole range is emitted, none of it is parsed, and the caller gets
-     * no signal at all.
+     * {@code offset} larger than {@code len} is likewise ordinary now, because the two are
+     * independent: it writes {@code len} characters starting at {@code offset}.
+     *
+     * <p>Inverted from {@code writeWithOffsetGreaterThanTheLengthAlsoParsesNothing}, which pinned that
+     * {@code offset > len} was silently a no-op under the old bound — nothing thrown, nothing parsed.
+     * {@code (buffer, 10, 8)} over {@code "XXXXXXXXXX<script>"} is the range {@code [10, 18)}, the eight
+     * characters {@code "<script>"}, and the corrected bound parses them into the {@code SCRIPT} state.
      */
     @Test
-    public void writeWithOffsetGreaterThanTheLengthAlsoParsesNothing() {
+    public void writeWithOffsetGreaterThanLenParsesTheWholeRange() throws IOException {
         char[] buffer = "XXXXXXXXXX<script>".toCharArray();
         CanoeStateProbe probe = new CanoeStateProbe();
+        probe.feed(buffer, 10, 8);
 
-        assertDoesNotThrow(() -> probe.feed(buffer, 10, 8),
-                "F9: offset > len is not rejected, so the desynchronisation is completely silent");
+        assertEquals("<script>", probe.output(), "the requested range reaches the writer");
 
-        assertEquals("<script>", probe.output(), "the requested range still reaches the writer");
-        assertEquals(Canoe.HTML, probe.state(),
-                "F9: the loop bound was already behind the start index, so nothing was parsed");
+        CanoeStateProbe reference = new CanoeStateProbe().feed("<script>");
+        assertEquals(reference.state(), probe.state(),
+                "R15: offset and len are independent now, so the range [10,18) parses like the"
+                        + " eight-character string it is");
+        assertEquals(Canoe.SCRIPT, probe.state());
     }
 
     /**
-     * F9 can suppress an encoding error outright. With the range {@code (offset 2, len 14)} the loop
-     * runs over buffer indices 2 to 13, which is the twelve characters {@code <p>ok</p><br} — so
-     * {@code <br} <em>is</em> parsed and only the trailing {@code />} falls past the bound. That is
-     * enough: the {@code /} is the character Canoe rejects, it is never seen, no error is raised, and
-     * the whole malformed range is then written to the response.
+     * Markup that offset 0 rejects is now rejected at every offset too, because every offset parses
+     * the whole range.
+     *
+     * <p>Inverted from {@code aNonZeroOffsetCanHideMarkupThatWouldOtherwiseBeRejected}, which showed
+     * the {@code (offset 2, len 14)} range over {@code "XX<p>ok</p><br/>"} stopped short of the
+     * {@code /} that Canoe rejects, so the encoding error offset 0 raises was suppressed and the
+     * malformed markup reached the response. With the corrected bound the range is {@code [2, 16)} —
+     * the whole of {@code "<p>ok</p><br/>"} — the {@code /} is parsed, and the same error fires.
      */
     @Test
-    public void aNonZeroOffsetCanHideMarkupThatWouldOtherwiseBeRejected() {
+    public void aNonZeroOffsetNoLongerHidesRejectedMarkup() {
         String document = "<p>ok</p><br/>";
 
         // At offset 0 the '/' is parsed and rejected.
         assertTrue(CanoeTestSupport.write(document).isError());
 
-        // At offset 2 it is never parsed, so no error is raised and everything is written.
+        // At offset 2 it is now parsed as well, so the same error is raised.
         CanoeStateProbe probe = new CanoeStateProbe();
-        assertDoesNotThrow(() -> probe.feed(("XX" + document).toCharArray(), 2, document.length()),
-                "F9: the encoding error that offset 0 raises has been suppressed entirely");
-
-        assertEquals(document, probe.output(),
-                "F9: the rejected markup reached the response intact");
-        assertEquals(Canoe.TAG_NAME, probe.state(),
-                "the parser stopped inside the <br tag name, having never reached the '/'");
+        assertThrows(IOException.class,
+                () -> probe.feed(("XX" + document).toCharArray(), 2, document.length()),
+                "R15: the encoding error offset 0 raises is no longer suppressed by the offset");
     }
 
     /**
-     * How many characters escape the parser, as a function of the offset. The count is exactly the
-     * offset, for any offset up to the length — which is the clearest statement of the bug.
+     * No character escapes the parser now, at any offset: the whole requested range is parsed, so an
+     * offset write ends exactly where the offset-0 write of the same range does.
      *
-     * <p>The document is chosen so that <em>every</em> prefix of it leaves a distinct parser state,
-     * which is the whole point and is easy to get wrong. An earlier version of this test used
-     * {@code "<p>0123456789</p>"}, which has only two distinct states across its eighteen prefixes:
-     * for offsets 0, 5 and 8 the assertion passed even under a <em>corrected</em> {@code write()} that
-     * parsed the whole range, so three of the six rows were blind to the bug they are named after.
-     * {@code "<a b='1' c='2' d>"} moves through tag name, attribute name, quoted value and back on
-     * almost every character, and the full state tuple is asserted rather than {@code state} alone.
-     *
-     * <p>Verified by patching {@code Canoe.write} to the corrected bound {@code i < offset + len} and
-     * confirming this test then fails for every non-zero offset, which is the property the javadoc
-     * above promises.
+     * <p>Inverted from {@code theNumberOfUnparsedCharactersEqualsTheOffset}, which measured that the
+     * count of skipped characters was exactly the offset. The document is still chosen so that every
+     * prefix of it leaves a distinct parser state — {@code "<a b='1' c='2' d>"} moves through tag
+     * name, attribute name, quoted value and back on almost every character — because a document with
+     * few distinct states would let a still-broken bound pass by coincidence for some offsets. The
+     * full state tuple is asserted rather than {@code state} alone, and it is compared against the
+     * <em>whole</em> document rather than a prefix, since no offset truncates the parse any more.
      */
     @ParameterizedTest(name = "offset {0}")
     @ValueSource(ints = {0, 1, 2, 3, 5, 8})
-    public void theNumberOfUnparsedCharactersEqualsTheOffset(int offset) throws IOException {
+    public void everyOffsetParsesTheWholeRange(int offset) throws IOException {
         String document = "<a b='1' c='2' d>";
         char[] buffer = (repeat('X', offset) + document).toCharArray();
 
         CanoeStateProbe probe = new CanoeStateProbe();
         probe.feed(buffer, offset, document.length());
 
-        assertEquals(document, probe.output(), "output is correct regardless; only parsing is not");
+        assertEquals(document, probe.output(), "the whole requested range reaches the writer");
 
-        int parsed = Math.max(0, document.length() - offset);
         CanoeStateProbe reference = new CanoeStateProbe();
-        reference.feed(document.substring(0, parsed));
+        reference.feed(document);
 
         assertEquals(signature(reference), signature(probe),
-                "F9: the parser sees only the first " + parsed + " of " + document.length()
-                        + " characters when the offset is " + offset + ", so it ends up in the state"
-                        + " that prefix produces rather than the one the full range would");
+                "R15: the parser sees all " + document.length() + " characters whatever the offset,"
+                        + " so it ends in the state the full range produces, not a shorter prefix's");
     }
 
     /**
@@ -232,14 +248,21 @@ public class CanoeWriterContractTest {
     }
 
     /**
-     * The error path has the same defect in mirror image. {@code len - (len - i)} simplifies to
-     * {@code i}, an absolute index passed where a length is expected, so the partial output written
-     * on failure is the wrong size for any non-zero offset.
+     * The error path now flushes exactly the parsed prefix, at every offset.
+     *
+     * <p>Inverted from {@code theErrorPathWritesTheWrongAmountOfPartialOutput}. The old error path
+     * wrote {@code writer.write(cbuff, offset, len - (len - i))}, and {@code len - (len - i)}
+     * simplifies to {@code i} — an absolute array index handed back where a length is expected — so
+     * for the range {@code (offset 1, len 14)} over {@code "X<p>ok</p><br/>"} it emitted
+     * {@code "<p>ok</p><br/"}, the good prefix <em>plus</em> the offending {@code /}. R15 writes
+     * {@code writer.write(cbuff, offset, i - offset)}: {@code i} is where the rejected character sits,
+     * {@code offset} is where the range began, so {@code i - offset} is precisely the number of
+     * characters parsed successfully, and the flushed prefix is {@code "<p>ok</p><br"} — the same as
+     * at offset 0, where the arithmetic was accidentally right all along.
      */
     @Test
-    public void theErrorPathWritesTheWrongAmountOfPartialOutput() {
-        // "<br/>" is rejected: a '/' immediately after a tag name is not allowed. At offset 1 the
-        // '/' does fall inside the truncated loop bound, so the error path runs.
+    public void theErrorPathWritesExactlyTheParsedPrefix() {
+        // "<br/>" is rejected: a '/' immediately after a tag name is not allowed.
         String document = "<p>ok</p><br/>";
         char[] buffer = ("X" + document).toCharArray();
         CanoeStateProbe probe = new CanoeStateProbe();
@@ -248,18 +271,15 @@ public class CanoeWriterContractTest {
                 () -> probe.feed(buffer, 1, document.length()));
         assertTrue(error.getMessage().startsWith(Canoe.ERROR_PREFIX), error.getMessage());
 
-        // len - (len - i) simplifies to i, an absolute array index passed where a length is
-        // expected. The partial output therefore includes the very character that was rejected.
-        assertEquals("<p>ok</p><br/", probe.output(),
-                "F9: the error path emitted the offending '/' as well as the good prefix."
-                        + " A correct implementation would write \"<p>ok</p><br\".");
+        assertEquals("<p>ok</p><br", probe.output(),
+                "R15: the error path flushes only the parsed prefix, not the rejected '/'");
 
-        // At offset 0 the same arithmetic is accidentally right, which is why nothing has noticed.
+        // At offset 0 the same arithmetic was always right; the offset case now matches it.
         CanoeStateProbe atZero = new CanoeStateProbe();
         assertThrows(IOException.class, () -> atZero.feed(document.toCharArray(), 0,
                 document.length()));
         assertEquals("<p>ok</p><br", atZero.output(),
-                "at offset 0 the good prefix is exactly right");
+                "at offset 0 the good prefix is exactly right, and the offset case now agrees");
     }
 
     // ------------------------------------------------------------------

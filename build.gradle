@@ -350,10 +350,15 @@ jacocoTestReport {
  * inventory (its CTX_CSS arm was covered by a direct call, and its unreachable half - currentContext's
  * inner default - stays dead for the ATTR_* reason above), so removing the constant left the inventory
  * as it was.
+ * RE-MEASURED after R15 (fix write(char[], int, int), F9). The fix is arithmetic only: the loop bound
+ * became `i < offset + len` (one condition, as `i < len` was) and the error-path length became
+ * `i - offset`, with no branch added or removed. The catch arm was covered before and after by
+ * CanoeWriterContractTest, so the Canoe class figure is unchanged at 250/261 = 95.79%, the eleven dead
+ * outcomes are unchanged, and no floor moves. HtmlEncoder is untouched.
  *
- *   Canoe                             250 / 261 branches   95.79%   (was 251 / 262; R14 removed the
- *                                                                    encode() CTX_CSS arm)
- *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14)
+ *   Canoe                             250 / 261 branches   95.79%   (unchanged by R15; was 251 / 262
+ *                                                                    before R14 removed the CTX_CSS arm)
+ *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14, R15)
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],

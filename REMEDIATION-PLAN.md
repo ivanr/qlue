@@ -770,8 +770,28 @@ suppressing.
 
 ---
 
-**R15 — Fix `write(char[], int, int)`**
+**R15 — Fix `write(char[], int, int)`** — ✅ **DONE**
 *Closes:* F9. *Depends on:* nothing.
+*Landed:* the loop bound became `i < offset + len` (was `i < len`) and the error path became
+`writer.write(cbuff, offset, i - offset)` (was `writer.write(cbuff, offset, len - (len - i))`, i.e.
+`len - (len - i)` = `i`, an absolute index handed back as a length). `write(char[], offset, len)` now
+parses exactly the range `[offset, offset + len)` at every offset, so the offset entry point is as
+faithful as the offset-0 one. `ChunkInvarianceTest.aMidPointSliceDesynchronisesMostOfTheCorpus` is
+inverted to `.noMidPointSliceDesynchronisesTheCorpus`, asserting the measured desync count through the
+three-argument write is **zero** where it was 243 of 275 (F9's signature); its two companion F9 tests
+(`.aNonZeroOffsetSkipsExactly…` → `.aNonZeroOffsetParsesExactlyTheRequestedRange`, and
+`.theSameTwoPieces…NotAsSlices` → `…AndAsSlices`) and the class javadoc are inverted with the former
+assertions moved to the javadoc. `CanoeWriterContractTest` — F9's per-entry-point contract — has all
+six F9 tests inverted the same way: each now asserts the offset write reaches the same state/context
+as the offset-0 write of the same characters, and the error-path test asserts the partial flush is
+exactly the parsed prefix (`<p>ok</p><br`, not `<p>ok</p><br/`). Ledger: **no verdict changed** — the
+corpus render path drives Velocity, which reaches Canoe only through `write(String)` →
+`write(cbuf, 0, n)`, so no corpus row exercises the three-argument write at a non-zero offset; F9 has
+no corpus case by construction and stays tracked in `MatrixReportTest.FINDINGS_WITHOUT_CASES` (the two
+named tests still own it). Coverage: the change is arithmetic only, no branch added or removed and the
+catch arm covered before and after, so Canoe holds at 250/261 = 95.79% against its 0.95 floor and no
+floor moves; the `build.gradle` inventory records the re-measure. `./gradlew test` and
+`canoeCoverageGate` green; `browserTest` green on Chromium (Firefox and WebKit are not installed here).
 
 `Canoe.java:174` loops `for (i = offset; i < len; i++)` where it means `i < offset + len`, so the
 parser sees only the first `len - offset` characters and the number that escape it is exactly the

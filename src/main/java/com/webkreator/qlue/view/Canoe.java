@@ -701,14 +701,19 @@ public class Canoe extends Writer {
         int i = offset;
 
         try {
-            // Process characters one by one
-            for (i = offset; i < len; i++) {
+            // Process characters one by one across the requested range
+            // [offset, offset + len). The bound is offset + len, not len:
+            // len is a count, not an end index, so at any non-zero offset the
+            // old "i < len" stopped short by exactly offset characters and, at
+            // offset >= len, never ran at all (F9).
+            for (i = offset; i < offset + len; i++) {
                 processChar(cbuff[i]);
             }
         } catch (IOException e) {
-            // Error -- write only "good" characters. In case of
-            // an error i will contain the last known good character.
-            writer.write(cbuff, offset, len - (len - i));
+            // Error -- write only the "good" characters. i is the absolute
+            // index of the character that failed, offset is where the range
+            // began, so i - offset is the number parsed successfully.
+            writer.write(cbuff, offset, i - offset);
 
             throw e;
         }

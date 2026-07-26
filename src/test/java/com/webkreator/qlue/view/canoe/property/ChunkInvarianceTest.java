@@ -42,20 +42,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * of every corpus template was tried — 9,996 two-way splits — so this half of the property is
  * exhaustive rather than sampled.
  *
- * <h2>What does not hold, and why the property is stated over offset-0 writes</h2>
+ * <h2>The offset entry point holds too, since R15</h2>
  *
  * <p>Every assertion above uses {@code write(String)}, which the JDK's {@code Writer} implements as
- * {@code write(cbuf, 0, len)}. Feed the <em>same</em> chunks as slices of one array — the
- * {@code write(char[], offset, length)} entry point, with a non-zero offset — and the property
- * collapses immediately. That is <strong>F9</strong>: the loop bound is {@code i < len} where it
- * should be {@code i < offset + len}, so the parser sees only the first {@code length - offset}
- * characters of the range while all {@code length} are written out. The number of characters that
- * escape the state machine is exactly the offset.
+ * {@code write(cbuf, 0, len)}. Feeding the <em>same</em> chunks as slices of one array — the
+ * {@code write(char[], offset, length)} entry point, with a non-zero offset — used to collapse the
+ * property immediately. That was <strong>F9</strong>: the loop bound was {@code i < len} where it must
+ * be {@code i < offset + len}, so the parser saw only the first {@code length - offset} characters of
+ * the range while all {@code length} were written out, and the number of characters that escaped the
+ * state machine was exactly the offset. R15 corrected the bound, so the property now holds over both
+ * entry points: a mid-point slice desynchronises nothing.
  *
- * <p>So the honest statement of the property is "chunking at offset 0 is invariant", and the second
- * half of this file measures how far from invariant the other entry point is. {@code
- * CanoeWriterContractTest} (T7) owns F9's per-entry-point contract; what is here is its scale — a
- * count over the whole corpus of how many templates a single mid-point slice desynchronises.
+ * <p>The second half of this file is the regression net for that fix. It used to measure how far from
+ * invariant the offset entry point was — a count, {@code 243} of {@code 275} templates, of how many a
+ * single mid-point slice desynchronised — and it now asserts that same count is <em>zero</em>.
+ * {@code CanoeWriterContractTest} (T7) owns F9's per-entry-point contract; what is here is its scale.
  */
 public class ChunkInvarianceTest {
 
@@ -175,50 +176,52 @@ public class ChunkInvarianceTest {
     }
 
     // ------------------------------------------------------------------
-    // F9: the entry point where the property does not hold
+    // R15: the offset entry point, now invariant like the offset-0 one
     // ------------------------------------------------------------------
 
     /**
-     * F9 in one row: a non-zero offset makes the parser skip exactly {@code offset} characters,
-     * while every character is still written out.
+     * A non-zero offset now parses exactly the requested range, so it ends in the same context as the
+     * offset-0 write of the same characters.
      *
-     * <p>{@code write(cbuff, offset, len)} loops {@code for (i = offset; i < len; i++)} — a length
-     * used as an end index — and then writes the whole range. So the parser sees indices
-     * {@code offset..len-1}, which is {@code len - offset} characters, and the response receives
-     * {@code len}. The tail of the range reaches the browser without ever entering the state machine.
+     * <p>Inverted from {@code aNonZeroOffsetSkipsExactlyOffsetCharactersFromTheParser}, which asserted
+     * that {@code (text, 3, length - 3)} left the parser in a context <em>other</em> than
+     * {@code CTX_HTML} — three characters skipped by the old {@code i < len} bound. With the bound
+     * corrected to {@code i < offset + len} every character in the range is parsed, so the offset write
+     * reaches the same context as {@code write} of the identical substring, and both end in
+     * {@code CTX_HTML}.
      */
     @Test
-    public void aNonZeroOffsetSkipsExactlyOffsetCharactersFromTheParser() throws IOException {
+    public void aNonZeroOffsetParsesExactlyTheRequestedRange() throws IOException {
         char[] text = "<a href=\"/x\">y</a>".toCharArray();
 
         CanoeStateProbe atZero = new CanoeStateProbe();
         atZero.feed(text, 0, text.length);
         assertEquals(Canoe.CTX_HTML, atZero.currentContext(),
-                "at offset 0 the loop bound is accidentally correct and the whole string is parsed");
+                "the whole string is parsed at offset 0");
 
         CanoeStateProbe atThree = new CanoeStateProbe();
         atThree.feed(text, 3, text.length - 3);
         assertEquals(new String(text, 3, text.length - 3), atThree.output(),
-                "F9: every character in the range is still written to the response");
-        assertNotEquals(Canoe.CTX_HTML, atThree.currentContext(),
-                "F9: ...but three of them were never parsed, so the machine ends somewhere else."
-                        + " Actual: " + CanoeTestSupport.contextName(atThree.currentContext()));
+                "every character in the range is written to the response");
+        assertEquals(Canoe.CTX_HTML, atThree.currentContext(),
+                "R15: ...and every one is now parsed, so the machine ends where the same substring"
+                        + " written at offset 0 would leave it. Actual: "
+                        + CanoeTestSupport.contextName(atThree.currentContext()));
     }
 
     /**
-     * F9's scale, over the corpus: how many templates a single mid-point slice desynchronises.
+     * F9's scale, over the corpus, driven to zero: how many templates a single mid-point slice
+     * desynchronises.
      *
-     * <p>Measured at the time of writing: <strong>243 of 275</strong>. The assertion is a floor
-     * rather than the exact number, because the corpus grows and the count with it; what matters is
-     * that it is large and that it goes to <em>zero</em> when F9 is fixed, at which point this test
-     * fails and the ledger entry it pins is updated.
-     *
-     * <p>The 32 templates that survive are not evidence of anything: a template survives when the
-     * characters the parser skipped happened not to matter — mostly short body-text templates where
-     * the skipped characters are ordinary text.
+     * <p>Measured before R15: <strong>243 of 275</strong>. This test asserted that count was more than
+     * half the corpus, as F9's signature; it now asserts it is <em>zero</em>, which is R15's. The slice
+     * feeds each template as two slices of one array through {@code write(char[], offset, length)} —
+     * the second slice at a non-zero offset — and compares the resulting {@link Trace} to the unsplit
+     * run. Under the corrected bound every character of every slice is parsed, so the slice trace and
+     * the whole trace are identical for every template, and the count is zero.
      */
     @Test
-    public void aMidPointSliceDesynchronisesMostOfTheCorpus() {
+    public void noMidPointSliceDesynchronisesTheCorpus() {
         int divergent = 0;
         List<String> examples = new ArrayList<>();
 
@@ -232,42 +235,38 @@ public class ChunkInvarianceTest {
             if (!whole.equals(sliced)) {
                 divergent++;
                 if (examples.size() < 3) {
-                    examples.add(testCase.id());
+                    examples.add(testCase.id() + ": whole=" + whole + " sliced=" + sliced);
                 }
             }
         }
 
         int corpusSize = CanoeCorpus.all().size();
         int finalDivergent = divergent;
-        assertTrue(divergent > corpusSize / 2,
-                () -> "F9: a mid-point slice should desynchronise most of the corpus, but only "
-                        + finalDivergent + " of " + corpusSize + " templates diverged. If this is"
-                        + " zero, F9 has been fixed and the ledger needs updating; if it is small"
-                        + " but non-zero, something changed that nobody intended.");
-        assertTrue(divergent < corpusSize,
-                () -> "not every template diverges, and that is expected: a template survives when"
-                        + " the skipped characters happened not to matter. Examples that do diverge: "
-                        + examples);
+        assertEquals(0, divergent,
+                () -> "R15: a mid-point slice through write(char[], offset, length) must now parse"
+                        + " the same as the unsplit run, but " + finalDivergent + " of " + corpusSize
+                        + " templates still diverged. Before R15 this was 243 of 275 (F9); a non-zero"
+                        + " count here means the loop bound is wrong again. Examples: " + examples);
     }
 
     /**
-     * The invariance property and F9 are the same statement seen from two sides, so they are
-     * compared directly on one template.
+     * The invariance property and its former F9 exception are the same statement seen from two sides,
+     * so they are compared directly on one template.
      *
      * <p>Same template, same two pieces, two entry points: {@code write(String)} twice is invariant,
-     * and {@code write(char[], offset, length)} twice is not. That is the whole of F9's practical
-     * consequence in four lines, and it says plainly which of the two the rest of this file's
-     * property is quantified over.
+     * and — since R15 — {@code write(char[], offset, length)} twice is too. Inverted from
+     * {@code theSameTwoPiecesAreInvariantAsStringsAndNotAsSlices}, whose second assertion was an
+     * {@code assertNotEquals} pinning that the slice path diverged; it is now an {@code assertEquals}.
      */
     @Test
-    public void theSameTwoPiecesAreInvariantAsStringsAndNotAsSlices() {
+    public void theSameTwoPiecesAreInvariantAsStringsAndAsSlices() {
         String text = "<a href=\"javascript:x\">y</a>";
         int at = 10;
 
         assertEquals(feedChunks(text, new int[0]), feedChunks(text, new int[]{at}),
                 "two write(String) calls: invariant");
-        assertNotEquals(feedChunks(text, new int[0]), feedSlices(text, at),
-                "F9: the identical two pieces through write(char[],int,int) are not");
+        assertEquals(feedChunks(text, new int[0]), feedSlices(text, at),
+                "R15: the identical two pieces through write(char[],int,int) are invariant too");
     }
 
     // ------------------------------------------------------------------
