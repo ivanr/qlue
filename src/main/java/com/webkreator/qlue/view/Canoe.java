@@ -218,11 +218,21 @@ public class Canoe extends Writer {
      * Detects one of "asfunction:", "data:", "javascript:", "livescript:", and
      * "mocha:" attribute value prefixes, and sets the attribute value context
      * accordingly.
+     *
+     * <p>This method may only ever <em>narrow</em> the context. It starts from
+     * whatever {@link #setTagAttributeContext()} derived from the attribute
+     * name and assigns ATTR_ACTIONSCRIPT, ATTR_DATA or ATTR_JS only when one of
+     * the five prefixes actually matches; when none does, the name-derived
+     * context is left exactly as it was. It used to open with an unconditional
+     * "attributeContext = ATTR_HTML", which meant the first colon in any value
+     * threw the name's classification away: a style attribute stopped being
+     * suppressed the moment a CSS property name was written in front of the
+     * reference, and a correctly recognised on* handler stopped being
+     * suppressed the moment its body contained an object literal or a ternary.
+     * All three of the prefixes this method can assign map to a suppressing
+     * context, so narrowing is the only direction that is safe here.
      */
     protected void detectAttributePrefix() {
-        // Use HTML by default
-        attributeContext = ATTR_HTML;
-
         if (buf[0] == 'a') {
             if ((buf[1] == 's') && (buf[2] == 'f') && (buf[3] == 'u')
                     && (buf[4] == 'n') && (buf[5] == 'c') && (buf[6] == 't')

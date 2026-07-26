@@ -209,8 +209,15 @@ public class DomEquivalenceTest {
         assertBlindTo("residue.js-url-armed-buffer", Payloads.QUOTE_SINGLE_BREAKOUT,
                 "F5: a javascript: URL whose prefix detection was disarmed by an 11-character"
                         + " attribute name above it is still one attribute on one element");
-        assertBlindTo("css.style-with-property", Payloads.CSS_OVERLAY,
-                "F4: a full-viewport overlay with a beacon in it is one style attribute");
+        // This row used to be css.style-with-property / CSS_OVERLAY - "F4: a full-viewport overlay
+        // with a beacon in it is one style attribute". R2 closed F4, so that template is now
+        // byte-identical under attack and cannot demonstrate a blind spot at all; the row was
+        // replaced rather than dropped, because the count is the point. F6 is the natural
+        // substitute: an off-origin script source is one src attribute on one <script>, and the
+        // skeleton records the attribute's name and not its value.
+        assertBlindTo("url.script-src-prefix", Payloads.PROTOCOL_RELATIVE,
+                "F6: a protocol-relative script source that loads the attacker's JavaScript with"
+                        + " full page privileges is still one src attribute on one <script>");
         assertBlindTo("handler.onsubmit", Payloads.QUOTE_SINGLE_BREAKOUT,
                 "F1: the attribute name is unchanged; only the JavaScript inside it is not");
     }

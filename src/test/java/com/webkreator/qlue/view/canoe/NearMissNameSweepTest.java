@@ -221,10 +221,13 @@ public class NearMissNameSweepTest {
     /**
      * A near miss of a recognised value prefix does not arm that prefix's context.
      *
-     * <p>Probed through {@code href}, whose name-derived context is {@code ATTR_URI}, so the
-     * expectation is {@code ATTR_HTML} for a second reason as well: {@code detectAttributePrefix()}
-     * resets the context to {@code ATTR_HTML} before it compares anything and never restores it.
-     * That reset is F4 and F17, and it is why remediation item 1 is item 1.
+     * <p>Probed through {@code href}, whose name-derived context is {@code ATTR_URI}. That used to
+     * be invisible: {@code detectAttributePrefix()} reset the context to {@code ATTR_HTML} before it
+     * compared anything and never restored it, so every row here answered {@code ATTR_HTML} whatever
+     * the attribute was called. R2 deleted the reset, so the expectation is now {@code ATTR_URI} —
+     * the name's own answer, surviving a comparison that failed — and this sweep has become a
+     * statement about two things at once: the chain rejects the near miss, and rejecting it costs
+     * the attribute nothing.
      */
     @ParameterizedTest(name = "{1}: is not {0}:")
     @MethodSource("valuePrefixNearMisses")
@@ -237,9 +240,9 @@ public class NearMissNameSweepTest {
                 () -> nearMiss + ": was classified as "
                         + CanoeStateProbe.attributeContextName(prefixContext)
                         + ", the context " + prefix + ": gets");
-        assertEquals(Canoe.ATTR_HTML, observed,
-                () -> nearMiss + ": must leave the ATTR_HTML that detectAttributePrefix() resets"
-                        + " to, but got " + CanoeStateProbe.attributeContextName(observed));
+        assertEquals(Canoe.ATTR_URI, observed,
+                () -> nearMiss + ": must leave href's own ATTR_URI untouched, but got "
+                        + CanoeStateProbe.attributeContextName(observed));
     }
 
     /**
@@ -357,10 +360,13 @@ public class NearMissNameSweepTest {
                 new CanoeStateProbe().feed("<a placeholder=\"x\" href=\"" + prefix + ":");
         assertEquals('r', armed.bufferAt(10),
                 "the eleventh character of 'placeholder' is the residue that decides this");
-        assertEquals(Canoe.ATTR_HTML, armed.attributeContext(),
+        assertEquals(Canoe.ATTR_URI, armed.attributeContext(),
                 () -> "F5: " + prefix + ": is no longer recognised once buf[10] holds residue, so"
-                        + " the same template is suppressed or html()-encoded depending on what"
-                        + " element precedes it");
+                        + " the same template is suppressed or url()-encoded depending on what"
+                        + " element precedes it. Before R2 the miss fell back to the reset's"
+                        + " ATTR_HTML; it now falls back to href's own ATTR_URI, which changes the"
+                        + " encoder and not the finding - R3 is what makes the comparison"
+                        + " length-checked so the prefix is recognised either way.");
     }
 
     public static Stream<Arguments> tenCharacterValuePrefixes() {

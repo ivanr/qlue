@@ -86,6 +86,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the 10,000 pairs in the pinned run reach it, and the run asserts that count is non-zero so the
  * exemption cannot quietly stop being evidenced.
  *
+ * <p><strong>R2 mitigated it without removing it, and the exemption is deliberately left in
+ * place.</strong> {@code detectAttributePrefix()} no longer assigns anything when no prefix matches,
+ * so the raw colon no longer moves any context and property 4 would hold over these pairs with the
+ * exemption deleted. The colon itself is still emitted — that is F24's root cause and R11's job — so
+ * the count this run asserts is still non-zero, and it is still counting exactly what it says it
+ * counts: pairs that put a raw colon into a URL attribute. Deleting the exemption is R11's step, per
+ * its "Done when", and doing it here would make this file green for a reason nobody had measured.
+ *
  * <p><strong>Nothing else.</strong> With that one mechanism characterised, no other violation of any
  * of the four properties appears — measured at 2,000 iterations x 5 payloads on the pinned seed, and
  * at 200,000 iterations x 5 payloads (one million pairs) on the pinned seed in a soak run on

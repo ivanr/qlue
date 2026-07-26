@@ -36,6 +36,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * highest-impact task of the phase — is precisely the claim that a colon in the value must stop
  * changing the answers this table records.
  *
+ * <p><strong>Landed so far:</strong> R2. Its two rows — the recognised handler with a colon in its
+ * body, and {@code style} after a property name — have had their current column moved onto their
+ * target and their {@code flippedBy} cleared, so they are now rows no later task may change. Three
+ * rows remain to flip: R4's unrecognised handler, R5's policy attribute, and R5+R6's unrecognised
+ * URL attribute.
+ *
  * <p>Rows are asserted at the {@code CTX_*} level rather than the {@code ATTR_*} level, because the
  * context is what picks the encoder and the encoder is what Phase A is really about;
  * {@link #theEncoderEachContextImplies} pins that last step so a row's target reads as an outcome
@@ -84,11 +90,12 @@ public class RoutingTargetTest {
                         "<a onclick=\"", Canoe.CTX_JS, Canoe.CTX_JS, null),
 
                 // The same recognised handler after a colon in its body (F17). The value scan's
-                // unconditional reset discards ATTR_JS and hands the value to html(), which the
-                // HTML parser undoes. R2 deletes the reset; the name-derived CTX_JS must survive
-                // any value content.
+                // unconditional reset used to discard ATTR_JS and hand the value to html(), which
+                // the HTML parser undoes. R2 deleted the reset and this row reached its target: the
+                // name-derived CTX_JS now survives any value content, and no later Phase A task may
+                // move it.
                 new Row("recognised handler, colon in the body (F17)",
-                        "<a onclick=\"f({a:1,b:'", Canoe.CTX_HTML_ATTR, Canoe.CTX_JS, "R2"),
+                        "<a onclick=\"f({a:1,b:'", Canoe.CTX_JS, Canoe.CTX_JS, null),
 
                 // An unrecognised event handler (F2). onpointerdown is one of the 76 of 94 spec
                 // handlers the on* table misses, so today it falls to ATTR_HTML and html(). R4's
@@ -117,11 +124,11 @@ public class RoutingTargetTest {
                 new Row("style",
                         "<div style=\"", Canoe.CTX_SUPPRESS, Canoe.CTX_SUPPRESS, null),
 
-                // style after the first declaration's colon (F4). The reset turns suppression into
-                // html() encoding on the basic syntax of CSS. R2 deletes the reset; the
-                // name-derived suppression must survive the colon.
+                // style after the first declaration's colon (F4). The reset turned suppression into
+                // html() encoding on the basic syntax of CSS. R2 deleted the reset and this row
+                // reached its target: the name-derived suppression survives the colon.
                 new Row("style, colon in the value (F4)",
-                        "<div style=\"color:", Canoe.CTX_HTML_ATTR, Canoe.CTX_SUPPRESS, "R2"),
+                        "<div style=\"color:", Canoe.CTX_SUPPRESS, Canoe.CTX_SUPPRESS, null),
 
                 // A policy-bearing attribute (F20). The HTML parser consumes sandbox's decoded
                 // value as a directive, so no encoding helps and html() is meaningless here; R5's

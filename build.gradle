@@ -166,6 +166,10 @@ jacocoTestReport {
  * and not on lines.
  *
  * MEASURED 2026-07-26, and the numbers below are the real ones rather than round figures.
+ * RE-MEASURED after R2 (delete detectAttributePrefix()'s unconditional reset): every figure below is
+ * unchanged, floors included. The line R2 removed was an assignment and not a condition, so it
+ * carried no branch; and no branch became unreachable, because the method's five comparison chains
+ * are entered and left exactly as before. R27 still owns the reconciliation after R4 and R5.
  *
  *   Canoe                        660 / 697 branches   94.69%
  *     setTagAttributeContext()   366 / 392            93.37%

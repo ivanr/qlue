@@ -594,21 +594,24 @@ public class CanoeStateMachineTest {
     // ------------------------------------------------------------------
 
     /**
-     * F4. {@code detectAttributePrefix()} opens with an unconditional
-     * {@code attributeContext = ATTR_HTML}, so the first colon at value index 0-10 discards the
-     * context the attribute <em>name</em> established. A URL that begins with a scheme therefore
-     * stops being percent-encoded and starts being entity-encoded, which the parser undoes.
+     * F4, inverted by R2. Was {@code aColonInTheValueDowngradesTheNameDerivedContext}.
+     *
+     * <p>{@code detectAttributePrefix()} used to open with an unconditional
+     * {@code attributeContext = ATTR_HTML}, so the first colon at value index 0-10 discarded the
+     * context the attribute <em>name</em> established: a URL that began with a scheme stopped being
+     * percent-encoded and started being entity-encoded, which the parser undoes. The line is gone
+     * and the method can now only narrow.
      */
     @Test
-    public void aColonInTheValueDowngradesTheNameDerivedContext() {
+    public void aColonInTheValueLeavesTheNameDerivedContextAlone() {
         assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href=\"/path/"),
                 "no colon, so the name-derived ATTR_URI survives");
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<a href=\"http://x/"),
-                "F4: the colon in http: reset the context to ATTR_HTML");
+        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href=\"http://x/"),
+                "R2: the colon in http: no longer resets the context, so url() still applies");
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<div style=\""),
                 "no colon, so CSS is suppressed as designed");
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<div style=\"color:"),
-                "F4: the colon in color: defeated the CSS suppression entirely");
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<div style=\"color:"),
+                "R2: the colon in color: no longer defeats the CSS suppression");
     }
 
     /**
@@ -619,6 +622,12 @@ public class CanoeStateMachineTest {
      *
      * <p>This is the whole finding in three lines: the same template, safe or not depending on what
      * precedes it. {@code BufferResidueTest} (T22) characterises the full length dependence.
+     *
+     * <p>R2 changed what a missed prefix falls back to and not whether it is missed. The two armed
+     * rows used to be {@code CTX_HTML_ATTR}, from the reset; they are now {@code CTX_URI}, from the
+     * {@code href} in the template. That is a different encoder, not a fix: the HTML Standard
+     * percent-decodes a {@code javascript:} URL before compiling it, so {@code url()}'s escapes come
+     * straight back off. R3 closes F5.
      */
     @Test
     public void whetherAJavascriptUrlIsRecognisedDependsOnEarlierMarkup() {
@@ -627,10 +636,11 @@ public class CanoeStateMachineTest {
         assertEquals(Canoe.CTX_JS,
                 CanoeTestSupport.contextAfter("<a xlinkhref=\"1\" href=\"javascript:"),
                 "a 9-character name leaves buf[10] untouched, so the page is still safe");
-        assertEquals(Canoe.CTX_HTML_ATTR,
+        assertEquals(Canoe.CTX_URI,
                 CanoeTestSupport.contextAfter("<a onmouseoverx=\"1\" href=\"javascript:"),
-                "F5: an 11-character name leaves 'r' at buf[10] and the check fails");
-        assertEquals(Canoe.CTX_HTML_ATTR,
+                "F5: an 11-character name leaves 'r' at buf[10] and the check fails, so the value is"
+                        + " url()-encoded into a javascript: URL rather than suppressed");
+        assertEquals(Canoe.CTX_URI,
                 CanoeTestSupport.contextAfter("<a data-something-long=\"1\" href=\"javascript:"),
                 "F5: any name of 11 or more characters arms it");
     }

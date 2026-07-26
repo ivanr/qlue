@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,6 +22,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * them. Two functions, one shared 36-character buffer, and three findings that live in the seam:
  * F4 (the value scan discards what the name established), F5 (the value scan reads buffer indices
  * nothing in the value ever wrote), and F7 (a branch that can never be taken).
+ *
+ * <p><strong>R2 has landed, and F4/F17 are closed.</strong> {@code detectAttributePrefix()} no
+ * longer opens with {@code attributeContext = ATTR_HTML}; it starts from the name-derived context
+ * and only ever narrows it. Everything in this file that used to assert the reset now asserts its
+ * absence — the tests were inverted rather than deleted, because they are the regression net for the
+ * exact defect just fixed, and each carries its former name in its javadoc so the plan's
+ * "Done when" list can still be traced to them. F5 is untouched and R3 owns it, but note that its
+ * <em>consequence</em> moved: a missed prefix now falls back to the name-derived context rather than
+ * to {@code ATTR_HTML}, so the same residue that used to produce {@code html()} now produces
+ * {@code url()} in a {@code href} and suppression in a {@code style}.
  *
  * <p>These assert on {@code attributeContext} — the {@code ATTR_*} value — rather than only on the
  * {@code CTX_*} it produces. That is the level the two functions actually work at, and it separates
@@ -53,116 +64,138 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class AttributePrefixTest {
 
     // ------------------------------------------------------------------
-    // F4 - the context-widening reset
+    // F4 and F17 - the context-widening reset, and its absence
     // ------------------------------------------------------------------
 
     /**
-     * F4. {@code detectAttributePrefix()} opens with an unconditional
-     * {@code attributeContext = ATTR_HTML} ({@code Canoe.java:224}) and only ever assigns from there,
-     * so it can widen the context but never narrow it. The first colon in a value therefore throws
-     * away the classification the attribute <em>name</em> produced.
+     * F4, inverted by R2. Was {@code theFirstColonInAValueDiscardsTheNameDerivedContext}.
      *
-     * <p>Asserted at the {@code ATTR_*} level, where the reset is directly visible: the attribute is
-     * still {@code style}, but Canoe has stopped believing the value is CSS. The colon is not a
-     * hostile character — it is the basic syntax of a CSS declaration and of every absolute URL — so
-     * this fires on ordinary templates rather than on attacks.
+     * <p>{@code detectAttributePrefix()} used to open with an unconditional
+     * {@code attributeContext = ATTR_HTML} ({@code Canoe.java:224}) and only ever assign from there,
+     * so it could widen the context but never narrow it, and the first colon in a value threw away
+     * the classification the attribute <em>name</em> produced. The line is gone: the method now
+     * starts from the name-derived context and leaves it alone unless one of its five prefixes
+     * matches.
+     *
+     * <p>Asserted at the {@code ATTR_*} level, where the reset was directly visible: the attribute
+     * is {@code style} and Canoe goes on believing the value is CSS. The colon was never a hostile
+     * character — it is the basic syntax of a CSS declaration and of every absolute URL — which is
+     * why the defect fired on ordinary templates rather than on attacks, and why its absence has to
+     * be asserted on ordinary templates too.
      */
     @Test
-    public void theFirstColonInAValueDiscardsTheNameDerivedContext() throws IOException {
+    public void theFirstColonInAValueKeepsTheNameDerivedContext() throws IOException {
         assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\""),
                 "the name established CSS");
         assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"color"),
                 "and it survives every character up to the colon");
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<div style=\"color:"),
-                "F4: the colon in color: reset it to ATTR_HTML");
+        assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"color:"),
+                "R2: and past it - the colon in color: matches no prefix, so nothing is assigned");
 
         assertEquals(Canoe.ATTR_URI, attributeContextOf("<a href=\"/p/"),
                 "a relative path has no colon, so the name-derived ATTR_URI survives");
         assertEquals(Canoe.ATTR_URI, attributeContextOf("<a href=\"http"));
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<a href=\"http://x/"),
-                "F4: the colon in http: downgraded percent-encoding to entity-encoding");
+        assertEquals(Canoe.ATTR_URI, attributeContextOf("<a href=\"http://x/"),
+                "R2: an absolute URL keeps percent-encoding instead of dropping to entity-encoding");
     }
 
     /**
-     * The reset is what makes F4 a security defect rather than a curiosity: it converts suppression
-     * into encoding. {@code style="$c"} emits nothing, which is the design; {@code style="color:$c"}
-     * emits {@code html()} output, which the HTML parser decodes back into the attacker's original
-     * characters before the CSS parser ever sees them.
+     * Inverted by R2. Was {@code theResetTurnsSuppressionIntoHtmlEncoding}.
+     *
+     * <p>The reset was what made F4 a security defect rather than a curiosity: it converted
+     * suppression into encoding. {@code style="$c"} emitted nothing, which is the design;
+     * {@code style="color:$c"} emitted {@code html()} output, which the HTML parser decodes back
+     * into the attacker's original characters before the CSS parser ever sees them. Both templates
+     * now suppress, and the two {@code href} rows now both reach {@code url()}.
+     *
+     * <p>Stated at the {@code CTX_*} level on purpose: {@code CTX_HTML_ATTR} is the context whose
+     * encoder the HTML parser undoes, and the whole of F4 was reaching it from a sink that is not
+     * plain text. Neither of these four prefixes may reach it again.
      */
     @Test
-    public void theResetTurnsSuppressionIntoHtmlEncoding() {
+    public void noColonTurnsSuppressionIntoHtmlEncoding() {
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<div style=\""));
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<div style=\"color:"));
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<div style=\"color:"));
         assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href=\"/p/"));
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<a href=\"http://x/"));
+        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href=\"http://x/"));
     }
 
     /**
-     * F17. The reset does not only widen {@code ATTR_CSS} and {@code ATTR_URI} — it widens
-     * {@code ATTR_JS} too, and that is a hole in the one guarantee Canoe genuinely delivers.
+     * F17, inverted by R2. Was {@code theResetAlsoDefeatsTheJavascriptSuppression}.
+     *
+     * <p>The reset did not only widen {@code ATTR_CSS} and {@code ATTR_URI} — it widened
+     * {@code ATTR_JS} too, which was a hole in the one guarantee Canoe genuinely delivers.
      *
      * <p>F1 and F2 are about event handlers Canoe fails to <em>recognise</em>. This is about one it
-     * recognises perfectly: {@code onclick} resolves to {@code ATTR_JS}, and then the first colon in
-     * the handler body throws that away and leaves {@code html()} encoding a value that the HTML
-     * parser will decode before the JavaScript parser compiles it. A colon in the first eleven
+     * recognises perfectly: {@code onclick} resolves to {@code ATTR_JS}, and the first colon in the
+     * handler body used to throw that away and leave {@code html()} encoding a value that the HTML
+     * parser decodes before the JavaScript parser compiles it. A colon in the first eleven
      * characters of a handler is not exotic — an object literal ({@code f({a:1})}), a ternary
-     * ({@code a?b:c}) or a label all produce one.
+     * ({@code a?b:c}) or a label all produce one, which is why the five bodies below are ordinary
+     * JavaScript rather than attacks.
      *
-     * <p>Neither the finding nor the review's remediation list covers this: replacing the {@code on*}
-     * table with a prefix rule, which is remediation item 1, would not help at all, because the name
-     * is already classified correctly. Only deleting the reset (item 3) fixes it.
+     * <p>Worth keeping the note that R4 does not reach this: replacing the {@code on*} table with a
+     * prefix rule would not have helped at all, because the name was already classified correctly
+     * and the value scan discarded the answer afterwards. Only deleting the reset closed it.
      */
     @Test
-    public void theResetAlsoDefeatsTheJavascriptSuppression() throws IOException {
+    public void theJavascriptSuppressionSurvivesAColonInTheHandlerBody() throws IOException {
         assertEquals(Canoe.ATTR_JS, attributeContextOf("<a onclick=\"var a="),
                 "a handler with no colon nearby is suppressed, as designed");
         assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<a onclick=\"var a="));
 
         for (String body : List.of("f({a:", "a?b:", "x=1;a:", "return {x:", "if(a){b:")) {
-            assertEquals(Canoe.ATTR_HTML, attributeContextOf("<a onclick=\"" + body),
-                    "F17: " + CanoeTestSupport.quote(body) + " reset a recognised handler to HTML");
-            assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<a onclick=\"" + body),
-                    "F17: and CTX_HTML_ATTR means html(), which the parser undoes");
+            assertEquals(Canoe.ATTR_JS, attributeContextOf("<a onclick=\"" + body),
+                    "R2: " + CanoeTestSupport.quote(body)
+                            + " must leave a recognised handler classified as JavaScript");
+            assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<a onclick=\"" + body),
+                    "R2: and CTX_JS means the value is dropped rather than html()-encoded");
         }
     }
 
     /**
-     * F17, as the thing a reader actually cares about: the attacker's characters, after the HTML
-     * parser has decoded them, in a handler Canoe classified correctly.
+     * F17 at the sink, inverted by R2. Was
+     * {@code aColonInARecognisedHandlerLetsThePayloadReachTheJavascriptParser}.
      *
      * <p>The two templates differ by four characters of template text that no reviewer would look
-     * at twice. One suppresses the payload completely; the other hands it to the JavaScript parser
-     * with the quote, the parenthesis and the comment marker all intact.
+     * at twice. One used to suppress the payload completely and the other handed it to the
+     * JavaScript parser with the quote, the parenthesis and the comment marker all intact; they
+     * are now the same template as far as the reference is concerned.
      */
     @Test
-    public void aColonInARecognisedHandlerLetsThePayloadReachTheJavascriptParser() {
+    public void aColonInARecognisedHandlerNoLongerLetsThePayloadThrough() {
         String payload = "');alert(1);//";
 
-        CanoeTestSupport.RenderResult suppressed =
+        CanoeTestSupport.RenderResult withoutColon =
                 CanoeTestSupport.render("<a onclick=\"f('$data')\">x</a>", payload);
-        assertEquals("f('')", suppressed.decodedAttr("a", "onclick"),
+        assertEquals("f('')", withoutColon.decodedAttr("a", "onclick"),
                 "no colon: CTX_JS, and the value is dropped entirely");
 
-        CanoeTestSupport.RenderResult live =
+        CanoeTestSupport.RenderResult withColon =
                 CanoeTestSupport.render("<a onclick=\"f({a:1,b:'$data'})\">x</a>", payload);
-        assertTrue(live.decodedAttr("a", "onclick").contains(payload),
-                "F17: after entity decoding the handler body contains " + payload
-                        + " verbatim, which is arbitrary script execution");
+        assertEquals("f({a:1,b:''})", withColon.decodedAttr("a", "onclick"),
+                "R2: the colon changes nothing, so the handler body is the template's own text with"
+                        + " an empty string literal where the reference was");
+        assertFalse(withColon.decodedAttr("a", "onclick").contains(payload),
+                "R2: no character of the payload reaches the JavaScript parser");
     }
 
     /**
-     * F17 does not depend on how the handler is quoted, or on the reference sitting inside a
-     * JavaScript string literal.
+     * Inverted by R2. Was {@code theResetFiresWhateverTheQuotingAndWhereverTheReferenceSits}.
      *
-     * <p>Worth pinning because all three are plausible mitigations to reach for, and none of them is
-     * one. The reset happens in the value scan, which runs identically for a double-quoted,
-     * single-quoted and unquoted attribute value; and {@code html()} recovers every character
-     * regardless of what surrounds the reference, so a value spliced straight into an expression is
-     * as live as one inside a string. The unquoted row is not defeated by F11 either, because F11
-     * only drops a reference that sits <em>immediately</em> after the {@code =}.
+     * <p>The reset happened in the value scan, which runs identically for a double-quoted,
+     * single-quoted and unquoted attribute value, and {@code html()} recovered every character
+     * regardless of what surrounded the reference — so none of the three obvious mitigations was
+     * one. The same five shapes now all suppress, which is the statement worth keeping: the fix has
+     * to be independent of quoting and of where in the value the reference sits, or it has only
+     * moved the boundary.
+     *
+     * <p>The unquoted row is a special case for a reason unrelated to R2: F11 drops a reference that
+     * sits <em>immediately</em> after the {@code =}, and this one does not, so it genuinely
+     * exercises {@code TAG_ATTR_VALUE} with {@code QUOTE_NONE}.
      */
     @Test
-    public void theResetFiresWhateverTheQuotingAndWhereverTheReferenceSits() {
+    public void nothingFiresWhateverTheQuotingAndWhereverTheReferenceSits() {
         String payload = "');alert(1);//";
 
         for (String template : List.of(
@@ -173,29 +206,30 @@ public class AttributePrefixTest {
                 "<a onclick=\"x?a:b;g($data)\">x</a>")) {    // colon from a ternary, not a literal
 
             CanoeTestSupport.RenderResult result = CanoeTestSupport.render(template, payload);
-            assertTrue(result.decodedAttr("a", "onclick").contains(payload),
-                    "F17: " + CanoeTestSupport.quote(template) + " handed the payload to the"
-                            + " JavaScript parser verbatim; rendered "
+            assertEquals(CanoeTestSupport.render(template, "").output(), result.output(),
+                    "R2: " + CanoeTestSupport.quote(template) + " must render byte-identically to"
+                            + " one with an empty value; got "
                             + CanoeTestSupport.quote(result.output()));
         }
     }
 
     /**
-     * And it happens even when nothing matches. Every branch in {@code detectAttributePrefix()} is a
-     * positive match that returns; there is no "no prefix recognised, restore what the name said"
-     * path, because the name-derived value was overwritten on entry and nothing kept a copy.
+     * Inverted by R2. Was {@code theResetHappensEvenWhenNoPrefixMatches}, and it is the row that
+     * states the fix rather than one of its consequences: every branch in
+     * {@code detectAttributePrefix()} is a positive match that returns, and there is no longer any
+     * code path at all that runs when none of them does.
      */
     @Test
-    public void theResetHappensEvenWhenNoPrefixMatches() throws IOException {
+    public void nothingHappensWhenNoPrefixMatches() throws IOException {
         // The last entry, a bare ":", is an F5 row rather than a prefix-table row: the value wrote
         // nothing, so the prefix checks read the residue of the attribute name "style" - buf[0] is
-        // 's', which matches none of asfunction/data/javascript/livescript/mocha. It still shows the
-        // reset standing, which is what this test is about, but for a reason that has nothing to do
-        // with the value.
+        // 's', which matches none of asfunction/data/javascript/livescript/mocha. It reaches the
+        // same outcome as the rest for a reason that has nothing to do with the value, which after
+        // R2 is fine: a spurious *miss* is now a no-op rather than a downgrade.
         for (String value : List.of("color:", "http:", "https:", "ftp:", "vbscript:", "x:", ":")) {
-            assertEquals(Canoe.ATTR_HTML, attributeContextOf("<div style=\"" + value),
+            assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"" + value),
                     "no prefix branch matches " + CanoeTestSupport.quote(value)
-                            + ", so the reset stands");
+                            + ", so the name-derived ATTR_CSS is left alone");
         }
     }
 
@@ -222,43 +256,58 @@ public class AttributePrefixTest {
     /**
      * A colon at value index 0 through 10 calls {@code detectAttributePrefix()}; at index 11 and
      * beyond it does not, because the scan has already set {@code bufLen = -1} and switched itself
-     * off.
+     * off. R2 keeps that window exactly as it was and removes its consequence, so the test now
+     * asserts both halves separately: the window is measured against the scan's own bookkeeping, and
+     * the context is required to be the name-derived one at <em>every</em> index.
      *
-     * <p>{@code style} is the probe because it is the only attribute whose name-derived context is
-     * both non-default and visible: {@code ATTR_CSS} before the reset, {@code ATTR_HTML} after. A
-     * plain {@code title} would show nothing, since {@code ATTR_HTML} is also what the reset assigns.
+     * <p>{@code style} is still the probe because it is the only attribute whose name-derived
+     * context is both non-default and visible. Before R2 the two columns were the same fact — the
+     * context was {@code ATTR_HTML} exactly where the scan ran. That they are now independent is the
+     * fix.
      */
     @ParameterizedTest(name = "colon at value index {0} triggers the prefix scan: {1}")
     @MethodSource("colonPositions")
-    public void aColonTriggersThePrefixScanUpToIndexTen(int index, boolean expectedToTrigger)
+    public void aColonAtAnyIndexLeavesTheNameDerivedContextAlone(int index,
+                                                                 boolean expectedToTrigger)
             throws IOException {
-        String prefix = "<div style=\"" + repeat('a', index) + ":";
-        int expected = expectedToTrigger ? Canoe.ATTR_HTML : Canoe.ATTR_CSS;
+        String value = repeat('a', index);
+        String prefix = "<div style=\"" + value + ":";
 
-        assertEquals(expected, attributeContextOf(prefix),
-                "colon at index " + index + " in " + CanoeTestSupport.quote(prefix));
+        assertEquals(Canoe.ATTR_CSS, attributeContextOf(prefix),
+                "R2: colon at index " + index + " in " + CanoeTestSupport.quote(prefix)
+                        + " must leave the name-derived ATTR_CSS alone");
+
+        // The window itself, measured where it is still observable: bufLen is non-negative for as
+        // long as the scan is willing to look at the next character.
+        boolean scanStillArmed =
+                new CanoeStateProbe().feed("<div style=\"" + value).bufLen() >= 0;
+        assertEquals(expectedToTrigger, scanStillArmed,
+                "the 0-10 window is unchanged by R2; only its consequence is gone. Index " + index);
     }
 
     /**
      * Why the boundary is 10 and not 9, stated where a future reader will find it.
      *
-     * <p>{@code Canoe.java:912-937} tests {@code c == ':'} <em>before</em> it tests
-     * {@code bufLen == 10}. So when the eleventh character of a value is a colon, {@code bufLen} is
-     * 10 — the scan is one character from giving up — and the colon is still examined. It is only
-     * the eleventh <em>non-colon</em> character that switches the scan off, and by then a colon at
-     * index 11 arrives to find {@code bufLen == -1}.
+     * <p>{@code Canoe.java} tests {@code c == ':'} <em>before</em> it tests {@code bufLen == 10}. So
+     * when the eleventh character of a value is a colon, {@code bufLen} is 10 — the scan is one
+     * character from giving up — and the colon is still examined. It is only the eleventh
+     * <em>non-colon</em> character that switches the scan off, and by then a colon at index 11
+     * arrives to find {@code bufLen == -1}.
      *
-     * <p>The consequence in real templates is that {@code background:}, whose colon sits at index 10,
-     * is affected by F4 and {@code text-decoration:} is not.
+     * <p>The consequence in real templates used to be that {@code background:}, whose colon sits at
+     * index 10, was affected by F4 and {@code text-decoration:} was not. After R2 the two agree, and
+     * the boundary survives only as the bound on how much of a value the scan reads — which is worth
+     * keeping measured, because R3 rewrites that scan.
      */
     @Test
     public void theBoundaryIsSetByTheColonTestPrecedingTheLengthCutoff() throws IOException {
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<div style=\"background:"),
-                "background: puts the colon at index 10, the last index that still triggers");
+        assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"background:"),
+                "background: puts the colon at index 10, the last index that still reaches the scan"
+                        + " - and reaching it now changes nothing");
         assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"text-decoration:"),
                 "text-decoration: puts it at index 15, by which point the scan has given up");
 
-        // The scan's own bookkeeping, which is what the two rows above are really about.
+        // The scan's own bookkeeping, which is the only place the boundary is still visible.
         assertEquals(10, new CanoeStateProbe().feed("<div style=\"background").bufLen(),
                 "ten characters buffered and bufLen still valid, so the next colon is examined");
         assertEquals(-1, new CanoeStateProbe().feed("<div style=\"background-").bufLen(),
@@ -270,18 +319,26 @@ public class AttributePrefixTest {
      * has run, {@code bufLen} is set to -1 and later colons are ignored; once the scan has given up
      * on length, a later colon cannot revive it.
      *
-     * <p>The second row is the interesting one, because it is F4 failing to fire: a CSS declaration
-     * whose property name is long enough keeps its suppression even though the value goes on to
-     * contain a colon that would otherwise have reset it.
+     * <p>After R2 this is a statement about <em>narrowing</em> rather than about widening, and it is
+     * the direction that still has a consequence: a value whose first colon matches nothing burns
+     * the one look the scan gets, so a {@code javascript:} further along is never seen. That is not
+     * a new defect — the same value reaches {@code url()} either way, and the prefixes the scan can
+     * assign all suppress — but it is the shape of the remaining fail-open and is worth pinning
+     * before R3 rewrites the comparison.
      */
     @Test
     public void onlyTheFirstColonIsExamined() throws IOException {
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<div style=\"aaaaaaaaaa:javascript:"),
-                "the first colon (index 10) reset the context; the second is never looked at");
-        assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"aaaaaaaaaaa:javascript:"),
-                "one character longer and no colon is examined at all, so CSS suppression holds");
+        assertEquals(Canoe.ATTR_URI, attributeContextOf("<a href=\"/a:javascript:"),
+                "the first colon (index 2) matched nothing and switched the scan off, so the"
+                        + " javascript: after it is never looked at and ATTR_URI stands");
         assertEquals(Canoe.ATTR_JS, attributeContextOf("<a href=\"javascript:alert(1):x"),
                 "and a matched prefix is not un-matched by a later colon");
+
+        assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"aaaaaaaaaa:javascript:"),
+                "R2: the first colon (index 10) is examined, matches nothing, and leaves ATTR_CSS");
+        assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"aaaaaaaaaaa:javascript:"),
+                "one character longer and no colon is examined at all - same answer, which is the"
+                        + " point: the two sides of the boundary have stopped differing");
     }
 
     // ------------------------------------------------------------------
@@ -376,27 +433,27 @@ public class AttributePrefixTest {
      *       {@code buf[4]} is NUL for {@code data} only by accident of what wrote it last.</li>
      *   <li><strong>The scan gave up first.</strong> {@code javascriptx} is not rejected by any
      *       comparison — the eleventh character sets {@code bufLen = -1}, so the colon that follows
-     *       never calls {@code detectAttributePrefix()} at all and the name-derived context
-     *       survives untouched.</li>
+     *       never calls {@code detectAttributePrefix()} at all.</li>
      * </ol>
      *
-     * <p>The third is the one with a consequence, but not the one it looks like. Both
-     * {@code <div style="javascriptx:...">} and {@code <div style="javascript:...">} suppress: the
-     * first because the scan gave up and {@code ATTR_CSS} survived, the second because the prefix
-     * matched and produced {@code ATTR_JS}. Two different routes, one observable outcome — and the
-     * routes only diverge if the commented-out {@code CTX_JS} encoder at
-     * {@code Canoe.java:1074-1081} is ever enabled, at which point one of them starts emitting.
+     * <p>The three used to produce two different outcomes, and the pair at the end of this test was
+     * the proof: {@code javascriptx:} (eleven characters, scan gives up, {@code ATTR_CSS},
+     * suppressed) against {@code text-align:} (ten characters, scan runs, no prefix matches,
+     * {@code ATTR_HTML}, html-encoded) — same attribute, same shape, and the longer value was the
+     * safe one. After R2 all three mechanisms end in the same place, because "the comparison failed"
+     * and "no comparison happened" have become the same instruction, and the pair is kept as the
+     * assertion that they still are.
      *
-     * <p>The real safety difference is the pair asserted at the end of this test:
-     * {@code javascriptx:} (eleven characters, scan gives up, {@code ATTR_CSS}, suppressed) against
-     * {@code text-align:} (ten characters, scan runs, no prefix matches, {@code ATTR_HTML},
-     * html-encoded). Same attribute, same shape, and the longer value is the safe one.
+     * <p>The mechanisms remain worth separating for R3, which replaces the first two with a bounded
+     * string comparison and must not accidentally change the third.
      */
     @Test
     public void nearMissesAreRejectedByThreeDifferentMechanisms() throws IOException {
         // 1. A read index disagrees: the scan ran, and the comparison failed.
         CanoeStateProbe compared = new CanoeStateProbe().feed("<a p=\"javascripx:");
-        assertEquals(Canoe.ATTR_HTML, compared.attributeContext());
+        assertEquals(Canoe.ATTR_HTML, compared.attributeContext(),
+                "the name 'p' is unrecognised, so ATTR_HTML here is the name's answer and not the"
+                        + " prefix scan's");
         assertEquals(-1, compared.bufLen(), "the scan ran and then switched itself off");
         assertEquals('x', compared.bufferAt(9),
                 "buf[9] is the index the javascript check disagreed on");
@@ -406,20 +463,24 @@ public class AttributePrefixTest {
         assertEquals(Canoe.ATTR_HTML, terminated.attributeContext());
         assertEquals('x', terminated.bufferAt(4), "buf[4] is not a NUL, so 'data' did not end there");
 
-        // 3. The scan gave up before the colon arrived, so no comparison happened - and because
-        // nothing ran, the name-derived context is still intact.
+        // 3. The scan gave up before the colon arrived, so no comparison happened.
         assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"javascriptx:"),
-                "eleven characters switch the scan off, so the CSS context is never reset");
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<div style=\"text-align:"),
-                "ten characters, and the same template loses its CSS suppression");
+                "eleven characters switch the scan off, so nothing runs");
+        assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"text-align:"),
+                "R2: ten characters, the scan runs and matches nothing, and the same template keeps"
+                        + " its CSS suppression - the two mechanisms now agree");
     }
 
     /**
      * {@code detectAttributePrefix()} is not told which attribute it is scanning, so a value prefix
      * that only makes sense in a URL is honoured anywhere. In the {@code style} case the answer is
      * accidentally conservative — {@code ATTR_JS} suppresses just as {@code ATTR_CSS} would — but it
-     * is arrived at for a reason that has nothing to do with the attribute, and it is the same
-     * blindness that produces F17 in the opposite direction.
+     * is arrived at for a reason that has nothing to do with the attribute, and it was the same
+     * blindness that produced F17 in the opposite direction.
+     *
+     * <p>After R2 the blindness only ever costs a suppression the attribute did not ask for, never a
+     * suppression the attribute did ask for, because every context this method can assign emits
+     * nothing. That is the whole reason the narrowing half of the method was safe to keep.
      */
     @Test
     public void thePrefixScanDoesNotKnowWhichAttributeItIsScanning() throws IOException {
@@ -488,6 +549,13 @@ public class AttributePrefixTest {
      * and a formula would restate the bug's cause where a table shows its effect. When F5 is fixed
      * the whole column collapses to {@code ATTR_JS} and every row from 11 upwards fails, which is the
      * signal to update the ledger.
+     *
+     * <p>R2 changed what the second group holds and not the split. A missed prefix used to leave the
+     * reset's {@code ATTR_HTML}; it now leaves the name-derived {@code ATTR_URI}, because the
+     * attribute is {@code href}. F5 is unchanged and R3 still owns it — the prefix is still missed —
+     * but the fallback is {@code url()} rather than {@code html()}. That is not a fix: the HTML
+     * Standard percent-decodes a {@code javascript:} URL before compiling it, so the payload still
+     * arrives. See {@code BufferResidueTest} and the {@code residue.js-url-armed-buffer} ledger row.
      */
     static Stream<Arguments> precedingNameLengths() {
         // Index 0 is unused; entry i is the outcome for a preceding attribute name of i characters.
@@ -495,9 +563,9 @@ public class AttributePrefixTest {
                 -1,
                 Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS,
                 Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS,
-                Canoe.ATTR_HTML, Canoe.ATTR_HTML, Canoe.ATTR_HTML, Canoe.ATTR_HTML,
-                Canoe.ATTR_HTML, Canoe.ATTR_HTML, Canoe.ATTR_HTML, Canoe.ATTR_HTML,
-                Canoe.ATTR_HTML, Canoe.ATTR_HTML};
+                Canoe.ATTR_URI, Canoe.ATTR_URI, Canoe.ATTR_URI, Canoe.ATTR_URI,
+                Canoe.ATTR_URI, Canoe.ATTR_URI, Canoe.ATTR_URI, Canoe.ATTR_URI,
+                Canoe.ATTR_URI, Canoe.ATTR_URI};
 
         List<Arguments> rows = new ArrayList<>();
         for (int length = 1; length <= 20; length++) {
@@ -538,11 +606,12 @@ public class AttributePrefixTest {
 
         assertEquals(Canoe.ATTR_JS, attributeContextOf(target),
                 "a fresh Canoe has a zero-filled buffer, so the check passes");
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf(arm + target),
-                "F5: an 11-character name armed it");
+        assertEquals(Canoe.ATTR_URI, attributeContextOf(arm + target),
+                "F5: an 11-character name armed it, and after R2 the miss falls back to the"
+                        + " name-derived ATTR_URI rather than to ATTR_HTML");
         assertEquals(Canoe.ATTR_JS, attributeContextOf(arm + tenCharacterName + target),
                 "F5: a 10-character name repaired it - its terminator lands on buf[10]");
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf(arm + nineCharacterName + target),
+        assertEquals(Canoe.ATTR_URI, attributeContextOf(arm + nineCharacterName + target),
                 "F5: a 9-character name cannot reach buf[10], so the residue survives");
 
         // Same three, seen at the index itself.
@@ -605,8 +674,9 @@ public class AttributePrefixTest {
                 "F5: title is 5 characters, so buf[4] holds a letter and data: is missed");
         assertEquals(Canoe.ATTR_JS, attributeContextOf("<a title=\"mocha:"),
                 "title is 5, which is exactly what mocha: needs");
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<div background=\"mocha:"),
-                "F5: background is 10 characters, so mocha: is missed");
+        assertEquals(Canoe.ATTR_URI, attributeContextOf("<div background=\"mocha:"),
+                "F5: background is 10 characters, so mocha: is missed - and after R2 the miss leaves"
+                        + " background's own ATTR_URI rather than downgrading it to ATTR_HTML");
     }
 
     // ------------------------------------------------------------------
@@ -663,16 +733,21 @@ public class AttributePrefixTest {
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<object data=\"x"));
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<a href=\"data:"));
 
-        // And the F4 reset applies here too: an attribute named data whose value carries any other
-        // colon loses its ATTR_CONTENT and becomes html-encoded.
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<object data=\"http://x/"),
-                "F4 again: the suppression of data= survives only while the value has no colon");
+        // The F4 reset used to apply here too: an attribute named data whose value carried any other
+        // colon lost its ATTR_CONTENT and became html-encoded. R2 removed that, so the suppression
+        // of data= no longer depends on what the value contains.
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<object data=\"http://x/"),
+                "R2: the suppression of data= no longer ends at the first colon in the value");
     }
 
     /**
-     * {@code ATTR_ACTIONSCRIPT} is only ever produced by the {@code asfunction:} value prefix, and it
-     * is the one prefix whose match makes the value <em>safer</em> than not matching: it suppresses,
-     * where a miss would fall back to the {@code ATTR_HTML} reset and html-encode.
+     * {@code ATTR_ACTIONSCRIPT} is only ever produced by the {@code asfunction:} value prefix.
+     *
+     * <p>It used to be the one prefix whose match made the value <em>safer</em> than not matching:
+     * it suppresses, where a miss fell back to the reset's {@code ATTR_HTML} and html-encoded. After
+     * R2 a miss falls back to the attribute's own context instead — {@code ATTR_URI} in the
+     * {@code href} probed below — so the match is a narrowing like the other four rather than a
+     * repair of the method's own damage.
      */
     @Test
     public void asfunctionIsTheOnlyProducerOfTheActionscriptContext() throws IOException {

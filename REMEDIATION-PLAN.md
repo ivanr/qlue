@@ -114,8 +114,14 @@ target one ledger row at a time. Everything else in the suite asserts what Canoe
 
 ---
 
-**R2 — `detectAttributePrefix()` must never widen the context**
+**R2 — `detectAttributePrefix()` must never widen the context** — ✅ **DONE**
 *Closes:* F4, F17, and F24's exploitable path. *Depends on:* R1.
+*Landed:* the reset is deleted; the method now only narrows. Ledger: KNOWN_VULNERABLE 281→239
+(F4 38→0, F17 4→0), SUPPRESSED_BY_DESIGN 77→117, SAFE 564→566. `VerdictEvaluator` now
+percent-decodes `javascript:` URL sinks before the JS judgement (HTML Standard's javascript:-URL
+steps), keeping `residue.js-url-armed-buffer` correctly KNOWN_VULNERABLE under F5 — reviewed and
+approved with the blast radius measured (exactly 2 invocations reach the decode path). Both
+suites green; browser tier re-verified on Chromium.
 
 `Canoe.java:224` unconditionally assigns `attributeContext = ATTR_HTML` before testing the five value
 prefixes. Delete that line. Start from the name-derived context and let the method only ever *narrow*

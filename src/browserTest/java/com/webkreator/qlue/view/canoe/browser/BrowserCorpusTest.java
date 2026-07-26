@@ -139,6 +139,15 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * splits between rows that must fire and rows that must not — the second number being the one
      * that makes a green run mean "the detectors stayed quiet when they should" rather than
      * "nothing interesting was served".
+     *
+     * <p>The figures move whenever a remediation task re-verdicts the ledger, and they are meant to:
+     * the load shrinks because a case that stops being {@code KNOWN_VULNERABLE} contributes one
+     * control instead of one page per payload. R2 (delete {@code detectAttributePrefix()}'s reset)
+     * took it from 128/45/59/69 to the numbers below, by moving 40 invocations from
+     * {@code KNOWN_VULNERABLE} to {@code SUPPRESSED_BY_DESIGN} and 2 to {@code SAFE} across the
+     * eleven {@code css.*} cases, the two F17 {@code prefix.*} handlers and
+     * {@code prefix.vbscript-not-in-the-table} — and by removing the not-browser-observable flags
+     * those rows carried, since the flag only means anything on a row claiming a live vector.
      */
     @Test
     public void theBrowserRelevantSubsetIsTheSizeTheCorpusClaims() {
@@ -151,10 +160,10 @@ public class BrowserCorpusTest extends BrowserTestBase {
                 .count();
         long quiet = invocations.size() - mustFire;
 
-        assertEquals(128, invocations.size(), "browser-relevant invocation count");
-        assertEquals(45, unobservable, "invocations flagged as not browser-observable");
-        assertEquals(59, mustFire, "invocations that must trip a detector");
-        assertEquals(69, quiet, "invocations that must trip none");
+        assertEquals(114, invocations.size(), "browser-relevant invocation count");
+        assertEquals(30, unobservable, "invocations flagged as not browser-observable");
+        assertEquals(53, mustFire, "invocations that must trip a detector");
+        assertEquals(61, quiet, "invocations that must trip none");
     }
 
     @AfterAll

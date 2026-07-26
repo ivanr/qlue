@@ -210,33 +210,46 @@ public final class CanoeCorpus {
             Payloads.JS_URL_ENTITY_DECIMAL, Payloads.JS_URL_PERCENT_ENCODED);
 
     /**
-     * Why the {@code PROTOCOL_RELATIVE/backslash} row inside a CSS {@code url()} is correctly
-     * {@code KNOWN_VULNERABLE} and is still not an off-origin fetch. Written out because the verdict
-     * invites exactly the wrong reading.
+     * Why the {@code PROTOCOL_RELATIVE/backslash} row inside a CSS {@code url()} was correctly
+     * {@code KNOWN_VULNERABLE} and was still not an off-origin fetch. Written out because the
+     * verdict invited exactly the wrong reading.
+     *
+     * <p>Retained as history after R2 re-verdicted that row to {@code SUPPRESSED_BY_DESIGN}: what it
+     * describes is a CSS-tokenizer behaviour rather than a Canoe one, it is unchanged, and it is the
+     * thing that would decide the row's impact again if anything ever re-enabled output there.
      */
     private static final String CSS_BACKSLASH_IS_AN_ESCAPE =
-            "One row needs its own reading. PROTOCOL_RELATIVE/backslash is /\\attacker.invalid/x.js,"
-                    + " and it is KNOWN_VULNERABLE for the right reason - the attacker's bytes reach"
-                    + " the CSS parser untouched, which is F4 - but it does NOT fetch from the"
-                    + " sentinel host. CSS reads a backslash as the start of an escape, so \\a is"
-                    + " U+000A and the url() token resolves to a path that is not the attacker's"
-                    + " host. The URL oracle's backslash-is-a-path-separator rule is an HTML/URL"
-                    + " rule, not a CSS one, and this is the sink where the two disagree. Do not read"
-                    + " the row as evidence of an off-origin request; the neighbouring CSS_INJECTION"
-                    + " payloads are the ones that make that request.";
+            "One row needed its own reading, and the reading survives R2 as history. Before R2,"
+                    + " PROTOCOL_RELATIVE/backslash - /\\attacker.invalid/x.js - was"
+                    + " KNOWN_VULNERABLE for the right reason, the attacker's bytes reaching the CSS"
+                    + " parser untouched, which is F4 - but it did NOT fetch from the sentinel host."
+                    + " CSS reads a backslash as the start of an escape, so \\a is U+000A and the"
+                    + " url() token resolved to a path that is not the attacker's host. The URL"
+                    + " oracle's backslash-is-a-path-separator rule is an HTML/URL rule, not a CSS"
+                    + " one, and this is the sink where the two disagree. The row is a suppression"
+                    + " now and issues no request at all, so nothing here bears on its verdict; it is"
+                    + " recorded because it is a CSS-tokenizer fact rather than a Canoe one, and it"
+                    + " is what would bound the impact again if output here were ever re-enabled.";
 
     /**
      * The three CSS cases carry {@code CSS_EXPRESSION}, which no engine has run since Internet
-     * Explorer 11 was retired. It stays in the ledger — Canoe emitted it live, and &sect;8 is
-     * explicit that a dead vector is still a Canoe defect — and it is flagged so the browser tier
-     * expects the detector to stay quiet rather than reporting a ledger divergence.
+     * Explorer 11 was retired. It stayed in the ledger — Canoe emitted it live, and &sect;8 is
+     * explicit that a dead vector is still a Canoe defect — and it was flagged so the browser tier
+     * expected the detector to stay quiet rather than reporting a ledger divergence.
+     *
+     * <p>Retained as history after R2. Those rows are suppressions now, so the browser tier already
+     * expects silence and the flag would record nothing; the reasoning is kept because it is why the
+     * payload is in the catalogue at all.
      */
     private static final String EXPRESSION_IS_DEAD =
-            "CSS_EXPRESSION is flagged not-browser-observable: expression() was an Internet Explorer"
-                    + " extension and no engine the browser tier drives will evaluate it. The ledger"
-                    + " entry is about what Canoe emitted and stays KNOWN_VULNERABLE; the flag is how"
-                    + " the browser tier is told to expect a miss instead of failing on the"
-                    + " divergence.";
+            "CSS_EXPRESSION used to be flagged not-browser-observable here: expression() was an"
+                    + " Internet Explorer extension and no engine the browser tier drives will"
+                    + " evaluate it, so while the ledger entry was KNOWN_VULNERABLE - the ledger's"
+                    + " subject being what Canoe emitted - the flag was how the browser tier was told"
+                    + " to expect a miss instead of failing on the divergence. R2 made the row a"
+                    + " suppression, so the browser tier already expects silence and the flag has"
+                    + " been removed; the reasoning is kept because it is why the payload is in the"
+                    + " catalogue at all.";
 
     /**
      * The blanket version of {@link #EXPRESSION_IS_DEAD} for the URL sinks, where the same problem
@@ -283,15 +296,22 @@ public final class CanoeCorpus {
      * Three {@code style} attributes, all past the colon test, all html-encoded, all
      * {@code KNOWN_VULNERABLE}: {@code background:$x} fetches from the attacker's origin,
      * {@code content:'$x'} produces one inert string, and {@code background:url($x)} produces a
-     * bad-url token and drops the declaration. F4 is real and narrower than it reads, and neither
+     * bad-url token and drops the declaration. F4 was real and narrower than it read, and neither
      * half of that sentence can be reached from Canoe's output alone.
+     *
+     * <p>Retained as history after R2 closed F4 and all three rows became suppressions. It is worth
+     * keeping for the same reason as {@link #CSS_BACKSLASH_IS_AN_ESCAPE}: it is a statement about
+     * what a browser does with a CSS value, not about what Canoe emits, so it is still true and it
+     * is what would bound the impact again if the suppression were ever relaxed.
      */
     private static final String THE_CSS_CONTAINER_DECIDES =
-            "F4's blast radius is bounded by the CSS container the reference sits in, not only by"
+            "F4's blast radius was bounded by the CSS container the reference sits in, not only by"
                     + " the colon index T17 measures: whether the value becomes a DECLARATION"
-                    + " decides whether a browser acts on it. css.style-background is the shape that"
-                    + " does; this one does not, and both are correctly KNOWN_VULNERABLE, because"
-                    + " the ledger's subject is what Canoe emitted.";
+                    + " decides whether a browser acts on it. css.style-background was the shape"
+                    + " that did; this one did not, and both were correctly KNOWN_VULNERABLE anyway,"
+                    + " because the ledger's subject is what Canoe emitted. Both are suppressions"
+                    + " after R2, so neither reaches a CSS container at all; the bound is kept as the"
+                    + " statement of what the impact would be if it did.";
 
     /**
      * Why {@code view-source:} is flagged wherever it is navigated to rather than fetched.
@@ -2008,14 +2028,22 @@ public final class CanoeCorpus {
     // ------------------------------------------------------------------
 
     /**
-     * The CSS half of F4. {@code detectAttributePrefix()} resets {@code attributeContext} to {@code
-     * ATTR_HTML} unconditionally on the first colon at value index 0–10, and colons are the basic
-     * syntax of a CSS declaration — so writing a property name in front of the reference silently
-     * converts {@code style} from "suppress" to "HTML-encode".
+     * The CSS half of F4, <strong>closed by R2</strong>.
      *
-     * <p>The colon position decides the outcome, and the boundary is index 10 inclusive, because
-     * {@code c == ':'} is tested before the {@code bufLen == 10} cutoff. {@code AttributePrefixTest}
-     * pins every index from 0 to 12; the cases here are the end-to-end ones on either side of it.
+     * <p>{@code detectAttributePrefix()} used to reset {@code attributeContext} to {@code ATTR_HTML}
+     * unconditionally on the first colon at value index 0–10, and colons are the basic syntax of a
+     * CSS declaration — so writing a property name in front of the reference silently converted
+     * {@code style} from "suppress" to "HTML-encode". R2 deleted that reset, so the method can now
+     * only narrow the context and the name-derived {@code ATTR_CSS} survives whatever the value
+     * contains.
+     *
+     * <p>The colon position used to decide the outcome, and the boundary was index 10 inclusive,
+     * because {@code c == ':'} is tested before the {@code bufLen == 10} cutoff. That boundary still
+     * exists in the parser — the colon still fires the scan and still sets {@code bufLen = -1} — but
+     * it no longer has a consequence, and every case below now records the same outcome as the ones
+     * that always sat on the safe side of it. The group is kept, verdicts flipped rather than rows
+     * deleted, because it is the regression net for F4: if any one of these ever stops being
+     * suppressed, the reset (or something with its shape) is back.
      */
     private static void cssContexts(List<XssCase> cases) {
 
@@ -2024,12 +2052,17 @@ public final class CanoeCorpus {
                 .template("<div style=\"color:$data\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
-                .notBrowserObservable(Payloads.CSS_EXPRESSION)
-                .note("color: puts the colon at index 5. This is a complete defeat of the"
+                .note("color: puts the colon at index 5, which used to be a complete defeat of the"
                         + " refuse-to-output-into-CSS guarantee the original design documents call"
-                        + " Canoe's centrepiece. " + EXPRESSION_IS_DEAD)
+                        + " Canoe's centrepiece. R2: the colon still calls detectAttributePrefix(),"
+                        + " none of the five value prefixes matches 'color', and the method no"
+                        + " longer assigns anything when nothing matches - so the name-derived"
+                        + " ATTR_CSS stands and CTX_SUPPRESS emits the empty string. Reviewed"
+                        + " against the sink: the rendered style attribute is exactly 'color:' for"
+                        + " all three payloads, byte-identical to a render with an empty value, so"
+                        + " the CSS parser receives no attacker character at all.")
                 .browserRelevant()
                 .build());
 
@@ -2039,7 +2072,9 @@ public final class CanoeCorpus {
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
-                .note("No preceding colon, so the name-derived ATTR_CSS survives and output is empty.")
+                .note("No preceding colon, so the name-derived ATTR_CSS survives and output is empty."
+                        + " Before R2 this was the only row in the group that could say that; it is"
+                        + " now what every row says, which is the whole of the fix in one sentence.")
                 .build());
 
         cases.add(XssCase.id("css.style-width")
@@ -2047,9 +2082,10 @@ public final class CanoeCorpus {
                 .template("<div style=\"width:$data\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
-                .note("Colon at index 5.")
+                .note("Colon at index 5. R2: no prefix matches 'width', the context is left alone,"
+                        + " and the sink is 'width:' with nothing after it.")
                 .build());
 
         cases.add(XssCase.id("css.style-margin")
@@ -2057,9 +2093,9 @@ public final class CanoeCorpus {
                 .template("<div style=\"margin:$data\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
-                .note("Colon at index 6.")
+                .note("Colon at index 6. R2: sink is 'margin:' with nothing after it.")
                 .build());
 
         cases.add(XssCase.id("css.style-display")
@@ -2067,11 +2103,13 @@ public final class CanoeCorpus {
                 .template("<div style=\"display:$data\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
                 .note("Colon at index 7, the same index as padding: - which is the point of having"
-                        + " both. F4's precondition is a character count, not a property, so two"
-                        + " properties that share an index have to agree or the model is wrong.")
+                        + " both. F4's precondition was a character count, not a property, so two"
+                        + " properties that shared an index had to agree or the model was wrong."
+                        + " R2 makes every index agree; the pair is kept so that a future change"
+                        + " that reintroduces a positional dependence fails on both rows at once.")
                 .build());
 
         cases.add(XssCase.id("css.style-position")
@@ -2079,9 +2117,9 @@ public final class CanoeCorpus {
                 .template("<div style=\"position:$data\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
-                .note("Colon at index 8.")
+                .note("Colon at index 8. R2: sink is 'position:' with nothing after it.")
                 .build());
 
         cases.add(XssCase.id("css.style-padding")
@@ -2089,9 +2127,9 @@ public final class CanoeCorpus {
                 .template("<div style=\"padding:$data\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
-                .note("Colon at index 7.")
+                .note("Colon at index 7. R2: sink is 'padding:' with nothing after it.")
                 .build());
 
         cases.add(XssCase.id("css.style-font-size")
@@ -2099,27 +2137,33 @@ public final class CanoeCorpus {
                 .template("<div style=\"font-size:$data\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
-                .note("Colon at index 9.")
+                .note("Colon at index 9. R2: sink is 'font-size:' with nothing after it.")
                 .build());
 
-        // The boundary itself, from the vulnerable side.
+        // The boundary itself. Before R2 this was the last index on the vulnerable side; it is now
+        // the row that shows the boundary has stopped meaning anything.
         cases.add(XssCase.id("css.style-background")
                 .section(A4)
                 .template("<div style=\"background:$data\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
-                .notBrowserObservable(Payloads.CSS_EXPRESSION)
-                .note("Colon at index 10 - the last position that still triggers, because c == ':'"
-                        + " is evaluated before the bufLen == 10 cutoff. The review corrected itself"
-                        + " on this exact case; it is affected. " + EXPRESSION_IS_DEAD)
+                .note("Colon at index 10 - the last position that still reaches"
+                        + " detectAttributePrefix(), because c == ':' is evaluated before the"
+                        + " bufLen == 10 cutoff. The review corrected itself on this exact case and"
+                        + " concluded it was affected, which it was. R2: the scan still runs here"
+                        + " and still matches nothing, and matching nothing is now a no-op, so this"
+                        + " row and css.style-font-family-quoted - the two sides of the old boundary"
+                        + " - render identically. Reviewed against the sink: 'background:' with"
+                        + " nothing after it, for all three payloads, so no request is issued.")
                 .browserRelevant()
                 .build());
 
-        // ...and from the safe side, one character further along.
+        // ...and the row that was always on the safe side, which the boundary used to separate from
+        // the one above.
         cases.add(XssCase.id("css.style-font-family-quoted")
                 .section(A4)
                 .template("<div style=\"font-family:'$data'\">x</div>")
@@ -2128,7 +2172,9 @@ public final class CanoeCorpus {
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .note("font-family is eleven characters, so the colon sits at index 11 and the scan"
                         + " has already given up (bufLen was set to -1 at index 10). ATTR_CSS"
-                        + " survives and the value is suppressed. One character decides it.")
+                        + " survives and the value is suppressed. One character used to decide it;"
+                        + " after R2 the eleventh character decides nothing, because the scan that"
+                        + " does run on the other side of the boundary can no longer widen anything.")
                 .build());
 
         cases.add(XssCase.id("css.style-text-decoration")
@@ -2141,18 +2187,21 @@ public final class CanoeCorpus {
                         + " is described as common but not universal.")
                 .build());
 
-        // Only the FIRST colon matters, so a complete declaration in front of the reference is still
-        // vulnerable - the scan has already fired and set bufLen to -1.
+        // Only the FIRST colon is ever examined. That is still true of the parser; what changed is
+        // that examining it can no longer widen the context.
         cases.add(XssCase.id("css.style-after-a-complete-declaration")
                 .section(A4)
                 .template("<div style=\"color:red;background:$data\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
                 .note("detectAttributePrefix() runs once, on the first colon, and sets bufLen to -1"
                         + " so nothing later in the value is examined. The reference's own position"
-                        + " in the value is irrelevant; only the first colon's is.")
+                        + " in the value is irrelevant; only the first colon's is. R2: that one"
+                        + " examination matches no prefix and therefore changes nothing, so a"
+                        + " reference after a complete declaration is suppressed exactly like one"
+                        + " after none. Reviewed against the sink: 'color:red;background:'.")
                 .build());
 
         // Inside a quoted CSS string, which is the shape a template author reaches for when they
@@ -2163,27 +2212,17 @@ public final class CanoeCorpus {
                 .template("<div style=\"content:'$data'\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.family("CSS_INJECTION"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
-                .notBrowserObservableFamily("CSS_INJECTION")
-                .note("Colon at index 7, so the reset fires and html() applies. The CSS string"
-                        + " literal around the reference is not a mitigation - it is the same"
-                        + " situation as a JavaScript string literal in an event handler, and F1's"
-                        + " whole mechanism. Contrast css.style-font-family-quoted, which is also a"
-                        + " quoted CSS string and IS suppressed, because font-family: puts the colon"
-                        + " at index 11. Two templates that differ only in a property name, one"
-                        + " injectable and one not: the quoting decides nothing and the character"
-                        + " count decides everything. " + EXPRESSION_IS_DEAD
-                        + " " + THE_CSS_CONTAINER_DECIDES
-                        + " Here the container is a CSS string, and none of the CSS_INJECTION"
-                        + " payloads carries an apostrophe, so all three stay inside it: the browser"
-                        + " sees one enormous string value for content: on a div, which is not even"
-                        + " a pseudo-element, and issues no request. The whole family is therefore"
-                        + " flagged. The verdict is unchanged and the sentence above is unchanged -"
-                        + " a payload that DID carry an apostrophe would escape, because html()"
-                        + " writes &#39; and the parser hands back a real quote - but the corpus's"
-                        + " CSS payloads are written to demonstrate the declaration-level attack,"
-                        + " and this container defeats that one specific shape.")
+                .note("Colon at index 7, so the reset used to fire and html() used to apply. The CSS"
+                        + " string literal around the reference was never a mitigation - it was the"
+                        + " same situation as a JavaScript string literal in an event handler, and"
+                        + " F1's whole mechanism - and it is not what makes this row safe now"
+                        + " either. R2 is: no prefix matches 'content', so ATTR_CSS survives and the"
+                        + " sink is \"content:''\", an empty CSS string. Contrast"
+                        + " css.style-font-family-quoted, which used to be the only one of the pair"
+                        + " that suppressed; both do now, and the character count that used to"
+                        + " decide between them decides nothing.")
                 .browserRelevant()
                 .build());
 
@@ -2206,31 +2245,22 @@ public final class CanoeCorpus {
                 .template("<div style=\"background:url($data)\">x</div>")
                 .sink(SinkKind.CSS, "div", "style")
                 .payloads(Payloads.families("CSS_INJECTION", "PROTOCOL_RELATIVE"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F4")
-                .notBrowserObservableFamily("CSS_INJECTION")
-                .notBrowserObservable(Payloads.PROTOCOL_RELATIVE_BACKSLASH,
-                        Payloads.PROTOCOL_RELATIVE_DOUBLE_BACKSLASH)
-                .note("F4's concrete impact in one template: an attacker-chosen URL inside a CSS"
-                        + " url() is a request to their origin on every render, which is how CSS"
-                        + " exfiltration of DOM content is bootstrapped. PROTOCOL_RELATIVE/slashes"
-                        + " is the row that demonstrates it, and it is the only one of the six here"
-                        + " that a browser acts on."
+                .note("This was F4's concrete impact in one template: an attacker-chosen URL inside"
+                        + " a CSS url() is a request to their origin on every render, which is how"
+                        + " CSS exfiltration of DOM content is bootstrapped, and"
+                        + " PROTOCOL_RELATIVE/slashes was the row that demonstrated it in a real"
+                        + " browser. R2: 'background' matches none of the five value prefixes, the"
+                        + " name-derived ATTR_CSS stands, and the sink is 'background:url()' for all"
+                        + " six payloads - an empty url() token, so nothing is fetched from any"
+                        + " origin. Reviewed against the sink rather than inferred: the rendered"
+                        + " attribute is byte-identical to a render with an empty value."
+                        + " The two browser observations this row used to carry are worth keeping as"
+                        + " history, because both are about the CSS tokenizer rather than about"
+                        + " Canoe and both would return the moment anything re-enabled output here."
                         + " " + CSS_BACKSLASH_IS_AN_ESCAPE + " " + EXPRESSION_IS_DEAD
-                        + " " + THE_CSS_CONTAINER_DECIDES
-                        + " Here the container is an unquoted url() token, and it voids four of the"
-                        + " six rows in two different ways, both measured in Chromium by"
-                        + " BrowserCorpusTest. The three CSS_INJECTION payloads each contain a"
-                        + " literal '(' from their own nested url(...), and a '(' inside an unquoted"
-                        + " url token makes it a bad-url-token, so the whole declaration is dropped"
-                        + " and nothing is fetched at all. The two backslash spellings are eaten by"
-                        + " CSS's escape syntax, which is what CSS_BACKSLASH_IS_AN_ESCAPE says: the"
-                        + " browser requested /ttacker.invalid/x.js for the /\\ form - the escape"
-                        + " consumed the 'a' of the host as a hex digit, producing U+000A, which"
-                        + " the URL parser then removes from anywhere in a URL - and"
-                        + " /attacker.invalid/x.js for the"
-                        + " \\\\ form, where \\\\ unescapes to one backslash and the URL parser then"
-                        + " reads it as a path separator. Both stay on the page's own origin.")
+                        + " " + THE_CSS_CONTAINER_DECIDES)
                 .browserRelevant()
                 .build());
     }
@@ -2245,49 +2275,45 @@ public final class CanoeCorpus {
      */
     private static void attributeValuePrefixes(List<XssCase> cases) {
 
-        // F17. The colon-triggered reset does not only widen ATTR_CSS and ATTR_URI; it widens
-        // ATTR_JS, which is the one classification Canoe gets right. onclick is a recognised handler,
-        // it resolves to ATTR_JS -> CTX_JS -> the empty string, and then a colon anywhere in the
-        // first eleven characters of the value throws that answer away and html() takes over. The
-        // HTML parser undoes html() before the JavaScript parser runs.
+        // F17, closed by R2. The colon-triggered reset did not only widen ATTR_CSS and ATTR_URI; it
+        // widened ATTR_JS, which is the one classification Canoe gets right. onclick is a recognised
+        // handler, it resolves to ATTR_JS -> CTX_JS -> the empty string, and a colon anywhere in the
+        // first eleven characters of the value used to throw that answer away and hand the value to
+        // html(), which the HTML parser undoes before the JavaScript parser runs.
         //
-        // The whole group is deliberately three cases: two shapes that fire and one that does not,
-        // differing only in how many characters precede the colon. That is the finding's real
-        // character - the boundary is positional, not semantic, so it cannot be reasoned about from
-        // what the handler DOES, only measured.
+        // The group is still deliberately three cases: two shapes that used to fire and one that
+        // never did, differing only in how many characters precede the colon. The boundary was
+        // positional rather than semantic, so it could not be reasoned about from what the handler
+        // DOES, only measured - and keeping all three is what measures that the positional
+        // dependence is now gone rather than moved.
         cases.add(XssCase.id("prefix.colon-in-a-recognised-handler")
                 .section(A4)
                 .template("<a onclick=\"f({a:1,b:'$data'})\">x</a>")
                 .sink(SinkKind.JAVASCRIPT, "a", "onclick")
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F17")
                 .note("An object literal in a handler body puts the colon at value index 4, inside"
-                        + " the 0-10 window, so detectAttributePrefix() resets attributeContext to"
-                        + " ATTR_HTML, matches none of its five prefixes, and leaves the value to"
-                        + " html(). Decoded, the handler reads f({a:1,b:'');__canoePwned('q');//'})."
-                        + " Compare handler.onclick, which is the SAME attribute with a colon-free"
-                        + " body and is suppressed - which is why spot-checking onclick concludes the"
-                        + " mechanism works. Note also that replacing the on* table with a prefix"
-                        + " rule (remediation item 2) does nothing here: the name is already being"
-                        + " classified correctly and the value scan discards the answer afterwards."
-                        + " Only deleting the reset closes it, which is why that item was moved to"
-                        + " first."
-                        + " Both payloads are flagged not-browser-observable, and the single-quote"
-                        + " one needs its own reading, because it is the only row in the corpus whose"
-                        + " flag is about the SHAPE of the injection rather than about a dead engine."
-                        + " f({a:1,b:'');__canoePwned('q');//'}) is a SyntaxError: the payload closes"
-                        + " the string literal and then the call's parenthesis, leaving the object"
-                        + " literal unclosed, so the handler never compiles and nothing at all runs."
-                        + " The attacker's characters are live - a payload written for this position,"
-                        + " '});__canoePwned('f17');//, does execute, and"
+                        + " the 0-10 window, so detectAttributePrefix() ran - and used to reset"
+                        + " attributeContext to ATTR_HTML, match none of its five prefixes, and"
+                        + " leave the value to html(). Decoded, the handler used to read"
+                        + " f({a:1,b:'');__canoePwned('q');//'}). R2: the scan still runs on that"
+                        + " colon and still matches nothing, and matching nothing no longer assigns"
+                        + " anything, so the name-derived ATTR_JS stands and CTX_JS emits the empty"
+                        + " string. Reviewed against the sink: the rendered handler is"
+                        + " f({a:1,b:''}) for both payloads, byte-identical to a render with an"
+                        + " empty value, so the JavaScript parser is handed one empty string"
+                        + " literal. This row is now identical in outcome to handler.onclick, which"
+                        + " is the SAME attribute with a colon-free body - and that is the point:"
+                        + " spot-checking onclick used to conclude the mechanism worked, and now it"
+                        + " genuinely does. Note also that R4's on* prefix rule would not have"
+                        + " closed this: the name was already classified correctly and the value"
+                        + " scan discarded the answer afterwards, which is why R2 leads the phase."
                         + " SinkSpecificBrowserTest.f17IsExploitableWithAPayloadShapedForItsPosition"
-                        + " runs it in a real browser rather than leaving the claim as prose. The"
-                        + " corpus keeps the family payload because the corpus is about what Canoe"
-                        + " does with a shared catalogue of hostile strings; the bespoke test is"
-                        + " about what the browser does with one written for this template."
-                        + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL)
-                .notBrowserObservableFamily("QUOTE_BREAKOUT")
+                        + " used to run the position-shaped payload '});__canoePwned('f17');// in a"
+                        + " real browser; it is now the inverted test that requires that payload to"
+                        + " be suppressed too, because the shared QUOTE_BREAKOUT payloads alone"
+                        + " could never have shown F17 executing.")
                 .browserRelevant()
                 .build());
 
@@ -2296,16 +2322,17 @@ public final class CanoeCorpus {
                 .template("<a onclick=\"go('http://x'+'$data')\">x</a>")
                 .sink(SinkKind.JAVASCRIPT, "a", "onclick")
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F17")
-                .note("The second F17 shape, and the one that shows what kind of boundary this is: a"
-                        + " URL literal in the handler puts the colon of http: at index 8. Rename the"
-                        + " function from go() to open() - two characters longer - and the colon"
-                        + " moves to index 11, the scan has already given up, and the identical"
-                        + " handler is suppressed. Nothing about what the code does changed. Decoded,"
-                        + " this one reads go('http://x'+'');__canoePwned('q');//')."
-                        + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL)
-                .notBrowserObservable(Payloads.QUOTE_DOUBLE_BREAKOUT)
+                .note("The second F17 shape, and the one that showed what kind of boundary this was:"
+                        + " a URL literal in the handler puts the colon of http: at index 8. Renaming"
+                        + " the function from go() to open() - two characters longer - moved the"
+                        + " colon to index 11, the scan had already given up, and the identical"
+                        + " handler was suppressed, with nothing about what the code does having"
+                        + " changed. Decoded, this one used to read"
+                        + " go('http://x'+'');__canoePwned('q');//'). R2: reviewed against the sink,"
+                        + " it now reads go('http://x'+'') for both payloads - the value is"
+                        + " suppressed whatever the function is called.")
                 .browserRelevant()
                 .build());
 
@@ -2373,33 +2400,41 @@ public final class CanoeCorpus {
                 .note("An ActionScript scheme from the Flash era. Still in the table; srcset is not.")
                 .build());
 
-        // The scheme the table does NOT know, in a position where the name-derived ATTR_URI would
-        // have handled it. This is F4's second consequence, on its own.
+        // The scheme the table does NOT know, in a position where the name-derived ATTR_URI should
+        // handle it. This was F4's second consequence, on its own; R2 is exactly the sentence the
+        // old note ended on.
         cases.add(XssCase.id("prefix.vbscript-not-in-the-table")
                 .section(A4)
                 .template("<a href=\"vbscript:f('$data')\">x</a>")
                 .sink(SinkKind.JAVASCRIPT, "a", "href")
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SAFE)
                 .finding("F4")
-                .note("The colon fires detectAttributePrefix(), which resets to ATTR_HTML and then"
-                        + " matches none of its five prefixes - so a scheme the table has never heard"
-                        + " of ends up LESS suppressed than one it has. Without the reset the"
-                        + " name-derived ATTR_URI would have applied url() and percent-escaped the"
-                        + " quotes; with it, html() applies and the parser hands the VBScript engine"
-                        + " the attacker's original characters."
-                        + " Both payloads are flagged not-browser-observable for the reason the"
-                        + " sentence above states outright and the flag had not caught up with:"
-                        + " there is no VBScript engine left in any shipping browser, so nothing"
-                        + " parses the href at all and a click navigates nowhere. Same reasoning as"
-                        + " the JS_URL/vbscript flags on url.action and url.formaction; measured in"
-                        + " Chromium by BrowserCorpusTest.")
-                .notBrowserObservableFamily("QUOTE_BREAKOUT")
+                .note("The colon fires detectAttributePrefix(), which used to reset to ATTR_HTML and"
+                        + " then match none of its five prefixes - so a scheme the table has never"
+                        + " heard of ended up LESS suppressed than one it has, and html() handed the"
+                        + " VBScript engine the attacker's original characters. R2 removes the reset,"
+                        + " which is what the old note said would fix it: the name-derived ATTR_URI"
+                        + " survives and url() applies. Reviewed against the sink, the href is"
+                        + " vbscript:f('%27%29%3B%5F%5FcanoePwned%28%27q%27%29%3B//') - every quote,"
+                        + " parenthesis and semicolon percent-escaped, so nothing can close the"
+                        + " literal the template opened. SAFE rather than SUPPRESSED: the value is"
+                        + " emitted, it is simply emitted inert. Two things bound the verdict and"
+                        + " both are worth stating. First, there is no VBScript engine left in any"
+                        + " shipping browser, so nothing parses this href at all and a click"
+                        + " navigates nowhere - which is why the row carried a not-browser-observable"
+                        + " flag before, and why the flag is gone now that the row no longer claims a"
+                        + " live vector. Second, this is deliberately NOT judged the way"
+                        + " residue.js-url-armed-buffer is: a javascript: URL is percent-decoded by"
+                        + " the HTML Standard before it is compiled, so escaping is not neutralising"
+                        + " there, but vbscript: has no such algorithm and no implementation to run"
+                        + " it. If one ever reappears, this row is wrong and should move back to"
+                        + " KNOWN_VULNERABLE.")
                 .browserRelevant()
                 .build());
 
-        // The URI downgrade F4 describes, with the reason it is not exploitable in this shape spelled
-        // out rather than left implied.
+        // The URI downgrade F4 described, now closed. Kept because it is the regression net for the
+        // half of F4 that never produced a KNOWN_VULNERABLE row and so would otherwise be untested.
         cases.add(XssCase.id("prefix.https-downgrades-url-to-html")
                 .section(A4)
                 .template("<a href=\"https://app.example/$data\">x</a>")
@@ -2407,13 +2442,17 @@ public final class CanoeCorpus {
                 .payloads(Payloads.families("PROTOCOL_RELATIVE", "ABSOLUTE_OFFSITE"))
                 .verdict(Verdict.SAFE)
                 .finding("F4")
-                .note("The ':' in 'https:' sits at index 5 and fires the reset, so this href is"
-                        + " html-encoded rather than percent-encoded - a silent change of encoder"
-                        + " that no template author asked for. SAFE only because the template's own"
-                        + " trailing '/' pins the payload into the path: url() and html() differ here"
-                        + " in what they do to '&', '%' and non-ASCII, which is query-parameter and"
-                        + " path manipulation rather than origin control. The verdict would change"
-                        + " if the template ended at the host.")
+                .note("The ':' in 'https:' sits at index 5 and used to fire the reset, so this href"
+                        + " was html-encoded rather than percent-encoded - a silent change of encoder"
+                        + " that no template author asked for. It was SAFE anyway, but only because"
+                        + " the template's own trailing '/' pinned the payload into the path: url()"
+                        + " and html() differ in what they do to '&', '%' and non-ASCII, which is"
+                        + " query-parameter and path manipulation rather than origin control, and"
+                        + " the verdict would have changed if the template ended at the host. R2"
+                        + " makes the accident unnecessary: 'https' matches none of the five value"
+                        + " prefixes, the name-derived ATTR_URI stands, and the reference gets the"
+                        + " url() the author asked for. The verdict is unchanged and the reason for"
+                        + " it is not, which is why the note is kept rather than shortened.")
                 .build());
 
         // The prefix window is ten characters wide, and a payload can sit right on its edge.
@@ -2481,7 +2520,19 @@ public final class CanoeCorpus {
                 .note("placeholder is 11 characters, so it writes buf[0..10] leaving buf[10]='r' and"
                         + " its terminator at buf[11]; the javascript: check reads buf[10] and fails."
                         + " Identical template to residue.js-url-clean-buffer - only the order of two"
-                        + " elements differs, and that changes whether the page is safe."
+                        + " elements differs, and that changes whether the page is safe. R2 changes"
+                        + " the ENCODER this row goes through and not the verdict, which is worth"
+                        + " reading carefully. Before R2 the missed prefix left the reset's"
+                        + " ATTR_HTML, so the payload was html()-encoded and the HTML parser decoded"
+                        + " it back. Now the missed prefix leaves the name-derived ATTR_URI, so the"
+                        + " payload is url()-encoded and the href reads"
+                        + " javascript:f('%27%29%3B%5F%5FcanoePwned%28%27q%27%29%3B//') - which is"
+                        + " still live, because the HTML Standard's javascript-URL steps"
+                        + " percent-decode the script source before compiling it. Reviewed against"
+                        + " the sink on exactly that ground: one decoder was swapped for another and"
+                        + " the attacker's apostrophe still reaches the JavaScript parser. R3 is what"
+                        + " closes this, by making the prefix comparison length-checked so ATTR_JS"
+                        + " applies and the value is suppressed."
                         + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL)
                 .notBrowserObservable(Payloads.QUOTE_DOUBLE_BREAKOUT)
                 .browserRelevant()
@@ -2541,9 +2592,14 @@ public final class CanoeCorpus {
                         + " markup.srcdoc, where the same payload family reaches a sink that DOES"
                         + " parse markup and is fully browser-observable. "
                         + "'background' is ten characters, so buf[4] holds its 'g' rather than a"
-                        + " terminator and the 'data' check fails - while the reset that ran first"
-                        + " has already discarded the name-derived ATTR_URI. html() applies, the"
-                        + " parser decodes it, and the attacker completes an arbitrary data: URL."
+                        + " terminator and the 'data' check fails. Before R2 the reset had already"
+                        + " discarded the name-derived ATTR_URI by that point and html() applied;"
+                        + " after R2 the ATTR_URI survives and url() applies instead. The verdict is"
+                        + " unchanged either way, and deliberately so: the URL oracle judges a data:"
+                        + " URL by its scheme rather than by whether the payload's bytes happen to be"
+                        + " escaped, because the browser percent-decodes the data: URL before it"
+                        + " parses the document inside it. The attacker completes an arbitrary data:"
+                        + " URL under both encoders."
                         + " Any URI attribute name of five characters or more does this; href, at"
                         + " four, does not. The impact here is a resource load rather than script"
                         + " execution, because a background image is not a document - the point of"

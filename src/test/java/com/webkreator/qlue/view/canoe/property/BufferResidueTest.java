@@ -54,9 +54,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       Canoe's zero-fill survives and the prefix matches;
  *   <li>a name of <strong>exactly 10</strong> puts its own terminator there, which also matches — so
  *       a ten-character name anywhere on the page <em>repairs</em> a buffer a longer one dirtied;
- *   <li>a name of <strong>11 or more</strong> leaves a letter there, the prefix does not match, and
- *       because of F4 the context has already been reset to {@code ATTR_HTML}.
+ *   <li>a name of <strong>11 or more</strong> leaves a letter there and the prefix does not match,
+ *       so the value falls through to whatever the attribute <em>name</em> established — which for
+ *       this file's fixed target is {@code href}, and therefore {@code ATTR_URI}.
  * </ul>
+ *
+ * <h2>What R2 changed here, and what it did not</h2>
+ *
+ * <p>Before R2 the third bullet read "…and because of F4 the context has already been reset to
+ * {@code ATTR_HTML}", so a missed prefix produced {@code html()} and the HTML parser handed the
+ * attacker's apostrophe straight to the JavaScript parser. R2 deleted that reset. The prefix is
+ * still missed — F5 is untouched, and R3 owns it — but the fallback is now {@code url()}.
+ *
+ * <p><strong>That is a different encoder and not a fix</strong>, which is the single most
+ * misreadable thing in this file. A {@code javascript:} URL is percent-decoded by the HTML
+ * Standard's javascript-URL steps before its script source is compiled, so {@code url()}'s
+ * {@code %27} arrives at the JavaScript parser as an apostrophe exactly as {@code html()}'s
+ * {@code &#39;} did. The ledger row {@code residue.js-url-armed-buffer} is therefore still
+ * {@code KNOWN_VULNERABLE}, and {@code VerdictEvaluator} was taught about that decode in the same
+ * change so it could not launder the row into {@code SAFE}. What did improve is every <em>other</em>
+ * sink: a missed prefix in a {@code style} attribute now suppresses rather than encoding, because
+ * the fallback is that attribute's own {@code ATTR_CSS}.
  *
  * <p>These tests read {@link CanoeStateProbe#bufferAt(int)} so the evidence is the byte itself, not
  * merely that the outcome changed. "The output differs" is a symptom shared by a dozen possible
@@ -127,33 +145,66 @@ public class BufferResidueTest {
         List<String> outputs = new ArrayList<>(outputsToLengths.keySet());
         assertEquals(TARGET.replace("$data", ""), outputs.get(0),
                 "the first group is CTX_JS: byte-identical to rendering with no value at all");
-        assertEquals(TARGET.replace("$data", Canoe.encode(PAYLOAD, Canoe.CTX_HTML_ATTR)),
+        assertEquals(TARGET.replace("$data", Canoe.encode(PAYLOAD, Canoe.CTX_URI)),
                 outputs.get(1),
-                "the second is CTX_HTML_ATTR: the payload html()-encoded into a javascript: URL");
+                "the second is CTX_URI: the payload url()-encoded into a javascript: URL. Before R2"
+                        + " it was CTX_HTML_ATTR and html()-encoded; the group split is what F5 is"
+                        + " about and it is unchanged, and see the class javadoc for why swapping"
+                        + " the encoder did not make this group safe");
     }
 
     /**
      * The consequence, stated at the sink rather than at the encoder.
      *
-     * <p>An 11-character preceding name is not merely "encoded differently" — the HTML parser decodes
-     * {@code html()}'s character references exactly once before the {@code javascript:} URL is
-     * compiled, so the attacker's apostrophe arrives as an apostrophe and closes the string literal.
-     * A 10-character one leaves nothing at all in the URL. This is the step that makes F5 High, and
-     * it is asserted against the jsoup-decoded attribute value for the reason &sect;5.1 gives: a
-     * string assertion on the raw bytes would call both of them safe.
+     * <p>An 11-character preceding name is not merely "encoded differently". Before R2 the HTML
+     * parser decoded {@code html()}'s character references exactly once before the
+     * {@code javascript:} URL was compiled; after R2 the javascript-URL steps percent-decode
+     * {@code url()}'s escapes instead. Either way the attacker's apostrophe arrives as an apostrophe
+     * and closes the string literal, and a 10-character preceding name leaves nothing at all in the
+     * URL. This is the step that makes F5 High.
+     *
+     * <p>Asserted in two stages on purpose. The attribute value as the HTML parser hands it over is
+     * checked first, so the test says which encoder ran; the percent-decode is then applied
+     * explicitly, so the second decoder is visible in the test rather than assumed. A single
+     * assertion on {@code contains("');")} would now pass or fail for reasons a reader could not
+     * separate.
      */
     @Test
     public void anElevenCharacterNameLetsThePayloadReachTheJavaScriptParser() {
         CanoeTestSupport.RenderResult armed = CanoeTestSupport.render(
                 precedingElement(11) + TARGET, PAYLOAD);
-        assertTrue(armed.decodedAttr("a", "href").contains("');"),
-                () -> "F5: the string literal in the javascript: URL is closed. Decoded href: "
-                        + armed.decodedAttr("a", "href"));
+        String href = armed.decodedAttr("a", "href");
+        assertEquals("javascript:f('" + Canoe.encode(PAYLOAD, Canoe.CTX_URI) + "')", href,
+                "R2: the missed prefix falls back to href's ATTR_URI, so url() ran rather than"
+                        + " html(). Decoded href: " + href);
+        assertTrue(percentDecoded(href).contains("');"),
+                () -> "F5: the javascript: URL's script source is percent-decoded before it is"
+                        + " compiled, so the string literal is closed after all. Script source: "
+                        + percentDecoded(href));
 
         CanoeTestSupport.RenderResult clean = CanoeTestSupport.render(
                 precedingElement(10) + TARGET, PAYLOAD);
         assertEquals("javascript:f('')", clean.decodedAttr("a", "href"),
                 "with a ten-character name the identical template suppresses the value entirely");
+    }
+
+    /**
+     * The HTML Standard's javascript-URL step, applied by hand: "let scriptSource be the UTF-8
+     * decoding of the percent-decoding of encodedScriptSource". ASCII-only, which is all the payload
+     * needs.
+     */
+    private static String percentDecoded(String url) {
+        StringBuilder out = new StringBuilder(url.length());
+        for (int i = 0; i < url.length(); i++) {
+            char c = url.charAt(i);
+            if (c == '%' && i + 2 < url.length()) {
+                out.append((char) Integer.parseInt(url.substring(i + 1, i + 3), 16));
+                i += 2;
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
     }
 
     // ------------------------------------------------------------------
@@ -168,6 +219,10 @@ public class BufferResidueTest {
      * it to suggest one. When F5 is fixed the whole column collapses to {@code CTX_JS} and rows 11
      * upwards fail.
      *
+     * <p>The second column is {@code CTX_URI} rather than {@code CTX_HTML_ATTR} since R2: a missed
+     * prefix falls through to the {@code href} in the target rather than to a reset. See the class
+     * javadoc for why that is a change of encoder and not a fix.
+     *
      * <p>The third column is the byte at {@code buf[10]} at the moment the check runs, so each row
      * carries its own explanation.
      */
@@ -176,7 +231,7 @@ public class BufferResidueTest {
         for (int length = 1; length <= MAX_NAME_LENGTH; length++) {
             boolean detected = length <= JAVASCRIPT_TERMINATOR_INDEX;
             rows.add(Arguments.of(length,
-                    detected ? Canoe.CTX_JS : Canoe.CTX_HTML_ATTR,
+                    detected ? Canoe.CTX_JS : Canoe.CTX_URI,
                     detected ? '\0' : 'q'));
         }
         return rows.stream();
@@ -345,8 +400,8 @@ public class BufferResidueTest {
                 "the residue survives a write() boundary between the two elements");
         assertEquals('q', charByChar.bufferAt(JAVASCRIPT_TERMINATOR_INDEX),
                 "and survives 39 of them");
-        assertEquals(Canoe.CTX_HTML_ATTR, twoCalls.currentContext());
-        assertEquals(Canoe.CTX_HTML_ATTR, charByChar.currentContext());
+        assertEquals(Canoe.CTX_URI, twoCalls.currentContext());
+        assertEquals(Canoe.CTX_URI, charByChar.currentContext());
     }
 
     /**

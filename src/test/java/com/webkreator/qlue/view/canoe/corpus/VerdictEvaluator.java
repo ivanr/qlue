@@ -372,21 +372,54 @@ public final class VerdictEvaluator {
     private static Observation judgeAsJavaScript(Payload payload,
                                                  CanoeTestSupport.RenderResult attacked,
                                                  String sinkValue) {
-        if (!sinkValue.contains(payload.value())) {
+        String scriptSource = scriptSourceOf(sinkValue);
+        boolean throughAJavascriptUrl = !scriptSource.equals(sinkValue);
+
+        if (!scriptSource.contains(payload.value())) {
             return new Observation(Verdict.SAFE, attacked, sinkValue,
                     "the payload does not survive into the JavaScript sink intact");
         }
         for (int i = 0; i < JS_STRING_ESCAPES.length(); i++) {
             if (payload.value().indexOf(JS_STRING_ESCAPES.charAt(i)) >= 0) {
                 return new Observation(Verdict.KNOWN_VULNERABLE, attacked, sinkValue,
-                        "the payload arrives at the JavaScript parser verbatim once character"
-                                + " references are decoded, carrying "
-                                + JS_STRING_ESCAPES.charAt(i));
+                        "the payload arrives at the JavaScript parser verbatim once "
+                                + (throughAJavascriptUrl
+                                        ? "the javascript: URL's percent-escapes are"
+                                        : "character references are")
+                                + " decoded, carrying " + JS_STRING_ESCAPES.charAt(i));
             }
         }
         return new Observation(Verdict.SAFE, attacked, sinkValue,
                 "the payload arrives verbatim, but it carries no quote and no backslash, so it"
                         + " cannot close the JavaScript string literal it was placed in");
+    }
+
+    /**
+     * The text a {@code javascript:} URL actually compiles, which is <em>not</em> the attribute
+     * value: the HTML Standard's javascript-URL steps percent-decode the part after the scheme
+     * before handing it to the JavaScript parser ("let scriptSource be the UTF-8 decoding of the
+     * percent-decoding of encodedScriptSource"). For anything that is not a {@code javascript:} URL
+     * the value is returned unchanged, so the ordinary handler-body case is untouched.
+     *
+     * <p>Without this, a percent-escaped payload inside a {@code javascript:} href reads as SAFE —
+     * the exact "false safe" this class's javadoc says it must not have. It became reachable when
+     * R2 deleted {@code detectAttributePrefix()}'s reset: a template whose {@code javascript:}
+     * prefix is missed for some other reason (F5's buffer residue) now keeps the name-derived
+     * {@code ATTR_URI} and is encoded with {@code url()} rather than with {@code html()}, so the
+     * attacker's quote arrives as {@code %27} instead of as {@code &#39;} — and both decoders run.
+     * The URL oracle already judges {@code data:} the same way, by scheme rather than by whether the
+     * bytes happen to be escaped; this makes the JavaScript sink agree with it.
+     *
+     * <p>Deliberately restricted to {@code javascript:}. {@code vbscript:}, {@code livescript:} and
+     * {@code mocha:} have no specification and no shipping implementation, so there is no algorithm
+     * to point at and nothing that would run the decoded text.
+     */
+    private static String scriptSourceOf(String sinkValue) {
+        String url = removeTabsAndNewlines(stripLeadingAndTrailingC0AndSpace(sinkValue));
+        if (!url.regionMatches(true, 0, "javascript:", 0, "javascript:".length())) {
+            return sinkValue;
+        }
+        return percentDecode(url);
     }
 
     /**

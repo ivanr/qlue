@@ -167,96 +167,119 @@ public class SinkSpecificBrowserTest extends BrowserTestBase {
     }
 
     /**
-     * F4's concrete impact: an attacker-controlled {@code style} value issues a
-     * {@code background:url()} request to their origin.
+     * F4's concrete impact, inverted by R2. Was
+     * {@code anInjectedStyleValueBeaconsToTheAttackerOrigin}.
      *
-     * <p>This is the row the finding rests on, and it is one of six CSS rows the browser tier
-     * loads. The other five do not fire, for reasons that have nothing to do with Canoe — a CSS
-     * string containing the payload, a bad-url token, a CSS escape eating the host's first letter —
-     * so asserting the specific request here rather than "a CSS case fired somewhere" is what keeps
-     * F4's evidence attached to a shape that actually works.
+     * <p>An attacker-controlled {@code style} value used to issue a {@code background:url()} request
+     * to their origin, and this was the row the finding rested on — one of six CSS rows the browser
+     * tier loads, and the only one that fired. The other five did not, for reasons that have nothing
+     * to do with Canoe: a CSS string containing the payload, a bad-url token, a CSS escape eating
+     * the host's first letter. That is exactly why this test is kept and inverted rather than left
+     * to {@code BrowserCorpusTest}: a generic "no detector fired" result over the CSS group would be
+     * green for five of those six rows even if F4 came back, and only the specific request assertion
+     * distinguishes "suppressed" from "arrived and did nothing".
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    public void anInjectedStyleValueBeaconsToTheAttackerOrigin(BrowserEngine engine) {
+    public void anInjectedStyleValueNoLongerBeaconsToTheAttackerOrigin(BrowserEngine engine) {
         Rendered rendered = render("css.style-background", Payloads.CSS_URL_BEACON);
+        assertEquals(Verdict.SUPPRESSED_BY_DESIGN, rendered.verdict);
+        assertFalse(rendered.html.contains(Payloads.SENTINEL_HOST),
+                "R2: the payload must not appear in the rendered page at all: " + rendered.html);
 
         BrowserVerdict verdict = runCase(engine, "sink.css-exfiltration", rendered.html,
                 passiveLoad());
 
-        assertTrue(verdict.sentinelRequests().stream()
-                        .anyMatch(u -> u.equals("http://" + Payloads.SENTINEL_HOST + "/beacon")),
-                "the injected background:url() did not beacon out:\n" + verdict.describe());
+        assertTrue(verdict.sentinelRequests().isEmpty(),
+                "R2: the style value is suppressed, so no request may reach the attacker origin:\n"
+                        + verdict.describe());
     }
 
     /**
-     * The CSS twin of the test above, and the reason F4 has a bound: the same {@code style}
-     * attribute, with the reference one container deeper, fetches from the page's own origin.
+     * The CSS twin of the test above, inverted by R2. Was
+     * {@code theCssTokenizerReReadsCanoesOutputAsAnEscape}.
      *
-     * <p>{@code background:url($x)} with {@code /\attacker.invalid/x.js} renders as
-     * {@code url(&#47;&#92;attacker&#46;invalid&#47;x&#46;js)}. Three decoders then run in series
-     * over a value Canoe encoded once. The HTML parser turns the character references back into
-     * characters. The CSS tokenizer reads the backslash as an escape introducer and consumes the
-     * {@code a} after it as a hex digit, yielding U+000A. The URL parser then removes U+000A from
+     * <p>This was the reason F4 had a bound: the same {@code style} attribute, with the reference
+     * one container deeper, fetched from the page's own origin.
+     * {@code background:url($x)} with {@code /\attacker.invalid/x.js} rendered as
+     * {@code url(&#47;&#92;attacker&#46;invalid&#47;x&#46;js)}, and three decoders then ran in
+     * series over a value Canoe encoded once. The HTML parser turned the character references back
+     * into characters. The CSS tokenizer read the backslash as an escape introducer and consumed the
+     * {@code a} after it as a hex digit, yielding U+000A. The URL parser then removed U+000A from
      * anywhere in the string before parsing — the same rule that makes {@code java<LF>script:} live
-     * and that the suite's URL oracle was hardened for — so what is actually requested is
+     * and that the suite's URL oracle was hardened for — so what was actually requested was
      * {@code /ttacker.invalid/x.js} on the page's own origin, with the host's first letter simply
-     * gone.
+     * gone. That is F23, and it is a browser behaviour rather than a Canoe one: it is unchanged and
+     * unobservable now, because nothing reaches the CSS tokenizer for it to act on.
      *
-     * <p>Asserted on the server's request log rather than on a detector, because the point is the
-     * exact path that was requested and no detector reports that. This is F23.
+     * <p>Still asserted on the server's request log rather than on a detector, because the claim is
+     * about which paths were requested and no detector reports that. The template's own
+     * {@code background:url()} is the only thing left in the value, and an empty url() token issues
+     * no request at all — so the assertion is that the server saw nothing from this page beyond the
+     * document itself.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    public void theCssTokenizerReReadsCanoesOutputAsAnEscape(BrowserEngine engine) {
+    public void theCssTokenizerHasNothingLeftToReRead(BrowserEngine engine) {
         Rendered rendered = render("css.style-inside-url-function",
                 Payloads.PROTOCOL_RELATIVE_BACKSLASH);
+        assertEquals(Verdict.SUPPRESSED_BY_DESIGN, rendered.verdict);
 
         BrowserVerdict verdict = runCase(engine, "sink.css-backslash-escape", rendered.html,
                 passiveLoad());
 
         assertTrue(verdict.sentinelRequests().isEmpty(),
-                "the attacker origin should be unreachable through a CSS backslash escape:\n"
-                        + verdict.describe());
-        assertTrue(verdict.serverRequests().contains("GET /ttacker.invalid/x.js"),
-                "expected the page's own origin to be asked for a path whose first letter the CSS"
-                        + " escape ate; the server saw " + verdict.serverRequests());
+                "the attacker origin must be unreachable:\n" + verdict.describe());
+        assertFalse(verdict.serverRequests().contains("GET /ttacker.invalid/x.js"),
+                "R2: F23's three-decoder chain has nothing to act on, so the page's own origin must"
+                        + " not be asked for the escape-mangled path either; the server saw "
+                        + verdict.serverRequests());
+        assertFalse(verdict.serverRequests().contains("GET /attacker.invalid/x.js"),
+                "...nor for the un-mangled one; the server saw " + verdict.serverRequests());
     }
 
     /**
-     * F17, with a payload shaped for the position it lands in.
+     * F17, with a payload shaped for the position it lands in — inverted by R2. Was
+     * {@code f17IsExploitableWithAPayloadShapedForItsPosition}.
      *
-     * <p>The corpus row {@code prefix.colon-in-a-recognised-handler} is flagged
-     * not-browser-observable, and the flag would be easy to misread as "F17 is theoretical". It is
-     * not. The shared {@code QUOTE_BREAKOUT} payload closes the string literal and the call's
-     * parenthesis and leaves the surrounding object literal open, so the handler is a
-     * {@code SyntaxError} and nothing runs — an accident of that one payload, not a property of the
-     * sink. Written for the position, the same template executes.
+     * <p>The corpus row {@code prefix.colon-in-a-recognised-handler} used to be flagged
+     * not-browser-observable, and the flag would have been easy to misread as "F17 is theoretical".
+     * It was not. The shared {@code QUOTE_BREAKOUT} payload closes the string literal and the call's
+     * parenthesis and leaves the surrounding object literal open, so the handler was a
+     * {@code SyntaxError} and nothing ran — an accident of that one payload, not a property of the
+     * sink. Written for the position, the same template executed.
      *
-     * <p>This is the only test in the class whose payload is not from the corpus, and it is
-     * deliberate: the corpus is a fixed catalogue of hostile strings applied across many templates,
-     * which is what makes it a fair comparison between them; a finding that needs one payload
-     * shaped for one template needs a test, not a corpus entry that would then be applied to
+     * <p>That is precisely why this test is kept after the fix rather than retired with the flag.
+     * The corpus payloads could never have demonstrated F17 in a browser, so they cannot demonstrate
+     * its absence either: a green {@code BrowserCorpusTest} over that row proves only that a
+     * SyntaxError is still a SyntaxError. The position-shaped payload is the one input that told the
+     * two apart, and it is the one that has to be suppressed for the fix to mean anything.
+     *
+     * <p>This is still the only test in the class whose payload is not from the corpus, and still
+     * deliberately so: the corpus is a fixed catalogue of hostile strings applied across many
+     * templates, which is what makes it a fair comparison between them; a claim that needs one
+     * payload shaped for one template needs a test, not a corpus entry that would then be applied to
      * fourteen unrelated cases.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    public void f17IsExploitableWithAPayloadShapedForItsPosition(BrowserEngine engine) {
+    public void f17IsNoLongerExploitableEvenWithAPayloadShapedForItsPosition(BrowserEngine engine) {
         XssCase testCase = CanoeCorpus.byId("prefix.colon-in-a-recognised-handler");
         String payload = "'});" + Payloads.SENTINEL_FUNCTION + "('f17');//";
         CanoeTestSupport.RenderResult rendered = VerdictEvaluator.render(testCase, payload);
         assertFalse(rendered.isError(), rendered.errorMessage());
 
-        // The precondition F17 is about: the value was html-encoded rather than suppressed, so the
-        // attacker's characters come back out of the HTML parser intact.
-        assertTrue(rendered.decodedAttr("a", "onclick").contains("'});"),
-                "F17's precondition does not hold any more; the value was: "
-                        + rendered.decodedAttr("a", "onclick"));
+        // F17's precondition: the value was html-encoded rather than suppressed, so the attacker's
+        // characters came back out of the HTML parser intact. R2 removes the precondition.
+        assertEquals("f({a:1,b:''})", rendered.decodedAttr("a", "onclick"),
+                "R2: the handler must be the template's own text with an empty string literal where"
+                        + " the reference was; it was: " + rendered.decodedAttr("a", "onclick"));
 
         BrowserVerdict verdict = runCase(engine, "sink.f17", rendered.output(), fullInteraction());
 
-        assertTrue(verdict.scriptExecutions().contains("f17"),
-                "F17 did not execute, which contradicts the finding:\n" + verdict.describe());
+        assertFalse(verdict.scriptExecutions().contains("f17"),
+                "F17 executed, so the reset - or something with its shape - is back:\n"
+                        + verdict.describe());
     }
 
     /**

@@ -44,18 +44,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * including every breakout family: <strong>no payload moves the machine anywhere.</strong> Not one
  * reference position, in any template, sees a different context.
  *
- * <h2>...and the corollary is false anyway. F24.</h2>
+ * <h2>...and the corollary was false, until R2. F24.</h2>
  *
- * <p><strong>The property above holds over the corpus and is not true in general.</strong>
+ * <p><strong>The property above held over the corpus and was not true in general.</strong>
  * {@code TemplateFuzzTest} (T31) generated the counterexample on its first run and
- * {@link #attackerDataCanSteerTheAttributeContextByEmittingARawColon} is it:
+ * {@link #attackerDataCanNoLongerSteerTheAttributeContextWithARawColon} is it, now inverted:
  * {@code HtmlEncoder.url()} copies a matched {@code http://} or {@code https://} prefix into the
  * output <em>unencoded</em>, colon and all; Canoe's attribute-value scan reads that colon as a
- * prefix delimiter and calls {@code detectAttributePrefix()}, which finds nothing and assigns
- * {@code ATTR_HTML}. Every later reference in that same attribute value then gets {@code html()}
+ * prefix delimiter and calls {@code detectAttributePrefix()}, which found nothing and assigned
+ * {@code ATTR_HTML}. Every later reference in that same attribute value then got {@code html()}
  * where the author asked for a URL attribute — and {@code html()}'s character references decode
  * back to the attacker's raw {@code @}, which is precisely the byte {@code url()}'s {@code %40}
  * was accidentally neutralising.
+ *
+ * <p>R2 removed the assignment, not the colon. {@code detectAttributePrefix()} may now only narrow
+ * the context, and no encoder can put text in the buffer that spells one of its five prefixes, so
+ * attacker data can no longer change which encoder any reference gets. The finding's root cause —
+ * an encoder emitting a raw colon at all — is untouched and belongs to R11; what remains of it is
+ * that the colon still consumes the scan's single look at the value, which can only ever cost a
+ * <em>narrowing</em> and therefore fails safe.
  *
  * <p>Why the corpus sweep above could not see it, stated plainly because it is the lesson rather
  * than an excuse: the sweep varies <em>one</em> reference and holds every other model entry fixed,
@@ -184,57 +191,68 @@ public class ParserSteeringTest {
     // ------------------------------------------------------------------
 
     /**
-     * <strong>F24 — attacker data can steer the attribute context, by making {@code url()} emit a
-     * raw colon.</strong>
+     * <strong>F24's exploitable path, closed by R2.</strong> Was
+     * {@code attackerDataCanSteerTheAttributeContextByEmittingARawColon}; inverted rather than
+     * deleted, because it is the only test that drives the exact shape the fuzzer found.
      *
      * <p>Found by {@code TemplateFuzzTest} on its first run. The template is the ordinary shape of
      * an application that keeps a base URL in configuration and appends a path to it:
      *
      * <pre>{@code <a href="$base$path">}</pre>
      *
-     * <p>The three assertions are the three steps, and each is checked rather than argued:
+     * <p>The steering had three steps and R2 removes the second, which is what turns the finding
+     * into a mitigated one rather than a fixed one:
      *
      * <ol>
-     *   <li>{@code url()} emits {@code https://} with its colon intact, because {@code uriPattern}
-     *       matches and {@code HtmlEncoder.java:190} appends group 1 without encoding it.
-     *   <li>That colon moves the context observed at the <em>second</em> reference from
-     *       {@code CTX_URI} to {@code CTX_HTML_ATTR}. This is the steering, and it is what the
-     *       review's corollary says cannot happen.
-     *   <li>The consequence: the second reference's {@code @} arrives raw rather than as
-     *       {@code %40}, so the URL's authority becomes the attacker's host. The judgement is made
-     *       by {@code VerdictEvaluator.analyseUrl} — the suite's own URL oracle, hardened against
-     *       Node's WHATWG parser — and not by reading the string.
+     *   <li>{@code url()} <strong>still</strong> emits {@code https://} with its colon intact,
+     *       because {@code uriPattern} matches and {@code HtmlEncoder.java:190} appends group 1
+     *       without encoding it. That is the root cause and R11 removes it; this test asserts it is
+     *       still there, so that R11's landing is what changes this row and not something else.
+     *   <li>That colon used to move the context observed at the <em>second</em> reference from
+     *       {@code CTX_URI} to {@code CTX_HTML_ATTR}. It no longer does: the colon still reaches
+     *       {@code detectAttributePrefix()}, which now matches nothing and assigns nothing, so the
+     *       name-derived {@code ATTR_URI} survives. The review's corollary — that attacker data
+     *       cannot move Canoe's state machine — holds again on this shape.
+     *   <li>The consequence is therefore gone: the second reference's {@code @} is percent-encoded
+     *       in both renders, so the URL's authority stays the page's own. The judgement is still
+     *       made by {@code VerdictEvaluator.analyseUrl} — the suite's own URL oracle, hardened
+     *       against Node's WHATWG parser — and not by reading the string.
      * </ol>
      *
-     * <p>The control is the same template with a base that has no colon in it. Everything else is
-     * identical, {@code url()} applies to the second reference as the author intended, and the
-     * {@code @} becomes {@code %40}. That pair is the whole finding: one character of difference in
-     * a value the attacker does not even have to control.
+     * <p>The control is the same template with a base that has no colon in it. It is kept, and the
+     * assertion that used to distinguish it from the attacked render is now the assertion that it
+     * does not: one character of difference in a value the attacker does not even have to control
+     * has stopped deciding which encoder the reference downstream of it gets.
+     *
+     * <p>What R2 does <em>not</em> do is stop {@code url()} emitting the colon. A raw colon in
+     * encoder output still burns the one look {@code detectAttributePrefix()} gets at the value, so
+     * it can still stop a later prefix from being <em>recognised</em> — the direction that fails
+     * safe under every prefix the method can assign, since all three suppress, but a direction that
+     * exists. R11 and R12 are what remove the colon itself.
      */
     @Test
-    public void attackerDataCanSteerTheAttributeContextByEmittingARawColon() {
+    public void attackerDataCanNoLongerSteerTheAttributeContextWithARawColon() {
         String template = "<a href=\"$base$path\">x</a>";
         String attack = "@attacker.invalid/x";
 
-        // Step 1: url() passes the scheme prefix through with its colon.
+        // Step 1: url() still passes the scheme prefix through with its colon. R11 is what changes
+        // this, and until it lands the mitigation below is what stands between it and the sink.
         assertEquals("https://app.example", HtmlEncoder.url("https://app.example"),
                 "F24's mechanism: uriPattern matches, and group 1 is appended unencoded");
         assertTrue(HtmlEncoder.url("https://app.example").indexOf(':') >= 0,
-                "F24 needs a raw colon in encoder output, and this is where it comes from");
+                "F24 needed a raw colon in encoder output, and this is still where it comes from");
 
-        // Step 2: the colon moves the context at the second reference.
+        // Step 2: the colon no longer moves the context at the second reference.
         List<Integer> withScheme = steer(template, model("https://app.example", attack)).contexts;
         List<Integer> withoutScheme = steer(template, model("/app", attack)).contexts;
 
-        assertNotEquals(withoutScheme, withScheme,
-                () -> "F24 is fixed if this passes: the base URL no longer decides which encoder the"
-                        + " second reference gets. Update the ledger, delete"
-                        + " TemplateFuzzTest.isTheKnownColonSteering, and restore the review's"
-                        + " corollary. Contexts: " + names(withScheme) + " versus "
+        assertEquals(withoutScheme, withScheme,
+                () -> "R2: the base URL must no longer decide which encoder the second reference"
+                        + " gets. Contexts: " + names(withScheme) + " versus "
                         + names(withoutScheme));
-        assertEquals(Canoe.CTX_HTML_ATTR, withScheme.get(1),
-                () -> "F24: the second reference in a href is observed in CTX_HTML_ATTR, so it gets"
-                        + " html() instead of url(). Contexts: " + names(withScheme));
+        assertEquals(Canoe.CTX_URI, withScheme.get(1),
+                () -> "R2: the second reference in a href is observed in CTX_URI even with a raw"
+                        + " colon above it, so it gets url(). Contexts: " + names(withScheme));
         assertEquals(Canoe.CTX_URI, withoutScheme.get(1),
                 () -> "the control: with no colon above it, the same reference is CTX_URI."
                         + " Contexts: " + names(withoutScheme));
@@ -247,15 +265,17 @@ public class ParserSteeringTest {
                 .render(template, model("/app", attack))
                 .decodedAttr("a", "href");
 
-        assertEquals("https://app.example@attacker.invalid/x", steered,
-                "F24: html() encodes the '@' as &#64; and the HTML parser decodes it straight back,"
-                        + " so the URL parser is handed a userinfo delimiter");
+        assertEquals("https://app.example%40attacker.invalid/x", steered,
+                "R2: url() applies to the second reference and percent-encodes the '@', so the URL"
+                        + " parser is not handed a userinfo delimiter. It used to read"
+                        + " https://app.example@attacker.invalid/x, because html() wrote &#64; and"
+                        + " the HTML parser decoded it straight back");
         assertEquals("/app%40attacker.invalid/x", control,
                 "the control: url() percent-encodes the '@', which is one of the three accidents"
                         + " CanoeCorpusTest.urlEncodingAccidentsThatMakeOffsiteVectorsSafe pins");
 
-        assertTrue(VerdictEvaluator.analyseUrl(steered).isDangerous(),
-                () -> "F24: " + steered + " must reach an origin that is not the page's own - "
+        assertFalse(VerdictEvaluator.analyseUrl(steered).isDangerous(),
+                () -> "R2: " + steered + " must stay on the page's own origin - "
                         + VerdictEvaluator.analyseUrl(steered).explanation());
         assertFalse(VerdictEvaluator.analyseUrl(control).isDangerous(),
                 () -> "the control must stay same-origin - "

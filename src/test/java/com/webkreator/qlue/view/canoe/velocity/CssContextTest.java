@@ -29,31 +29,38 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The CSS contexts, and the one character that decides between them.
  *
  * <p>Canoe's stated centrepiece is that it refuses to output into CSS at all: {@code style} resolves
- * to {@code ATTR_CSS}, which produces {@code CTX_SUPPRESS}, which is the empty string. F4 is that
- * this guarantee is defeated by writing a CSS property in front of the reference — the thing every
- * real {@code style} attribute does. {@code detectAttributePrefix()} fires on the first colon at
- * value index 0 through 10 and unconditionally resets {@code attributeContext} to {@code ATTR_HTML}
- * ({@code Canoe.java:224}); no prefix matches; {@code html()} takes over; and the HTML parser decodes
- * every character reference before the CSS parser sees the value.
+ * to {@code ATTR_CSS}, which produces {@code CTX_SUPPRESS}, which is the empty string. F4 was that
+ * this guarantee could be defeated by writing a CSS property in front of the reference — the thing
+ * every real {@code style} attribute does. {@code detectAttributePrefix()} fired on the first colon
+ * at value index 0 through 10 and unconditionally reset {@code attributeContext} to
+ * {@code ATTR_HTML} ({@code Canoe.java:224}); no prefix matched; {@code html()} took over; and the
+ * HTML parser decoded every character reference before the CSS parser saw the value.
+ *
+ * <p><strong>R2 deleted that line, and this file is inverted rather than deleted.</strong> The
+ * method may now only narrow the context, so the colon index has stopped deciding anything and every
+ * assertion below is the corresponding claim about its absence. The tests are kept because they are
+ * the regression net for F4: they are the only place that says the outcome must be a function of the
+ * attribute name alone, and the only place that would notice a positional dependence coming back in
+ * a different shape.
  *
  * <h2>What this file asserts that {@code CanoeCorpusTest} does not</h2>
  *
  * <ul>
- *   <li><strong>The boundary as a function, at the Velocity level.</strong> {@code AttributePrefixTest}
- *       (T10) pins the colon index 0-12 against a bare {@code Canoe}; the corpus holds eleven
- *       {@code css.*} rows with individually reviewed verdicts. Neither says that the outcome is a
- *       function of <em>the index of the first colon and nothing else</em>.
+ *   <li><strong>The absence of the boundary as a function, at the Velocity level.</strong>
+ *       {@code AttributePrefixTest} (T10) pins the colon index 0-12 against a bare {@code Canoe};
+ *       the corpus holds eleven {@code css.*} rows with individually reviewed verdicts. Neither says
+ *       that the outcome is <em>independent of the index of the first colon</em>.
  *       {@link #thePropertyNameDecidesWhetherStyleIsSuppressed} parameterises the whole set of
- *       property names F4 lists, asserts that each one's colon index is what the finding claims, and
- *       asserts that the verdict follows the index — so {@code padding:} and {@code display:} must
- *       agree because they are both 7, and {@code background:} and {@code font-family:} must differ
- *       because they are 10 and 11. A per-template ledger records eleven answers; this records the
- *       rule that generates them.
- *   <li><strong>The positions the reset does <em>not</em> reach.</strong> A colon inside a
- *       {@code <style>} element body, inside an {@code @media} block, or anywhere past index 10 is
- *       just a character, because the CSS states have no value-prefix scan at all. That asymmetry —
+ *       property names F4 listed, asserts that each one's colon index is still what the finding
+ *       claimed, and then requires every index to reach the same answer — so {@code background:} and
+ *       {@code font-family:}, which the finding put on opposite sides at 10 and 11, must now agree.
+ *       A per-template ledger records eleven answers; this records the rule that generates them.
+ *   <li><strong>The positions the reset never reached.</strong> A colon inside a {@code <style>}
+ *       element body, inside an {@code @media} block, or anywhere past index 10 is just a character,
+ *       because the CSS states have no value-prefix scan at all. That asymmetry —
  *       {@code color:$x} suppressed in a stylesheet and injectable in an attribute, from templates a
- *       developer would call equivalent — is the shape of F4 that a list of vulnerable rows hides.
+ *       developer would call equivalent — was the shape of F4 that a list of vulnerable rows hid,
+ *       and it is now the pair of templates that must render the same thing.
  * </ul>
  *
  * <p>Note the level. This file renders through Velocity and asserts on the jsoup-decoded attribute
@@ -68,12 +75,14 @@ public class CssContextTest {
     private static final String SECTION = "A.4 attribute value prefixes";
 
     /**
-     * Every property name F4's precondition paragraph names, with the index its colon lands on.
+     * Every property name F4's precondition paragraph names, with the index its colon lands on, and
+     * whether that index reaches {@code detectAttributePrefix()} at all.
      *
-     * <p>The index is asserted rather than trusted: it is the whole precondition, and the review
+     * <p>The index is asserted rather than trusted: it was the whole precondition, and the review
      * corrected itself on it once already (the adversarial pass placed the cutoff one character
-     * earlier and concluded {@code background:} was safe, which it is not — {@code c == ':'} is
-     * tested before the {@code bufLen == 10} cutoff at {@code Canoe.java:924}).
+     * earlier and concluded {@code background:} was safe, which it was not — {@code c == ':'} is
+     * tested before the {@code bufLen == 10} cutoff at {@code Canoe.java:924}). The third column is
+     * kept, and is now the column that must <strong>not</strong> change the answer.
      */
     static Stream<Arguments> cssProperties() {
         return Stream.of(
@@ -90,19 +99,23 @@ public class CssContextTest {
     }
 
     /**
-     * The finding, as a function of one integer.
+     * The finding's absence, as a function of one integer. Inverted by R2; the method kept its name
+     * because the claim it makes is still "what the property name does or does not decide", and the
+     * answer is now "nothing".
      *
      * <p>Three things are asserted together per row, and the point is that they are together: the
      * colon's index, the context Canoe ends up in, and what the CSS parser is actually handed. A test
      * of the context alone would pass if the reference-insertion handler stopped consulting it; a test
-     * of the decoded value alone would not say why.
+     * of the decoded value alone would not say why. The {@code reachesTheScan} column is no longer
+     * allowed to influence either of the last two — that independence is the fix, and asserting it
+     * per row is what would catch a positional dependence reappearing in some other form.
      */
     @ParameterizedTest(name = "{0}: (colon at {1})")
     @MethodSource("cssProperties")
     public void thePropertyNameDecidesWhetherStyleIsSuppressed(String property, int colonIndex,
-                                                               boolean injectable) {
+                                                               boolean reachesTheScan) {
         assertEquals(colonIndex, property.length(),
-                property + ": F4's precondition is the index of the colon in the attribute VALUE,"
+                property + ": F4's precondition was the index of the colon in the attribute VALUE,"
                         + " which for 'name:' is the length of the name. If this row is wrong the"
                         + " whole table is measuring something else.");
 
@@ -110,100 +123,107 @@ public class CssContextTest {
         String payload = Payloads.CSS_URL_BEACON.value();
 
         int context = CanoeTestSupport.contextAfter("<div style=\"" + property + ":");
-        assertEquals(injectable ? Canoe.CTX_HTML_ATTR : Canoe.CTX_SUPPRESS, context,
-                () -> "F4: a colon at index " + colonIndex + " must "
-                        + (injectable
-                                ? "fire detectAttributePrefix(), which resets attributeContext to"
-                                        + " ATTR_HTML and hands the value to html()"
-                                : "leave the name-derived ATTR_CSS alone, because bufLen was set to"
-                                        + " -1 at index 10 and the scan never runs")
-                        + ". Observed " + CanoeTestSupport.contextName(context));
+        assertEquals(Canoe.CTX_SUPPRESS, context,
+                () -> "R2: a colon at index " + colonIndex + " "
+                        + (reachesTheScan
+                                ? "fires detectAttributePrefix(), which matches none of its five"
+                                        + " prefixes and must therefore leave attributeContext alone"
+                                : "does not reach detectAttributePrefix() at all, because bufLen was"
+                                        + " set to -1 at index 10")
+                        + " - either way the name-derived ATTR_CSS stands. Observed "
+                        + CanoeTestSupport.contextName(context));
 
         String decoded = CanoeTestSupport.render(template, payload).decodedAttr("div", "style");
-        if (injectable) {
-            assertEquals(property + ":" + payload, decoded,
-                    "F4: the HTML parser decodes html()'s character references while building the"
-                            + " attribute value, so the CSS parser receives the attacker's"
-                            + " declarations verbatim - a full-viewport overlay, a beacon to an"
-                            + " attacker origin, or CSS-selector exfiltration of DOM content");
-        } else {
-            assertEquals(property + ":", decoded,
-                    "the reference contributed nothing at all, which is the design working");
-        }
+        assertEquals(property + ":", decoded,
+                "the reference contributed nothing at all, which is the design working. Before R2"
+                        + " the eight rows whose colon reaches the scan produced " + property + ":"
+                        + payload + " instead, because the HTML parser decodes html()'s character"
+                        + " references while building the attribute value and the CSS parser then"
+                        + " received the attacker's declarations verbatim.");
     }
 
     /**
-     * The two templates the finding is really about, side by side.
+     * The two templates the finding was really about, side by side. Inverted by R2; was
+     * {@code aBareStyleAttributeIsSuppressedAndOneWithAPropertyIsNot}.
      *
-     * <p>{@code <div style="$c">} is suppressed and {@code <div style="color:$c">} is injectable, and
-     * no template author would call those different. The pair is the shortest statement of F4 and it
-     * is kept out of the parameterised table above so that it reads as a comparison rather than as
-     * two rows.
+     * <p>{@code <div style="$c">} was suppressed and {@code <div style="color:$c">} was injectable,
+     * and no template author would call those different. The pair was the shortest statement of F4,
+     * and it is the shortest statement of the fix for the same reason: the six characters of literal
+     * template text have stopped mattering.
      */
     @Test
-    public void aBareStyleAttributeIsSuppressedAndOneWithAPropertyIsNot() {
+    public void aBareStyleAttributeAndOneWithAPropertyAreBothSuppressed() {
         String payload = Payloads.CSS_OVERLAY.value();
 
         assertEquals("<div style=\"\">x</div>",
                 CanoeTestSupport.render("<div style=\"$data\">x</div>", payload).output(),
                 "the design working: ATTR_CSS survives, CTX_SUPPRESS applies, nothing is emitted");
 
+        assertEquals("<div style=\"color:\">x</div>",
+                CanoeTestSupport.render("<div style=\"color:$data\">x</div>", payload).output(),
+                "R2: six characters of literal template text used to convert 'refuse to output into"
+                        + " CSS' into 'HTML-encode and let the parser undo it'; they now convert"
+                        + " nothing");
+
         String withProperty = CanoeTestSupport.render("<div style=\"color:$data\">x</div>", payload)
                 .decodedAttr("div", "style");
-        assertEquals("color:" + payload, withProperty,
-                "F4: six characters of literal template text convert 'refuse to output into CSS'"
-                        + " into 'HTML-encode and let the parser undo it'");
-        assertTrue(withProperty.contains("position:fixed") && withProperty.contains("url(//"),
-                () -> "and the declarations arrive intact, which is the concrete impact: a"
-                        + " full-viewport clickjacking overlay that also beacons out. Got: "
-                        + withProperty);
+        assertEquals("color:", withProperty,
+                "and the CSS parser is handed a property name with no value - not the full-viewport"
+                        + " clickjacking overlay with a beacon in it that this used to produce");
+        assertFalse(withProperty.contains("position:fixed") || withProperty.contains("url(//"),
+                () -> "no declaration of the attacker's may survive. Got: " + withProperty);
     }
 
     /**
-     * Only the <em>first</em> colon matters, so a complete declaration in front of the reference is
-     * still injectable and a second reference later in the same value changes nothing.
+     * Only the <em>first</em> colon is examined, and after R2 that is a fact about the scan rather
+     * than about the outcome: a complete declaration in front of the reference, a reference deep in
+     * a long value, and a value whose first colon is past the window all reach the same place.
      *
      * <p>{@code detectAttributePrefix()} runs once and sets {@code bufLen} to -1, so nothing later in
-     * the value is examined. The reference's own position is irrelevant; only the first colon's is.
+     * the value is examined. The reference's own position was irrelevant before and is irrelevant
+     * now; what has changed is that the first colon's position is too.
      */
     @Test
     public void onlyTheFirstColonIsEverExamined() {
-        assertEquals(Canoe.CTX_HTML_ATTR,
+        assertEquals(Canoe.CTX_SUPPRESS,
                 CanoeTestSupport.contextAfter("<div style=\"color:red;background:"),
-                "F4: the scan fired on the colon of 'color:' at index 5 and gave up; the second"
-                        + " declaration is never looked at");
-        assertEquals(Canoe.CTX_HTML_ATTR,
+                "R2: the scan fires on the colon of 'color:' at index 5, matches nothing, and gives"
+                        + " up; the second declaration is never looked at and ATTR_CSS stands");
+        assertEquals(Canoe.CTX_SUPPRESS,
                 CanoeTestSupport.contextAfter(
                         "<div style=\"color:red;text-decoration:underline;font-family:"),
                 "...however far into the value the reference eventually sits");
 
-        // ...and the converse: a value whose first colon is past the window stays suppressed no
-        // matter how many colons follow it.
+        // ...and the case that was already suppressed, which is now indistinguishable from the two
+        // above rather than being the only safe one of the three.
         assertEquals(Canoe.CTX_SUPPRESS,
                 CanoeTestSupport.contextAfter("<div style=\"text-decoration:underline;color:"),
-                "the first colon is at index 15, so the scan never ran; the colon of 'color:' later"
-                        + " in the same value cannot revive it");
+                "the first colon is at index 15, so the scan never ran at all");
     }
 
     /**
-     * A CSS string literal around the reference is not a mitigation, and a template author is likely
-     * to think it is.
+     * A CSS string literal around the reference was never a mitigation, and a template author is
+     * likely to think it is. Inverted by R2; was {@code aQuotedCssStringIsNotAContainer}.
      *
-     * <p>{@code html()} turns the apostrophe into {@code &#39;} and the HTML parser gives it back as a
-     * real quote before the CSS parser runs — the identical mechanism to F1's JavaScript string
-     * literal. The comparison that makes it land is {@code content:'$x'} against
-     * {@code font-family:'$x'}: both are quoted CSS strings, one is injectable and one is not, and the
-     * only difference is that the second property name is four characters longer.
+     * <p>{@code html()} turned the apostrophe into {@code &#39;} and the HTML parser gave it back as
+     * a real quote before the CSS parser ran — the identical mechanism to F1's JavaScript string
+     * literal. The comparison that made it land was {@code content:'$x'} against
+     * {@code font-family:'$x'}: both quoted CSS strings, one injectable and one not, with the only
+     * difference being that the second property name is four characters longer. The pair is kept,
+     * because the assertion worth having now is that they are the same — and it is still true, and
+     * still worth saying, that the quoting is not what makes either of them safe.
      */
     @Test
-    public void aQuotedCssStringIsNotAContainer() {
+    public void aQuotedCssStringIsStillNotAContainerAndNoLongerNeedsToBe() {
         String payload = Payloads.CSS_URL_BEACON.value();
 
         String content = CanoeTestSupport
                 .render("<div style=\"content:'$data'\">x</div>", payload).decodedAttr("div", "style");
-        assertEquals("content:'" + payload + "'", content,
-                "F4: colon at index 7, so html() applies and the quote the template wrote does not"
-                        + " contain anything - the payload's own ';' closes the declaration");
+        assertEquals("content:''", content,
+                "R2: colon at index 7, the scan runs and matches nothing, ATTR_CSS survives and the"
+                        + " string literal the template wrote is empty. It used to read content:'"
+                        + payload + "' - and the quote was no container, because the payload's own"
+                        + " ';' closed the declaration");
 
         String fontFamily = CanoeTestSupport
                 .render("<div style=\"font-family:'$data'\">x</div>", payload)
@@ -212,41 +232,46 @@ public class CssContextTest {
                 "the same shape with a longer property name: colon at index 11, the scan has already"
                         + " given up, ATTR_CSS survives and nothing is emitted");
 
-        assertNotEquals(content, fontFamily,
-                "two quoted CSS strings, opposite outcomes, decided entirely by the length of the"
-                        + " property name in front of them");
+        assertEquals(content.substring(content.indexOf(':')),
+                fontFamily.substring(fontFamily.indexOf(':')),
+                "two quoted CSS strings, the same outcome - the length of the property name in front"
+                        + " of them decides nothing any more");
     }
 
     /**
-     * A reference inside a CSS {@code url()}, which is F4's concrete impact in one template: an
+     * A reference inside a CSS {@code url()}, which was F4's concrete impact in one template: an
      * attacker-chosen URL fetched on every render, which is how CSS exfiltration of DOM content is
-     * bootstrapped.
+     * bootstrapped. Inverted by R2; was
+     * {@code aReferenceInsideACssUrlFunctionReachesAnAttackerOrigin}.
      *
-     * <p>Note what is <em>not</em> happening here: no URL encoder is involved. The attribute is
-     * {@code style}, so once the reset has fired the value goes through {@code html()}, not through
-     * {@code url()} — the encoder that at least escapes a colon. A CSS {@code url()} inside a
-     * {@code style} attribute is the one URL sink in the whole component with no URL handling at all.
+     * <p>Note what was never happening here: no URL encoder was involved. The attribute is
+     * {@code style}, so once the reset had fired the value went through {@code html()}, not through
+     * {@code url()} — the encoder that at least escapes a colon. That is why the second half of this
+     * test is kept unchanged: it is the measurement that says routing {@code style} through
+     * {@code url()} would <em>not</em> have helped, since {@code url()} passes a protocol-relative
+     * URL through byte for byte (F6). Suppression, not a different encoder, is what closes this.
      */
     @Test
-    public void aReferenceInsideACssUrlFunctionReachesAnAttackerOrigin() {
+    public void aReferenceInsideACssUrlFunctionNoLongerReachesAnyOrigin() {
         String decoded = CanoeTestSupport
                 .render("<div style=\"background:url($data)\">x</div>",
                         "//" + Payloads.SENTINEL_HOST + "/beacon")
                 .decodedAttr("div", "style");
 
-        assertEquals("background:url(//" + Payloads.SENTINEL_HOST + "/beacon)", decoded,
-                "F4: the CSS parser receives the attacker's url() token intact");
+        assertEquals("background:url()", decoded,
+                "R2: the CSS parser receives an empty url() token. It used to receive the attacker's"
+                        + " intact");
         assertTrue(VerdictEvaluator.analyseUrl("//" + Payloads.SENTINEL_HOST + "/beacon").isDangerous(),
-                "...and it is off-origin, which is a request to the attacker on every page load");
+                "...and the value that no longer arrives is off-origin, so this was a request to the"
+                        + " attacker on every page load");
 
         // The same value in an attribute Canoe DOES treat as a URL, for contrast.
         String throughUrlEncoder = CanoeTestSupport
                 .render("<a href=\"$data\">x</a>", "//" + Payloads.SENTINEL_HOST + "/beacon")
                 .decodedAttr("a", "href");
         assertEquals("//" + Payloads.SENTINEL_HOST + "/beacon", throughUrlEncoder,
-                "url() lets a protocol-relative URL through too (F6), so in this particular case the"
-                        + " two encoders agree - which is worth knowing before concluding that"
-                        + " routing style through url() would have helped");
+                "url() lets a protocol-relative URL through too (F6), so routing style through url()"
+                        + " would not have closed this - suppression is what did");
     }
 
     // ------------------------------------------------------------------
@@ -289,11 +314,13 @@ public class CssContextTest {
     }
 
     /**
-     * The asymmetry itself, as one comparison: identical CSS, identical payload, opposite outcomes,
-     * decided by whether the declaration was written in a stylesheet or in an attribute.
+     * The asymmetry itself, as one comparison: identical CSS, identical payload, and — before R2 —
+     * opposite outcomes, decided by whether the declaration was written in a stylesheet or in an
+     * attribute. Inverted by R2; was
+     * {@code theSameDeclarationIsSuppressedInAStylesheetAndInjectableInAnAttribute}.
      */
     @Test
-    public void theSameDeclarationIsSuppressedInAStylesheetAndInjectableInAnAttribute() {
+    public void theSameDeclarationIsSuppressedInAStylesheetAndInAnAttribute() {
         String payload = Payloads.CSS_URL_BEACON.value();
 
         String inStylesheet = CanoeTestSupport
@@ -303,8 +330,10 @@ public class CssContextTest {
 
         String inAttribute = CanoeTestSupport
                 .render("<p style=\"color:$data\">x</p>", payload).decodedAttr("p", "style");
-        assertEquals("color:" + payload, inAttribute,
-                "F4: the same declaration, the same payload, and the CSS parser gets all of it");
+        assertEquals("color:", inAttribute,
+                "R2: the same declaration, the same payload, and the CSS parser gets none of it -"
+                        + " where it used to get color:" + payload + " in the attribute and nothing"
+                        + " in the stylesheet, from two templates a developer would call equivalent");
     }
 
     // ------------------------------------------------------------------
@@ -364,39 +393,49 @@ public class CssContextTest {
     }
 
     /**
-     * The style attribute is the only attribute name that produces {@code ATTR_CSS}, so it is the only
-     * one the reset can downgrade from a CSS context — which bounds F4's CSS half exactly.
+     * The reset downgraded every classification and not only the CSS one, so its removal has to be
+     * asserted on all three. Inverted by R2; was
+     * {@code theResetDowngradesEveryClassificationAndNotOnlyTheCssOne}.
      *
-     * <p>The URI and JS halves are the same reset reaching two other classifications, and they are
-     * F4's second consequence and F17 respectively. Recorded here so the three are visible as one
-     * mechanism rather than three findings that happen to share a line number.
+     * <p>{@code style} is the only attribute name that produces {@code ATTR_CSS}, which bounded F4's
+     * CSS half exactly. The URI and JS halves were the same reset reaching two other
+     * classifications, and they are F4's second consequence and F17 respectively. Keeping the three
+     * in one test is what says they were one mechanism rather than three findings sharing a line
+     * number — and it is what would catch a partial fix that closed one and left the others.
      */
     @Test
-    public void theResetDowngradesEveryClassificationAndNotOnlyTheCssOne() {
+    public void nothingDowngradesAnyClassificationAndTheNarrowingStillWorks() {
         assertEquals(Canoe.ATTR_CSS, attributeContextOf("style"),
                 "style is the one name that produces ATTR_CSS");
 
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<div style=\""));
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<div style=\"color:"),
-                "F4: ATTR_CSS downgraded");
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<div style=\"color:"),
+                "R2: ATTR_CSS is no longer downgraded (F4)");
         assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href=\""));
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<a href=\"https:"),
-                "F4's second consequence: ATTR_URI downgraded, so a link is entity-encoded rather"
-                        + " than percent-encoded");
+        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href=\"https:"),
+                "R2: ATTR_URI is no longer downgraded, so a link stays percent-encoded rather than"
+                        + " silently becoming entity-encoded (F4's second consequence)");
         assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<a onclick=\""));
-        assertEquals(Canoe.CTX_HTML_ATTR, CanoeTestSupport.contextAfter("<a onclick=\"f({a:"),
-                "F17: ATTR_JS downgraded, which is the same line of code reaching the one"
-                        + " classification Canoe gets right");
+        assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<a onclick=\"f({a:"),
+                "R2: ATTR_JS is no longer downgraded, which was the same line of code reaching the"
+                        + " one classification Canoe gets right (F17)");
 
-        // ...and the prefix the scan is actually looking for, so the reset is not read as unconditional
-        // damage: when a prefix DOES match, the context narrows correctly.
+        // ...and the half of the method that was always correct, which the fix had to preserve:
+        // when a prefix DOES match, the context still narrows.
         assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<a href=\"javascript:"),
                 "detectAttributePrefix() exists to narrow ATTR_URI to ATTR_JS for a script scheme,"
-                        + " and that part works. The defect is the unconditional reset it does first,"
-                        + " which is why remediation item 1 deletes the reset rather than the scan.");
+                        + " and that part always worked. R2 deleted the unconditional reset it did"
+                        + " first rather than the scan itself, so this must still hold.");
     }
 
-    /** Sanity: the corpus's CSS group covers both sides of the boundary, or the file proves nothing. */
+    /**
+     * Sanity: the corpus's CSS group covers both sides of the boundary, or the file proves nothing.
+     *
+     * <p>Inverted by R2. Before the fix the requirement was that at least eight {@code css.*} cases
+     * were <em>live</em>, one per property name in F4's precondition paragraph. Those cases still
+     * exist and still carry those property names — that is what makes them the regression net — but
+     * every one of them is now a suppression, so the requirement is the count on the other side.
+     */
     @Test
     public void theCorpusCoversBothSidesOfTheColonBoundary() {
         List<String> suppressed = new ArrayList<>();
@@ -407,11 +446,13 @@ public class CssContextTest {
             }
             (testCase.defaultVerdict().isSuppression() ? suppressed : live).add(testCase.id());
         }
-        assertFalse(suppressed.isEmpty(), "no suppressed CSS case in " + SECTION);
-        assertFalse(live.isEmpty(), "no injectable CSS case in " + SECTION);
-        assertTrue(live.size() >= 8,
-                () -> "F4's precondition paragraph names eight property names that trigger it and"
-                        + " the corpus should carry a case for each shape; it has " + live);
+        assertTrue(live.isEmpty(),
+                () -> "R2: no CSS case in " + SECTION + " may be live any more; a colon in a style"
+                        + " value cannot reach the CSS parser. Live: " + live);
+        assertTrue(suppressed.size() >= 10,
+                () -> "F4's precondition paragraph names eight property names that used to trigger"
+                        + " it, and the corpus carries a case for each shape plus the two that never"
+                        + " did; all of them must now be suppressed. It has " + suppressed);
     }
 
     private static int attributeContextOf(String attributeName) {

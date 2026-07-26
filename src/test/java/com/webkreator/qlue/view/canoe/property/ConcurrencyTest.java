@@ -196,12 +196,15 @@ public class ConcurrencyTest {
         Canoe reused = new Canoe(new StringWriter());
         reused.write("<input placeholder=\"x\">");
         reused.write("<a href=\"mocha:");
-        assertEquals(Canoe.CTX_HTML_ATTR, reused.currentContext(),
+        assertEquals(Canoe.CTX_URI, reused.currentContext(),
                 "F5: an eleven-character attribute name in an earlier element leaves an 'h' at"
                         + " buf[5], mocha: is no longer recognised, and the identical text lands in"
                         + " a different context. That is what a shared Canoe would do to two"
                         + " concurrent renders, and it is why the equality assertion above is not"
-                        + " vacuous.");
+                        + " vacuous. The context it lands in changed with R2 - the missed prefix now"
+                        + " falls back to href's own ATTR_URI rather than to the reset's ATTR_HTML -"
+                        + " and the instrument is unaffected: what this test needs is that the two"
+                        + " Canoes disagree, not which way.");
     }
 
     // ------------------------------------------------------------------
