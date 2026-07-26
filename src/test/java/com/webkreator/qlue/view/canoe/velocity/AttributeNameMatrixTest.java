@@ -649,8 +649,9 @@ public class AttributeNameMatrixTest {
      * did not match {@code href}.
      *
      * <p>What the two names still share is {@code url()}'s own defects, and the test says so rather
-     * than reading as "xlink:href is safe now": the colon is escaped (F6's scheme half works) and an
-     * off-origin host is not (F6's origin half does not exist, and R9 and R12 own it).
+     * than reading as "xlink:href is safe now": a rejected scheme is suppressed (F6's scheme half
+     * works, by suppression since R12) and an off-origin host is not (F6's origin half does not exist,
+     * and R9 owns it).
      */
     @Test
     public void hrefAndXlinkHrefReachTheSameEncoder() {
@@ -666,9 +667,10 @@ public class AttributeNameMatrixTest {
                 "R6: the two names are one classification now. Before it, the same payload came out"
                         + " percent-encoded from one and verbatim from the other.");
         assertFalse(throughXlink.contains("javascript:"),
-                () -> "url() must escape the colon, leaving a relative path. Got: " + throughXlink);
-        assertTrue(throughXlink.contains("%3A"),
-                () -> "and the colon must be there as %3A. Got: " + throughXlink);
+                () -> "url() must neutralise the scheme. Got: " + throughXlink);
+        assertEquals("", throughXlink,
+                () -> "R12: javascript: is off the {http,https,mailto} allowlist, so url() rejects it"
+                        + " to the empty string rather than escaping its colon. Got: " + throughXlink);
 
         // ...and the half of url() that does not exist, which the ledger records as F6 on both
         // names rather than as F3 on one of them.

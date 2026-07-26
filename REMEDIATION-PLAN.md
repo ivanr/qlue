@@ -437,8 +437,24 @@ rather than by omission, since a forced redirect to an attacker origin is the ou
 
 ---
 
-**R11 — Delete the `uriPattern` scheme passthrough**
-*Closes:* F24 at the root, F15(a), F15(e). *Depends on:* nothing. *Lands with:* R12.
+**R11 — Delete the `uriPattern` scheme passthrough** — ✅ **DONE**
+*Closes:* F24 at the root, F15(a), F15(e). *Depends on:* nothing. *Landed with:* R12.
+*Landed:* the `uriPattern` field and its three-group passthrough are gone — the one path in the
+component that emitted a raw colon. It went with the `url()` rewrite (R12) so that absolute URLs still
+survive; on its own it would have percent-encoded the colon of every legitimate absolute URL, which
+is why the two land together. The deletion also removed the last non-final static in either class
+(`uriPattern` was mutable), which `ConcurrencyTest.everyStaticFieldIsFinalAndImmutable` now records by
+the exemption for it being gone. `ParserSteeringTest.onlyTheUriContextCanEmitARawColon` became
+`theOnlyRawColonAnyEncoderEmitsIsAnAllowlistedSchemeSeparator`: the literal "no colon at all" the
+plan sketched is not reachable while an absolute `http(s)` URL survives — that is F6/R9 territory — so
+the equivalent, stronger bound is asserted instead: `url()` emits a colon only as an
+`http`/`https`/`mailto` scheme separator, from its parse, and a rejected scheme or a colon anywhere
+else is suppressed or escaped. `TemplateFuzzTest`'s `isTheKnownColonSteering` exemption is deleted:
+property 4 holds outright now, and the fuzzer's non-zero colon-steering assertion is inverted to
+`assertEquals(0, …)` via a `steersTheParserViaAColon` probe that requires both a colon increase and a
+context divergence — which is exactly the F24 signature and is never true.
+`HtmlEncoderUrlTest.anExplicitPortIsDestroyed` and `.everyIpv6LiteralIsDestroyed` are inverted to
+`.anExplicitPortSurvives` and `.everyIpv6LiteralSurvives`.
 
 `HtmlEncoder.java:187-195` matches `^(https?://)([^/]+)(/.*)?$` and appends group 1 **unencoded**.
 That is the only path in the whole component that emits a raw colon, and Canoe's value scan reads
@@ -460,8 +476,51 @@ count is non-zero is inverted to an assertion that it is zero;
 
 ---
 
-**R12 — Rewrite `url()` to parse the URL and encode each component by its own rules**
-*Closes:* F15(a–e), completes F24, supports R9. *Depends on:* R11.
+**R12 — Rewrite `url()` to parse the URL and encode each component by its own rules** — ✅ **DONE**
+*Closes:* F15(a–e), completes F24, supports R9. *Depends on:* R11. *Landed with:* R11.
+*Landed:* `url()` now detects a leading scheme, rejects anything off a `{http, https, mailto}`
+allowlist to the empty string (so `javascript:`, `data:`, `vbscript:`, `view-source:` and every
+unregistered scheme are neutralised by suppression, not by escaping one delimiter), and otherwise
+splits the value into scheme / authority / path / query / fragment and encodes each component by its
+own rules — percent-escaping **per UTF-8 byte**, passing an existing `%XX` through untouched, and
+emitting the scheme separator from its parse rather than copying it from the input. Two deliberate
+rules beyond a pure URL encoder: `&` is emitted as `&amp;` (it is the terminal encoder written
+straight into an HTML attribute, so a raw `&` would let `&#106;avascript:` be reconstituted into a
+scheme, while `&amp;` decodes back to a working query separator), and `@` is escaped in every path so
+a value concatenated after a scheme-and-host base cannot introduce userinfo. All five F15 corruptions
+are fixed — an explicit port, an IPv6 literal, a multi-parameter query, a pre-encoded value and a
+non-Latin-1 path character all survive — and F24 is closed by design: the only raw colon `url()` can
+now emit is an allowlisted scheme separator, which `detectAttributePrefix()` matches none of.
+
+It remains a scheme filter and not an origin filter (F6): a protocol-relative or absolute off-origin
+`http(s)` URL still passes through byte for byte, correctly parsed now but not origin-filtered — R9
+owns that. The one accident R12 did not preserve is the old case-sensitive scheme regex: an uppercase
+scheme is normalised now, so `HTTPS://attacker` is a real off-origin URL and is `KNOWN_VULNERABLE`
+under F6 like its lowercase sibling.
+
+All five `HtmlEncoderUrlTest` corruption tests are inverted; the rejected-scheme, uppercase-scheme and
+by-design-neutralisation cases are rewritten around the allowlist;
+`CanoeCorpusTest.urlEncodingAccidentsThatMakeOffsiteVectorsSafe` is re-examined as
+`.urlNeutralisesOffsiteVectorsByDesign`, asserting the neutralisations through `url()` itself and
+recording the uppercase flip. `UrlSinkTest`, `AttributeNameMatrixTest.hrefAndXlinkHrefReachTheSame`
+`Encoder` and the two `SinkSpecificBrowserTest` scheme rows are updated from "colon escaped to %3A" to
+"scheme rejected to empty". `VelocityIntegrationTest`'s F12 double-encoding row (trap 2) is adjusted to
+the new byte pattern; its `assertNotEquals` — the authority does not survive the `#set` path — still
+holds, so R24 is not unblocked by anything here.
+
+**Ledger re-verdict (post-change totals, 1002 invocations):** `SAFE` 613→**457**, `KNOWN_VULNERABLE`
+61→**84**, `SUPPRESSED_BY_DESIGN` 257→**390**, `SUPPRESSED_UNINTENDED` **27**, `REJECTED` **44**. The
+133 rows that moved `SAFE`→`SUPPRESSED_BY_DESIGN` are the clean rejected-scheme payloads (five
+`JS_URL` variants across the URL cases, plus the ten-character-then-colon length-stress payload); the
+23 that moved `SAFE`→`KNOWN_VULNERABLE` are the uppercase-scheme off-origin rows, all citing **F6**.
+Every one of the 84 `KNOWN_VULNERABLE` rows is F6, so R9 is still the only exploitable surface left.
+Browser-relevant subset 63→**72**, must-fire 19→**28** (the nine uppercase KNOWN_VULNERABLE rows on
+browser-relevant cases), unobservable **0**. Coverage: `HtmlEncoder` 171/172 → **230/232 (99.14%)**
+against a 0.99 floor, with two dead outcomes inventoried (the private `css()` null guard and one
+short-circuit outcome in `appendHierPart()`'s fragment guard); `Canoe` untouched. Both suites green;
+browser tier re-verified on Chromium (100 tests, 0 failures, 2 skipped — Firefox and WebKit are not
+installed here). **What remains:** R9 (reject off-origin/protocol-relative URLs in resource-loading
+sinks, which needs the tag name from R8) closes the F6 rows; R28 re-confirms across Firefox and WebKit.
 
 The private worker at `HtmlEncoder.java:206-231` allows `a-z A-Z 0-9 / . - # ? =`, percent-escapes a
 Java `char` directly for anything up to 255, and substitutes a literal `?` above that. Five ordinary

@@ -336,8 +336,9 @@ public class UrlOracleTest {
      * U+FF0E FULLWIDTH FULL STOP to {@code .} and deletes U+00AD SOFT HYPHEN. This oracle does ASCII
      * case folding and nothing else, so both of these resolve to {@code app.example} in Node and are
      * reported off-origin here. Recorded, not implemented: it over-flags, and nothing in the corpus
-     * generates a non-ASCII host — {@code url()} replaces every code point above U+00FF with a literal
-     * {@code ?} long before the oracle sees it (F15d).
+     * generates a non-ASCII host — since R12 {@code url()} UTF-8 percent-encodes every non-ASCII code
+     * point (it no longer collapses them to a literal {@code ?}), so a non-ASCII host reaches the
+     * oracle as {@code %XX} bytes rather than as raw characters.
      */
     @Test
     public void hostsAreNotIdnaMapped() {

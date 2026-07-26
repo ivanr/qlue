@@ -1,5 +1,6 @@
 package com.webkreator.qlue.view.canoe.corpus;
 
+import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.view.canoe.CanoeTestSupport;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -130,33 +131,47 @@ public class CanoeCorpusTest {
     }
 
     /**
-     * The three verdicts the first review of this corpus found wrong. Each is safe only by accident
-     * of how {@code url()} escapes one character, so each is pinned with the reason: if the encoder
-     * changes, these flip, and the ledger must be revisited rather than quietly following along.
+     * The off-site vectors {@code url()} neutralises — <strong>by design since R12</strong>, where
+     * they used to be safe by accident of the old allowlist. Each is pinned by rendering it through
+     * {@code url()} and confirming the result with the URL oracle, so the neutralisation is asserted
+     * as a property of the encoder rather than of a string somebody wrote down.
+     *
+     * <p>Before R12 the plan flagged these as "safe by luck": {@code url()} happened to escape the
+     * one character that mattered. R12 makes the escaping deliberate — the authority safe set excludes
+     * {@code @}, the path safe sets exclude {@code \}, and a scheme off the {http, https, mailto}
+     * allowlist is rejected outright — so the reason is now the design and not the accident. The one
+     * accident R12 did <em>not</em> preserve is the case-sensitive scheme regex: an uppercase scheme
+     * is normalised now, so it is a real off-origin URL, and this test records that flip rather than
+     * pretending the neutralisation survived.
      */
     @Test
-    public void urlEncodingAccidentsThatMakeOffsiteVectorsSafe() {
-        // '@' escaped to %40 puts a forbidden code point inside the host: the URL fails to parse.
+    public void urlNeutralisesOffsiteVectorsByDesign() {
+        // A rejected scheme is suppressed to the empty string - the allowlist, by design.
+        assertEquals("", HtmlEncoder.url("javascript:alert(1)"));
+        assertFalse(VerdictEvaluator.analyseUrl(HtmlEncoder.url("javascript:alert(1)")).isDangerous());
+        assertTrue(VerdictEvaluator.analyseUrl("javascript:alert(1)").isDangerous());
+
+        // Userinfo '@' is escaped in the authority, so a trusted-looking prefix cannot smuggle the
+        // authority off-origin: the '%40' is a forbidden host code point and the URL fails to parse.
+        assertEquals("https://trusted.example%40attacker.invalid/x.js",
+                HtmlEncoder.url("https://trusted.example@attacker.invalid/x.js"));
         assertFalse(VerdictEvaluator.analyseUrl(
-                "https://trusted.example%40attacker.invalid/x.js").isDangerous());
-        // ...whereas an unescaped '@' really would reach the attacker host.
+                HtmlEncoder.url("https://trusted.example@attacker.invalid/x.js")).isDangerous());
         assertTrue(VerdictEvaluator.analyseUrl(
                 "https://trusted.example@attacker.invalid/x.js").isDangerous());
 
-        // '\' escaped to %5C stays a same-origin path; no browser un-escapes it to a separator.
-        assertFalse(VerdictEvaluator.analyseUrl("/%5Cattacker.invalid/x.js").isDangerous());
+        // A backslash is percent-encoded, so the Windows-style protocol-relative form stays a
+        // same-origin path; no browser un-escapes '%5C' back into a separator.
+        assertEquals("/%5Cattacker.invalid/x.js", HtmlEncoder.url("/\\attacker.invalid/x.js"));
+        assertFalse(VerdictEvaluator.analyseUrl(
+                HtmlEncoder.url("/\\attacker.invalid/x.js")).isDangerous());
         assertTrue(VerdictEvaluator.analyseUrl("//attacker.invalid/x.js").isDangerous());
 
-        // The scheme regex is case-sensitive, so HTTPS: is escaped and the result is relative.
-        assertFalse(VerdictEvaluator.analyseUrl("HTTPS%3A//attacker.invalid/x.js").isDangerous());
-        assertTrue(VerdictEvaluator.analyseUrl("HTTPS://attacker.invalid/x.js").isDangerous());
-
-        // html() renders C0 controls as the four literal characters \xNN, and a backslash is not a
-        // valid scheme character, so a tab-split javascript: URL becomes a relative path.
-        assertFalse(VerdictEvaluator.analyseUrl("java\\x09script:alert(1)").isDangerous());
-        assertTrue(VerdictEvaluator.analyseUrl("javascript:alert(1)").isDangerous());
-        // Leading whitespace, by contrast, really is trimmed by browsers before scheme detection.
-        assertTrue(VerdictEvaluator.analyseUrl("  javascript:alert(1)").isDangerous());
+        // The accident R12 removed: an uppercase scheme is normalised and passes through now, so it
+        // is a genuine off-origin URL. url() does not neutralise it - R9's origin filter will.
+        assertEquals("https://attacker.invalid/x.js", HtmlEncoder.url("HTTPS://attacker.invalid/x.js"));
+        assertTrue(VerdictEvaluator.analyseUrl(
+                HtmlEncoder.url("HTTPS://attacker.invalid/x.js")).isDangerous());
     }
 
     /**

@@ -183,12 +183,14 @@ public class UrlSinkTest {
      * <pre>{@code <script src="$cdnBase/app.js"></script>}</pre>
      *
      * <p>with {@code cdnBase = //attacker.invalid} passes through <em>byte for byte</em> — every
-     * character of a protocol-relative URL is on {@code url()}'s allowlist — and the result is
+     * character of a protocol-relative URL is legal in an authority, so {@code url()} parses it and
+ * re-emits it unchanged — and the result is
      * attacker-controlled JavaScript executing with the page's full privileges.
      *
      * <p>The assertion is on the jsoup-decoded attribute value rather than on Canoe's output, which is
      * the distinction the whole review turns on. It also asserts the negative: the same template with
-     * a {@code javascript:} payload really is neutralised, because {@code url()} escapes the colon.
+     * a {@code javascript:} payload really is neutralised, because since R12 {@code url()} rejects a
+ * scheme off its {http, https, mailto} allowlist to the empty string.
      * Without that half the test would read as "url() does nothing", and {@code url()} is a scheme
      * filter that works — it is an origin filter that does not exist.
      */
@@ -199,9 +201,9 @@ public class UrlSinkTest {
         String decoded = CanoeTestSupport.render(template, "//attacker.invalid")
                 .decodedAttr("script", "src");
         assertEquals("//attacker.invalid/app.js", decoded,
-                "F6: every character of a protocol-relative URL is on url()'s allowlist"
-                        + " (a-zA-Z0-9 / . - # ? =), so the value reaches the src attribute"
-                        + " unmodified and the browser loads the attacker's script");
+                "F6: every character of a protocol-relative URL is legal in an authority, so the"
+                        + " value reaches the src attribute unmodified and the browser loads the"
+                        + " attacker's script");
         assertTrue(VerdictEvaluator.analyseUrl(decoded).isDangerous(),
                 "...and the URL oracle, which follows the WHATWG parser, agrees that it leaves the"
                         + " page's origin");
@@ -209,16 +211,19 @@ public class UrlSinkTest {
         String absolute = CanoeTestSupport.render(template, "https://attacker.invalid")
                 .decodedAttr("script", "src");
         assertEquals("https://attacker.invalid/app.js", absolute,
-                "F6: the regex ^(https?://)([^/]+)(/.*)?$ emits the scheme verbatim and the host"
-                        + " survives because '.' and '-' are allowed");
+                "F6: R12 parses the URL and re-emits the scheme from its {http,https,mailto}"
+                        + " allowlist, and the off-origin host survives because it is a valid host");
 
-        // The half that works, so the finding is not read as "url() does nothing".
+        // The half that works, so the finding is not read as "url() does nothing". Since R12 a
+        // rejected scheme is suppressed rather than colon-escaped: url() emits nothing, so the src
+        // falls back to the template's own '/app.js'.
         String script = CanoeTestSupport.render(template, "javascript:alert(1)")
                 .decodedAttr("script", "src");
         assertFalse(script.contains("javascript:"),
-                () -> "url() must percent-escape the colon, leaving a relative path. Got: " + script);
-        assertTrue(script.startsWith("javascript%3A"),
-                () -> "...and specifically as %3A. Got: " + script);
+                () -> "url() must neutralise the scheme, leaving no javascript: URL. Got: " + script);
+        assertEquals("/app.js", script,
+                () -> "R12: javascript: is off the allowlist, so url() rejects it to the empty string"
+                        + " and only the template's literal '/app.js' remains. Got: " + script);
         assertFalse(VerdictEvaluator.analyseUrl(script).isDangerous());
     }
 
@@ -240,12 +245,14 @@ public class UrlSinkTest {
         assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<em dynsrc=\""));
         assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<div background=\""));
 
-        // The one consequence a template author would notice: url() mangles a plain-text value that
-        // html() would have round-tripped. F15 catalogues the five ways.
-        assertEquals("<div background=\"a%20b%26c\">x</div>",
+        // The one consequence a template author would notice: url() percent-escapes a plain-text
+        // value that html() would have round-tripped. Since R12 a space becomes %20 and an '&'
+        // becomes &amp; (url() is the terminal encoder, so it HTML-encodes the ampersand rather than
+        // leaving a raw one that could start an entity), which is inert but not what the author typed.
+        assertEquals("<div background=\"a%20b&amp;c\">x</div>",
                 CanoeTestSupport.render("<div background=\"$data\">x</div>", "a b&c").output(),
-                "url()'s allowlist has no space and no '&' (F15b), so a value that happens to sit in"
-                        + " an attribute Canoe thinks is a URL is percent-escaped whatever the"
+                "url() percent-escapes the space and emits '&' as &amp;, so a value that happens to"
+                        + " sit in an attribute Canoe thinks is a URL is transformed whatever the"
                         + " element is");
     }
 

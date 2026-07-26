@@ -224,12 +224,12 @@ public class DomEquivalenceTest {
         // by R4); css.style-with-property / CSS_OVERLAY (F4, closed by R2); markup.srcdoc /
         // SRCDOC_MARKUP, url.xlink-href / JS_URL and refresh.meta-content / META_REFRESH (F3,
         // closed by R5, R6 and R7 - srcdoc and content suppress now, and xlink:href reaches url(),
-        // which escapes the colon of a javascript: URL).
+        // which since R12 rejects a javascript: URL to the empty string).
         assertBlindTo("url.script-src-prefix", Payloads.PROTOCOL_RELATIVE,
                 "F6: a protocol-relative script source that loads the attacker's JavaScript with"
                         + " full page privileges is still one src attribute on one <script>");
         assertBlindTo("url.href-full", Payloads.ABSOLUTE_OFFSITE_HTTPS,
-                "F6: url() emits the scheme of an absolute URL verbatim, so an off-origin"
+                "F6: https is on url()'s scheme allowlist, so an off-origin"
                         + " navigation target is still one href attribute on one <a>");
         assertBlindTo("url.base-href", Payloads.BASE_HIJACK,
                 "F6: <base href> retargets every relative URL on the rest of the page, and the"

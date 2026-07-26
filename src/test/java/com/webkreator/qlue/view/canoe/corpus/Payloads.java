@@ -180,7 +180,8 @@ public final class Payloads {
 
     public static final Payload PROTOCOL_RELATIVE = payload("PROTOCOL_RELATIVE", "slashes",
             "//" + SENTINEL_HOST + "/x.js",
-            "off-origin resource loading with no scheme - every character is on url()'s allowlist");
+            "off-origin resource loading with no scheme - every character of it is legal in an"
+                    + " authority, so url() emits it unchanged");
 
     public static final Payload PROTOCOL_RELATIVE_BACKSLASH = payload("PROTOCOL_RELATIVE", "backslash",
             "/\\" + SENTINEL_HOST + "/x.js",
@@ -200,11 +201,14 @@ public final class Payloads {
 
     public static final Payload ABSOLUTE_OFFSITE_HTTPS = payload("ABSOLUTE_OFFSITE", "https",
             "https://" + SENTINEL_HOST + "/x.js",
-            "off-origin resource loading - url() emits the scheme verbatim");
+            "off-origin resource loading - https is on url()'s scheme allowlist, so the URL and its"
+                    + " off-origin host survive the parse intact");
 
     public static final Payload ABSOLUTE_OFFSITE_UPPERCASE = payload("ABSOLUTE_OFFSITE", "uppercase-scheme",
             "HTTPS://" + SENTINEL_HOST + "/x.js",
-            "the case-sensitive scheme regex, which does not match this and so escapes the colon");
+            "an uppercase scheme, which schemes being case-insensitive makes exactly as off-origin"
+                    + " as its lowercase sibling. The old case-sensitive regex missed it and escaped"
+                    + " the colon by accident; R12 normalises it, so this is KNOWN_VULNERABLE/F6 now");
 
     public static final Payload ABSOLUTE_OFFSITE_USERINFO = payload("ABSOLUTE_OFFSITE", "userinfo",
             "https://trusted.example@" + SENTINEL_HOST + "/x.js",

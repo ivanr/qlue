@@ -231,7 +231,7 @@ public class ScriptAndStyleElementTest {
         String rendered = CanoeTestSupport.render(
                 "<script>x=1;</scriptfoo><a href=\"$data\">y</a>", "location=/x/").output();
         assertTrue(rendered.contains("location=/x/"),
-                () -> "url()'s allowlist is a-zA-Z0-9 / . - # ? = , so these twelve characters pass"
+                () -> "url()'s path safe set keeps '/' and '=', so these twelve characters pass"
                         + " through naked where htmlWhite() would have escaped the '=' and the '/'."
                         + " Rendered: " + rendered);
 

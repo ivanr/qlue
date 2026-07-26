@@ -73,7 +73,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>The two claims are kept apart rather than merged. The corpus sweep is still worth running:
  * it is what would notice a <em>second</em> steering mechanism appearing in a shape somebody
- * actually writes. {@link #onlyTheUriContextCanEmitARawColon} is the bound on the first one.
+ * actually writes. {@link #theOnlyRawColonAnyEncoderEmitsIsAnAllowlistedSchemeSeparator} is the
+ * bound on the first one, tightened by R11 and R12.
  *
  * <h2>Why this is the test that gates the remediation</h2>
  *
@@ -235,12 +236,14 @@ public class ParserSteeringTest {
         String template = "<a href=\"$base$path\">x</a>";
         String attack = "@attacker.invalid/x";
 
-        // Step 1: url() still passes the scheme prefix through with its colon. R11 is what changes
-        // this, and until it lands the mitigation below is what stands between it and the sink.
+        // Step 1: url() still emits a colon for an absolute allowlisted-scheme URL - but since R11
+        // and R12 it emits it from the parse (an http/https/mailto scheme) rather than by copying a
+        // matched prefix out of the input, and at a fixed position behind a scheme name that
+        // detectAttributePrefix() matches none of. The colon is no longer the F24 hazard it was.
         assertEquals("https://app.example", HtmlEncoder.url("https://app.example"),
-                "F24's mechanism: uriPattern matches, and group 1 is appended unencoded");
+                "R12: an allowlisted scheme is emitted from the parse, colon included");
         assertTrue(HtmlEncoder.url("https://app.example").indexOf(':') >= 0,
-                "F24 needed a raw colon in encoder output, and this is still where it comes from");
+                "the colon is still here, now behind an allowlisted scheme rather than copied");
 
         // Step 2: the colon no longer moves the context at the second reference.
         List<Integer> withScheme = steer(template, model("https://app.example", attack)).contexts;
@@ -283,58 +286,86 @@ public class ParserSteeringTest {
     }
 
     /**
-     * The bound on F24: {@code CTX_URI} is the only context whose encoder can emit a raw colon.
+     * The bound on F24, restated for R11 and R12: the only raw colon any encoder can emit sits
+     * immediately behind an allowlisted scheme name.
      *
-     * <p>A finding with no boundary gets re-litigated, and this one has a sharp boundary that is a
-     * property of five functions rather than of the templates anybody tried. {@code html()} and
-     * {@code htmlWhite()} render {@code :} as {@code &#58;}; {@code CTX_JS} and {@code CTX_CSS}
-     * emit nothing; only {@code url()}'s {@code uriPattern} passthrough produces one. So F24 needs
-     * a URL-bearing attribute holding two references, and cannot be reached from a plain-text
-     * attribute, from body text, or from a handler.
+     * <p>{@code html()} and {@code htmlWhite()} render {@code :} as {@code &#58;}; {@code CTX_JS} and
+     * {@code CTX_CSS} emit nothing; so no context but {@code CTX_URI} produces a colon at all, which
+     * is the first half of the property and is asserted below over the other five contexts.
      *
-     * <p>It is also the test that fails if somebody "fixes" F15 by relaxing {@code url()}, or
-     * enables the commented-out {@code css()} encoder — either of which could put a colon somewhere
-     * new and widen the finding without anyone connecting the two changes.
+     * <p>The literal "no context can emit a raw colon" that R11's plan text asks for is not reachable
+     * while an absolute {@code http(s)} URL is allowed to survive — and it must, or
+     * {@code <a href="$absoluteUrl">} breaks, and F6's off-origin rows would read SAFE, which R9 (not
+     * R12) owns. So the achievable and equivalent property is stronger where it counts: {@code url()}
+     * emits a colon <em>only</em> as the separator of an {@code http}, {@code https} or {@code mailto}
+     * scheme, from its own parse rather than copied out of the input. A rejected scheme
+     * ({@code javascript:}, {@code data:}, {@code vbscript:}) emits nothing, and a colon anywhere but
+     * a scheme separator — in a relative path, a homoglyph — is percent-escaped. That is what closes
+     * F24 by design: after R2 a colon cannot steer at all, and after R12 the only colon that reaches
+     * the value scan is one behind a scheme name that {@code detectAttributePrefix()} matches none of.
+     *
+     * <p>It is also the test that fails if somebody widens the scheme allowlist or enables the
+     * commented-out {@code css()} encoder — either of which could put a colon somewhere new.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("everyPayload")
-    public void onlyTheUriContextCanEmitARawColon(Payload payload) {
-        int[] contexts = {Canoe.CTX_HTML, Canoe.CTX_HTML_ATTR, Canoe.CTX_JS, Canoe.CTX_CSS,
+    public void theOnlyRawColonAnyEncoderEmitsIsAnAllowlistedSchemeSeparator(Payload payload) {
+        int[] colonlessContexts = {Canoe.CTX_HTML, Canoe.CTX_HTML_ATTR, Canoe.CTX_JS, Canoe.CTX_CSS,
                 Canoe.CTX_SUPPRESS};
-
-        for (int context : contexts) {
+        for (int context : colonlessContexts) {
             String encoded = Canoe.encode(payload.value(), context);
             assertEquals(-1, encoded.indexOf(':'),
-                    () -> "F24 would widen: encode(" + payload.id() + ", "
-                            + CanoeTestSupport.contextName(context) + ") emitted a raw colon, which"
-                            + " re-runs detectAttributePrefix() over whatever is in the buffer: "
+                    () -> "no context but CTX_URI may emit a colon: encode(" + payload.id() + ", "
+                            + CanoeTestSupport.contextName(context) + ") = "
                             + CanoeTestSupport.quote(encoded));
+        }
+
+        // A colon in scheme position - before the first '/', '?' or '#' - must be an allowlisted
+        // scheme separator. A colon after one of those is in a path, query or fragment, where it is
+        // not scheme-like and cannot be read as a prefix delimiter.
+        String url = Canoe.encode(payload.value(), Canoe.CTX_URI);
+        int firstDelimiter = url.length();
+        for (int i = 0; i < url.length(); i++) {
+            char c = url.charAt(i);
+            if (c == ':' || c == '/' || c == '?' || c == '#') {
+                firstDelimiter = i;
+                break;
+            }
+        }
+        if (firstDelimiter < url.length() && url.charAt(firstDelimiter) == ':') {
+            String scheme = url.substring(0, firstDelimiter);
+            assertTrue(scheme.equals("http") || scheme.equals("https") || scheme.equals("mailto"),
+                    () -> "the only colon url() may emit in scheme position is an allowlisted scheme"
+                            + " separator, but encode(" + payload.id() + ", CTX_URI) = "
+                            + CanoeTestSupport.quote(url) + " put one after " + scheme
+                            + ". detectAttributePrefix() matches none of http/https/mailto, so such a"
+                            + " colon cannot steer; any other scheme-position colon is a new hazard.");
         }
     }
 
     /**
-     * ...and in {@code CTX_URI} a colon survives only behind a lowercase {@code http://} or
-     * {@code https://}, which is what makes the finding's precondition checkable.
+     * ...and in {@code CTX_URI} a colon survives only behind an allowlisted scheme, case-insensitively.
      *
-     * <p>The uppercase row is the one worth having: {@code uriPattern} is case-sensitive, so
-     * {@code HTTPS://X} does <em>not</em> match, the colon is percent-encoded, and no steering
-     * happens. That is F15's family of accidents doing useful work again, and it is the reason the
-     * finding is rated where it is rather than higher.
+     * <p>R12 normalises an uppercase scheme rather than escaping its colon by accident, so
+     * {@code HTTPS://X} keeps its colon now — correctly, because it is a real off-origin URL (F6). A
+     * scheme off the allowlist keeps no colon at all: it is rejected to the empty string.
      */
     @Test
-    public void inTheUriContextOnlyALowercaseSchemePrefixKeepsItsColon() {
+    public void inTheUriContextOnlyAnAllowlistedSchemeKeepsItsColon() {
         assertEquals("https://app.example/a", HtmlEncoder.url("https://app.example/a"));
         assertEquals("http://app.example/a", HtmlEncoder.url("http://app.example/a"));
+        assertEquals("mailto:a@app.example", HtmlEncoder.url("mailto:a@app.example"));
 
-        assertEquals(-1, HtmlEncoder.url("HTTPS://app.example/a").indexOf(':'),
-                "uriPattern is case-sensitive, so an uppercase scheme is percent-encoded and cannot"
-                        + " steer anything");
+        assertTrue(HtmlEncoder.url("HTTPS://app.example/a").startsWith("https:"),
+                "R12 normalises an uppercase scheme; the colon is kept because the URL is real");
         assertEquals(-1, HtmlEncoder.url("javascript:alert(1)").indexOf(':'),
-                "and a scheme that is not http(s) never reaches the passthrough at all");
+                "a rejected scheme is suppressed to the empty string, so no colon");
         assertEquals(-1, HtmlEncoder.url("ftp://app.example/a").indexOf(':'),
-                "nor does any other scheme");
+                "nor does any other off-allowlist scheme keep one");
         assertEquals(-1, HtmlEncoder.url("//app.example/a").indexOf(':'),
                 "a protocol-relative URL has no colon to begin with");
+        assertEquals(-1, HtmlEncoder.url("a:b").indexOf(':'),
+                "and a colon in a bare relative reference is escaped, not kept");
     }
 
     private static Map<String, Object> model(String base, String path) {

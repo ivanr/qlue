@@ -188,6 +188,13 @@ jacocoTestReport {
  * plain-text prefix families, the application allowlist and its validation. The missed count is 11,
  * and for the first time since this comment was written none of the eleven is a finding.
  * R27 still owns the final reconciliation; there is materially less left for it to do.
+ * RE-MEASURED after R11 and R12 (delete the uriPattern passthrough; rewrite url() to parse the URL
+ * and encode each component per byte). Canoe is untouched - the rewrite is entirely inside
+ * HtmlEncoder - and HtmlEncoder went from 171/172 to 230/232 branches: url() grew from one allowlist
+ * loop into a scheme check, a component splitter (appendHierPart) and a per-byte encoder
+ * (appendEncoded), all reachable and exercised by HtmlEncoderUrlTest except the one short-circuit
+ * outcome inventoried below. The HtmlEncoder floor rose 0.99->0.99 unchanged (99.14% against it, one
+ * more missed branch would be 98.71%).
  *
  *   Canoe                             265 / 276 branches   96.01%   (was 247 / 259, 95.37%)
  *     setTagAttributeContext()          8 /   8           100.00%   (was 17 / 18, 94.44%)
@@ -203,7 +210,8 @@ jacocoTestReport {
  *     currentContext()                 10 /  12            83.33%   (was 9 / 11; the ATTR_UNKNOWN
  *                                                                    arm is reached)
  *     inBuf()                           0 /   4             0.00%
- *   HtmlEncoder                       171 / 172 branches   99.42%
+ *   HtmlEncoder                       230 / 232 branches   99.14%   (was 171 / 172, 99.42%; R11+R12
+ *                                                                    rewrote url())
  *
  * bufferedNameIs() is gone: R5 replaced the exact-name comparisons with set lookups of the buffered
  * name, which reads exactly the characters the current name wrote and is bounded in the same sense.
@@ -270,10 +278,21 @@ jacocoTestReport {
  *   inBuf(), 4 outcomes  (not gated individually; part of the class figure)
  *      4  the method is called only from commented-out debug statements (Canoe.java:957, 1056).
  *
- *   HtmlEncoder, 1 outcome
- *      1  the null guard of the private css(String, StringBuilder) (HtmlEncoder.java:256-258). The
- *         public css(String) returns null before calling it and nothing else calls it.
+ *   HtmlEncoder, 2 outcomes
+ *      1  the null guard of the private css(String, StringBuilder). The public css(String) returns
+ *         null before calling it and nothing else calls it.
  *         -> HtmlEncoderTest.theAppendingOverloadsAppendNothingForNull says so in its javadoc.
+ *      1  the second half of appendHierPart()'s fragment guard, `i < s.length() && s.charAt(i) == '#'`
+ *         (HtmlEncoder.java:321). Introduced by R12's url() rewrite. The query block above sets `i`
+ *         to either the '#' that begins the fragment or the end of the string, so whenever
+ *         `i < s.length()` holds the character there is always '#'; JaCoCo counts the '#' comparison's
+ *         false outcome, which the control flow cannot reach.
+ *         -> HtmlEncoderUrlTest.aFullHierarchyIsSplitIntoItsComponents and .theAuthorityStopsAtThe
+ *            FirstQueryOrFragment reach every fragment/no-fragment path there is.
+ *
+ *   R11 deleted the non-final `uriPattern` field (the last non-final static in either class), and R12
+ *   replaced the private url(String, StringBuilder) worker with appendHierPart()/appendEncoded(),
+ *   both fully covered by HtmlEncoderUrlTest bar the one short-circuit outcome above.
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.96],

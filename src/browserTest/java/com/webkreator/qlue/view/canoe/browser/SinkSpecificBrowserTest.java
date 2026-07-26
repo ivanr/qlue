@@ -103,17 +103,17 @@ public class SinkSpecificBrowserTest extends BrowserTestBase {
      * that never sees a user can still be attacked by any script that calls {@code click()} on a
      * link the attacker supplied the href for.
      *
-     * <p>R6 puts {@code xlink:href} on the URL list, so {@code url()} percent-escapes the scheme
-     * colon and the click navigates to a relative path on the page's own origin instead of
-     * compiling a script.
+     * <p>R6 puts {@code xlink:href} on the URL list, and since R12 {@code url()} rejects a scheme off
+     * its {http, https, mailto} allowlist to the empty string — so the {@code javascript:} URL is
+     * suppressed outright and the click navigates nowhere instead of compiling a script.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
     public void anSvgXlinkHrefClickNoLongerRunsAJavascriptUrl(BrowserEngine engine) {
         Rendered rendered = render("url.xlink-href", Payloads.JS_URL);
-        assertEquals(Verdict.SAFE, rendered.verdict);
+        assertEquals(Verdict.SUPPRESSED_BY_DESIGN, rendered.verdict);
         assertFalse(rendered.html.contains("javascript:"),
-                "R6: url() must have escaped the scheme colon: " + rendered.html);
+                "R12: url() must have rejected the scheme, emitting nothing: " + rendered.html);
 
         runCase(engine, "sink.xlink-href", rendered.html,
                 page -> page.evaluate(
@@ -163,21 +163,21 @@ public class SinkSpecificBrowserTest extends BrowserTestBase {
      * <p>New with R5+R6, and it is the browser-side half of the largest routing change in the phase.
      * {@code formaction} was {@code html()}-encoded, so the HTML parser handed the URL parser the
      * attacker's characters back and submitting the form ran their script with the page's
-     * privileges; it is {@code url()}-encoded now and the colon arrives as {@code %3A}, which makes
-     * the value a relative path.
+     * privileges; it is {@code url()}-encoded now, and since R12 a scheme off the allowlist is
+     * rejected outright, so {@code formaction} renders empty and submitting the form posts to the
+     * page's own URL.
      *
-     * <p>Worth a bespoke test rather than a corpus row because the corpus row is
-     * {@link Verdict#SAFE} and a SAFE row is loaded at most once, as a control, with no assertion
-     * about <em>why</em> it stayed quiet. This asserts the mechanism: the form is actually
-     * submitted, and nothing runs.
+     * <p>Worth a bespoke test rather than a corpus row because the corpus row is a suppression and a
+     * suppressed row is loaded at most once, as a control, with no assertion about <em>why</em> it
+     * stayed quiet. This asserts the mechanism: the form is actually submitted, and nothing runs.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
     public void aFormactionJavascriptUrlNoLongerRunsOnSubmit(BrowserEngine engine) {
         Rendered rendered = render("url.formaction", Payloads.JS_URL);
-        assertEquals(Verdict.SAFE, rendered.verdict);
+        assertEquals(Verdict.SUPPRESSED_BY_DESIGN, rendered.verdict);
         assertFalse(rendered.html.contains("javascript:"),
-                "R6: url() must have escaped the scheme colon: " + rendered.html);
+                "R12: url() must have rejected the scheme, emitting nothing: " + rendered.html);
 
         BrowserVerdict verdict = runCase(engine, "sink.formaction", rendered.html,
                 fullInteraction());

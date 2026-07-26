@@ -76,25 +76,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The first run of this file failed property 4, on the template {@code <a href="${data}} against
  * {@code ABSOLUTE_OFFSITE/userinfo}: the contexts were
  * {@code [CTX_URI, CTX_URI]} for the marker and {@code [CTX_URI, CTX_HTML_ATTR]} for the payload.
- * That is <strong>F24</strong>, and it is the first counterexample anyone has produced to the
- * review's corollary that attacker data can never steer the parser. {@code HtmlEncoder.url()} copies
- * a matched {@code http://} or {@code https://} prefix into the output with its colon intact,
- * Canoe's value scan treats that colon as a prefix delimiter, and every later reference in the same
- * attribute value drops from {@code url()} to {@code html()}. The finding, its consequence and the
- * exploit shape are in {@code ParserSteeringTest}; the mechanism is characterised here in
- * {@link #isTheKnownColonSteering}, which is what keeps this file green without hiding it. 94 of
- * the 10,000 pairs in the pinned run reach it, and the run asserts that count is non-zero so the
- * exemption cannot quietly stop being evidenced.
+ * That is <strong>F24</strong>, and it was the first counterexample anyone had produced to the
+ * review's corollary that attacker data can never steer the parser. The old {@code HtmlEncoder.url()}
+ * copied a matched {@code http://} or {@code https://} prefix into the output with its colon intact,
+ * Canoe's value scan treated that colon as a prefix delimiter, and every later reference in the same
+ * attribute value dropped from {@code url()} to {@code html()}.
  *
- * <p><strong>R2 mitigated it without removing it, and the exemption is deliberately left in
- * place.</strong> {@code detectAttributePrefix()} no longer assigns anything when no prefix matches,
- * so the raw colon no longer moves any context and property 4 would hold over these pairs with the
- * exemption deleted. The colon itself is still emitted — that is F24's root cause and R11's job — so
- * the count this run asserts is still non-zero, and it is still counting exactly what it says it
- * counts: pairs that put a raw colon into a URL attribute. Deleting the exemption is R11's step, per
- * its "Done when", and doing it here would make this file green for a reason nobody had measured.
+ * <p><strong>R2, R11 and R12 closed it, and the exemption is gone.</strong> R2 made
+ * {@code detectAttributePrefix()} narrow-only, so no colon could steer; R11 deleted the prefix
+ * passthrough and R12 rewrote {@code url()} to emit a colon only as an allowlisted scheme separator,
+ * from its parse, never copied from the input. Property 4 now holds outright, so the
+ * {@code isTheKnownColonSteering} exemption {@code check()} used to carry is removed, and the run
+ * asserts that the number of pairs steering the parser via a colon is <strong>zero</strong> rather
+ * than non-zero. That is the "Done when" for R11 stated as a measurement: a raw colon still appears
+ * in the output of an absolute {@code https} URL, but it no longer moves any context, so counting
+ * colons is no longer counting steering.
  *
- * <p><strong>Nothing else.</strong> With that one mechanism characterised, no other violation of any
+ * <p><strong>Nothing else.</strong> With that one mechanism gone, no other violation of any
  * of the four properties appears — measured at 2,000 iterations x 5 payloads on the pinned seed, and
  * at 200,000 iterations x 5 payloads (one million pairs) on the pinned seed in a soak run on
  * 2026-07-26.
@@ -145,7 +143,7 @@ public class TemplateFuzzTest {
         Random random = new Random(SEED);
         List<Payload> catalogue = Payloads.all();
         int pairs = 0;
-        int knownColonSteerings = 0;
+        int colonSteerings = 0;
 
         for (int iteration = 0; iteration < ITERATIONS; iteration++) {
             List<String> fragments = generate(random);
@@ -153,8 +151,8 @@ public class TemplateFuzzTest {
             for (int p = 0; p < PAYLOADS_PER_TEMPLATE; p++) {
                 Payload payload = catalogue.get(random.nextInt(catalogue.size()));
                 pairs++;
-                if (exercisesF24(join(fragments), payload.value())) {
-                    knownColonSteerings++;
+                if (steersTheParserViaAColon(join(fragments), payload.value())) {
+                    colonSteerings++;
                 }
 
                 String violation = check(join(fragments), payload.value());
@@ -181,28 +179,33 @@ public class TemplateFuzzTest {
                 "every iteration must have been attacked with " + PAYLOADS_PER_TEMPLATE
                         + " payloads; a smaller number means the loop was short-circuited");
 
-        // The F24 exemption must be exercised, or it is an unexplained hole in property 4 that
-        // nothing would notice growing. Measured at 94 of the 10,000 pairs on the pinned seed.
-        assertTrue(knownColonSteerings > 0,
-                () -> "seed " + SEED + " never generated a pair that exercises F24's colon"
-                        + " steering, so isTheKnownColonSteering() is an exemption with no evidence"
-                        + " behind it. Either the generator stopped producing URL attributes or"
-                        + " url()'s scheme passthrough is gone - if the latter, F24 is fixed and"
-                        + " the exemption should be deleted.");
+        // R11's "Done when", as a measurement: F24 is closed, so no generated pair steers the parser
+        // via a colon. This used to assert the count was NON-zero, evidencing an exemption; the
+        // exemption is gone with the finding and the assertion is inverted.
+        assertEquals(0, colonSteerings,
+                "seed " + SEED + " generated a pair that steered the parser via a colon, which"
+                        + " R2, R11 and R12 were supposed to have made impossible. A raw colon that"
+                        + " moves a context is F24 back from the dead.");
     }
 
     /**
-     * Whether this pair is one of the F24 rows, asked separately so the count is honest.
-     *
-     * <p>Deliberately not folded into {@link #check}: a boolean returned from the oracle would
-     * count only the pairs that also diverged, and the interesting number is how many pairs put a
-     * raw colon into a URL attribute at all.
+     * Whether a colon in the attacked output actually <em>moved</em> the parser relative to the inert
+     * render — the thing R2, R11 and R12 abolished. A colon still appears in the output of an absolute
+     * {@code https} URL, so counting colons is not counting steering; this requires both a colon
+     * increase and a context divergence, which is exactly the F24 signature and is now never true.
      */
-    private static boolean exercisesF24(String template, String value) {
+    private static boolean steersTheParserViaAColon(String template, String value) {
+        ContextRecordingCanoe benignContexts = new ContextRecordingCanoe(new java.io.StringWriter());
+        ContextRecordingCanoe attackedContexts = new ContextRecordingCanoe(new java.io.StringWriter());
+        recordContexts(template, Payloads.INERT_MARKER.value(), benignContexts);
+        recordContexts(template, value, attackedContexts);
+        if (benignContexts.contexts().equals(attackedContexts.contexts())) {
+            return false;
+        }
         CanoeTestSupport.RenderResult benign =
                 CanoeTestSupport.render(template, Payloads.INERT_MARKER.value());
         CanoeTestSupport.RenderResult attacked = CanoeTestSupport.render(template, value);
-        return isTheKnownColonSteering(benign, attacked);
+        return count(attacked.output(), ':') > count(benign.output(), ':');
     }
 
     // ------------------------------------------------------------------
@@ -260,40 +263,16 @@ public class TemplateFuzzTest {
         attackedContexts = new ContextRecordingCanoe(new java.io.StringWriter());
         recordContexts(template, Payloads.INERT_MARKER.value(), benignContexts);
         recordContexts(template, value, attackedContexts);
-        if (!benignContexts.contexts().equals(attackedContexts.contexts())
-                && !isTheKnownColonSteering(benign, attacked)) {
+        if (!benignContexts.contexts().equals(attackedContexts.contexts())) {
+            // No exemption any more. R2 made detectAttributePrefix() narrow-only and R11/R12 stopped
+            // url() emitting a colon that is not an allowlisted scheme separator, so a divergence
+            // here is a real steering mechanism and belongs on the failure path - which is where F24
+            // used to be exempted from.
             return "the payload moved the parser: contexts " + benignContexts.contexts()
                     + " vs " + attackedContexts.contexts();
         }
 
         return null;
-    }
-
-    /**
-     * The one steering mechanism that is known, recorded and <strong>not</strong> a new
-     * counterexample: <strong>F24</strong>.
-     *
-     * <p>This test found it on its first run, at iteration 156 of the pinned seed. {@code
-     * HtmlEncoder.url()} matches its input against {@code uriPattern} and, on a match, copies the
-     * literal {@code http://} or {@code https://} prefix into the output <em>unencoded</em> — colon
-     * included. Canoe's attribute-value scan sees that colon, calls {@code detectAttributePrefix()},
-     * finds no recognised prefix, and assigns {@code ATTR_HTML}. Every later reference in the same
-     * attribute value is then {@code html()}-encoded instead of {@code url()}-encoded. So attacker
-     * data <em>can</em> steer the parser, which is the first counterexample to the review's
-     * corollary; see {@code ParserSteeringTest.attackerDataCanSteerTheAttributeContextByEmittingARaw}
-     * {@code Colon} for the finding and its consequence.
-     *
-     * <p>The signature is exact rather than a name-based exemption, and that is the point: a raw
-     * colon in the output is the <em>only</em> thing that can call {@code detectAttributePrefix()}
-     * from encoded data, and {@code url()}'s scheme passthrough is the only encoder path that emits
-     * one — {@code html()} and {@code htmlWhite()} render {@code :} as {@code &#58;}, and
-     * {@code CTX_JS}/{@code CTX_CSS} emit nothing at all. A steering divergence that does not come
-     * with a new raw colon is therefore a second mechanism, and this method sends it to the failure
-     * path where it belongs.
-     */
-    private static boolean isTheKnownColonSteering(CanoeTestSupport.RenderResult benign,
-                                                   CanoeTestSupport.RenderResult attacked) {
-        return count(attacked.output(), ':') > count(benign.output(), ':');
     }
 
     /**

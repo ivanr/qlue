@@ -424,7 +424,8 @@ public class HtmlEncoderTest {
         // ...and so is a following escape, because the backslash ends the previous one.
         assertEquals("'\\27\\27'", HtmlEncoder.css("''"));
 
-        // Above Latin-1 css() gives up entirely and emits a literal '?', exactly as url() does.
+        // Above Latin-1 css() gives up entirely and emits a literal '?'. url() used to do the same
+        // (F15d); R12 UTF-8 percent-encodes instead, so css() is the only encoder left that does it.
         assertEquals("'?'", HtmlEncoder.css(ch(0x100)));
         assertEquals("'?'", HtmlEncoder.css(new String(Character.toChars(0x1F600))));
         assertEquals("'\\FF'", HtmlEncoder.css(ch(0xff)), "Latin-1 is escaped one byte at a time");
@@ -571,11 +572,11 @@ public class HtmlEncoderTest {
      * is left untouched — and until T30 measured it, not one of these four null guards had ever been
      * evaluated as true. They are public API: {@code $_x} exposes this class to templates.
      *
-     * <p>Two appending overloads are absent and neither can be called from here. {@code url(String,
-     * StringBuilder)} is private, and its null guard is reached from inside {@code url(String)} — an
-     * absent third regex group — which is why it was already covered. {@code css(String,
-     * StringBuilder)} is private too, and its null guard is <em>unreachable</em>: the public
-     * {@code css(String)} returns null before calling it and nothing else calls it at all.
+     * <p>The appending {@code css(String, StringBuilder)} overload is absent here: it is private, and
+     * its null guard is <em>unreachable</em>, because the public {@code css(String)} returns null
+     * before calling it and nothing else calls it. R12 removed {@code url()}'s private appending
+     * overload entirely — the rewrite parses and re-emits per component rather than recursing through
+     * a {@code (String, StringBuilder)} worker — so there is no {@code url} null guard left to reach.
      */
     @Test
     public void theAppendingOverloadsAppendNothingForNull() {

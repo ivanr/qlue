@@ -514,14 +514,14 @@ public class VelocityIntegrationTest {
                 "R4: onmouseenter is classified by the on-prefix rule, so nothing is emitted and"
                         + " there is no payload for F12's double encoding to neutralise");
 
-        // R5+R6: and neither is the URL attribute the sink moved to. url() escapes the colon, so
-        // the direct path is inert without any help from F12.
+        // R5+R6: and neither is the URL attribute the sink moved to. Since R12 url() rejects the
+        // javascript: scheme outright, so the direct path is inert without any help from F12.
         String urlPayload = Payloads.JS_URL.value();
         CanoeTestSupport.RenderResult direct = CanoeTestSupport.render(
                 "<button formaction=\"$data\">go</button>", urlPayload);
         assertFalse(direct.decodedAttr("button", "formaction").contains("javascript:"),
-                () -> "R6: formaction is a URL name now, so url() percent-escapes the scheme colon"
-                        + " on the direct path. Decoded: "
+                () -> "R6: formaction is a URL name now, and R12 rejects an off-allowlist scheme"
+                        + " to the empty string on the direct path. Decoded: "
                         + direct.decodedAttr("button", "formaction"));
 
         // What remains, stated precisely rather than left as "the accident still helps somewhere".
@@ -541,12 +541,17 @@ public class VelocityIntegrationTest {
                         + " character references' own ampersands and the authority never survives."
                         + " Decoded: " + offOriginViaSet.decodedAttr("button", "formaction"));
         // ...asserted as the mechanism and not only as a difference, so that this half cannot pass
-        // for some later reason - a suppression, say - while F12 is quietly fixed underneath it.
-        assertTrue(offOriginViaSet.decodedAttr("button", "formaction").startsWith("%26#47%3B"),
+        // for some later reason - a suppression, say - while F12 is quietly fixed underneath it. The
+        // #set path html-encoded '/' to &#47; first, and R12's url() then re-encoded that string's
+        // ampersands to &amp; - so the leading '/' arrives as &#47; rather than as a separator, and
+        // the authority is gone.
+        String viaSet = offOriginViaSet.decodedAttr("button", "formaction");
+        assertTrue(viaSet.startsWith("&#47;"),
                 () -> "the value must be url() applied to html()'s output: '/' arrives as the"
-                        + " percent-escaped form of the character reference &#47;, which is what"
-                        + " double encoding looks like at a URL sink. Decoded: "
-                        + offOriginViaSet.decodedAttr("button", "formaction"));
+                        + " character reference &#47; whose ampersand url() re-encoded, which is what"
+                        + " double encoding looks like at a URL sink. Decoded: " + viaSet);
+        assertFalse(viaSet.contains("//attacker.invalid"),
+                () -> "and the authority did not survive the double encoding. Decoded: " + viaSet);
     }
 
     // ------------------------------------------------------------------

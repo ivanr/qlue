@@ -61,12 +61,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <h2>What it found</h2>
  *
- * <p>Nothing races, and one field is one keyword away from being able to:
- * {@code HtmlEncoder.uriPattern} is {@code private static Pattern} and <em>not</em> {@code final}.
- * A {@code Pattern} is immutable and thread-safe, and a {@code Matcher} is created per call, so
- * there is no defect today. It is recorded in {@link #everyStaticFieldIsFinalAndImmutable} rather
- * than in the review, because "nobody has assigned to it" is not a property a test can hold on to
- * and the fix is one keyword.
+ * <p>Nothing races. One field used to be one keyword away from being able to:
+ * {@code HtmlEncoder.uriPattern} was {@code private static Pattern} and <em>not</em> {@code final}.
+ * A {@code Pattern} is immutable and thread-safe and a {@code Matcher} is created per call, so there
+ * was no defect, but "nobody has assigned to it" is not a property a test can hold on to — which is
+ * why it was recorded in {@link #everyStaticFieldIsFinalAndImmutable} rather than in the review. R11
+ * deleted the field with the scheme passthrough it served, so the exemption that carried it is gone
+ * and every static field of either class is now {@code final} and of an immutable type.
  */
 public class ConcurrencyTest {
 
@@ -247,14 +248,18 @@ public class ConcurrencyTest {
      * pinning:
      *
      * <ul>
-     *   <li>{@code uriPattern} is a {@link java.util.regex.Pattern}, which is immutable and
-     *       explicitly documented as safe for concurrent use; the {@code Matcher} that carries the
-     *       per-call state is created inside {@code url()}. It is <strong>not declared final</strong>,
-     *       which is the one thing here worth changing — nothing assigns to it today, and "nothing
-     *       assigns to it today" is not a property.
+     *   <li>{@code uriPattern} was a {@link java.util.regex.Pattern} — immutable, and explicitly
+     *       documented as safe for concurrent use — but it was <strong>not declared final</strong>,
+     *       which was the one thing here worth changing: nothing assigned to it, and "nothing
+     *       assigns to it today" is not a property. <strong>R11 deleted the field</strong> with the
+     *       scheme passthrough it served, so the loop below no longer needs an exemption for it and
+     *       an exemption reappearing is a new non-final static rather than this one.
      *   <li>{@code hexDigits} is {@code static final char[]}, and an array reference being final
      *       says nothing about its contents. It is safe because nothing writes to it, which this
      *       test asserts by checking its contents rather than its modifiers.
+     *   <li>R12 added two statics of its own, {@code SCHEME} and {@code ALLOWED_SCHEMES}. The first
+     *       is a final {@code Pattern}; the second is a {@code Set.of(...)}, which the collection
+     *       branch below accepts only because adding to it throws.
      * </ul>
      *
      * <p>Everything else must be a primitive or {@link String} constant, or — since R5 and R6 — a
@@ -309,7 +314,7 @@ public class ConcurrencyTest {
                     problems.add(name + " is static and of mutable type " + field.getType().getName()
                             + ". One Canoe per render only helps if there is nothing behind it.");
                 }
-                if (!Modifier.isFinal(field.getModifiers()) && !"uriPattern".equals(field.getName())) {
+                if (!Modifier.isFinal(field.getModifiers())) {
                     problems.add(name + " is static and not final.");
                 }
             }
@@ -331,8 +336,9 @@ public class ConcurrencyTest {
                 "HtmlEncoder.hexDigits is a static array, so final says nothing about its contents;"
                         + " nothing may write to it");
         assertEquals("https://app.example/x", HtmlEncoder.url("https://app.example/x"),
-                "uriPattern still matches what F24 and F15 are about, so the exemption above is"
-                        + " still describing the field that exists");
+                "url()'s scheme allowlist and per-component encoding are what F24 and F15 are about;"
+                        + " R11 removed the non-final uriPattern field, so every static field the loop"
+                        + " above sees is now final and the former exemption is gone with it");
     }
 
     /**

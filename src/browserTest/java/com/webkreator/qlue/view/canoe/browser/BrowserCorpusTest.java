@@ -185,19 +185,21 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * <ul>
      *   <li>The <strong>unobservable count reaches zero</strong>. It was 18 and every one of those
      *       rows has been re-verdicted to a suppression: {@code url.action}, {@code url.formaction}
-     *       and {@code url.xlink-href}'s dead-scheme rows are SAFE under {@code url()} now,
+     *       and {@code url.xlink-href}'s dead-scheme rows are suppressions under {@code url()} now
+     *       (R12 rejects a scheme off the {http, https, mailto} allowlist to the empty string),
      *       {@code url.srcset}'s six are the same, and {@code policy.nonce}'s three went with F20.
      *       The corpus only permits the flag on a {@code KNOWN_VULNERABLE} row, so the axis is empty
      *       — see {@code CanoeCorpusTest.browserObservabilityIsOnlyClaimedWhereItChangesAnExpecta}
      *       {@code tion}, which now guards the machinery instead of counting users. Every row this
      *       tier still expects to fire is one a browser really acts on.
-     *   <li>The <strong>must-fire count is F6 and nothing else</strong>. Nineteen rows, all of them
-     *       an off-origin or protocol-relative URL reaching a sink {@code url()} passes through byte
-     *       for byte. That is the whole of what is left in the ledger, and it is the phase boundary
-     *       the plan draws after R7.
-     *   <li>The <strong>total falls to 63</strong>, which is the largest single drop and is
-     *       arithmetic rather than a loss of coverage: eleven cases stop contributing one page per
-     *       payload and contribute one control each instead.
+     *   <li>The <strong>must-fire count is F6 and nothing else</strong>. After R11 and R12 it is 28
+     *       rows rather than 19, all of them an off-origin or protocol-relative URL reaching a sink
+     *       {@code url()} passes through byte for byte — the nine extra are the uppercase-scheme
+     *       off-origin rows R12 stopped neutralising by accident (an uppercase scheme is normalised
+     *       now, so {@code HTTPS://attacker} is a real off-origin URL). That is the whole of what is
+     *       left in the ledger, and R9 still owns it.
+     *   <li>The <strong>total is 72</strong>: 63 after R7 plus those nine uppercase KNOWN_VULNERABLE
+     *       rows, which each earn a page load now that they are a live vector rather than a control.
      * </ul>
      */
     @Test
@@ -211,9 +213,9 @@ public class BrowserCorpusTest extends BrowserTestBase {
                 .count();
         long quiet = invocations.size() - mustFire;
 
-        assertEquals(63, invocations.size(), "browser-relevant invocation count");
+        assertEquals(72, invocations.size(), "browser-relevant invocation count");
         assertEquals(0, unobservable, "invocations flagged as not browser-observable");
-        assertEquals(19, mustFire, "invocations that must trip a detector");
+        assertEquals(28, mustFire, "invocations that must trip a detector");
         assertEquals(44, quiet, "invocations that must trip none");
     }
 

@@ -14,7 +14,8 @@ import java.util.Set;
  * reviewed verdict for each.
  *
  * <p>The verdict is per case <em>and payload</em>, not per case: {@code <a href="$data">} is safe
- * against {@code javascript:alert(1)} — {@code url()} escapes the colon — and vulnerable against
+ * against {@code javascript:alert(1)} — since R12 {@code url()} rejects the scheme to the empty
+ * string — and vulnerable against
  * {@code //attacker.invalid/x.js}, which passes through byte-for-byte. A single verdict per template
  * would have to round one of those off, and rounding off is how the F6 gap survived for fifteen
  * years.
