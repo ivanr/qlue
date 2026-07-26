@@ -166,18 +166,31 @@ jacocoTestReport {
  * and not on lines.
  *
  * MEASURED 2026-07-26, and the numbers below are the real ones rather than round figures.
- * RE-MEASURED after R2 (delete detectAttributePrefix()'s unconditional reset): every figure below is
+ * RE-MEASURED after R2 (delete detectAttributePrefix()'s unconditional reset): every figure was
  * unchanged, floors included. The line R2 removed was an assignment and not a condition, so it
  * carried no branch; and no branch became unreachable, because the method's five comparison chains
- * are entered and left exactly as before. R27 still owns the reconciliation after R4 and R5.
+ * were entered and left exactly as before.
+ * RE-MEASURED after R3 (compare value prefixes by length rather than by fixed buffer indices). The
+ * class total moved and no floor did. R3 replaced five hand-unrolled comparison chains - 88 branch
+ * outcomes, all reached - with five calls to one bounded string comparison, so the class lost 72
+ * branches it was covering and the ratio fell without a single outcome becoming unreached: the
+ * missed count is 37 before and after, and it is the same 37. R27 still owns the reconciliation
+ * after R4 and R5.
  *
- *   Canoe                        660 / 697 branches   94.69%
+ *   Canoe                        588 / 625 branches   94.08%   (was 660 / 697, 94.69%)
  *     setTagAttributeContext()   366 / 392            93.37%
  *     reallyProcessChar()        173 / 178            97.19%
- *     detectAttributePrefix()     88 /  88           100.00%
+ *     detectAttributePrefix()     10 /  10           100.00%   (was 88 / 88)
+ *     bufferedValueIs()            6 /   6           100.00%   (new in R3)
  *     currentContext()             9 /  11            81.82%
  *     inBuf()                      0 /   4             0.00%
  *   HtmlEncoder                  171 / 172 branches   99.42%
+ *
+ * The Canoe class floor of 0.94 now has roughly one branch of headroom (588/625 = 94.08%, and one
+ * further missed outcome would be 93.77%). That is deliberate and is the rule the comment below
+ * states working as intended: an outcome that stops being reached fails the gate immediately. It is
+ * left at 0.94 rather than raised to 0.94 exactly, because R4 and R5 delete most of
+ * setTagAttributeContext()'s 26 dead outcomes and R27 recomputes the whole set once they have.
  *
  * The plan (T30) asked for ~95% on the two named methods. setTagAttributeContext() cannot reach it
  * and the shortfall is not a testing gap: 26 of its 392 branch outcomes are unreachable by any
@@ -189,26 +202,26 @@ jacocoTestReport {
  * EXCLUDED, with the test that proves each one dead:
  *
  *   setTagAttributeContext(), 26 outcomes
- *     25  the onselect/onsubmit block (Canoe.java:514-531). It sits inside buf[0]=='o' &&
+ *     25  the onselect/onsubmit block (Canoe.java:536-552). It sits inside buf[0]=='o' &&
  *         buf[1]=='n' and then tests buf[0]=='s', so it cannot be entered. F1.
  *         -> CanoeStateMachineTest.everyDeclaredOnStarBranchNameIsClassified,
  *            CanoeStateMachineTest.onlyTwentyOneOfTheTwentyFourDeclaredOnStarBranchesCanBeTaken
- *      1  the `data` -> ATTR_URI chain (Canoe.java:304-308) is byte-identical to the `content`
+ *      1  the `data` -> ATTR_URI chain (Canoe.java:325-329) is byte-identical to the `content`
  *         chain above it, which returns first, so its terminator can never test true. F7.
  *         -> AttributeNameMatrixTest.theSourceDeclaresExactlyTheNonHandlerBranchesTheMatrixExpects
  *
  *   reallyProcessChar(), 5 outcomes
- *      1  the default arm of switch(state) (Canoe.java:595). Nineteen states have a case; the two
+ *      1  the default arm of switch(state) (Canoe.java:617). Nineteen states have a case; the two
  *         that do not are URL, which nothing ever assigns, and INVALID, which is only ever assigned
  *         immediately before raiseError() throws.
  *         -> AttributeNameMatrixTest.currentContextCanNeverReturnCtxCss (URL is dead),
  *            CanoeRobustnessTest (every raiseError message, each of which escapes)
- *      1  the default arm of switch(attrQuotes) (Canoe.java:888). attrQuotes is assigned exactly
- *         one of QUOTE_NONE/QUOTE_SINGLE/QUOTE_DOUBLE at Canoe.java:867-881 and nowhere else.
- *      1  "Internal error #1001" (Canoe.java:928). Value scanning gives up at bufLen == 10, so
+ *      1  the default arm of switch(attrQuotes) (Canoe.java:910). attrQuotes is assigned exactly
+ *         one of QUOTE_NONE/QUOTE_SINGLE/QUOTE_DOUBLE at Canoe.java:889-903 and nowhere else.
+ *      1  "Internal error #1001" (Canoe.java:951). Value scanning gives up at bufLen == 10, so
  *         bufLen can never equal buf.length.
  *         -> CanoeRobustnessTest.everyRaiseErrorMessageIsReached lists the twelve that are.
- *      2  UNMEASURABLE rather than unreached: Canoe.java:620 and Canoe.java:645, whose false
+ *      2  UNMEASURABLE rather than unreached: Canoe.java:633 and Canoe.java:656, whose false
  *         outcome enters a block that calls raiseError() and then falls through to `break` with no
  *         `return`. raiseError() always throws, so no JaCoCo probe downstream of those blocks is
  *         ever executed and the outcome is reported missed. Both are exercised:
@@ -222,7 +235,7 @@ jacocoTestReport {
  *      1  the inner `default:` - all seven ATTR_* constants have a case above it. F21.
  *
  *   inBuf(), 4 outcomes  (not gated individually; part of the class figure)
- *      4  the method is called only from commented-out debug statements (Canoe.java:712, 813).
+ *      4  the method is called only from commented-out debug statements (Canoe.java:734, 835).
  *
  *   HtmlEncoder, 1 outcome
  *      1  the null guard of the private css(String, StringBuilder) (HtmlEncoder.java:257). The

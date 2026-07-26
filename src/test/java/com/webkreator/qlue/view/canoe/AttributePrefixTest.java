@@ -28,10 +28,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * and only ever narrows it. Everything in this file that used to assert the reset now asserts its
  * absence — the tests were inverted rather than deleted, because they are the regression net for the
  * exact defect just fixed, and each carries its former name in its javadoc so the plan's
- * "Done when" list can still be traced to them. F5 is untouched and R3 owns it, but note that its
- * <em>consequence</em> moved: a missed prefix now falls back to the name-derived context rather than
- * to {@code ATTR_HTML}, so the same residue that used to produce {@code html()} now produces
- * {@code url()} in a {@code href} and suppression in a {@code style}.
+ * "Done when" list can still be traced to them.
+ *
+ * <p><strong>R3 has landed, and F5 is closed.</strong> The five value prefixes are compared as
+ * bounded strings against {@code bufLen} rather than through fixed buffer indices, and {@code buf} is
+ * cleared on every reuse. The F5 tables below are inverted the same way: same rows, same lengths,
+ * one outcome.
  *
  * <p>These assert on {@code attributeContext} — the {@code ATTR_*} value — rather than only on the
  * {@code CTX_*} it produces. That is the level the two functions actually work at, and it separates
@@ -41,25 +43,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code asfunction:}". {@code CanoeStateMachineTest} owns the context-level statements; this file
  * owns the mechanism.
  *
- * <p><strong>The one rule that explains almost everything here.</strong> Both functions confirm a
- * name or prefix ended by testing a fixed index for {@code '\0'}. Only two things ever write that
- * terminator, and neither is the value scan:
+ * <p><strong>The one rule that used to explain almost everything here.</strong> Both functions
+ * confirmed a name or prefix had ended by testing a fixed index for {@code '\0'}. Only two things
+ * ever write that terminator, and neither was the value scan:
  *
  * <ul>
  *   <li>a <em>tag name</em> of length L writes {@code buf[0..L-1]} and its terminator at
  *       {@code buf[L]};</li>
  *   <li>an <em>attribute name</em> of length L does the same;</li>
- *   <li>an attribute <em>value</em> writes {@code buf[0..9]} at most and never a terminator
- *       ({@code Canoe.java:933} has no counterpart to {@code Canoe.java:809}).</li>
+ *   <li>an attribute <em>value</em> writes {@code buf[0..9]} at most and never a terminator.</li>
  * </ul>
  *
- * <p>So when {@code detectAttributePrefix()} tests {@code buf[10] == '\0'} to confirm the value
- * began exactly {@code javascript}, the character it reads was left there by the most recent name
- * long enough to reach index 10 — possibly in a different element. If that name's length is exactly
- * 10 the index holds its terminator and the check passes; if it is 11 or more the index holds a
- * letter and the check fails; if it is 9 or less the index still holds whatever was there before,
- * which on a freshly constructed {@link Canoe} is the zero-fill. That is F5 in one paragraph, and
- * every table below is a corollary of it.
+ * <p>So when {@code detectAttributePrefix()} tested {@code buf[10] == '\0'} to confirm the value
+ * began exactly {@code javascript}, the character it read had been left there by the most recent
+ * name long enough to reach index 10 — possibly in a different element. If that name's length was
+ * exactly 10 the index held its terminator and the check passed; if it was 11 or more the index held
+ * a letter and the check failed; if it was 9 or less the index still held whatever was there before,
+ * which on a freshly constructed {@link Canoe} is the zero-fill. That was F5 in one paragraph, and
+ * every F5 table below is a corollary of it — inverted, and kept because the corollaries are exactly
+ * where a regression would show first.
+ *
+ * <p>The first two bullets are still true and still load-bearing: {@code setTagAttributeContext()}
+ * is still written as fixed-index comparisons, and R4 owns replacing them. What has changed is that
+ * they now run over a buffer nothing else has written to, which is
+ * {@code BufferResidueTest.theBufferHoldsNothingTheCurrentNameOrValueWrote}.
  */
 public class AttributePrefixTest {
 
@@ -216,16 +223,18 @@ public class AttributePrefixTest {
     /**
      * Inverted by R2. Was {@code theResetHappensEvenWhenNoPrefixMatches}, and it is the row that
      * states the fix rather than one of its consequences: every branch in
-     * {@code detectAttributePrefix()} is a positive match that returns, and there is no longer any
-     * code path at all that runs when none of them does.
+     * {@code detectAttributePrefix()} is a positive match that assigns, and there is no longer any
+     * code path at all that runs when none of them does. R3 reshaped the branches — five unrolled
+     * chains became three length-checked comparisons — without changing that.
      */
     @Test
     public void nothingHappensWhenNoPrefixMatches() throws IOException {
-        // The last entry, a bare ":", is an F5 row rather than a prefix-table row: the value wrote
-        // nothing, so the prefix checks read the residue of the attribute name "style" - buf[0] is
-        // 's', which matches none of asfunction/data/javascript/livescript/mocha. It reaches the
-        // same outcome as the rest for a reason that has nothing to do with the value, which after
-        // R2 is fine: a spurious *miss* is now a no-op rather than a downgrade.
+        // The last entry, a bare ":", used to be an F5 row rather than a prefix-table row: the value
+        // wrote nothing, so the prefix checks read the residue of the attribute name "style" -
+        // buf[0] held its 's', which matched none of asfunction/data/javascript/livescript/mocha.
+        // Since R3 the buffer is cleared when the value starts and the comparison is length-checked,
+        // so the row is ordinary: bufLen is 0, which is not the length of any of the five prefixes,
+        // and no index the value did not write is ever read.
         for (String value : List.of("color:", "http:", "https:", "ftp:", "vbscript:", "x:", ":")) {
             assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"" + value),
                     "no prefix branch matches " + CanoeTestSupport.quote(value)
@@ -297,7 +306,8 @@ public class AttributePrefixTest {
      * <p>The consequence in real templates used to be that {@code background:}, whose colon sits at
      * index 10, was affected by F4 and {@code text-decoration:} was not. After R2 the two agree, and
      * the boundary survives only as the bound on how much of a value the scan reads — which is worth
-     * keeping measured, because R3 rewrites that scan.
+     * keeping measured, because R3 rewrote the comparison the scan feeds and kept the window as it
+     * was.
      */
     @Test
     public void theBoundaryIsSetByTheColonTestPrecedingTheLengthCutoff() throws IOException {
@@ -323,8 +333,8 @@ public class AttributePrefixTest {
      * the direction that still has a consequence: a value whose first colon matches nothing burns
      * the one look the scan gets, so a {@code javascript:} further along is never seen. That is not
      * a new defect — the same value reaches {@code url()} either way, and the prefixes the scan can
-     * assign all suppress — but it is the shape of the remaining fail-open and is worth pinning
-     * before R3 rewrites the comparison.
+     * assign all suppress — but it is the shape of the remaining fail-open. R3 rewrote the
+     * comparison and deliberately kept this behaviour, which is why it stays pinned.
      */
     @Test
     public void onlyTheFirstColonIsExamined() throws IOException {
@@ -390,11 +400,12 @@ public class AttributePrefixTest {
                 prefix("http", Canoe.ATTR_HTML),
                 prefix("https", Canoe.ATTR_HTML),
 
-                // An empty value - "<a p=\":". This row documents F5, not the prefix table: the
-                // value contributed no characters at all, so every index the checks read still
-                // holds the attribute name's residue ('p' at buf[0], its terminator at buf[1]).
-                // ATTR_HTML here means "buf[0] is not a, d, j, l or m", which is a fact about the
-                // name "p" rather than about the value.
+                // An empty value - "<a p=\":". This row used to document F5 rather than the prefix
+                // table: the value contributed no characters at all, so every index the checks read
+                // still held the attribute name's residue ('p' at buf[0], its terminator at
+                // buf[1]), and ATTR_HTML meant "buf[0] is not a, d, j, l or m" - a fact about the
+                // name "p" rather than about the value. Since R3 it is an ordinary row: bufLen is 0,
+                // which is not the length of any of the five prefixes.
                 prefix("", Canoe.ATTR_HTML));
     }
 
@@ -406,11 +417,13 @@ public class AttributePrefixTest {
      * The complete prefix table, probed in isolation.
      *
      * <p>The probe uses a one-character attribute name ({@code <a p="}) on a freshly constructed
-     * {@link Canoe}, which is the only configuration in which the function's <em>intended</em>
-     * behaviour is observable: the name writes only {@code buf[0..1]}, so every terminator index the
-     * checks read is still zero from the array's construction. Change the attribute name and the
-     * answers change; that is F5, and
-     * {@link #whichPrefixesCanMatchDependsOnTheCurrentAttributeNamesLength} is the table of it.
+     * {@link Canoe}, which used to be the only configuration in which the function's
+     * <em>intended</em> behaviour was observable: the name writes only {@code buf[0..1]}, so every
+     * terminator index the checks read was still zero from the array's construction. Changing the
+     * attribute name changed the answers; that was F5, and
+     * {@link #whichPrefixesCanMatchNoLongerDependsOnTheCurrentAttributeNamesLength} is the table of
+     * it. Since R3 the probe's shape is a convention rather than a precondition — the same rows pass
+     * behind any name — and it is kept so that this table and the one below differ in one variable.
      */
     @ParameterizedTest(name = "value prefix \"{0}:\" -> {1}")
     @MethodSource("valuePrefixes")
@@ -425,12 +438,13 @@ public class AttributePrefixTest {
      * a real comparison.
      *
      * <ol>
-     *   <li><strong>A read index disagrees.</strong> {@code javascripx} differs at {@code buf[9]},
-     *       which the check reads. This is the function working as intended.</li>
-     *   <li><strong>The terminator index disagrees.</strong> {@code datax} is rejected because
-     *       {@code buf[4]} holds {@code 'x'} rather than a NUL — the only reason a longer value is
-     *       caught at all, since the check never looks past the prefix. Note what this depends on:
-     *       {@code buf[4]} is NUL for {@code data} only by accident of what wrote it last.</li>
+     *   <li><strong>A character disagrees.</strong> {@code javascripx} differs at index 9. This is
+     *       the comparison working as intended.</li>
+     *   <li><strong>The length disagrees.</strong> {@code datax} is rejected because five buffered
+     *       characters are not four — the only reason a longer value is caught at all, since the
+     *       comparison never looks past the prefix. Before R3 this was a NUL test at {@code buf[4]}
+     *       rather than a length test, and {@code buf[4]} held a NUL for {@code data} only by
+     *       accident of what had written it last; that accident was F5.</li>
      *   <li><strong>The scan gave up first.</strong> {@code javascriptx} is not rejected by any
      *       comparison — the eleventh character sets {@code bufLen = -1}, so the colon that follows
      *       never calls {@code detectAttributePrefix()} at all.</li>
@@ -444,24 +458,29 @@ public class AttributePrefixTest {
      * and "no comparison happened" have become the same instruction, and the pair is kept as the
      * assertion that they still are.
      *
-     * <p>The mechanisms remain worth separating for R3, which replaces the first two with a bounded
-     * string comparison and must not accidentally change the third.
+     * <p>R3 merged the first two into one length-checked comparison and left the third exactly as it
+     * was, which is the thing this test now guards: the scan's ten-character window is still what
+     * bounds how much of a value is read, and a fix that widened it would change which values reach
+     * the comparison at all.
      */
     @Test
     public void nearMissesAreRejectedByThreeDifferentMechanisms() throws IOException {
-        // 1. A read index disagrees: the scan ran, and the comparison failed.
+        // 1. A character disagrees: the scan ran, and the comparison failed.
         CanoeStateProbe compared = new CanoeStateProbe().feed("<a p=\"javascripx:");
         assertEquals(Canoe.ATTR_HTML, compared.attributeContext(),
                 "the name 'p' is unrecognised, so ATTR_HTML here is the name's answer and not the"
                         + " prefix scan's");
         assertEquals(-1, compared.bufLen(), "the scan ran and then switched itself off");
         assertEquals('x', compared.bufferAt(9),
-                "buf[9] is the index the javascript check disagreed on");
+                "buf[9] is the character the javascript comparison disagreed on");
 
-        // 2. The terminator index disagrees.
+        // 2. The length disagrees.
         CanoeStateProbe terminated = new CanoeStateProbe().feed("<a p=\"datax:");
         assertEquals(Canoe.ATTR_HTML, terminated.attributeContext());
-        assertEquals('x', terminated.bufferAt(4), "buf[4] is not a NUL, so 'data' did not end there");
+        assertEquals('x', terminated.bufferAt(4),
+                "R3: five characters were buffered where 'data' needs exactly four. Before R3 this"
+                        + " was read as \"buf[4] is not a NUL\", which is the same answer for a"
+                        + " different and much less reliable reason");
 
         // 3. The scan gave up before the colon arrived, so no comparison happened.
         assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"javascriptx:"),
@@ -491,161 +510,187 @@ public class AttributePrefixTest {
     }
 
     // ------------------------------------------------------------------
-    // F5 - the buffer residue
+    // F5 - the buffer residue, and its absence
     // ------------------------------------------------------------------
 
     /**
-     * The mechanical fact the whole of F5 rests on: an attribute value can never repair the index
-     * its own prefix check reads.
+     * Inverted by R3. Was {@code theValueScanNeverWritesTheIndexItsOwnCheckReads}, and it stated the
+     * mechanical fact the whole of F5 rested on: an attribute value could never repair the index its
+     * own prefix check read.
      *
      * <p>{@code TAG_ATTR_VALUE} writes at most {@code buf[0..9]} — at {@code bufLen == 10} it stops
-     * writing and sets {@code bufLen = -1} — and unlike {@code TAG_ATTR_NAME} ({@code Canoe.java:809})
-     * it never appends a terminator. So {@code buf[10]}, the index that decides whether
-     * {@code javascript}, {@code livescript} and {@code asfunction} matched, is untouched by the
-     * value no matter how long the value is.
+     * writing and sets {@code bufLen = -1} — and unlike {@code TAG_ATTR_NAME} it never appends a
+     * terminator. So {@code buf[10]}, the index that used to decide whether {@code javascript},
+     * {@code livescript} and {@code asfunction} matched, was untouched by the value no matter how
+     * long the value was, and whatever an earlier name had left there was the answer.
+     *
+     * <p>The value scan still writes no terminator — that half is unchanged, and it is why a fix
+     * confined to the value scan would have been the wrong one. What changed is both sides of the
+     * problem: nothing reads index 10 any more, and the buffer is cleared when the value starts, so
+     * there is nothing at index 10 to read. Both are asserted here, because either alone would leave
+     * the finding one edit away from returning.
      */
     @Test
-    public void theValueScanNeverWritesTheIndexItsOwnCheckReads() throws IOException {
+    public void theValueScanStillWritesNoTerminatorAndNothingNeedsItTo() throws IOException {
         String armed = "<i placeholder=\"s\">";
-        assertEquals('r', new CanoeStateProbe().feed(armed).bufferAt(10),
-                "an 11-character attribute name put a letter at buf[10]");
+        assertEquals('\0', new CanoeStateProbe().feed(armed).bufferAt(10),
+                "R3: an 11-character attribute name used to leave its 'r' at buf[10]; the buffer is"
+                        + " cleared when that element's value starts");
 
         CanoeStateProbe probe = new CanoeStateProbe().feed(armed + "<a href=\"abcdefghijklmnop");
         assertEquals(-1, probe.bufLen(), "the value scan has long since given up");
-        assertEquals('r', probe.bufferAt(10),
-                "and buf[10] still holds the residue: a 16-character value could not clear it");
+        assertEquals('j', probe.bufferAt(9),
+                "the value wrote the ten characters it is allowed to write");
+        assertEquals('\0', probe.bufferAt(10),
+                "R3: and index 10 holds nothing, because the value never writes a terminator and no"
+                        + " longer inherits one either");
+
+        // The classification the residue used to decide, on the same page.
+        assertEquals(Canoe.ATTR_JS, attributeContextOf(armed + "<a href=\"javascript:"),
+                "R3: which is why the prefix is recognised behind an 11-character name");
     }
 
     /**
      * The complementary fact: a name of length L writes its terminator at {@code buf[L]}. This is the
-     * rule that makes every table below predictable rather than folklore.
+     * rule that made every F5 table predictable rather than folklore, and it is still the rule the
+     * name-side comparisons in {@code setTagAttributeContext()} rely on — R4 owns replacing those, so
+     * it stays measured until then.
+     *
+     * <p>Probed at the {@code =} rather than after the whole element since R3: the buffer is cleared
+     * when the attribute's value starts, so a probe that fed the closing quote would be reading a
+     * cleared buffer and would assert nothing about the name at all.
      */
     @Test
     public void aNameOfLengthNWritesItsTerminatorAtIndexN() throws IOException {
         for (int length = 1; length <= 12; length++) {
             String name = "z" + repeat('q', length - 1);
-            CanoeStateProbe probe = new CanoeStateProbe().feed("<i " + name + "=\"1\">");
+            CanoeStateProbe probe = new CanoeStateProbe().feed("<i " + name + "=");
             assertEquals('\0', probe.bufferAt(length),
                     "an attribute name of length " + length + " terminates at buf[" + length + "]");
             if (length > 1) {
                 assertNotEquals('\0', probe.bufferAt(length - 1),
                         "and buf[" + (length - 1) + "] holds its last character");
             }
+            assertEquals('\0', probe.bufferAt(length + 1),
+                    "R3: and nothing beyond the terminator, because the buffer was cleared before"
+                            + " the name was written into it");
         }
 
-        // Tag names go through the same buffer and the same terminator, so an element name is just
-        // as capable of arming or repairing the value check as an attribute name is.
+        // Tag names go through the same buffer and the same terminator. That used to make an element
+        // name just as capable of arming or repairing the value check as an attribute name; it is now
+        // only a statement about how a tag name is stored.
         assertEquals('\0', new CanoeStateProbe().feed("<blockquote>").bufferAt(10),
-                "a 10-character tag name terminates exactly on the index javascript: reads");
+                "a 10-character tag name terminates at buf[10]");
         assertEquals('x', new CanoeStateProbe().feed("<blockquotex>").bufferAt(10));
     }
 
     /**
-     * F5 as a table: the length of the attribute name on the <em>preceding</em> element against the
-     * context a fixed {@code <a href="javascript:...">} resolves to.
+     * F5 as a table, inverted by R3. Was
+     * {@code aPrecedingAttributeNameDecidesWhetherJavascriptIsRecognised}: the length of the
+     * attribute name on the <em>preceding</em> element against the context a fixed
+     * {@code <a href="javascript:...">} resolves to.
      *
-     * <p>The expectations are literals rather than a formula, deliberately. The point of the table is
-     * that the same template is safe or unsafe depending on markup that has nothing to do with it,
-     * and a formula would restate the bug's cause where a table shows its effect. When F5 is fixed
-     * the whole column collapses to {@code ATTR_JS} and every row from 11 upwards fails, which is the
-     * signal to update the ledger.
+     * <p>The expectations are literals rather than a formula, deliberately, and the twenty rows are
+     * kept. The point of the table used to be that the same template was safe or unsafe depending on
+     * markup that had nothing to do with it, and a formula would have restated the bug's cause where
+     * a table showed its effect. The column has now collapsed to {@code ATTR_JS}, which is what the
+     * plan said the fix would look like from here; keeping the rows means a regression fails on the
+     * same lengths that used to record the finding.
      *
-     * <p>R2 changed what the second group holds and not the split. A missed prefix used to leave the
-     * reset's {@code ATTR_HTML}; it now leaves the name-derived {@code ATTR_URI}, because the
-     * attribute is {@code href}. F5 is unchanged and R3 still owns it — the prefix is still missed —
-     * but the fallback is {@code url()} rather than {@code html()}. That is not a fix: the HTML
-     * Standard percent-decodes a {@code javascript:} URL before compiling it, so the payload still
-     * arrives. See {@code BufferResidueTest} and the {@code residue.js-url-armed-buffer} ledger row.
+     * <p>Both earlier stages are worth remembering when reading a failure. Before R2 a missed prefix
+     * left the reset's {@code ATTR_HTML} and the payload was html-encoded; between R2 and R3 it left
+     * the name-derived {@code ATTR_URI} and the payload was url-encoded into a {@code javascript:}
+     * URL, which the HTML Standard percent-decodes before compiling — a different encoder and not a
+     * fix. A row that fails with {@code ATTR_URI} is F5 returning, not a cosmetic change.
      */
     static Stream<Arguments> precedingNameLengths() {
-        // Index 0 is unused; entry i is the outcome for a preceding attribute name of i characters.
-        int[] expected = {
-                -1,
-                Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS,
-                Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS, Canoe.ATTR_JS,
-                Canoe.ATTR_URI, Canoe.ATTR_URI, Canoe.ATTR_URI, Canoe.ATTR_URI,
-                Canoe.ATTR_URI, Canoe.ATTR_URI, Canoe.ATTR_URI, Canoe.ATTR_URI,
-                Canoe.ATTR_URI, Canoe.ATTR_URI};
-
         List<Arguments> rows = new ArrayList<>();
         for (int length = 1; length <= 20; length++) {
-            rows.add(Arguments.of(length, expected[length]));
+            rows.add(Arguments.of(length, Canoe.ATTR_JS));
         }
         return rows.stream();
     }
 
     @ParameterizedTest(name = "preceding attribute name of {0} characters -> {1}")
     @MethodSource("precedingNameLengths")
-    public void aPrecedingAttributeNameDecidesWhetherJavascriptIsRecognised(int length, int expected)
+    public void noPrecedingAttributeNameDecidesWhetherJavascriptIsRecognised(int length,
+                                                                            int expected)
             throws IOException {
         String preceding = "<i " + "z" + repeat('q', length - 1) + "=\"1\">";
         String target = "<a href=\"javascript:";
 
         assertEquals(expected, attributeContextOf(preceding + target),
-                () -> "a preceding attribute name of " + length + " characters gives "
+                () -> "a preceding attribute name of " + length + " characters must still give "
                         + CanoeStateProbe.attributeContextName(expected) + " for " + target);
     }
 
     /**
-     * The table above cannot, on its own, tell "10 characters repaired {@code buf[10]}" from
-     * "10 characters left it alone and it happened to be zero" — a freshly constructed {@link Canoe}
-     * has a zero-filled buffer, so both look identical. This dirties the buffer first, which
-     * separates them.
+     * Inverted by R3. Was {@code aTenCharacterNameRepairsTheBufferAndAShorterOneDoesNot}.
      *
-     * <p>The result is the part of F5 that is genuinely hard to review: a ten-character attribute
-     * name anywhere on the page <em>heals</em> a template that a longer name broke, and a
-     * nine-character one does not. Reordering two unrelated elements changes whether a
-     * {@code javascript:} URL is suppressed.
+     * <p>The table above cannot, on its own, tell "10 characters repaired {@code buf[10]}" from
+     * "10 characters left it alone and it happened to be zero" — a freshly constructed {@link Canoe}
+     * has a zero-filled buffer, so both looked identical. Dirtying the buffer first separated them,
+     * and the result was the part of F5 that was genuinely hard to review: a ten-character attribute
+     * name anywhere on the page <em>healed</em> a template that a longer name broke, and a
+     * nine-character one did not, so reordering two unrelated elements changed whether a
+     * {@code javascript:} URL was suppressed.
+     *
+     * <p>The three real names are kept — {@code placeholder}, {@code xlink:href}, {@code xlinkhref},
+     * the ones the finding is written around — because "these three specific names now agree" is a
+     * sharper regression net than three synthetic lengths.
      */
     @Test
-    public void aTenCharacterNameRepairsTheBufferAndAShorterOneDoesNot() throws IOException {
-        String arm = "<i placeholder=\"s\">";        // 11 characters: writes a letter to buf[10]
-        String tenCharacterName = "<i xlink:href=\"s\">";  // 10: writes its terminator to buf[10]
-        String nineCharacterName = "<i xlinkhref=\"s\">";  // 9: does not reach buf[10] at all
+    public void noNameLengthArmsOrRepairsTheBuffer() throws IOException {
+        String arm = "<i placeholder=\"s\">";        // 11 characters: used to write a letter to buf[10]
+        String tenCharacterName = "<i xlink:href=\"s\">";  // 10: used to write its terminator there
+        String nineCharacterName = "<i xlinkhref=\"s\">";  // 9: never reached buf[10] at all
         String target = "<a href=\"javascript:";
 
         assertEquals(Canoe.ATTR_JS, attributeContextOf(target),
-                "a fresh Canoe has a zero-filled buffer, so the check passes");
-        assertEquals(Canoe.ATTR_URI, attributeContextOf(arm + target),
-                "F5: an 11-character name armed it, and after R2 the miss falls back to the"
-                        + " name-derived ATTR_URI rather than to ATTR_HTML");
+                "the bare target, which was safe before R3 as well");
+        assertEquals(Canoe.ATTR_JS, attributeContextOf(arm + target),
+                "R3: an 11-character name no longer arms anything");
         assertEquals(Canoe.ATTR_JS, attributeContextOf(arm + tenCharacterName + target),
-                "F5: a 10-character name repaired it - its terminator lands on buf[10]");
-        assertEquals(Canoe.ATTR_URI, attributeContextOf(arm + nineCharacterName + target),
-                "F5: a 9-character name cannot reach buf[10], so the residue survives");
+                "R3: and a 10-character name has nothing left to repair");
+        assertEquals(Canoe.ATTR_JS, attributeContextOf(arm + nineCharacterName + target),
+                "R3: nor does a 9-character name leave residue behind for the value to trip over");
 
         // Same three, seen at the index itself.
-        assertEquals('r', new CanoeStateProbe().feed(arm).bufferAt(10));
+        assertEquals('\0', new CanoeStateProbe().feed(arm).bufferAt(10));
         assertEquals('\0', new CanoeStateProbe().feed(arm + tenCharacterName).bufferAt(10));
-        assertEquals('r', new CanoeStateProbe().feed(arm + nineCharacterName).bufferAt(10));
+        assertEquals('\0', new CanoeStateProbe().feed(arm + nineCharacterName).bufferAt(10));
     }
 
     /**
-     * {@code data} and {@code mocha} read {@code buf[4]} and {@code buf[5]}, which are close enough
-     * to the start of the buffer that the <em>current</em> attribute's own name settles them. A name
-     * of length L terminates at {@code buf[L]}, so it clears index L and fills every index below it:
-     * the check at index N survives a name of length N (its terminator) or shorter (older residue,
-     * zero on a fresh Canoe), and fails for any name longer than N.
+     * Inverted by R3. Was {@code whichPrefixesCanMatchDependsOnTheCurrentAttributeNamesLength}.
      *
-     * <p>So {@code javascript:} is defeated by names of 11 characters and up — the F5 exploitation
-     * vector — but {@code data:} is defeated by names of five characters and up, and {@code mocha:}
-     * by six. Those are not exotic lengths. This is the same defect with a much lower threshold, and
-     * the finding records the indices without drawing the conclusion.
+     * <p>{@code data} and {@code mocha} read {@code buf[4]} and {@code buf[5]}, which are close
+     * enough to the start of the buffer that the <em>current</em> attribute's own name settled them.
+     * A name of length L terminates at {@code buf[L]}, so it clears index L and fills every index
+     * below it: the check at index N survived a name of length N (its terminator) or shorter (older
+     * residue, zero on a fresh Canoe), and failed for any name longer than N.
+     *
+     * <p>So {@code javascript:} was defeated by names of 11 characters and up — the F5 exploitation
+     * vector — but {@code data:} was defeated by names of five characters and up, and {@code mocha:}
+     * by six. Those are not exotic lengths. It was the same defect with a much lower threshold, and
+     * the finding records the indices without drawing the conclusion; this table is where the
+     * conclusion was drawn, so it is where the fix has to be shown holding at every length rather
+     * than only at the one the exploit used.
      */
     static Stream<Arguments> currentNameLengths() {
         List<Arguments> rows = new ArrayList<>();
         for (int length = 1; length <= 12; length++) {
             rows.add(Arguments.of(length,
-                    length <= 4 ? Canoe.ATTR_DATA : Canoe.ATTR_HTML,     // data:  reads buf[4]
-                    length <= 5 ? Canoe.ATTR_JS : Canoe.ATTR_HTML,       // mocha: reads buf[5]
-                    length <= 10 ? Canoe.ATTR_JS : Canoe.ATTR_HTML));    // javascript: reads buf[10]
+                    Canoe.ATTR_DATA,     // data:       compared against bufLen == 4
+                    Canoe.ATTR_JS,       // mocha:      compared against bufLen == 5
+                    Canoe.ATTR_JS));     // javascript: compared against bufLen == 10
         }
         return rows.stream();
     }
 
     @ParameterizedTest(name = "attribute name of {0} characters: data:={1} mocha:={2} javascript:={3}")
     @MethodSource("currentNameLengths")
-    public void whichPrefixesCanMatchDependsOnTheCurrentAttributeNamesLength(
+    public void whichPrefixesCanMatchNoLongerDependsOnTheCurrentAttributeNamesLength(
             int length, int expectedForData, int expectedForMocha, int expectedForJavascript)
             throws IOException {
         String name = "z" + repeat('q', length - 1);
@@ -659,24 +704,27 @@ public class AttributePrefixTest {
     }
 
     /**
-     * The same fact in the names a template actually contains, because the parameterised table above
+     * Inverted by R3. Was {@code ordinaryAttributeNamesDecideWhetherTheDataPrefixIsSeen}, and it is
+     * the same fact in the names a template actually contains, because the parameterised table above
      * reads as a synthetic edge case and this does not.
      *
-     * <p>{@code href} is four characters, so {@code <a href="data:...">} detects the prefix.
-     * {@code title} is five, so {@code <a title="data:...">} never can — {@code buf[4]} holds the
-     * {@code 'e'} of {@code title}. Neither template mentions a buffer.
+     * <p>{@code href} is four characters, so {@code <a href="data:...">} detected the prefix.
+     * {@code title} is five, so {@code <a title="data:...">} never could — {@code buf[4]} held the
+     * {@code 'e'} of {@code title}. Neither template mentions a buffer, and one character of
+     * attribute name was the whole difference; the four now agree.
      */
     @Test
-    public void ordinaryAttributeNamesDecideWhetherTheDataPrefixIsSeen() throws IOException {
+    public void ordinaryAttributeNamesNoLongerDecideWhetherTheDataPrefixIsSeen() throws IOException {
         assertEquals(Canoe.ATTR_DATA, attributeContextOf("<a href=\"data:"),
-                "href is 4 characters, so its terminator lands exactly on the index data: reads");
-        assertEquals(Canoe.ATTR_HTML, attributeContextOf("<a title=\"data:"),
-                "F5: title is 5 characters, so buf[4] holds a letter and data: is missed");
+                "href is 4 characters, which used to be the only reason this one worked");
+        assertEquals(Canoe.ATTR_DATA, attributeContextOf("<a title=\"data:"),
+                "R3: title is 5 characters, so buf[4] used to hold a letter and data: was missed");
         assertEquals(Canoe.ATTR_JS, attributeContextOf("<a title=\"mocha:"),
-                "title is 5, which is exactly what mocha: needs");
-        assertEquals(Canoe.ATTR_URI, attributeContextOf("<div background=\"mocha:"),
-                "F5: background is 10 characters, so mocha: is missed - and after R2 the miss leaves"
-                        + " background's own ATTR_URI rather than downgrading it to ATTR_HTML");
+                "title is 5, which is exactly what mocha: used to need");
+        assertEquals(Canoe.ATTR_JS, attributeContextOf("<div background=\"mocha:"),
+                "R3: background is 10 characters, so mocha: used to be missed here - and between R2"
+                        + " and R3 the miss left background's own ATTR_URI, which emitted the value"
+                        + " into a mocha: URL rather than suppressing it");
     }
 
     // ------------------------------------------------------------------

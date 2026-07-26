@@ -149,8 +149,18 @@ scan — but make sure the early-out does not skip the narrowing case.
 
 ---
 
-**R3 — Classify value prefixes by length-checked comparison, not by fixed buffer indices**
+**R3 — Classify value prefixes by length-checked comparison, not by fixed buffer indices** — ✅ **DONE**
 *Closes:* F5. *Depends on:* R2.
+*Landed:* the five prefixes are compared as bounded strings against `bufLen`, and `buf` is cleared
+on every reuse (new tag name, new attribute name, new attribute value). Ledger:
+KNOWN_VULNERABLE 239→233 (F5 6→0), SUPPRESSED_BY_DESIGN 117→123. `BufferResidueTest`'s 20 rows
+collapse to one outcome; the F5 tables in `AttributePrefixTest`, `CanoeStateMachineTest` and
+`NearMissNameSweepTest` are inverted with their former names in the javadoc; `ConcurrencyTest`'s
+cross-write instrument was F5 and is replaced by the parser state, with the old instrument kept as
+the assertion that it no longer measures anything; `DomEquivalenceTest`'s F5 blind-spot row is
+replaced by an F2 one. Coverage gate: Canoe 660/697 → 588/625 (94.69% → 94.08%, the same 37 missed
+outcomes — 88 hand-unrolled branches became 16), no floor moved. Both suites green; browser tier
+110/25/52/58 on Chromium.
 
 `detectAttributePrefix()` reads `buf[4]`, `buf[5]` and `buf[10]` to confirm a prefix ended, but the
 `TAG_ATTR_VALUE` path never writes a NUL terminator (`Canoe.java:933`, versus `Canoe.java:809` in

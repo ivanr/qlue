@@ -404,11 +404,19 @@ public final class VerdictEvaluator {
      * <p>Without this, a percent-escaped payload inside a {@code javascript:} href reads as SAFE —
      * the exact "false safe" this class's javadoc says it must not have. It became reachable when
      * R2 deleted {@code detectAttributePrefix()}'s reset: a template whose {@code javascript:}
-     * prefix is missed for some other reason (F5's buffer residue) now keeps the name-derived
-     * {@code ATTR_URI} and is encoded with {@code url()} rather than with {@code html()}, so the
-     * attacker's quote arrives as {@code %27} instead of as {@code &#39;} — and both decoders run.
+     * prefix was missed for some other reason (F5's buffer residue) kept the name-derived
+     * {@code ATTR_URI} and was encoded with {@code url()} rather than with {@code html()}, so the
+     * attacker's quote arrived as {@code %27} instead of as {@code &#39;} — and both decoders ran.
      * The URL oracle already judges {@code data:} the same way, by scheme rather than by whether the
      * bytes happen to be escaped; this makes the JavaScript sink agree with it.
+     *
+     * <p>R3 closed F5, so the two invocations that reached this decode — {@code
+     * residue.js-url-armed-buffer}'s pair — are suppressed now and no corpus row exercises it. It
+     * stays, for the same reason it was added: the rule is right whether or not a case currently
+     * needs it, and the way it would be needed again is a {@code javascript:} URL that reaches
+     * {@code url()} rather than {@code CTX_JS}, which is one routing mistake away in either
+     * direction. {@code BufferResidueTest} applies the identical decode by hand at the sink, so the
+     * claim is asserted somewhere a reader will meet it.
      *
      * <p>Deliberately restricted to {@code javascript:}. {@code vbscript:}, {@code livescript:} and
      * {@code mocha:} have no specification and no shipping implementation, so there is no algorithm

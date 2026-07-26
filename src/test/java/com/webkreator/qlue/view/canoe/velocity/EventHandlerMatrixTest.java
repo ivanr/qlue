@@ -661,9 +661,10 @@ public class EventHandlerMatrixTest {
 
     /**
      * The {@code ATTR_*} value {@code setTagAttributeContext()} derives from an attribute name, on a
-     * fresh {@link Canoe} so that nothing but the name itself is in the buffer. F5's residue is a
-     * separate axis and mixing it in here would make a failure ambiguous between "the branch is dead"
-     * and "an earlier name armed the buffer".
+     * fresh {@link Canoe} so that nothing but the name itself is in the buffer. F5's residue was a
+     * separate axis and mixing it in here would have made a failure ambiguous between "the branch is
+     * dead" and "an earlier name armed the buffer"; R3 clears the buffer on every reuse, so the
+     * fresh Canoe is now a convention rather than a precaution.
      */
     private static int attributeContextOf(String attributeName) {
         try {
@@ -673,9 +674,19 @@ public class EventHandlerMatrixTest {
         }
     }
 
+    /**
+     * The buffer as {@code setTagAttributeContext()} saw it, which means stopping at the {@code =}
+     * rather than after the opening quote.
+     *
+     * <p>The quote starts the attribute value, and since R3 the value scan clears the buffer before
+     * writing into it, so a probe fed one character further would read a cleared buffer and the two
+     * F1/F19 assertions above would be measuring nothing. The classification itself is unaffected —
+     * it happens when the name ends — which is why {@link #attributeContextOf(String)} still feeds
+     * the quote.
+     */
     private static char bufferAt(String attributeName, int index) {
         try {
-            return new CanoeStateProbe().feed("<div " + attributeName + "=\"").bufferAt(index);
+            return new CanoeStateProbe().feed("<div " + attributeName + "=").bufferAt(index);
         } catch (IOException e) {
             throw new AssertionError("Canoe rejected the attribute name " + attributeName, e);
         }

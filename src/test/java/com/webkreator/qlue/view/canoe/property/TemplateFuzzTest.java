@@ -356,9 +356,10 @@ public class TemplateFuzzTest {
      * Fragments that surround the host without containing the reference.
      *
      * <p>{@code <input placeholder="x">} and its eleven-character sibling are here on purpose:
-     * F5 makes the <em>preceding</em> attribute name decide whether a {@code javascript:} prefix in
-     * the host is detected, so a generator with no preceding elements could never reach half of the
-     * prefix-detection behaviour.
+     * under F5 the <em>preceding</em> attribute name decided whether a {@code javascript:} prefix in
+     * the host was detected, so a generator with no preceding elements could never reach half of the
+     * prefix-detection behaviour. R3 closed that, and the fragments stay — a fuzzer whose corpus
+     * shrinks every time a finding is fixed stops being able to see the finding come back.
      */
     private static final String[] NOISE = {
             "<p>text</p>",

@@ -39,8 +39,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * thread-safety story, and the rest of this suite depends on it without ever saying so: every
  * measurement in every other file is single-threaded, so a shared mutable field would be invisible
  * to all of them and would show up in production as one user's page carrying another user's
- * encoding context. {@code buf} is the field that would do it — it is per instance, and it is also
- * the field F5 shows is never cleared, so "per instance" is doing real work.
+ * encoding context. {@code buf} is the field that would do it — it is per instance, and until R3 it
+ * was also the field F5 showed was never cleared, so "per instance" was doing visible work. R3
+ * clears it on every reuse, which makes the remaining shared state the parser's own position in the
+ * document; that is no less per-request and no less capable of crossing two renders.
  *
  * <p>Two things are actually asserted, because "it passed under load" is not a proof:
  *
@@ -179,32 +181,57 @@ public class ConcurrencyTest {
      * might not be.
      *
      * <p>Two {@code Canoe}s, identical text written to both, and different contexts out, because
-     * one of them has an earlier element in it. This is F5 used as an instrument: {@code mocha:}
-     * tests {@code buf[5]}, {@code placeholder} is eleven characters, and the {@code h} it leaves
-     * at index 5 is enough to change which encoder the reference gets. If the production wiring
-     * ever hoisted the {@code Canoe} out of {@code render()}, that is the shape of what would
-     * happen — one user's attribute names deciding another user's encoding — and the assertion
-     * above is what would catch it.
+     * one of them has an earlier element in it. If the production wiring ever hoisted the
+     * {@code Canoe} out of {@code render()}, that is the shape of what would happen — one user's
+     * markup deciding another user's encoding — and the assertion above is what would catch it.
+     *
+     * <p><strong>The instrument changed with R3, and the first half of this test records why.</strong>
+     * It used to be F5 used as an instrument: {@code mocha:} tested {@code buf[5]},
+     * {@code placeholder} is eleven characters, and the {@code h} it left at index 5 was enough to
+     * change which encoder the reference got. R3 made the prefix comparison length-checked and
+     * clears {@code buf} on every reuse, so that pair of writes now agrees — which is asserted here
+     * rather than deleted, because "the two Canoes agree about {@code mocha:}" is the regression net
+     * for the fix, and because an instrument that has silently stopped measuring is how a
+     * concurrency test becomes green for the wrong reason.
+     *
+     * <p>What replaces it is the parser state itself, which is not a defect and never was: a
+     * {@code Canoe} that has already seen {@code <script>} is in {@code SCRIPT} state, so identical
+     * following text lands in a different context. {@code buf} was only ever one of the fields a
+     * {@code Canoe} carries across writes.
      */
     @Test
     public void aCanoeCarriesStateAcrossWritesWhichIsWhyItMustNotBeShared() throws Exception {
+        // R3: the F5 instrument, kept as the assertion that it no longer works.
         Canoe fresh = new Canoe(new StringWriter());
         fresh.write("<a href=\"mocha:");
         assertEquals(Canoe.CTX_JS, fresh.currentContext(),
-                "on a clean buffer, mocha: is recognised and the reference will be suppressed");
+                "mocha: is recognised and the reference will be suppressed");
 
-        Canoe reused = new Canoe(new StringWriter());
-        reused.write("<input placeholder=\"x\">");
-        reused.write("<a href=\"mocha:");
-        assertEquals(Canoe.CTX_URI, reused.currentContext(),
-                "F5: an eleven-character attribute name in an earlier element leaves an 'h' at"
-                        + " buf[5], mocha: is no longer recognised, and the identical text lands in"
-                        + " a different context. That is what a shared Canoe would do to two"
-                        + " concurrent renders, and it is why the equality assertion above is not"
-                        + " vacuous. The context it lands in changed with R2 - the missed prefix now"
-                        + " falls back to href's own ATTR_URI rather than to the reset's ATTR_HTML -"
-                        + " and the instrument is unaffected: what this test needs is that the two"
-                        + " Canoes disagree, not which way.");
+        Canoe afterAnElevenCharacterName = new Canoe(new StringWriter());
+        afterAnElevenCharacterName.write("<input placeholder=\"x\">");
+        afterAnElevenCharacterName.write("<a href=\"mocha:");
+        assertEquals(Canoe.CTX_JS, afterAnElevenCharacterName.currentContext(),
+                "R3: an eleven-character attribute name in an earlier element used to leave an 'h'"
+                        + " at buf[5], so mocha: was no longer recognised and the identical text"
+                        + " landed in a different context. The buffer is cleared on reuse now, and"
+                        + " the comparison is length-checked, so this pair agrees.");
+
+        // ...and the state a Canoe legitimately carries, which is what makes the equality assertion
+        // above non-vacuous now.
+        Canoe inHtml = new Canoe(new StringWriter());
+        inHtml.write("<p>");
+        assertEquals(Canoe.CTX_HTML, inHtml.currentContext(),
+                "a fresh Canoe is parsing ordinary markup");
+
+        Canoe inScript = new Canoe(new StringWriter());
+        inScript.write("<script>var q = 1;");
+        inScript.write("<p>");
+        assertEquals(Canoe.CTX_JS, inScript.currentContext(),
+                "the same three characters written to a Canoe that has already entered a script"
+                        + " element are script data, not markup, so the reference after them is"
+                        + " CTX_JS and dropped rather than html()-encoded. That is what a shared"
+                        + " Canoe would do to two concurrent renders, and it is why the byte"
+                        + " comparison above is not vacuous.");
     }
 
     // ------------------------------------------------------------------

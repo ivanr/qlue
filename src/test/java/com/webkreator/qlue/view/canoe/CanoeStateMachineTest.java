@@ -434,9 +434,10 @@ public class CanoeStateMachineTest {
 
     /**
      * Each name is probed on a fresh {@link Canoe}, so the only thing in the buffer is the attribute
-     * name itself and its terminator. F5's residue is a separate axis, owned by
-     * {@code AttributePrefixTest}; mixing it in here would make a failure ambiguous between "the
-     * branch is dead" and "an earlier name armed the buffer".
+     * name itself and its terminator. F5's residue was a separate axis, owned by
+     * {@code AttributePrefixTest}; mixing it in here would have made a failure ambiguous between "the
+     * branch is dead" and "an earlier name armed the buffer". R3 clears the buffer on every reuse, so
+     * the ambiguity is gone and the fresh Canoe is now a convention rather than a precaution.
      */
     @ParameterizedTest(name = "{0} -> {1}{2}")
     @MethodSource("declaredOnStarBranches")
@@ -501,10 +502,13 @@ public class CanoeStateMachineTest {
                 "F19: and the misspelling the branch actually matches is suppressed");
 
         // The comparison that fails. buf[4] is the fifth character of the attribute name; the
-        // branch demands 'd' there, and onreadystatechange has 'a'.
-        assertEquals('a', new CanoeStateProbe().feed("<img onreadystatechange=\"").bufferAt(4),
+        // branch demands 'd' there, and onreadystatechange has 'a'. Probed at the '=' rather than
+        // after the opening quote since R3: the quote starts the attribute value, and the value
+        // scan now clears the buffer before it writes into it, so a probe fed one character further
+        // would read a cleared buffer and assert nothing about the name.
+        assertEquals('a', new CanoeStateProbe().feed("<img onreadystatechange=").bufferAt(4),
                 "F19: buf[4] holds the 'a' of 'ready', and the branch tests it against 'd'");
-        assertEquals('d', new CanoeStateProbe().feed("<img onredystatechange=\"").bufferAt(4),
+        assertEquals('d', new CanoeStateProbe().feed("<img onredystatechange=").bufferAt(4),
                 "the misspelling puts a 'd' at buf[4], which is why that one matches");
 
         // Nothing downstream picks it up either: onRes fails on the same index, onUnLoad fails on
@@ -615,34 +619,39 @@ public class CanoeStateMachineTest {
     }
 
     /**
-     * F5. {@code detectAttributePrefix()} confirms the prefix was exactly {@code javascript} by
+     * F5, inverted by R3. Was {@code whetherAJavascriptUrlIsRecognisedDependsOnEarlierMarkup}.
+     *
+     * <p>{@code detectAttributePrefix()} used to confirm the prefix was exactly {@code javascript} by
      * testing {@code buf[10] == '\0'}, but the value scan never writes a terminator and {@code buf}
-     * is a field of the whole render that is never cleared. Whether {@code javascript:} is
-     * recognised therefore depends on what an earlier, unrelated attribute name left at index 10.
+     * was a field of the whole render that was never cleared. Whether {@code javascript:} was
+     * recognised therefore depended on what an earlier, unrelated attribute name had left at index
+     * 10 — the whole finding in three lines: the same template, safe or not depending on what
+     * precedes it.
      *
-     * <p>This is the whole finding in three lines: the same template, safe or not depending on what
-     * precedes it. {@code BufferResidueTest} (T22) characterises the full length dependence.
+     * <p>R3 compares the buffered prefix against {@code bufLen} characters and clears the buffer on
+     * every reuse, so all four rows are the same statement now. {@code BufferResidueTest} (T22)
+     * characterises the full length dependence and its collapse.
      *
-     * <p>R2 changed what a missed prefix falls back to and not whether it is missed. The two armed
-     * rows used to be {@code CTX_HTML_ATTR}, from the reset; they are now {@code CTX_URI}, from the
-     * {@code href} in the template. That is a different encoder, not a fix: the HTML Standard
-     * percent-decodes a {@code javascript:} URL before compiling it, so {@code url()}'s escapes come
-     * straight back off. R3 closes F5.
+     * <p>The two armed rows are the ones to read a failure against. Before R2 they were
+     * {@code CTX_HTML_ATTR}, from the reset; between R2 and R3 they were {@code CTX_URI}, from the
+     * {@code href} in the template — a different encoder and not a fix, because the HTML Standard
+     * percent-decodes a {@code javascript:} URL before compiling it and {@code url()}'s escapes come
+     * straight back off.
      */
     @Test
-    public void whetherAJavascriptUrlIsRecognisedDependsOnEarlierMarkup() {
+    public void whetherAJavascriptUrlIsRecognisedDoesNotDependOnEarlierMarkup() {
         assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<a href=\"javascript:"),
-                "with a clean buffer buf[10] is 0, the prefix matches, and output is suppressed");
+                "the prefix matches and output is suppressed");
         assertEquals(Canoe.CTX_JS,
                 CanoeTestSupport.contextAfter("<a xlinkhref=\"1\" href=\"javascript:"),
-                "a 9-character name leaves buf[10] untouched, so the page is still safe");
-        assertEquals(Canoe.CTX_URI,
+                "a 9-character name never reached buf[10], so this one was safe before R3 too");
+        assertEquals(Canoe.CTX_JS,
                 CanoeTestSupport.contextAfter("<a onmouseoverx=\"1\" href=\"javascript:"),
-                "F5: an 11-character name leaves 'r' at buf[10] and the check fails, so the value is"
-                        + " url()-encoded into a javascript: URL rather than suppressed");
-        assertEquals(Canoe.CTX_URI,
+                "R3: an 11-character name used to leave 'r' at buf[10] and the check failed, so the"
+                        + " value was url()-encoded into a javascript: URL rather than suppressed");
+        assertEquals(Canoe.CTX_JS,
                 CanoeTestSupport.contextAfter("<a data-something-long=\"1\" href=\"javascript:"),
-                "F5: any name of 11 or more characters arms it");
+                "R3: and any name of 11 or more characters used to arm it");
     }
 
     private static int attributeContextOf(String prefix) throws IOException {

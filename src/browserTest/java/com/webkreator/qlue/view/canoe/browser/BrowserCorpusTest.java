@@ -143,11 +143,20 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * <p>The figures move whenever a remediation task re-verdicts the ledger, and they are meant to:
      * the load shrinks because a case that stops being {@code KNOWN_VULNERABLE} contributes one
      * control instead of one page per payload. R2 (delete {@code detectAttributePrefix()}'s reset)
-     * took it from 128/45/59/69 to the numbers below, by moving 40 invocations from
+     * took it from 128/45/59/69 to 114/30/53/61, by moving 40 invocations from
      * {@code KNOWN_VULNERABLE} to {@code SUPPRESSED_BY_DESIGN} and 2 to {@code SAFE} across the
      * eleven {@code css.*} cases, the two F17 {@code prefix.*} handlers and
      * {@code prefix.vbscript-not-in-the-table} — and by removing the not-browser-observable flags
      * those rows carried, since the flag only means anything on a row claiming a live vector.
+     *
+     * <p>R3 (compare value prefixes by length rather than by fixed buffer indices) took it to the
+     * numbers below. Two cases moved to {@code SUPPRESSED_BY_DESIGN} — {@code
+     * residue.js-url-armed-buffer}, whose six payload invocations across it and {@code
+     * residue.data-url-armed-buffer} become two controls — and the five not-browser-observable flags
+     * they carried went with them. Only one of the six was ever observable in a browser: the
+     * {@code data:} row's four payloads are markup in a background-image attribute, which no engine
+     * renders, and the {@code javascript:} row's double-quote payload cannot close a single-quoted
+     * literal. So the tier loses four pages and one must-fire row.
      */
     @Test
     public void theBrowserRelevantSubsetIsTheSizeTheCorpusClaims() {
@@ -160,10 +169,10 @@ public class BrowserCorpusTest extends BrowserTestBase {
                 .count();
         long quiet = invocations.size() - mustFire;
 
-        assertEquals(114, invocations.size(), "browser-relevant invocation count");
-        assertEquals(30, unobservable, "invocations flagged as not browser-observable");
-        assertEquals(53, mustFire, "invocations that must trip a detector");
-        assertEquals(61, quiet, "invocations that must trip none");
+        assertEquals(110, invocations.size(), "browser-relevant invocation count");
+        assertEquals(25, unobservable, "invocations flagged as not browser-observable");
+        assertEquals(52, mustFire, "invocations that must trip a detector");
+        assertEquals(58, quiet, "invocations that must trip none");
     }
 
     @AfterAll

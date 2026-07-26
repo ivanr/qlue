@@ -20,6 +20,7 @@ import com.webkreator.qlue.util.HtmlEncoder;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Arrays;
 
 /**
  * Canoe is a context-aware output encoder for HTML responses. It parses output
@@ -231,58 +232,70 @@ public class Canoe extends Writer {
      * suppressed the moment its body contained an object literal or a ternary.
      * All three of the prefixes this method can assign map to a suppressing
      * context, so narrowing is the only direction that is safe here.
+     *
+     * <p>The comparison is length-checked against bufLen rather than made of
+     * fixed buffer indices. It used to confirm that a prefix ended by testing
+     * buf[4], buf[5] or buf[10] for a NUL, but the value scan never writes a
+     * terminator - only the name scan does - so the byte it read was left there
+     * by whichever earlier tag or attribute name was long enough to reach that
+     * index. Whether "javascript:" was recognised therefore depended on markup
+     * elsewhere on the page: an eleven-character name upstream disarmed it, a
+     * ten-character one repaired it, and reordering two unrelated elements
+     * changed the security of the page. Comparing bufLen characters against a
+     * literal cannot read anything the value did not write.
      */
     protected void detectAttributePrefix() {
-        if (buf[0] == 'a') {
-            if ((buf[1] == 's') && (buf[2] == 'f') && (buf[3] == 'u')
-                    && (buf[4] == 'n') && (buf[5] == 'c') && (buf[6] == 't')
-                    && (buf[7] == 'i') && (buf[8] == 'o') && (buf[9] == 'n')
-                    && (buf[10] == '\0')) {
-                // asfunction
-                attributeContext = ATTR_ACTIONSCRIPT;
-                return;
+        if (bufferedValueIs("asfunction")) {
+            attributeContext = ATTR_ACTIONSCRIPT;
+            return;
+        }
+
+        if (bufferedValueIs("data")) {
+            attributeContext = ATTR_DATA;
+            return;
+        }
+
+        if (bufferedValueIs("javascript") || bufferedValueIs("livescript")
+                || bufferedValueIs("mocha")) {
+            attributeContext = ATTR_JS;
+        }
+    }
+
+    /**
+     * Whether the characters the value scan has buffered are exactly the given
+     * prefix. The scan lower-cases as it buffers, so the comparison is against
+     * a lower-case literal and no case variant evades it.
+     *
+     * @param prefix the prefix to compare against, in lower case
+     * @return true when bufLen characters of buf equal prefix
+     */
+    private boolean bufferedValueIs(String prefix) {
+        if (bufLen != prefix.length()) {
+            return false;
+        }
+
+        for (int i = 0; i < bufLen; i++) {
+            if (buf[i] != prefix.charAt(i)) {
+                return false;
             }
         }
 
-        if (buf[0] == 'd') {
-            if ((buf[1] == 'a') && (buf[2] == 't') && (buf[3] == 'a')
-                    && (buf[4] == '\0')) {
-                // data
-                attributeContext = ATTR_DATA;
-                return;
-            }
-        }
+        return true;
+    }
 
-        if (buf[0] == 'j') {
-            if ((buf[1] == 'a') && (buf[2] == 'v') && (buf[3] == 'a')
-                    && (buf[4] == 's') && (buf[5] == 'c') && (buf[6] == 'r')
-                    && (buf[7] == 'i') && (buf[8] == 'p') && (buf[9] == 't')
-                    && (buf[10] == '\0')) {
-                // javascript
-                attributeContext = ATTR_JS;
-                return;
-            }
-        }
-
-        if (buf[0] == 'l') {
-            if ((buf[1] == 'i') && (buf[2] == 'v') && (buf[3] == 'e')
-                    && (buf[4] == 's') && (buf[5] == 'c') && (buf[6] == 'r')
-                    && (buf[7] == 'i') && (buf[8] == 'p') && (buf[9] == 't')
-                    && (buf[10] == '\0')) {
-                // livescript
-                attributeContext = ATTR_JS;
-                return;
-            }
-        }
-
-        if (buf[0] == 'm') {
-            if ((buf[1] == 'o') && (buf[2] == 'c') && (buf[3] == 'h')
-                    && (buf[4] == 'a') && (buf[5] == '\0')) {
-                // mocha
-                attributeContext = ATTR_JS;
-                return;
-            }
-        }
+    /**
+     * Begins a fresh use of the shared name/value buffer.
+     *
+     * <p>buf is a field of the whole render, so without this every use of it
+     * starts on top of whatever the previous tag name, attribute name or
+     * attribute value left behind. That residue was the root cause of the
+     * prefix-detection defect this class's detectAttributePrefix() used to
+     * carry, and clearing on reuse is what keeps the buffer from meaning
+     * anything other than "what the current name or value has written".
+     */
+    private void resetBuffer() {
+        Arrays.fill(buf, '\0');
+        bufLen = 0;
     }
 
     /**
@@ -610,7 +623,7 @@ public class Canoe extends Writer {
                         // New tag
                         state = TAG_NAME;
                         closingTag = false;
-                        bufLen = 0;
+                        resetBuffer();
                         tagCount++;
                     } else {
                         // Non-markup character
@@ -794,7 +807,7 @@ public class Canoe extends Writer {
 
                             // Start processing attribute name
                             state = TAG_ATTR_NAME;
-                            bufLen = 0;
+                            resetBuffer();
 
                             // Still need to consume the character
                             charNeedsProcessing = true;
@@ -866,7 +879,7 @@ public class Canoe extends Writer {
                         }
 
                         state = TAG_ATTR_NAME;
-                        bufLen = 0;
+                        resetBuffer();
                         charNeedsProcessing = true;
                     }
                     break;
@@ -875,7 +888,7 @@ public class Canoe extends Writer {
                     // First non-whitespace character starts attribute value
                     if (!Character.isWhitespace(c)) {
                         state = TAG_ATTR_VALUE;
-                        bufLen = 0;
+                        resetBuffer();
 
                         // Check the starting character
                         if (c == '"') {
@@ -950,6 +963,8 @@ public class Canoe extends Writer {
                 case SCRIPT:
                     if (c == '<') {
                         state = SCRIPT_END;
+                        // Not resetBuffer(): SCRIPT_END counts through jsEnd with
+                        // bufLen and never reads or writes buf.
                         bufLen = 0;
                     }
                     break;
@@ -970,6 +985,7 @@ public class Canoe extends Writer {
                 case CSS:
                     if (c == '<') {
                         state = CSS_END;
+                        // As in SCRIPT: bufLen indexes cssEnd, and buf is untouched.
                         bufLen = 0;
                     }
                     break;

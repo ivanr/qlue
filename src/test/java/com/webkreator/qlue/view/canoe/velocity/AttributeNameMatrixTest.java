@@ -712,9 +712,12 @@ public class AttributeNameMatrixTest {
 
     /**
      * The {@code ATTR_*} value derived from an attribute name on a fresh {@link Canoe}, so that the
-     * only thing in the buffer is the name itself and its terminator. F5's residue is a separate axis
-     * owned by {@code AttributePrefixTest}; mixing it in here would make a failure ambiguous between
-     * "the name is unrecognised" and "an earlier name armed the buffer".
+     * only thing in the buffer is the name itself and its terminator. That used to be a precondition
+     * rather than a convention: F5's residue was a separate axis owned by
+     * {@code AttributePrefixTest}, and mixing it in here would have made a failure ambiguous between
+     * "the name is unrecognised" and "an earlier name armed the buffer". R3 clears the buffer on
+     * every reuse, so a fresh Canoe and a used one now agree; the probe is unchanged because a
+     * failure here should still be about one name.
      */
     private static int attributeContextOf(String attributeName) {
         try {

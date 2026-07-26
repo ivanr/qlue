@@ -58,8 +58,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>the whole {@code onselect}/{@code onsubmit} block, which sits inside {@code buf[0]=='o' &&
  *       buf[1]=='n'} and then tests {@code buf[0]=='s'} — <strong>F1</strong>, asserted by
  *       {@code CanoeStateMachineTest.everyDeclaredOnStarBranchNameIsClassified};
- *   <li>the {@code buf[10]=='\0'} terminator of the three ten-character value prefixes, which needs
- *       buffer residue at index 10 and is owned by {@code BufferResidueTest} (F5); and
+ *   <li>nothing in {@code detectAttributePrefix()} any more. The {@code buf[10]=='\0'} terminator of
+ *       the three ten-character value prefixes used to be here, because making it evaluate false
+ *       required buffer residue at index 10 and no near miss could produce it (F5, owned by
+ *       {@code BufferResidueTest}). R3 replaced it with a length check against {@code bufLen}, which
+ *       this sweep's truncation rows reach in both directions; and
  *   <li>{@code "Internal error #1001"} and the {@code attrQuotes} default arm, neither of which has
  *       a reachable input — see {@code CanoeRobustnessTest}.
  * </ul>
@@ -335,38 +338,39 @@ public class NearMissNameSweepTest {
     }
 
     /**
-     * F5's buffer residue disarms all three ten-character value prefixes, not only
-     * {@code javascript:}.
+     * Inverted by R3. Was {@code bufferResidueDisarmsEveryTenCharacterValuePrefix}: F5's buffer
+     * residue disarmed all three ten-character value prefixes, not only {@code javascript:}.
      *
-     * <p>{@code BufferResidueTest}'s javadoc says {@code javascript}, {@code livescript} and
-     * {@code asfunction} all read {@code buf[10]}, and it measures the length table on
-     * {@code javascript} alone — which is the right choice there, because that is the one with an
-     * exploit attached. It leaves the other two chains' terminator comparison with only a true
-     * outcome, and "the same index therefore the same behaviour" is an inference rather than a
-     * measurement. It is two lines to measure.
+     * <p>{@code BufferResidueTest} measures the length table on {@code javascript} alone — which is
+     * the right choice there, because that is the one with an exploit attached. It left the other two
+     * chains' terminator comparison with only a true outcome, and "the same index therefore the same
+     * behaviour" is an inference rather than a measurement. It was two lines to measure, and it is
+     * two lines to keep measuring now that the answer has flipped: R3 replaced three separate
+     * terminator tests with three separate length checks, and a fix that reached only the prefix with
+     * the exploit attached would pass every other test in the suite.
      *
-     * <p>{@code placeholder} is eleven characters, so it leaves an {@code r} at {@code buf[10]} that
-     * neither the {@code href} name nor the ten characters of the prefix overwrite.
+     * <p>{@code placeholder} is eleven characters, so it used to leave an {@code r} at
+     * {@code buf[10]} that neither the {@code href} name nor the ten characters of the prefix
+     * overwrote. It now writes into a buffer that is cleared again when the next value starts.
      */
-    @ParameterizedTest(name = "{0}: is disarmed by an 11-character name")
+    @ParameterizedTest(name = "{0}: survives an 11-character name")
     @MethodSource("tenCharacterValuePrefixes")
-    public void bufferResidueDisarmsEveryTenCharacterValuePrefix(String prefix, int cleanContext)
+    public void noBufferResidueDisarmsAnyTenCharacterValuePrefix(String prefix, int cleanContext)
             throws IOException {
         assertEquals(cleanContext,
                 new CanoeStateProbe().feed("<a href=\"" + prefix + ":").attributeContext(),
-                () -> prefix + ": is recognised when the buffer is clean");
+                () -> prefix + ": is recognised when nothing precedes it");
 
         CanoeStateProbe armed =
                 new CanoeStateProbe().feed("<a placeholder=\"x\" href=\"" + prefix + ":");
-        assertEquals('r', armed.bufferAt(10),
-                "the eleventh character of 'placeholder' is the residue that decides this");
-        assertEquals(Canoe.ATTR_URI, armed.attributeContext(),
-                () -> "F5: " + prefix + ": is no longer recognised once buf[10] holds residue, so"
-                        + " the same template is suppressed or url()-encoded depending on what"
-                        + " element precedes it. Before R2 the miss fell back to the reset's"
-                        + " ATTR_HTML; it now falls back to href's own ATTR_URI, which changes the"
-                        + " encoder and not the finding - R3 is what makes the comparison"
-                        + " length-checked so the prefix is recognised either way.");
+        assertEquals('\0', armed.bufferAt(10),
+                "R3: the eleventh character of 'placeholder' used to be the residue that decided"
+                        + " this; the buffer is cleared when an attribute value starts");
+        assertEquals(cleanContext, armed.attributeContext(),
+                () -> "R3: " + prefix + ": must be recognised whatever precedes it. Before R2 a miss"
+                        + " fell back to the reset's ATTR_HTML and after R2 to href's own ATTR_URI,"
+                        + " which changed the encoder and not the finding; the length-checked"
+                        + " comparison is what closes it.");
     }
 
     public static Stream<Arguments> tenCharacterValuePrefixes() {

@@ -11,7 +11,9 @@ import java.io.StringWriter;
  * {@code nextState} and {@code attributeContext} are protected and would be reachable from a
  * subclass anywhere; the buffer is not, and {@code BufferResidueTest} (T22) needs to read it to
  * characterise F5 — which byte of residue an earlier attribute name left, not merely that the
- * outcome changed.
+ * outcome changed. R3 closed F5 by clearing the buffer on every reuse, and the same access is what
+ * asserts the clearing: "the outcome is the same now" would hold for a dozen reasons, and
+ * {@code buf[10] == '\0'} is the one.
  *
  * <p>Asserting on the state rather than only on {@link Canoe#currentContext()} matters because
  * several distinct states collapse to the same context. {@code CTX_SUPPRESS} is returned by

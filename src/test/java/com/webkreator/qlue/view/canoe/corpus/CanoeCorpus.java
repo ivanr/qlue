@@ -1526,9 +1526,10 @@ public final class CanoeCorpus {
 
         cases.add(plainTextAttribute("plain.placeholder", "<input placeholder=\"$data\">",
                 "input", "placeholder", plainTextProbe())
-                .note("Eleven characters, so this attribute name is also the one that arms F5's"
-                        + " buffer residue for whatever follows it - see"
-                        + " residue.js-url-armed-buffer.")
+                .note("Eleven characters, so until R3 this attribute name was also the one that armed"
+                        + " F5's buffer residue for whatever followed it - see"
+                        + " residue.js-url-armed-buffer, which is the same name used as an attack"
+                        + " and is now suppressed.")
                 .build());
 
         // The three names F20's table lists and SinkKind.POLICY's criteria exclude. They live here
@@ -2358,10 +2359,11 @@ public final class CanoeCorpus {
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .note("The prefix is recognised, so ATTR_JS wins and the value is suppressed. This is"
-                        + " the behaviour F5 takes away by changing nothing but the page around it."
-                        + " The bare form; residue.js-url-clean-buffer is the same href preceded by"
-                        + " an element, which is what makes it a statement about buf rather than"
-                        + " about the prefix table.")
+                        + " the behaviour F5 used to take away by changing nothing but the page"
+                        + " around it, until R3 made the comparison length-checked. The bare form;"
+                        + " residue.js-url-clean-buffer is the same href preceded by an element,"
+                        + " which is what makes it a statement about buf rather than about the"
+                        + " prefix table.")
                 .build());
 
         cases.add(XssCase.id("prefix.javascript-mixed-case")
@@ -2387,8 +2389,11 @@ public final class CanoeCorpus {
                 .sink(SinkKind.JAVASCRIPT, "a", "href")
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
-                .note("mocha is checked at buf[5] rather than buf[10], so it has its own, shorter"
-                        + " residue window - see residue.data-url-armed-buffer for the buf[4] one.")
+                .note("mocha was checked at buf[5] rather than buf[10], so it had its own, shorter"
+                        + " residue window - see residue.data-url-armed-buffer for the buf[4] one."
+                        + " R3 replaced all five index tests with one length-checked comparison, so"
+                        + " the windows are gone and this row's suppression no longer depends on how"
+                        + " long the attribute happens to be called.")
                 .build());
 
         cases.add(XssCase.id("prefix.asfunction")
@@ -2479,16 +2484,22 @@ public final class CanoeCorpus {
     /**
      * F5, as three templates that differ only in the elements around the one under test.
      *
-     * <p>{@code buf} is a 36-character field shared across the whole render and never cleared; only
-     * {@code bufLen} is reset. The {@code TAG_ATTR_VALUE} path never writes a NUL terminator, and the
-     * value scan can only ever write indices 0–9, so a value can never repair {@code buf[10]} itself.
-     * Whether {@code javascript:} is recognised therefore depends on what an earlier, unrelated
-     * attribute name left there.
+     * <p>{@code buf} is a 36-character field shared across the whole render, and it used to be
+     * cleared by nothing at all — only {@code bufLen} was reset. The {@code TAG_ATTR_VALUE} path
+     * never writes a NUL terminator, and the value scan can only ever write indices 0–9, so a value
+     * could never repair {@code buf[10]} itself. Whether {@code javascript:} was recognised therefore
+     * depended on what an earlier, unrelated attribute name had left there.
+     *
+     * <p><strong>R3 closed the finding</strong> by comparing the buffered prefix against
+     * {@code bufLen} characters instead of testing fixed indices, and by clearing {@code buf} on
+     * every reuse. All five cases below are {@code SUPPRESSED_BY_DESIGN} now, which is the point of
+     * keeping them: the group exists to say that these pages have stopped differing, and it would
+     * fail as loudly as it used to pass if any one of them started differing again.
      */
     private static void bufferResidue(List<XssCase> cases) {
 
         // The three cases below differ only in the attribute name of the element in front of the one
-        // under test - two characters, eleven, then eleven repaired by ten - which is the whole of
+        // under test - two characters, eleven, then eleven followed by ten - which is the whole of
         // F5 stated as a table. This first one used to be the bare <a href="javascript:...">, which
         // made it a byte-for-byte duplicate of prefix.javascript-exact: same template modulo the
         // link text, same sink, same payloads, same verdict. It carries a short preceding attribute
@@ -2501,12 +2512,15 @@ public final class CanoeCorpus {
                 .sink(SinkKind.JAVASCRIPT, "a", "href")
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
-                .note("A preceding element is not enough to arm F5; the preceding attribute NAME has"
-                        + " to be long enough. 'id' writes buf[0..1] and its terminator at buf[2],"
-                        + " and the value scan can only ever write indices 0-9, so buf[10] still"
-                        + " holds the zero it was initialised with. The javascript: check reads"
-                        + " buf[10], matches, and the value is suppressed. This is what makes F5"
-                        + " survive casual testing: the page looks exactly like the vulnerable one.")
+                .note("The control for the two below, and the reason F5 survived casual testing: this"
+                        + " page looked exactly like the vulnerable one. A preceding element was"
+                        + " never enough to arm F5 - the preceding attribute NAME had to be long"
+                        + " enough. 'id' writes buf[0..1] and its terminator at buf[2], and the value"
+                        + " scan can only ever write indices 0-9, so buf[10] still held the zero it"
+                        + " was initialised with, the javascript: check read buf[10] and matched."
+                        + " Since R3 the prefix is compared against bufLen and the buffer is cleared"
+                        + " on reuse, so this case reaches the same verdict for a reason that no"
+                        + " longer has anything to do with the buffer.")
                 .build());
 
         cases.add(XssCase.id("residue.js-url-armed-buffer")
@@ -2515,31 +2529,36 @@ public final class CanoeCorpus {
                         + "<a href=\"javascript:f('$data')\">details</a>")
                 .sink(SinkKind.JAVASCRIPT, "a", "href")
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F5")
-                .note("placeholder is 11 characters, so it writes buf[0..10] leaving buf[10]='r' and"
-                        + " its terminator at buf[11]; the javascript: check reads buf[10] and fails."
-                        + " Identical template to residue.js-url-clean-buffer - only the order of two"
-                        + " elements differs, and that changes whether the page is safe. R2 changes"
-                        + " the ENCODER this row goes through and not the verdict, which is worth"
-                        + " reading carefully. Before R2 the missed prefix left the reset's"
-                        + " ATTR_HTML, so the payload was html()-encoded and the HTML parser decoded"
-                        + " it back. Now the missed prefix leaves the name-derived ATTR_URI, so the"
-                        + " payload is url()-encoded and the href reads"
-                        + " javascript:f('%27%29%3B%5F%5FcanoePwned%28%27q%27%29%3B//') - which is"
-                        + " still live, because the HTML Standard's javascript-URL steps"
-                        + " percent-decode the script source before compiling it. Reviewed against"
-                        + " the sink on exactly that ground: one decoder was swapped for another and"
-                        + " the attacker's apostrophe still reaches the JavaScript parser. R3 is what"
-                        + " closes this, by making the prefix comparison length-checked so ATTR_JS"
-                        + " applies and the value is suppressed."
-                        + " " + A_DOUBLE_QUOTE_CANNOT_CLOSE_A_SINGLE_QUOTED_LITERAL)
-                .notBrowserObservable(Payloads.QUOTE_DOUBLE_BREAKOUT)
+                .note("Re-verdicted by R3, from KNOWN_VULNERABLE. placeholder is 11 characters, so it"
+                        + " wrote buf[0..10] leaving buf[10]='r' and its terminator at buf[11]; the"
+                        + " javascript: check read buf[10] and failed. Identical template to"
+                        + " residue.js-url-clean-buffer - only the order of two elements differed,"
+                        + " and that decided whether the page was safe. R2 changed the ENCODER this"
+                        + " row went through and not the verdict: before R2 the missed prefix left"
+                        + " the reset's ATTR_HTML and the payload was html()-encoded, after R2 it"
+                        + " left the name-derived ATTR_URI and the href read"
+                        + " javascript:f('%27%29%3B%5F%5FcanoePwned%28%27q%27%29%3B//'), which was"
+                        + " still live because the HTML Standard's javascript-URL steps"
+                        + " percent-decode the script source before compiling it. R3 makes the prefix"
+                        + " comparison length-checked, so ATTR_JS applies whatever precedes the"
+                        + " element. Reviewed against the sink: both QUOTE_BREAKOUT payloads render"
+                        + " <a href=\"javascript:f('')\">details</a>, which is the template's own"
+                        + " text with an empty string literal in it - no attacker character reaches"
+                        + " the attribute, so none reaches the script source after percent-decoding"
+                        + " either, and the row is judged on the decoded source rather than on the"
+                        + " escaped bytes exactly as it was when it was vulnerable. SUPPRESSED_BY"
+                        + "_DESIGN rather than SAFE: nothing is emitted, which is what CTX_JS means."
+                        + " The finding stays cited so the row remains traceable to F5; the"
+                        + " not-browser-observable flag on the double-quote payload is gone with the"
+                        + " KNOWN_VULNERABLE verdict it qualified, since a suppressed row expects"
+                        + " browser silence anyway.")
                 .browserRelevant()
                 .build());
 
-        // The half of F5 that is easiest to disbelieve: an unrelated element can put the page BACK
-        // into a safe state, because its attribute name is exactly the right length.
+        // The half of F5 that was easiest to disbelieve: an unrelated element could put the page
+        // BACK into a safe state, because its attribute name was exactly the right length.
         cases.add(XssCase.id("residue.js-url-repaired-by-a-ten-character-name")
                 .section(A4)
                 .template("<input placeholder=\"Search\">"
@@ -2549,24 +2568,26 @@ public final class CanoeCorpus {
                 .payloads(Payloads.family("QUOTE_BREAKOUT"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .note("The same page as residue.js-url-armed-buffer with one extra link in the"
-                        + " middle. xlink:href is exactly ten characters, so its NUL terminator lands"
-                        + " on buf[10] and repairs what placeholder broke. Deleting an unrelated"
-                        + " element from this page makes it vulnerable; that is the action at a"
-                        + " distance F5 describes, and it is why the fix is to clear the buffer"
-                        + " rather than to lengthen any particular check.")
+                        + " middle. xlink:href is exactly ten characters, so its NUL terminator"
+                        + " landed on buf[10] and repaired what placeholder broke: deleting an"
+                        + " unrelated element from this page used to make it vulnerable, which is the"
+                        + " action at a distance F5 describes and the reason the fix was to clear the"
+                        + " buffer rather than to lengthen any particular check. R3 did both that and"
+                        + " the length-checked comparison, so this page and the one above it are now"
+                        + " the same statement - which is why the pair is kept rather than merged.")
                 .build());
 
-        // The shorter residue windows. 'data' is checked at buf[4], so it is armed by any preceding
+        // The shorter residue windows. 'data' was checked at buf[4], so it was armed by any preceding
         // attribute name of five characters or more - and repaired by 'href', whose own terminator
-        // lands there.
+        // landed there.
         cases.add(XssCase.id("residue.data-url-clean-buffer")
                 .section(A4)
                 .template("<a href=\"data:$data\">x</a>")
                 .sink(SinkKind.URL, "a", "href")
                 .payloads(Payloads.families("SRCDOC_MARKUP", "TAG_BREAKOUT"))
                 .verdict(Verdict.SUPPRESSED_BY_DESIGN)
-                .note("href is four characters, so its NUL terminator sits at buf[4] - which is"
-                        + " exactly the index the 'data' prefix check reads. The prefix matches,"
+                .note("href is four characters, so its NUL terminator sat at buf[4] - which was"
+                        + " exactly the index the 'data' prefix check read. The prefix matches,"
                         + " ATTR_DATA applies, and the value is suppressed. Declared with a URL sink"
                         + " like its residue.data-url-armed-buffer twin: it plainly has one, and"
                         + " declaring noSink() here meant the case would have kept passing if the"
@@ -2579,32 +2600,32 @@ public final class CanoeCorpus {
                 .template("<body background=\"data:$data\">x</body>")
                 .sink(SinkKind.URL, "body", "background")
                 .payloads(Payloads.families("SRCDOC_MARKUP", "TAG_BREAKOUT"))
-                .verdict(Verdict.KNOWN_VULNERABLE)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
                 .finding("F5")
-                .notBrowserObservableFamily("SRCDOC_MARKUP", "TAG_BREAKOUT")
-                .note("Every payload here is flagged not-browser-observable, and this is the case"
-                        + " where that flag earns its keep: the sink is a data: URL in a background"
-                        + " IMAGE attribute, the payloads are markup, and no browser renders markup"
-                        + " as a background image - it decodes the data: URL, fails to recognise it"
-                        + " as an image, and stops. Nothing executes, nothing is fetched, and no"
-                        + " detector can fire. The ledger entry is still correct and still the point:"
-                        + " Canoe let the attacker complete an arbitrary data: URL. Compare"
-                        + " markup.srcdoc, where the same payload family reaches a sink that DOES"
-                        + " parse markup and is fully browser-observable. "
-                        + "'background' is ten characters, so buf[4] holds its 'g' rather than a"
-                        + " terminator and the 'data' check fails. Before R2 the reset had already"
+                .note("Re-verdicted by R3, from KNOWN_VULNERABLE, and it is the lower-threshold half"
+                        + " of the finding: 'data' was checked at buf[4], so any URI attribute name"
+                        + " of five characters or more disarmed it and href, at four, did not."
+                        + " 'background' is ten characters, so buf[4] held its 'g' rather than a"
+                        + " terminator and the check failed. Before R2 the reset had already"
                         + " discarded the name-derived ATTR_URI by that point and html() applied;"
-                        + " after R2 the ATTR_URI survives and url() applies instead. The verdict is"
-                        + " unchanged either way, and deliberately so: the URL oracle judges a data:"
-                        + " URL by its scheme rather than by whether the payload's bytes happen to be"
-                        + " escaped, because the browser percent-decodes the data: URL before it"
-                        + " parses the document inside it. The attacker completes an arbitrary data:"
-                        + " URL under both encoders."
-                        + " Any URI attribute name of five characters or more does this; href, at"
-                        + " four, does not. The impact here is a resource load rather than script"
-                        + " execution, because a background image is not a document - the point of"
-                        + " the case is the buf[4] window, which the review records alongside"
-                        + " buf[10] but which had no executable case until now.")
+                        + " after R2 the ATTR_URI survived and url() applied instead, and the verdict"
+                        + " was unchanged either way because the URL oracle judges a data: URL by its"
+                        + " scheme rather than by whether the payload's bytes happen to be escaped -"
+                        + " the browser percent-decodes the data: URL before parsing the document"
+                        + " inside it, so the attacker completed an arbitrary data: URL under both"
+                        + " encoders. Reviewed against the sink: all four payloads now render"
+                        + " <body background=\"data:\">x</body>, so the attribute carries the"
+                        + " template's own scheme and nothing else. There is no URL for the oracle to"
+                        + " judge, dangerous or otherwise, which is the difference between this and a"
+                        + " SAFE verdict. The impact was always a resource load rather than script"
+                        + " execution, because a background image is not a document; the point of the"
+                        + " case is the buf[4] window, which the review records alongside buf[10] but"
+                        + " which had no executable case until this corpus. The"
+                        + " not-browser-observable flags all four payloads carried are gone with the"
+                        + " KNOWN_VULNERABLE verdict they qualified - they said that no browser"
+                        + " renders markup as a background image, which is still true and is now"
+                        + " beside the point. Compare markup.srcdoc, where the same payload family"
+                        + " reaches a sink that DOES parse markup.")
                 .browserRelevant()
                 .build());
     }

@@ -47,8 +47,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li><strong>{@code srcdoc}</strong> (F3) — the payload is markup, but it is markup inside one
  *       attribute of one {@code <iframe>}; the outer document has the same skeleton either way. The
  *       injected document is a different document, and this oracle only parses the outer one.
- *   <li><strong>{@code javascript:} URLs</strong> (F5, F17) — {@code <a href="javascript:...">} is
- *       one element with one attribute regardless of what the URL says.
+ *   <li><strong>{@code javascript:} URLs</strong> (F5, F17, both since closed) —
+ *       {@code <a href="javascript:...">} is one element with one attribute regardless of what the
+ *       URL says. The blind spot is a property of the oracle rather than of the finding, so it
+ *       outlives both.
  *   <li><strong>CSS</strong> (F4) — a {@code style} attribute carrying a full-viewport overlay and a
  *       beacon is still one attribute on one element.
  *   <li><strong>Event handlers</strong> (F1, F2, F19) — {@code onsubmit="v('');alert(1)//')"} has the
@@ -206,9 +208,17 @@ public class DomEquivalenceTest {
         assertBlindTo("markup.srcdoc", Payloads.SRCDOC_MARKUP,
                 "F3: the injected markup lives inside one attribute of one <iframe>; the injected"
                         + " document is a different document and this oracle parses the outer one");
-        assertBlindTo("residue.js-url-armed-buffer", Payloads.QUOTE_SINGLE_BREAKOUT,
-                "F5: a javascript: URL whose prefix detection was disarmed by an 11-character"
-                        + " attribute name above it is still one attribute on one element");
+        // This row used to be residue.js-url-armed-buffer / QUOTE_SINGLE_BREAKOUT - "F5: a
+        // javascript: URL whose prefix detection was disarmed by an 11-character attribute name
+        // above it is still one attribute on one element". R3 closed F5, so that template is now
+        // byte-identical under attack and cannot demonstrate a blind spot at all; the row was
+        // replaced rather than dropped, because the count is the point, and F2 is the natural
+        // substitute - an unrecognised handler is the largest remaining class and has exactly the
+        // shape this oracle cannot see.
+        assertBlindTo("handler.onfocus", Payloads.QUOTE_SINGLE_BREAKOUT,
+                "F2: onfocus is not in the on* table, so the payload is html()-encoded into a"
+                        + " handler body the HTML parser decodes before compiling - and it is still"
+                        + " one attribute on one element");
         // This row used to be css.style-with-property / CSS_OVERLAY - "F4: a full-viewport overlay
         // with a beacon in it is one style attribute". R2 closed F4, so that template is now
         // byte-identical under attack and cannot demonstrate a blind spot at all; the row was
