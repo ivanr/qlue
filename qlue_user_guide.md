@@ -19,9 +19,102 @@ Features (some not implemented yet):
 
 - Security:
 
-  - Built-in XSS defence (via automatic context-aware output encoding).
+  - Automatic context-aware output encoding in Velocity templates, on by default. It encodes body
+    text and unrecognised attribute values, percent-encodes five URL attributes, and refuses to
+    write into JavaScript and CSS contexts at all. It is **not** a complete XSS defence — see
+    [Output encoding](#output-encoding) below for what it does not cover.
 
   - Built-in CSRF defence (w/token masking for Breach mitigation).
+
+## Output encoding
+
+Qlue's Velocity view path wraps the response writer in **Canoe**, a streaming HTML tokenizer that
+tracks where each `$reference` lands and chooses an encoder for it. Auto-escaping is on by default
+and can only be turned off by application code (`setAutoEscaping(false)`), not by configuration.
+
+This section replaces an earlier one-line claim of "built-in XSS defence". The defence is real, and
+its scope is narrower than that phrasing suggests.
+
+### What Canoe encodes
+
+| Position of the reference | Encoder | Effect |
+|---|---|---|
+| Body text and general element content | `HtmlEncoder.htmlWhite()` | Allowlist: ASCII letters, digits, space, tab, CR and LF pass; everything else becomes a character reference. A raw `<` can never be produced, so a body reference cannot open a tag. |
+| An attribute value on any attribute not named below | `HtmlEncoder.html()` | The same allowlist, without the whitespace exemption. |
+| `href`, `src`, `background`, `dynsrc`, `lowsrc` — those five names only | `HtmlEncoder.url()` | Percent-encoding of everything outside `a-zA-Z0-9/.-#?=`. |
+
+### What Canoe suppresses
+
+These render as **the empty string**, by design — Canoe does not attempt to escape into a scripting
+or styling language, it declines to write there:
+
+- inside a `<script>` or `<style>` element;
+- inside one of the twenty-one `on*` attributes Canoe recognises;
+- inside a `style` or `data` attribute;
+- in a tag-name or attribute-name position, and in an unquoted attribute value;
+- after a `javascript:`, `livescript:`, `mocha:`, `asfunction:` or `data:` value prefix.
+
+`<script>var user = '$name';</script>` therefore renders as `var user = '';`. If a value is
+disappearing from your page, this is why.
+
+### What Canoe rejects
+
+Canoe is a strict tokenizer and raises an encoding error rather than emitting markup it cannot
+parse: a DOCTYPE that is not the document's first tag, a comment above the DOCTYPE, `<br/>` (a
+slash straight after a tag name — `<br />` with a space is fine), an unexpected character after a
+tag name, a literal `<` in body text, an XML prolog, and about a dozen more. The error is **not**
+recovered into a partial page: it propagates out of the view factory and the request fails.
+
+### What is not covered
+
+- **Attributes Canoe does not recognise are treated as plain text.** That includes `action`,
+  `formaction`, `poster`, `cite`, `longdesc`, `ping`, `srcset`, `xlink:href`, `srcdoc`, `sandbox`,
+  `rel`, `integrity`, `nonce`, `content` on `<meta http-equiv=refresh>`, and every event handler
+  attribute outside the recognised twenty-one. The HTML parser decodes `html()`'s character
+  references before handing the value to the JavaScript, CSS or URL parser, so entity encoding does
+  not protect these positions. **Treat an attribute as unsafe unless it is on the list above.**
+- **`style` is protected only up to the first colon.** `<div style="color:$c">` reaches
+  `html()`, not suppression.
+- **`url()` filters schemes, not origins.** `<a href="$u">` with `//attacker.example/x` produces a
+  working link to another origin.
+- **External content inclusion.** Anything the application fetches from elsewhere and writes into
+  the response itself is not passed through Canoe. This was the one caveat the framework used to
+  state, in a demo page that no longer exists.
+- **Non-Velocity output.** Writing to `context.response.getWriter()`, `JsonView`, and every other
+  view bypass Canoe completely.
+
+### `$_x` and `allowDirectOutput()`
+
+`$_x` is an `HtmlEncoder` instance bound into the template context, and only when
+`QlueApplication.allowDirectOutput()` returns true — it returns `false` by default, so an
+application has to override it deliberately.
+
+A reference written as `$_x.method(...)` or `$!_x.method(...)` is **skipped by Canoe entirely**:
+whatever the method returns goes to the response verbatim. The match is on those two literal
+prefixes, so the formal spellings `${_x.method(...)}` and `$!{_x.method(...)}` do **not** bypass —
+they are encoded like any other reference, and `asis()` written that way silently does nothing.
+Use the short form.
+
+- `$_x.asis($value)` — emit unencoded. The supported bypass, for when the template author has
+  encoded the value themselves or knows it is safe.
+- `$_x.html($value)`, `$_x.htmlWhite($value)`, `$_x.url($value)`, `$_x.js($value)`,
+  `$_x.css($value)` — encode explicitly for a named context.
+
+If direct output is not allowed, `$_x` is unbound, and because Qlue runs Velocity with
+`runtime.strict_mode.enable=true` the template **fails to render** rather than silently producing
+nothing. That is deliberate: a bypass that fails open would be worse than one that fails loudly.
+
+The threat model is that the attacker controls data and never the template. Everything in this
+subsection is a decision made in template or application code.
+
+### Further reading
+
+`CANOE-SECURITY-REVIEW-2026-07-25.md` in the repository root is a security review of Canoe recording
+twenty-four findings, ten of them exploitable by an attacker who controls only data. `PLAN.md`
+describes the test suite written against it. Running `./gradlew test` regenerates
+`build/reports/canoe/matrix.md` and `matrix.csv`: a generated matrix of every template shape the
+suite covers, the context Canoe assigns it, the encoder applied, and whether attacker data reaches
+the sink live.
 
 ## Getting started
 

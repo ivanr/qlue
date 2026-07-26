@@ -1,0 +1,168 @@
+# Event handler content attributes defined by the HTML Standard.
+#
+# Provenance: HTML Living Standard, section 8.1.8.2 "Event handlers on elements, Document objects,
+# and Window objects". That section carries FOUR tables, and the distinction between them is the
+# whole reason this file is checked in rather than remembered:
+#
+#   1. the handlers supported by all HTML elements, as content attributes and as IDL attributes
+#      (70 names);
+#   2. the handlers supported by all HTML elements OTHER THAN <body> and <frameset>, as content
+#      attributes and as IDL attributes (6 names);
+#   3. the handlers supported by Window, exposed as content attributes on <body> and <frameset>
+#      (18 names);
+#   4. the handlers supported by Document as IDL attributes ONLY (2 names). These are NOT content
+#      attributes. No element hosts them, no shipping engine registers them from markup, and they
+#      are therefore listed at the bottom of this file under a machine-readable marker so that the
+#      completeness guard counts 70 + 6 + 18 = 94 rather than 96.
+#
+# Transcribed 2026-07-26 against the Living Standard as of that date, by parsing the section rather
+# than by reading it -- the previous transcription cited section 8.1.7.2 ("Queuing tasks"), folded
+# tables 1 and 2 together, dropped the four -webkit- prefixed names table 1 defines, and counted the
+# two IDL-only names as content attributes. Net: it said 92 where the answer is 94.
+#
+# This file is the input to EventHandlerMatrixTest.everySpecEventHandlerAttributeHasACorpusCase,
+# which fails when a name here has no case in CanoeCorpus. That is the point of checking it in:
+# refreshing this list against a newer revision of the standard must be a visible, reviewable change
+# that breaks the build until the new names have been classified, rather than a silent widening of
+# "the ones we thought of" -- which is precisely what Canoe's own hand-unrolled table is.
+#
+# Deliberately NOT in this file, because they are not HTML Standard event handler content
+# attributes, even though the corpus carries cases for all of them:
+#
+#   - onfocusin, onfocusout                     UI Events
+#   - onanimationstart, onanimationend          CSS Animations. Note that the UNPREFIXED names are
+#                                               the ones defined elsewhere; HTML itself defines the
+#                                               four -webkit- prefixed forms below, which is what
+#                                               the previous transcription's exclusion note missed.
+#   - ontransitionrun, ontransitionend          CSS Transitions (same prefixed/unprefixed split)
+#   - onpointerdown, onpointerup, onpointerover Pointer Events
+#   - ontouchstart, ontouchend, ontouchmove     Touch Events
+#   - onselectstart, onselectionchange          Selection API / non-standard
+#   - onsearch, onshow                          non-standard / removed from the standard
+#   - ondragdrop, onmove                        Netscape 4 names, which Canoe recognises and no
+#                                               engine fires
+#   - onend                                     which Canoe recognises. NOT a pre-standard Netscape
+#                                               name, as this header previously claimed: onend is a
+#                                               standardised SVG animation event attribute (SVG 1.1
+#                                               section 19, on <animate>, <set>, <animateMotion> and
+#                                               <animateTransform>) and Gecko fires it. It is out of
+#                                               scope for a list derived from the HTML Standard, not
+#                                               out of scope because it is dead.
+#
+# Known coverage gap, recorded rather than left implicit: SVG animation event attributes are absent
+# from both this file and the corpus except for onend. onbegin and onrepeat are defined by the same
+# SVG section, take the same ATTR_HTML fall-through, and have no case in Appendix A section A.3.
+#
+# One name per line. Blank lines and lines beginning with '#' are ignored. The line
+# "#!idl-only" separates the content attributes above it from the IDL-only names below it.
+
+# --- Table 1: supported by all HTML elements (70) ---
+onabort
+onauxclick
+onbeforeinput
+onbeforematch
+onbeforetoggle
+oncancel
+oncanplay
+oncanplaythrough
+onchange
+onclick
+onclose
+oncommand
+oncontextlost
+oncontextmenu
+oncontextrestored
+oncopy
+oncuechange
+oncut
+ondblclick
+ondrag
+ondragend
+ondragenter
+ondragleave
+ondragover
+ondragstart
+ondrop
+ondurationchange
+onemptied
+onended
+onformdata
+oninput
+oninvalid
+onkeydown
+onkeypress
+onkeyup
+onloadeddata
+onloadedmetadata
+onloadstart
+onmousedown
+onmouseenter
+onmouseleave
+onmousemove
+onmouseout
+onmouseover
+onmouseup
+onpaste
+onpause
+onplay
+onplaying
+onprogress
+onratechange
+onreset
+onscrollend
+onsecuritypolicyviolation
+onseeked
+onseeking
+onselect
+onslotchange
+onstalled
+onsubmit
+onsuspend
+ontimeupdate
+ontoggle
+onvolumechange
+onwaiting
+onwebkitanimationend
+onwebkitanimationiteration
+onwebkitanimationstart
+onwebkittransitionend
+onwheel
+
+# --- Table 2: supported by all HTML elements other than <body> and <frameset> (6) ---
+onblur
+onerror
+onfocus
+onload
+onresize
+onscroll
+
+# --- Table 3: Window handlers, exposed as content attributes on <body> and <frameset> (18) ---
+onafterprint
+onbeforeprint
+onbeforeunload
+onhashchange
+onlanguagechange
+onmessage
+onmessageerror
+onoffline
+ononline
+onpagehide
+onpagereveal
+onpageshow
+onpageswap
+onpopstate
+onrejectionhandled
+onstorage
+onunhandledrejection
+onunload
+
+#!idl-only
+# --- Table 4: Document handlers, IDL attributes ONLY -- not content attributes (2) ---
+#
+# These two are carried here rather than deleted because the corpus still needs cases for them and
+# F19 turns on onreadystatechange: Canoe's branch for it spells onredystatechange, so an author who
+# writes the attribute anyway gets html() and a live JavaScript sink. What no element does is FIRE
+# it from markup, which is why the corpus rows for both are flagged not-browser-observable and why
+# neither is counted among the 94.
+onreadystatechange
+onvisibilitychange

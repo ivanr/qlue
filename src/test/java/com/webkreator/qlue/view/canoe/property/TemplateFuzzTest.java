@@ -1,0 +1,613 @@
+package com.webkreator.qlue.view.canoe.property;
+
+import com.webkreator.qlue.view.canoe.CanoeTestSupport;
+import com.webkreator.qlue.view.canoe.corpus.Payload;
+import com.webkreator.qlue.view.canoe.corpus.Payloads;
+import com.webkreator.qlue.view.canoe.corpus.VerdictEvaluator;
+import org.jsoup.Jsoup;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * A bounded random-template generator, run through the oracles of T21–T24 (T31).
+ *
+ * <h2>What it is for</h2>
+ *
+ * <p>The corpus is 275 templates somebody chose. {@code DomEquivalenceTest} runs the structural
+ * oracle over exactly those, so it can only find an injection in a shape somebody already thought
+ * to write down — which is the same limitation that produced F1, F2, F3 and F19 in
+ * {@code setTagAttributeContext()} itself. This file removes the choosing: it builds templates from
+ * a grammar and puts the reference wherever the grammar allows, so the shapes are generated rather
+ * than curated.
+ *
+ * <h2>The oracle</h2>
+ *
+ * <p>Four properties per (template, payload) pair, in increasing strength and decreasing cost:
+ *
+ * <ol>
+ *   <li><strong>Rejection is a property of the template.</strong> Whether Canoe raises an encoding
+ *       error, and which error, must not depend on the payload. This is
+ *       {@code CanoeCorpusTest.payloadsCannotAddMarkupDelimitersToOutput}'s rejection half.
+ *   <li><strong>No new markup delimiter.</strong> The counts of {@code <}, {@code >}, {@code "} and
+ *       {@code '} in the output must be identical to a render with an empty value. This is the
+ *       airtight form of the review's decisive property and it holds in partial output too.
+ *   <li><strong>No structural divergence.</strong> The jsoup skeleton — element order, tag names,
+ *       attribute names — must be identical to a render with the inert marker. T24's oracle.
+ *   <li><strong>No steering.</strong> The sequence of {@code currentContext()} values observed at
+ *       each reference position must be identical to the inert render's. T23's property, which is
+ *       the one that would notice a payload moving the parser without changing the document.
+ * </ol>
+ *
+ * <p>Property 2 is strictly stronger than property 3 for the shapes this generator produces, and
+ * both are kept because they fail differently: a delimiter-count failure says <em>which character</em>
+ * escaped, and a skeleton failure says <em>what it built</em>.
+ *
+ * <h2>Determinism, and how to hunt</h2>
+ *
+ * <p>The seed and the iteration count come from system properties, so the hermetic {@code test} run
+ * is reproducible and a local hunt is not bounded by it. {@code build.gradle} pins
+ * {@code canoe.fuzz.seed=20260726} and {@code canoe.fuzz.iterations=2000}; both can be overridden:
+ *
+ * <pre>{@code
+ * # reproduce exactly what CI ran
+ * ./gradlew test --tests '*TemplateFuzzTest*'
+ *
+ * # a long, differently seeded hunt
+ * ./gradlew test --tests '*TemplateFuzzTest*' \
+ *     -Dcanoe.fuzz.seed=$RANDOM -Dcanoe.fuzz.iterations=1000000
+ * }</pre>
+ *
+ * <p>A failure prints the seed, the iteration number, the <em>minimised</em> template and the
+ * payload. Minimisation is delta debugging over the fragment list: fragments are dropped one at a
+ * time and the drop is kept whenever the failure survives, which usually reduces a twelve-element
+ * document to the two or three fragments that matter.
+ *
+ * <h2>Result: one counterexample, on the first run</h2>
+ *
+ * <p>The first run of this file failed property 4, on the template {@code <a href="${data}} against
+ * {@code ABSOLUTE_OFFSITE/userinfo}: the contexts were
+ * {@code [CTX_URI, CTX_URI]} for the marker and {@code [CTX_URI, CTX_HTML_ATTR]} for the payload.
+ * That is <strong>F24</strong>, and it is the first counterexample anyone has produced to the
+ * review's corollary that attacker data can never steer the parser. {@code HtmlEncoder.url()} copies
+ * a matched {@code http://} or {@code https://} prefix into the output with its colon intact,
+ * Canoe's value scan treats that colon as a prefix delimiter, and every later reference in the same
+ * attribute value drops from {@code url()} to {@code html()}. The finding, its consequence and the
+ * exploit shape are in {@code ParserSteeringTest}; the mechanism is characterised here in
+ * {@link #isTheKnownColonSteering}, which is what keeps this file green without hiding it. 94 of
+ * the 10,000 pairs in the pinned run reach it, and the run asserts that count is non-zero so the
+ * exemption cannot quietly stop being evidenced.
+ *
+ * <p><strong>Nothing else.</strong> With that one mechanism characterised, no other violation of any
+ * of the four properties appears — measured at 2,000 iterations x 5 payloads on the pinned seed, and
+ * at 200,000 iterations x 5 payloads (one million pairs) on the pinned seed in a soak run on
+ * 2026-07-26.
+ *
+ * <p>The plan's rule for a counterexample is that it is minimised and promoted into
+ * {@code CanoeCorpus} as a permanent case. This one is not, and the reason is the precedent
+ * &sect;0.15 set for F17: the corpus runs one shared payload catalogue against every template, which
+ * is what makes it a fair comparison, and F24 needs <em>two</em> references in one attribute value
+ * with a specific value in the first. It gets the dedicated test written for it instead, in the file
+ * whose property it breaks.
+ */
+public class TemplateFuzzTest {
+
+    /** Overridden from {@code build.gradle}; the default keeps an IDE run reproducible too. */
+    private static final long SEED = Long.getLong("canoe.fuzz.seed", 20260726L);
+
+    /** Iterations per run. Each iteration renders one template with the marker and five payloads. */
+    private static final int ITERATIONS = Integer.getInteger("canoe.fuzz.iterations", 2000);
+
+    /** Payloads attacked per generated template. */
+    private static final int PAYLOADS_PER_TEMPLATE = 5;
+
+    /**
+     * The reference the generator plants; bound by {@link CanoeTestSupport#render(String, String)}.
+     *
+     * <p>Formal notation, and not for tidiness. Velocity's reference names are greedy, so
+     * {@code $data} followed by a fragment beginning with a letter parses as {@code $dataplain} —
+     * and under {@code runtime.strict_mode.enable}, which production sets and this harness mirrors,
+     * an undefined reference is a {@code MethodInvocationException} rather than literal text. The
+     * generator would then spend its budget on Velocity errors instead of on Canoe.
+     * {@code VelocityIntegrationTest} (T19) asserts that the formal form's output is byte-identical
+     * to the short form, so this costs nothing in fidelity.
+     */
+    private static final String REFERENCE = "${data}";
+
+    // ------------------------------------------------------------------
+    // The run
+    // ------------------------------------------------------------------
+
+    /**
+     * The main loop. Fails on the first counterexample, after minimising it.
+     *
+     * <p>Fails fast rather than collecting, because a counterexample here is a finding rather than a
+     * row: the useful output is one minimal template, not a histogram.
+     */
+    @Test
+    public void noGeneratedTemplateLetsAPayloadEscapeItsPosition() {
+        Random random = new Random(SEED);
+        List<Payload> catalogue = Payloads.all();
+        int pairs = 0;
+        int knownColonSteerings = 0;
+
+        for (int iteration = 0; iteration < ITERATIONS; iteration++) {
+            List<String> fragments = generate(random);
+
+            for (int p = 0; p < PAYLOADS_PER_TEMPLATE; p++) {
+                Payload payload = catalogue.get(random.nextInt(catalogue.size()));
+                pairs++;
+                if (exercisesF24(join(fragments), payload.value())) {
+                    knownColonSteerings++;
+                }
+
+                String violation = check(join(fragments), payload.value());
+                if (violation != null) {
+                    List<String> minimal = minimise(fragments, payload.value());
+                    throw new AssertionError(
+                            "Fuzz counterexample at iteration " + iteration + " of " + ITERATIONS
+                                    + " (seed " + SEED + ")."
+                                    + "\n  payload   : " + payload.id() + " = "
+                                    + CanoeTestSupport.quote(payload.value())
+                                    + "\n  generated : " + CanoeTestSupport.quote(join(fragments))
+                                    + "\n  minimised : " + CanoeTestSupport.quote(join(minimal))
+                                    + "\n  violation : " + check(join(minimal), payload.value())
+                                    + "\n\nMinimise further by hand if needed, then promote the"
+                                    + " template into CanoeCorpus as a permanent case with a"
+                                    + " reviewed verdict and a finding reference (PLAN.md T31)."
+                                    + "\n  Reproduce with: -Dcanoe.fuzz.seed=" + SEED
+                                    + " -Dcanoe.fuzz.iterations=" + ITERATIONS);
+                }
+            }
+        }
+
+        assertEquals(ITERATIONS * PAYLOADS_PER_TEMPLATE, pairs,
+                "every iteration must have been attacked with " + PAYLOADS_PER_TEMPLATE
+                        + " payloads; a smaller number means the loop was short-circuited");
+
+        // The F24 exemption must be exercised, or it is an unexplained hole in property 4 that
+        // nothing would notice growing. Measured at 94 of the 10,000 pairs on the pinned seed.
+        assertTrue(knownColonSteerings > 0,
+                () -> "seed " + SEED + " never generated a pair that exercises F24's colon"
+                        + " steering, so isTheKnownColonSteering() is an exemption with no evidence"
+                        + " behind it. Either the generator stopped producing URL attributes or"
+                        + " url()'s scheme passthrough is gone - if the latter, F24 is fixed and"
+                        + " the exemption should be deleted.");
+    }
+
+    /**
+     * Whether this pair is one of the F24 rows, asked separately so the count is honest.
+     *
+     * <p>Deliberately not folded into {@link #check}: a boolean returned from the oracle would
+     * count only the pairs that also diverged, and the interesting number is how many pairs put a
+     * raw colon into a URL attribute at all.
+     */
+    private static boolean exercisesF24(String template, String value) {
+        CanoeTestSupport.RenderResult benign =
+                CanoeTestSupport.render(template, Payloads.INERT_MARKER.value());
+        CanoeTestSupport.RenderResult attacked = CanoeTestSupport.render(template, value);
+        return isTheKnownColonSteering(benign, attacked);
+    }
+
+    // ------------------------------------------------------------------
+    // The oracle
+    // ------------------------------------------------------------------
+
+    /**
+     * Returns a description of the first property the pair violates, or null when all four hold.
+     *
+     * <p>A string rather than an assertion so that the minimiser can ask the same question
+     * repeatedly without catching {@link AssertionError}, and so that the failure message can quote
+     * the violation of the <em>minimised</em> template rather than of the original.
+     */
+    private static String check(String template, String value) {
+        ContextRecordingCanoe attackedContexts = null;
+        ContextRecordingCanoe benignContexts = null;
+
+        CanoeTestSupport.RenderResult empty = CanoeTestSupport.render(template, "");
+        CanoeTestSupport.RenderResult benign =
+                CanoeTestSupport.render(template, Payloads.INERT_MARKER.value());
+        CanoeTestSupport.RenderResult attacked = CanoeTestSupport.render(template, value);
+
+        // 1. Rejection is a property of the template.
+        if (benign.isError() != attacked.isError()) {
+            return "the payload changed whether Canoe rejects the template: benign "
+                    + (benign.isError() ? "rejected" : "accepted") + ", attacked "
+                    + (attacked.isError() ? "rejected" : "accepted");
+        }
+        if (benign.isError() && !withoutPosition(benign.errorMessage())
+                .equals(withoutPosition(attacked.errorMessage()))) {
+            return "the payload changed which error Canoe raised: " + benign.errorMessage()
+                    + " vs " + attacked.errorMessage();
+        }
+
+        // 2. No new markup delimiter, in full or partial output.
+        for (char delimiter : new char[]{'<', '>', '"', '\''}) {
+            long before = count(empty.output(), delimiter);
+            long after = count(attacked.output(), delimiter);
+            if (before != after) {
+                return "the payload changed the number of '" + delimiter + "' characters from "
+                        + before + " to " + after + " (output "
+                        + CanoeTestSupport.quote(attacked.output()) + ")";
+            }
+        }
+
+        // 3. No structural divergence.
+        String benignShape = VerdictEvaluator.domSkeleton(Jsoup.parse(benign.output()));
+        String attackedShape = VerdictEvaluator.domSkeleton(Jsoup.parse(attacked.output()));
+        if (!benignShape.equals(attackedShape)) {
+            return "the document skeleton diverged: " + benignShape + " vs " + attackedShape;
+        }
+
+        // 4. No steering: the contexts seen at each reference position must be identical.
+        benignContexts = new ContextRecordingCanoe(new java.io.StringWriter());
+        attackedContexts = new ContextRecordingCanoe(new java.io.StringWriter());
+        recordContexts(template, Payloads.INERT_MARKER.value(), benignContexts);
+        recordContexts(template, value, attackedContexts);
+        if (!benignContexts.contexts().equals(attackedContexts.contexts())
+                && !isTheKnownColonSteering(benign, attacked)) {
+            return "the payload moved the parser: contexts " + benignContexts.contexts()
+                    + " vs " + attackedContexts.contexts();
+        }
+
+        return null;
+    }
+
+    /**
+     * The one steering mechanism that is known, recorded and <strong>not</strong> a new
+     * counterexample: <strong>F24</strong>.
+     *
+     * <p>This test found it on its first run, at iteration 156 of the pinned seed. {@code
+     * HtmlEncoder.url()} matches its input against {@code uriPattern} and, on a match, copies the
+     * literal {@code http://} or {@code https://} prefix into the output <em>unencoded</em> — colon
+     * included. Canoe's attribute-value scan sees that colon, calls {@code detectAttributePrefix()},
+     * finds no recognised prefix, and assigns {@code ATTR_HTML}. Every later reference in the same
+     * attribute value is then {@code html()}-encoded instead of {@code url()}-encoded. So attacker
+     * data <em>can</em> steer the parser, which is the first counterexample to the review's
+     * corollary; see {@code ParserSteeringTest.attackerDataCanSteerTheAttributeContextByEmittingARaw}
+     * {@code Colon} for the finding and its consequence.
+     *
+     * <p>The signature is exact rather than a name-based exemption, and that is the point: a raw
+     * colon in the output is the <em>only</em> thing that can call {@code detectAttributePrefix()}
+     * from encoded data, and {@code url()}'s scheme passthrough is the only encoder path that emits
+     * one — {@code html()} and {@code htmlWhite()} render {@code :} as {@code &#58;}, and
+     * {@code CTX_JS}/{@code CTX_CSS} emit nothing at all. A steering divergence that does not come
+     * with a new raw colon is therefore a second mechanism, and this method sends it to the failure
+     * path where it belongs.
+     */
+    private static boolean isTheKnownColonSteering(CanoeTestSupport.RenderResult benign,
+                                                   CanoeTestSupport.RenderResult attacked) {
+        return count(attacked.output(), ':') > count(benign.output(), ':');
+    }
+
+    /**
+     * Renders through a supplied {@link ContextRecordingCanoe} so the context at each reference is
+     * observable. Errors are swallowed: property 1 has already compared them, and a rejected render
+     * still produces the contexts it saw before it stopped.
+     */
+    private static void recordContexts(String template, String value, ContextRecordingCanoe canoe) {
+        try {
+            CanoeTestSupport.render(template, java.util.Map.of("data", value),
+                    CanoeTestSupport.RenderOptions.defaults(), writer -> canoe);
+        } catch (RuntimeException e) {
+            // Property 1 owns rejection; this call is only here for the context sequence.
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // The generator
+    // ------------------------------------------------------------------
+
+    /**
+     * Builds one template as a list of fragments, exactly one of which is the reference.
+     *
+     * <p>A list rather than a string because the minimiser works by dropping fragments, and a
+     * fragment boundary is the only place a drop can leave something Canoe will still parse.
+     *
+     * <p>The shapes are constrained to what Canoe accepts, which is narrower than HTML: it rejects
+     * {@code <br/>} on a void element, rejects a comment above the DOCTYPE (F18), and rejects a
+     * DOCTYPE that is not the first tag. Generating those would turn the run into a rejection
+     * benchmark instead of an injection hunt. Some rejection is still generated deliberately — the
+     * unterminated shapes below — because property 1 is about rejected renders and property 2 has to
+     * hold in partial output.
+     */
+    private static List<String> generate(Random random) {
+        List<String> fragments = new ArrayList<>();
+
+        if (random.nextInt(4) == 0) {
+            fragments.add("<!DOCTYPE html>");
+        }
+
+        int leading = random.nextInt(4);
+        for (int i = 0; i < leading; i++) {
+            fragments.add(NOISE[random.nextInt(NOISE.length)]);
+        }
+
+        String[] host = HOSTS[random.nextInt(HOSTS.length)];
+        fragments.add(host[0]);
+        fragments.add(REFERENCE);
+        fragments.add(host[1]);
+
+        int trailing = random.nextInt(3);
+        for (int i = 0; i < trailing; i++) {
+            fragments.add(NOISE[random.nextInt(NOISE.length)]);
+        }
+
+        return fragments;
+    }
+
+    /**
+     * Fragments that surround the host without containing the reference.
+     *
+     * <p>{@code <input placeholder="x">} and its eleven-character sibling are here on purpose:
+     * F5 makes the <em>preceding</em> attribute name decide whether a {@code javascript:} prefix in
+     * the host is detected, so a generator with no preceding elements could never reach half of the
+     * prefix-detection behaviour.
+     */
+    private static final String[] NOISE = {
+            "<p>text</p>",
+            "<div class=\"c\">t</div>",
+            "<!-- a comment -->",
+            "<img src=\"/a.png\" alt=\"a\">",
+            "<a href=\"/x\">y</a>",
+            "<input placeholder=\"x\">",
+            "<input aria-describedby=\"x\">",
+            "<span title=\"t\">s</span>",
+            "<table><tr><td>cell</td></tr></table>",
+            "<ul><li>item</li></ul>",
+            "<svg><circle r=\"1\"></circle></svg>",
+            "<script>var q = 1;</script>",
+            "<style>p{color:red}</style>",
+            "<form action=\"/post\"><button type=\"submit\">go</button></form>",
+            "\n  ",
+            "plain text ",
+    };
+
+    /**
+     * The positions a reference can occupy, as an opening and a closing fragment.
+     *
+     * <p>Every insertion context from Appendix A.1 that a generator can reach, plus the four
+     * attribute-value shapes and the prefixed forms F4, F5 and F17 turn on. The last three are
+     * deliberately unterminated, so that rejection and partial output are exercised rather than
+     * assumed.
+     */
+    private static final String[][] HOSTS = {
+            {"<p>", "</p>"},
+            {"<div>", "</div>"},
+            {"<div><span>", "</span></div>"},
+            {"<table><tr><td>", "</td></tr></table>"},
+            {"<textarea>", "</textarea>"},
+            {"<title>", "</title>"},
+            {"<noscript>", "</noscript>"},
+            {"<a href=\"", "\">x</a>"},
+            {"<a href='", "'>x</a>"},
+            {"<a href=\"/path/", "\">x</a>"},
+            {"<a href=\"/path?q=", "\">x</a>"},
+            {"<a href=\"#", "\">x</a>"},
+            {"<img src=", " alt=\"a\">"},
+            {"<img src=\"", "\" alt=\"a\">"},
+            {"<div background=\"", "\">x</div>"},
+            {"<a href=\"javascript:f('", "')\">x</a>"},
+            {"<a href=\"asfunction:f('", "')\">x</a>"},
+            {"<a href=\"mocha:f('", "')\">x</a>"},
+            {"<div style=\"background:", "\">x</div>"},
+            {"<div style=\"content:'", "'\">x</div>"},
+            {"<div style=\"background:url(", ")\">x</div>"},
+            {"<div onclick=\"f('", "')\">x</div>"},
+            {"<div onmouseenter=\"f('", "')\">x</div>"},
+            {"<div onbeforeinput=\"f('", "')\">x</div>"},
+            {"<div onsubmit=\"f('", "')\">x</div>"},
+            {"<div data=\"", "\">x</div>"},
+            {"<iframe srcdoc=\"", "\"></iframe>"},
+            {"<iframe sandbox=\"", "\"></iframe>"},
+            {"<meta http-equiv=\"refresh\" content=\"", "\">"},
+            {"<link rel=\"", "\" href=\"/a.css\">"},
+            {"<base href=\"", "\">"},
+            {"<script>var a = '", "';</script>"},
+            {"<style>a{color:", "}</style>"},
+            {"<!-- ", " -->"},
+            {"<p id=\"", "\">x</p>"},
+            {"<p title=\"", "\" class=\"c\">x</p>"},
+            {"<x-custom data-v=\"", "\">t</x-custom>"},
+            {"<svg><a xlink:href=\"", "\">t</a></svg>"},
+            {"<p>a</p><p>", "</p><p>b</p>"},
+            {"<a href=\"", ""},
+            {"<div title=\"", "\">"},
+            {"<p>", ""},
+    };
+
+    private static String join(List<String> fragments) {
+        return String.join("", fragments);
+    }
+
+    // ------------------------------------------------------------------
+    // Minimisation
+    // ------------------------------------------------------------------
+
+    /**
+     * Delta debugging over the fragment list: drop one fragment at a time, keep the drop whenever
+     * the violation survives, and repeat until a full pass changes nothing.
+     *
+     * <p>The reference fragment is never dropped, because a template with no reference cannot
+     * violate anything and the minimiser would happily reduce every counterexample to the empty
+     * string.
+     */
+    private static List<String> minimise(List<String> fragments, String value) {
+        List<String> current = new ArrayList<>(fragments);
+        boolean changed = true;
+
+        while (changed) {
+            changed = false;
+            for (int i = 0; i < current.size(); i++) {
+                if (REFERENCE.equals(current.get(i))) {
+                    continue;
+                }
+                List<String> candidate = new ArrayList<>(current);
+                candidate.remove(i);
+                if (check(join(candidate), value) != null) {
+                    current = candidate;
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        return current;
+    }
+
+    // ------------------------------------------------------------------
+    // The oracle must be able to fail
+    // ------------------------------------------------------------------
+
+    /**
+     * &sect;2.4, applied to a generated corpus: a fuzzer whose oracle cannot fail is a very
+     * expensive way of doing nothing.
+     *
+     * <p>Each row replaces the generated {@code $data} with {@code $_x.asis($data)}, which is the
+     * supported way to put unencoded bytes into the output, and requires the oracle to notice. The
+     * rows are chosen one per property, so a single broken property cannot hide behind the other
+     * three.
+     */
+    @Test
+    public void theOracleCatchesAnUnencodedRenderInEveryPositionItGenerates() {
+        assertViolation("<p>$_x.asis($data)</p>", Payloads.TAG_IMG_ONERROR.value(),
+                "a new element in body text");
+        assertViolation("<a title=\"$_x.asis($data)\">x</a>",
+                Payloads.ATTR_DOUBLE_QUOTE_BREAKOUT.value(),
+                "a new attribute, by terminating the value early");
+        assertViolation("<a href=\"$_x.asis($data)\">x</a>", Payloads.QUOTE_DOUBLE_BREAKOUT.value(),
+                "a quote loose in a URL attribute");
+        assertViolation("<p>$_x.asis($data)</p>", Payloads.TAG_SCRIPT.value(),
+                "a script element, which the parser hoists into <head> and which also moves the"
+                        + " context sequence for anything after it");
+    }
+
+    /**
+     * ...and the same payloads through an ordinary reference must <em>not</em> violate anything.
+     *
+     * <p>Without this half, the test above is consistent with an oracle that reports a violation
+     * whenever the value changes at all, which is a different oracle and a useless one. It is the
+     * same pairing {@code DomEquivalenceTest} and {@code ParserSteeringTest} carry.
+     */
+    @Test
+    public void theSamePayloadsThroughAnEncodedReferenceViolateNothing() {
+        for (String template : List.of("<p>$data</p>", "<a title=\"$data\">x</a>",
+                "<a href=\"$data\">x</a>")) {
+            for (Payload payload : List.of(Payloads.TAG_IMG_ONERROR, Payloads.TAG_SCRIPT,
+                    Payloads.ATTR_DOUBLE_QUOTE_BREAKOUT, Payloads.QUOTE_DOUBLE_BREAKOUT)) {
+                assertEquals(null, check(template, payload.value()),
+                        () -> "the encoder held for " + payload.id() + " in " + template
+                                + ", so the oracle must be silent");
+            }
+        }
+    }
+
+    private static void assertViolation(String template, String value, String what) {
+        assertTrue(check(template, value) != null,
+                () -> "the oracle failed to notice " + what + " in " + template);
+    }
+
+    /**
+     * The minimiser reduces a counterexample rather than merely returning it, and it never drops the
+     * reference.
+     *
+     * <p>Driven with a deliberately unencoded template, since there is no real counterexample to
+     * minimise. Without this the minimiser would only ever run on the day it is needed, which is the
+     * worst day to discover it is broken.
+     */
+    @Test
+    public void theMinimiserShrinksACounterexampleAndKeepsTheReference() {
+        List<String> fragments = new ArrayList<>(List.of(
+                "<!DOCTYPE html>", "<p>text</p>", "<div class=\"c\">t</div>",
+                "<p>", "$_x.asis($data)", "</p>", "<ul><li>item</li></ul>"));
+
+        List<String> minimal = minimise(fragments, Payloads.TAG_IMG_ONERROR.value());
+
+        assertTrue(minimal.size() < fragments.size(),
+                () -> "the minimiser returned " + minimal + " unchanged");
+        assertTrue(minimal.contains("$_x.asis($data)"),
+                () -> "the minimiser dropped the reference, so " + minimal + " cannot violate"
+                        + " anything");
+        assertTrue(check(join(minimal), Payloads.TAG_IMG_ONERROR.value()) != null,
+                () -> "the minimised template " + join(minimal) + " no longer reproduces");
+    }
+
+    /**
+     * The generator produces what it claims to: exactly one reference, and every declared host shape
+     * reached within the pinned run.
+     *
+     * <p>A generator that silently stopped emitting half its shapes would leave the run green and
+     * the coverage claim false, which is the failure mode &sect;8 names. Asserted over the same
+     * seed the run uses, so the two cannot disagree.
+     */
+    @Test
+    public void theGeneratorReachesEveryDeclaredShape() {
+        Random random = new Random(SEED);
+        Set<String> openersSeen = new LinkedHashSet<>();
+
+        for (int i = 0; i < ITERATIONS; i++) {
+            List<String> fragments = generate(random);
+            assertEquals(1, fragments.stream().filter(REFERENCE::equals).count(),
+                    () -> "exactly one reference per template, got " + fragments);
+
+            int index = fragments.indexOf(REFERENCE);
+            openersSeen.add(fragments.get(index - 1));
+        }
+
+        List<String> unreached = new ArrayList<>();
+        for (String[] host : HOSTS) {
+            if (!openersSeen.contains(host[0])) {
+                unreached.add(host[0]);
+            }
+        }
+        assertTrue(unreached.isEmpty(),
+                () -> "seed " + SEED + " with " + ITERATIONS + " iterations never generated: "
+                        + unreached + ". Either raise canoe.fuzz.iterations or change the seed;"
+                        + " a shape that is declared and never generated is a coverage claim that"
+                        + " is not true.");
+    }
+
+    /** The generated templates are pure ASCII, which is the suite's source rule applied to its data. */
+    @Test
+    public void everyFragmentIsPureAscii() {
+        for (String[] host : HOSTS) {
+            assertAscii(host[0]);
+            assertAscii(host[1]);
+        }
+        for (String noise : NOISE) {
+            assertAscii(noise);
+        }
+    }
+
+    private static void assertAscii(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            assertFalse(s.charAt(i) > 0x7f,
+                    () -> "non-ASCII in a generator fragment: " + CanoeTestSupport.quote(s));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Small helpers
+    // ------------------------------------------------------------------
+
+    private static long count(String haystack, char needle) {
+        return haystack.chars().filter(c -> c == needle).count();
+    }
+
+    /** Canoe's messages end in {@code " (line: N, pos: M)"}, which moves with the payload length. */
+    private static String withoutPosition(String message) {
+        if (message == null) {
+            return null;
+        }
+        int at = message.lastIndexOf(" (line: ");
+        return at < 0 ? message : message.substring(0, at);
+    }
+}
