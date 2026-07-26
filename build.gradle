@@ -251,18 +251,21 @@ jacocoTestReport {
  *      keeps this entry from coming back.
  *
  *   reallyProcessChar(), 5 outcomes
- *      1  the default arm of switch(state) (Canoe.java:874). Nineteen states have a case; the two
+ *      1  the default arm of switch(state) (Canoe.java:1205). Nineteen states have a case; the two
  *         that do not are URL, which nothing ever assigns, and INVALID, which is only ever assigned
  *         immediately before raiseError() throws.
  *         -> AttributeNameMatrixTest.thereIsNoCtxCssAndStyleStillSuppresses (URL is dead),
  *            CanoeRobustnessTest (every raiseError message, each of which escapes)
- *      1  the default arm of switch(attrQuotes) (Canoe.java:1184). attrQuotes is assigned exactly
+ *      1  the default arm of switch(attrQuotes) (Canoe.java:1586). attrQuotes is assigned exactly
  *         one of QUOTE_NONE/QUOTE_SINGLE/QUOTE_DOUBLE and nowhere else.
- *      1  "Internal error #1001" (the bufLen == buf.length test at Canoe.java:1224). Value scanning
+ *      1  "Internal error #1001" (the bufLen == buf.length test at Canoe.java:1627). Value scanning
  *         gives up at bufLen == 10, so bufLen can never equal buf.length.
  *         -> CanoeRobustnessTest.everyRaiseErrorMessageIsReached lists the twelve that are.
- *      2  UNMEASURABLE rather than unreached: Canoe.java:911 (COMMENT_OPEN_OR_DOCTYPE's else) and
- *         Canoe.java:931 (COMMENT_OPEN_2's else), whose failing outcome enters a block that calls
+ *         ("Twelve" is exact again after R20, which retired "Duplicate DOCTYPE declaration": the
+ *         file has 15 raiseError() call sites and 13 distinct messages, of which this one is the
+ *         only unreachable. It read thirteen-of-fourteen from R5 until then.)
+ *      2  UNMEASURABLE rather than unreached: Canoe.java:1285 (COMMENT_OPEN_OR_DOCTYPE's else) and
+ *         Canoe.java:1305 (COMMENT_OPEN_2's else), whose failing outcome enters a block that calls
  *         raiseError() and then falls through to `break` with no `return`. raiseError() always
  *         throws, so no JaCoCo probe downstream of those blocks is ever executed and the outcome
  *         is reported missed. Both are exercised:
@@ -291,7 +294,7 @@ jacocoTestReport {
  *         matched.)
  *
  *   inBuf(), 4 outcomes  (not gated individually; part of the class figure)
- *      4  the method is called only from commented-out debug statements (Canoe.java:995, 1107).
+ *      4  the method is called only from commented-out debug statements (Canoe.java:1387, 1509).
  *
  *   HtmlEncoder, 5 outcomes
  *      1  the null guard of the private css(String, StringBuilder). The public css(String) returns
@@ -474,6 +477,49 @@ jacocoTestReport {
  *   Canoe                             278 / 289 branches   96.19%   (unchanged by R21; raiseError()
  *                                                                    is straight-line either way)
  *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14 - R21)
+ *
+ * RE-MEASURED after R20 (triage the rejection table, the availability rows of F13). Fourteen branch
+ * outcomes were added and all fourteen are reached, so the class figure rises and the eleven dead
+ * outcomes are still the same eleven, re-read from the XML method by method rather than inferred
+ * from the totals. Where they came from:
+ *   - TAG_NAME's "character after the tag name" test gained a third condition, `c != '/'`, which is
+ *     the <br/> fix: 4 outcomes become 6, and all six are driven - whitespace ends a name, '>' ends a
+ *     tag, '/' now ends one too, and a quote still raises
+ *     (CanoeRobustnessTest.rejections()'s "quote directly after a tag name", which replaced the
+ *     <br/> row as the fixture for that call site).
+ *   - COMMENT_OPEN_OR_DOCTYPE's precondition went from `if (elementSeen) ... else if (doctypeSeen)
+ *     ... else ...` (4 outcomes) to one rejection and two warnings: `if (elementSeen)` raises, then
+ *     `if (doctypeSeen)` and `if (textSeen)` each log and fall through (6 outcomes). All six are
+ *     driven by CanoeRobustnessTest.theSecondDoctypeIsIgnoredWithAWarning and
+ *     .theQuirksModeConsequenceOfTextBeforeTheDoctypeIsWarnedAbout, which assert the warnings by
+ *     capturing them rather than by asserting a field.
+ *   - the HTML state gained `if (!isInitialModeWhitespace(c)) textSeen = true;` (2 outcomes, both
+ *     driven by any document with text and any document with leading whitespace), and
+ *     isInitialModeWhitespace() itself is a four-way `||` chain = 8 outcomes, all covered: space,
+ *     tab, LF and CR each drive one condition's true outcome and a letter drives all four false. It
+ *     is not gated individually, like isNameChar() and isEndTagNameDelimiter(): a pure predicate
+ *     with no configuration behind it, and part of the class figure. It deliberately omits the
+ *     standard's fifth whitespace character, FF, because the C0 guard above it rejects FF outright -
+ *     including it would have added the twelfth dead outcome to the inventory below.
+ * reallyProcessChar 163/168 -> 169/174 = 97.13%, Canoe 278/289 -> 292/303 = 96.37%. Neither floor
+ * moves; R27 still owns the reconciliation. HtmlEncoder is untouched - R20 changes no encoder.
+ * MAX_TAGNAME_LEN moving from 36 to 128 carries no branch at all: it is the buffer's length, and the
+ * two length checks that read it (`bufLen == buf.length - 1`) are the same two conditions before and
+ * after.
+ *
+ * One correction to the table above, which R20 did not cause and did not want to leave standing:
+ * setTagAttributeContext() reads 10/10 rather than the 8/8 recorded under R5. The two extra outcomes
+ * are R9's `isResourceLoadingSink(name) ? ATTR_URI_RESOURCE : ATTR_URI` ternary, which R9's own note
+ * described in prose ("a small, fully covered routing narrowing") without updating the per-method
+ * line. Fully covered then and now; the number was stale, not the coverage.
+ *
+ *   Canoe                             292 / 303 branches   96.37%   (was 278 / 289; R20 added the
+ *                                                                    '/' arm, the two DOCTYPE
+ *                                                                    warnings and textSeen)
+ *     reallyProcessChar()             169 / 174            97.13%   (was 163 / 168)
+ *     setTagAttributeContext()         10 /  10           100.00%   (10, not the 8 recorded above)
+ *     isInitialModeWhitespace()         8 /   8           100.00%   (new in R20)
+ *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14 - R20)
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],

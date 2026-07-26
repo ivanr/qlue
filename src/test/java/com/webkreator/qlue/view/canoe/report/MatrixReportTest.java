@@ -108,13 +108,17 @@ public class MatrixReportTest {
                 + " where it always belonged - AttributePrefixTest.theDataBranchPairIsResolved and"
                 + " AttributeNameMatrixTest.theSourceDeclaresTheTwoNameListsTheMatrixExpects, which"
                 + " asserts the ATTR_CONTENT constant and the author's XXX marker are both gone");
-        gaps.put("F13", "about what escapes VelocityViewFactory.render(), which the corpus harness"
-                + " deliberately does not model - CanoeRobustnessTest via ProductionRenderProbe."
-                + " Closed by R21: the rejection arrives as a catchable CanoeEncodingException on an"
-                + " unflushed response. The 44 REJECTED rows are unmoved by it - R21 changed how a"
-                + " rejection is delivered, not which templates are rejected, which is R20 -"
-                + " so the finding still has no corpus case and CanoeEncodingExceptionTest is where"
-                + " the cause-chain evidence lives");
+        // F13's exemption is deleted rather than reworded, because the finding acquired corpus
+        // cases in R20 and a stale exemption is what this map's second assertion exists to catch.
+        // The exemption said the finding was about what escapes VelocityViewFactory.render(), which
+        // the corpus harness deliberately does not model - and that is still true of F13's *delivery*
+        // half, which R21 closed and which CanoeRobustnessTest (via ProductionRenderProbe) and
+        // CanoeEncodingExceptionTest own. What changed is that F13's other half is a table of
+        // templates, R20 triaged it, and the rows that moved are rows: void.br-no-space, which is
+        // the table's first entry rendering instead of failing, and
+        // shape.framework-length-attribute-name, which is the length cap that a real page hit. Both
+        // cite F13, so the finding now has live regression cases in the ledger as well as in the
+        // two tests.
         gaps.put("F15", "url() corrupting legitimate URLs is an author-data defect with no attacker"
                 + " payload - HtmlEncoderUrlTest");
         gaps.put("F16", "js() and css() are unreachable from Canoe.encode() today, so no case can"

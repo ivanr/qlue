@@ -54,7 +54,7 @@ by application code calling `setAutoEscaping(false)`.
 | F10 | Low (latent) | `SCRIPT_END` accepts `</scriptfoo>` as a script terminator — **fixed in R17** |
 | F11 | Low | Unquoted attribute references silently render as the empty string — **the attribute-value half fixed in R19** |
 | F12 | Low | References inside `#set` and interpolated strings use the wrong context |
-| F13 | Medium | The `[Encoding Error]` recovery branch is unreachable; every encoding error is an unhandled 500 — **fixed in R21** |
+| F13 | Medium | The `[Encoding Error]` recovery branch is unreachable; every encoding error is an unhandled 500 — **fixed in R21; the rejection table triaged in R20** |
 | F14 | Low | A comment ending in three or more dashes never closes, suppressing the rest of the page |
 | F15 | Low | `url()` silently corrupts legitimate URLs five different ways |
 | F16 | Low | `js()` truncates astral code points; `css()` emits unterminated hex escapes and drops everything above U+00FF |
@@ -1194,6 +1194,40 @@ known-good tag boundary, or failing the request outright, would both be more hon
 > this mechanism in its javadoc, and joined by `.aRejectedTemplateIsNotFlushedSoTheResponseCanStillBeReset`.
 > Which templates are rejected did not change, so the ledger's 44 `REJECTED` invocations are unmoved;
 > that triage is R20, which now has a typed exception with structured coordinates to build on.
+
+> **Resolved — R20 (2026-07-26): the rejection table above, triaged row by row.** R21 settled how a
+> rejection is delivered; this settles which inputs are rejected at all. Three of the five rows move,
+> and the two that stay are stated as decisions rather than left as behaviour.
+>
+> | Input | Verdict | Why |
+> |---|---|---|
+> | `<br/>` | **Accepted** | A `/` after a tag name is a self-closing start tag, and `<br />` already worked, so the two spellings simply disagreed. `TAG_NAME` now lets `/` end the name; the character is re-processed in the `TAG` state, which has always routed `/` to `TAG_EMPTY_ENDING`, so no new state was needed. `<script/>` lands in `SCRIPT` exactly as `<script />` does. |
+> | A 37-character tag or attribute name | **Accepted** | `MAX_TAGNAME_LEN` is 128 rather than 36, so the longest name is 127 rather than 35. The cap is not a security control — a name is template text, never attacker data — and the attribute sibling of this row (§5 observation 1 of the remediation plan, not in the table above) is the one an ordinary page hits: `data-controller-target-value-for-the-widget` is 43 characters and unremarkable. Kept as a cap rather than removed, because the buffer is fixed-size by design. |
+> | `<p>5 < 6</p>` | **Still rejected** | This check is what makes the body context safe to reason about: a raw `<` is exactly where Canoe's model of the document and the browser's would part company, and every reference after it would then be encoded for a context that does not exist there. The author's fix is `&lt;`, which is what the character means in text. |
+> | `</ p>`, `</>` | **Still rejected** | Neither is an end tag to a browser either — `</>` is discarded and `</ p>` becomes a bogus comment — so there is no author intent to preserve and no serializer emits them. |
+> | A C0 control in body text | **Still rejected** | The character is in the template's own literal text, never in a value: `htmlWhite()` turns a control inside an encoded reference into the four printable characters `\xNN` before the tokenizer sees it. A control that reaches this check is a corrupt template file or output written around Canoe. |
+>
+> The two rows R18 added and left undecided move as well. **A second DOCTYPE is ignored with a
+> warning**: the HTML Standard discards a DOCTYPE token in every insertion mode after "initial", so no
+> consuming parser has an opinion about the document, and the shape that produces one — a layout and an
+> included fragment each declaring one — is the most ordinary composition mistake a templating system
+> has. **Text before the DOCTYPE stays accepted and now warns**: the standard's "initial" mode ignores
+> whitespace and treats any other character as a parse error that moves the parser on, so the browser
+> renders in quirks mode and the declaration the author wrote does nothing. Whitespace deliberately
+> does not warn — a template whose first line is a directive emits a newline, and a diagnostic that
+> fires on that is noise. Both warnings go to the logger Canoe already uses for R5's suppression
+> diagnostic, at warn level, with the coordinates in them; `doctypeSeen` survives as the field that
+> makes the second declaration detectable at all.
+>
+> What makes "reject" affordable for the three that stay is R21: a rejection is a
+> `CanoeEncodingException` on a response that has not been flushed and can still be reset, so its cost
+> is a clean failed request with coordinates rather than a half-written page under a 200. The
+> reasoning per surviving row is on `CanoeRobustnessTest.rejections()`, and the two new diagnostics are
+> asserted by capturing them (`.theSecondDoctypeIsIgnoredWithAWarning`,
+> `.theQuirksModeConsequenceOfTextBeforeTheDoctypeIsWarnedAbout`). Ledger: eight `REJECTED`
+> invocations become `SAFE` — `reject.void-br`, `reject.void-hr`, `reject.void-img` and
+> `reject.second-doctype` — and two rows are added for shapes that had none, so 44 → 36 `REJECTED` and
+> 469 → 481 `SAFE` across 1,012 invocations.
 
 ---
 

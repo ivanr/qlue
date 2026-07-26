@@ -642,12 +642,12 @@ public class VelocityIntegrationTest {
      */
     @Test
     public void autoEscapingOffStillRunsTheStateMachine() {
-        CanoeTestSupport.RenderResult result = CanoeTestSupport.render("<p>ok</p><br/>", model(),
+        CanoeTestSupport.RenderResult result = CanoeTestSupport.render("<p>ok</p>5 < 6", model(),
                 CanoeTestSupport.RenderOptions.defaults().withoutAutoEscaping());
         assertTrue(result.isError(),
                 () -> "Canoe wraps the writer whether or not the cartridge is attached; got "
                         + result);
-        assertTrue(result.errorMessage().contains("Invalid character after tag name"),
+        assertTrue(result.errorMessage().contains("Tag name too short"),
                 () -> "the same rejection as with auto-escaping on: " + result.errorMessage());
     }
 

@@ -184,16 +184,16 @@ public class CanoeWriterContractTest {
      * the whole range.
      *
      * <p>Inverted from {@code aNonZeroOffsetCanHideMarkupThatWouldOtherwiseBeRejected}, which showed
-     * the {@code (offset 2, len 14)} range over {@code "XX<p>ok</p><br/>"} stopped short of the
-     * {@code /} that Canoe rejects, so the encoding error offset 0 raises was suppressed and the
+     * the {@code (offset 2, len 14)} range over {@code "XX<p>ok</p>5 < 6"} stopped short of the
+     * character that Canoe rejects, so the encoding error offset 0 raises was suppressed and the
      * malformed markup reached the response. With the corrected bound the range is {@code [2, 16)} —
-     * the whole of {@code "<p>ok</p><br/>"} — the {@code /} is parsed, and the same error fires.
+     * the whole of {@code "<p>ok</p>5 < 6"} — every character is parsed, and the same error fires.
      */
     @Test
     public void aNonZeroOffsetNoLongerHidesRejectedMarkup() {
-        String document = "<p>ok</p><br/>";
+        String document = "<p>ok</p>5 < 6";
 
-        // At offset 0 the '/' is parsed and rejected.
+        // At offset 0 the whole range is parsed and rejected.
         assertTrue(CanoeTestSupport.write(document).isError());
 
         // At offset 2 it is now parsed as well, so the same error is raised.
@@ -253,17 +253,17 @@ public class CanoeWriterContractTest {
      * <p>Inverted from {@code theErrorPathWritesTheWrongAmountOfPartialOutput}. The old error path
      * wrote {@code writer.write(cbuff, offset, len - (len - i))}, and {@code len - (len - i)}
      * simplifies to {@code i} — an absolute array index handed back where a length is expected — so
-     * for the range {@code (offset 1, len 14)} over {@code "X<p>ok</p><br/>"} it emitted
-     * {@code "<p>ok</p><br/"}, the good prefix <em>plus</em> the offending {@code /}. R15 writes
+     * for the range {@code (offset 1, len 14)} over {@code "X<p>ok</p>5 < 6"} it emitted
+     * {@code "<p>ok</p>5 < "}, the good prefix <em>plus</em> the offending character. R15 writes
      * {@code writer.write(cbuff, offset, i - offset)}: {@code i} is where the rejected character sits,
      * {@code offset} is where the range began, so {@code i - offset} is precisely the number of
-     * characters parsed successfully, and the flushed prefix is {@code "<p>ok</p><br"} — the same as
+     * characters parsed successfully, and the flushed prefix is {@code "<p>ok</p>5 <"} — the same as
      * at offset 0, where the arithmetic was accidentally right all along.
      */
     @Test
     public void theErrorPathWritesExactlyTheParsedPrefix() {
-        // "<br/>" is rejected: a '/' immediately after a tag name is not allowed.
-        String document = "<p>ok</p><br/>";
+        // "5 < 6" is rejected: a literal '<' in body text is not a tag, and R20 keeps that one.
+        String document = "<p>ok</p>5 < 6";
         char[] buffer = ("X" + document).toCharArray();
         CanoeStateProbe probe = new CanoeStateProbe();
 
@@ -271,14 +271,14 @@ public class CanoeWriterContractTest {
                 () -> probe.feed(buffer, 1, document.length()));
         assertTrue(error.getMessage().startsWith(Canoe.ERROR_PREFIX), error.getMessage());
 
-        assertEquals("<p>ok</p><br", probe.output(),
-                "R15: the error path flushes only the parsed prefix, not the rejected '/'");
+        assertEquals("<p>ok</p>5 <", probe.output(),
+                "R15: the error path flushes only the parsed prefix, not the rejected character");
 
         // At offset 0 the same arithmetic was always right; the offset case now matches it.
         CanoeStateProbe atZero = new CanoeStateProbe();
         assertThrows(IOException.class, () -> atZero.feed(document.toCharArray(), 0,
                 document.length()));
-        assertEquals("<p>ok</p><br", atZero.output(),
+        assertEquals("<p>ok</p>5 <", atZero.output(),
                 "at offset 0 the good prefix is exactly right, and the offset case now agrees");
     }
 

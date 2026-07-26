@@ -60,8 +60,10 @@ public class CanoeTestSupportTest {
 
     @Test
     public void reportsEncodingErrorsRatherThanThrowing() {
-        // A '/' immediately after a tag name is rejected: <br/> does not parse, <br /> does.
-        CanoeTestSupport.WriteResult result = CanoeTestSupport.write("<br/>");
+        // A literal '<' in prose is rejected: Canoe is a validating tokenizer, and a '<' that
+        // does not open a tag is a template-authoring error R20 deliberately keeps rejecting.
+        // (<br/> used to be this fixture, and renders since R20.)
+        CanoeTestSupport.WriteResult result = CanoeTestSupport.write("5 < 6");
 
         assertTrue(result.isError());
         assertTrue(result.errorMessage().startsWith(Canoe.ERROR_PREFIX), result.errorMessage());
@@ -78,7 +80,7 @@ public class CanoeTestSupportTest {
 
     @Test
     public void contextAfterRefusesInputItCannotParse() {
-        assertThrows(AssertionError.class, () -> CanoeTestSupport.contextAfter("<br/>"));
+        assertThrows(AssertionError.class, () -> CanoeTestSupport.contextAfter("5 < 6"));
     }
 
     @Test

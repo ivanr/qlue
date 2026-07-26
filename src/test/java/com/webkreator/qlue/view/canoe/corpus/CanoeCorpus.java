@@ -1,5 +1,7 @@
 package com.webkreator.qlue.view.canoe.corpus;
 
+import com.webkreator.qlue.view.Canoe;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -153,6 +155,15 @@ public final class CanoeCorpus {
     private static final String A3 = "A.3 event handlers";
     private static final String A4 = "A.4 attribute value prefixes";
     private static final String A7 = "A.7 malformed template shapes";
+
+    /**
+     * The longest tag or attribute name Canoe will parse: the shared buffer's length less the slot
+     * the name scan reserves for its NUL terminator. Read from {@link Canoe#MAX_TAGNAME_LEN} rather
+     * than written out, because R20 moved it once (36 to 128) and the rows either side of the
+     * boundary are about the <em>relationship</em> - "the limit is the buffer minus one", from both
+     * sides - and not about either number.
+     */
+    private static final int NAME_LIMIT = Canoe.MAX_TAGNAME_LEN - 1;
 
     // ------------------------------------------------------------------
     // Shared payload selections and notes
@@ -2502,8 +2513,14 @@ public final class CanoeCorpus {
                 .section(A2)
                 .note("TAG_EMPTY_ENDING demands '>' immediately: 'Expected '>' after '/' in tag.'."
                         + " An XHTML-style self-closing tag with a trailing attribute takes the page"
-                        + " down. This is the same defect as the <br/> row in F13's table, reached"
-                        + " from the attribute side.")
+                        + " down. This was the same defect as the <br/> row in F13's table,"
+                        + " reached from the attribute side; R20 fixed that row and left this one,"
+                        + " because the two are not the same shape after all. A '/' that ends a tag"
+                        + " name is a self-closing start tag and is what R20 accepts; a '/' followed"
+                        + " by another ATTRIBUTE is the HTML Standard's unexpected-solidus-in-tag"
+                        + " parse error, which a browser recovers from by ignoring the solidus."
+                        + " Accepting it is a separate decision, on a shape no serializer emits, and"
+                        + " R20's package did not include it.")
                 .build());
     }
 
@@ -2981,7 +2998,7 @@ public final class CanoeCorpus {
     /**
      * F5, as three templates that differ only in the elements around the one under test.
      *
-     * <p>{@code buf} is a 36-character field shared across the whole render, and it used to be
+     * <p>{@code buf} is a fixed-size field shared across the whole render, and it used to be
      * cleared by nothing at all — only {@code bufLen} was reset. The {@code TAG_ATTR_VALUE} path
      * never writes a NUL terminator, and the value scan can only ever write indices 0–9, so a value
      * could never repair {@code buf[10]} itself. Whether {@code javascript:} was recognised therefore
@@ -3144,21 +3161,50 @@ public final class CanoeCorpus {
      * merely cosmetic.
      *
      * <p>R21 changed how a rejection is delivered and not which templates are rejected, so every
-     * verdict below is unchanged by it. Which of them <em>should</em> be rejections at all is R20.
+     * verdict below was unchanged by it. <strong>R20 then decided which of them should be rejections
+     * at all</strong>, and five rows moved: the three XHTML-style void elements and the second
+     * DOCTYPE render now, and the two length boundaries moved from 35/36 to 127/128. Each surviving
+     * rejection has its reason on its own row, and {@code CanoeRobustnessTest.rejections()} carries
+     * the reasoning for the group.
      */
     private static void malformedTemplates(List<XssCase> cases) {
 
-        // The XHTML-style void elements. '/' immediately after a tag name is rejected; '<br />' and
-        // '<img src="a.png"/>' are both fine.
-        cases.add(rejected("reject.void-br", "<p>$data</p><br/>")
-                .note("'Invalid character after tag name'. <br /> with a space is accepted, so this"
-                        + " is a whitespace-sensitive rejection of the most common void-element"
-                        + " spelling in the wild.")
+        // The XHTML-style void elements, ACCEPTED since R20. TAG_NAME lets a '/' end the name and
+        // hands it to the TAG state, which already routed it to TAG_EMPTY_ENDING.
+        cases.add(XssCase.id("void.br-no-space")
+                .section(A7)
+                .template("<p>$data</p><br/>")
+                .textSink("p")
+                .payloads(Payloads.INERT_MARKER, Payloads.TAG_IMG_ONERROR)
+                .verdict(Verdict.SAFE)
+                .finding("F13")
+                .note("R20: the page renders. Was reject.void-br (REJECTED, 'Invalid character after"
+                        + " tag name'), the first row of F13's table: <br /> with a space parsed and"
+                        + " <br/> without one did not, so the two spellings of the most common void"
+                        + " element in the wild disagreed and the commoner one took the page down."
+                        + " Re-verdicted SAFE by reading the render: the reference is in the <p> text"
+                        + " sink, htmlWhite() escapes TAG_IMG_ONERROR there, and the document's shape"
+                        + " is the template's own. The F13 citation is kept so the finding keeps a"
+                        + " live regression case rather than losing one when it was closed.")
                 .build());
 
-        cases.add(rejected("reject.void-hr", "<p>$data</p><hr/>").build());
+        cases.add(XssCase.id("void.hr-no-space")
+                .section(A7)
+                .template("<p>$data</p><hr/>")
+                .textSink("p")
+                .payloads(Payloads.INERT_MARKER, Payloads.TAG_IMG_ONERROR)
+                .verdict(Verdict.SAFE)
+                .note("R20, as void.br-no-space. Was reject.void-hr.")
+                .build());
 
-        cases.add(rejected("reject.void-img", "<p>$data</p><img/>").build());
+        cases.add(XssCase.id("void.img-no-space")
+                .section(A7)
+                .template("<p>$data</p><img/>")
+                .textSink("p")
+                .payloads(Payloads.INERT_MARKER, Payloads.TAG_IMG_ONERROR)
+                .verdict(Verdict.SAFE)
+                .note("R20, as void.br-no-space. Was reject.void-img.")
+                .build());
 
         cases.add(rejected("reject.bare-less-than-in-body", "<p>5 < 6 $data</p>")
                 .note("'Tag name too short'. A literal '<' in body text kills the render - which is"
@@ -3169,50 +3215,77 @@ public final class CanoeCorpus {
 
         cases.add(rejected("reject.empty-closing-tag", "<p>$data</p></>").build());
 
-        // The MAX_TAGNAME_LEN boundary, from both sides. The constant is 36 and buf is 36 long, but
-        // the check fires at bufLen == buf.length - 1, so the real limit is 35 characters.
+        // The MAX_TAGNAME_LEN boundary, from both sides. R20 raised the constant from 36 to 128;
+        // buf is MAX_TAGNAME_LEN long and the check fires at bufLen == buf.length - 1, so the real
+        // limit is one less than the constant and the relationship is what these rows pin.
         cases.add(XssCase.id("shape.tag-name-at-the-limit")
                 .section(A7)
-                .template("<" + repeat('a', 35) + ">$data")
-                .textSink(repeat('a', 35))
+                .template("<" + repeat('a', NAME_LIMIT) + ">$data")
+                .textSink(repeat('a', NAME_LIMIT))
                 .payloads(Payloads.family("LENGTH_STRESS"))
                 .verdict(Verdict.SAFE)
-                .note("35 characters is the longest tag name that parses. MAX_TAGNAME_LEN reads 36,"
-                        + " but the check is bufLen == buf.length - 1 and the name needs a NUL"
-                        + " terminator, so 36 is one too many. Left unclosed on purpose: see"
-                        + " reject.closing-tag-name-at-the-limit for why it cannot be closed.")
+                .note("127 characters is the longest tag name that parses. MAX_TAGNAME_LEN reads"
+                        + " 128, but the check is bufLen == buf.length - 1 and the name needs a NUL"
+                        + " terminator, so 128 is one too many. R20 raised the constant from 36,"
+                        + " which put this boundary at 35 - short enough that ordinary custom"
+                        + " element and data-* attribute names crossed it. Left unclosed on purpose:"
+                        + " see reject.closing-tag-name-at-the-limit for why it cannot be closed.")
                 .build());
 
-        cases.add(rejected("reject.tag-name-over-the-limit", "<" + repeat('a', 36) + ">$data")
-                .note("'Tag name too long' at the 36th character. F13's table gives"
-                        + " <data-widget-configuration-attribute-name> as the example; the boundary"
-                        + " is pinned here.")
+        cases.add(rejected("reject.tag-name-over-the-limit",
+                "<" + repeat('a', NAME_LIMIT + 1) + ">$data")
+                .note("'Tag name too long' at the 128th character. Still a rejection after R20,"
+                        + " which raised the cap rather than removing it: the buffer is fixed-size"
+                        + " by design, so there is a limit at some length and this row is where it"
+                        + " is. F13's table gives <data-widget-configuration-attribute-name> as the"
+                        + " example, and that name renders now.")
                 .build());
 
         cases.add(rejected("reject.closing-tag-name-at-the-limit",
-                "<" + repeat('a', 35) + ">$data</" + repeat('a', 35) + ">")
-                .note("The 35-character opening tag above parses; the matching CLOSING tag does not,"
-                        + " because buf[0] holds the '/' and only 34 characters of name fit after it."
-                        + " So an element name of exactly 35 characters can be opened and can never"
-                        + " be closed. An availability nuance of the 'Tag name too long' defect"
-                        + " already in F13's table rather than a finding of its own, but a surprising"
-                        + " one, and it is pinned here so a future fix to the limit has to decide"
-                        + " about both ends.")
+                "<" + repeat('a', NAME_LIMIT) + ">$data</" + repeat('a', NAME_LIMIT) + ">")
+                .note("The 127-character opening tag above parses; the matching CLOSING tag does"
+                        + " not, because buf[0] holds the '/' and only 126 characters of name fit"
+                        + " after it. So an element name of exactly the limit can be opened and can"
+                        + " never be closed. R20 moved the length at which this bites (35 -> 127)"
+                        + " and deliberately did not close the asymmetry: it is one character at a"
+                        + " length no real element name reaches, where before it was one character"
+                        + " at a length several do. Pinned so a future change to the limit has to"
+                        + " decide about both ends.")
                 .build());
 
         cases.add(XssCase.id("shape.attribute-name-at-the-limit")
                 .section(A7)
-                .template("<p " + repeat('a', 35) + "=\"1\">$data</p>")
+                .template("<p " + repeat('a', NAME_LIMIT) + "=\"1\">$data</p>")
                 .textSink("p")
                 .payloads(Payloads.family("LENGTH_STRESS"))
                 .verdict(Verdict.SAFE)
-                .note("Attribute names share buf and therefore share the limit: 35 parses, 36 does"
-                        + " not.")
+                .note("Attribute names share buf and therefore share the limit: 127 parses, 128 does"
+                        + " not. This is the half of the cap that a real page hits - see"
+                        + " shape.framework-length-attribute-name, which used to be a rejection at"
+                        + " 43 characters.")
                 .build());
 
         cases.add(rejected("reject.attribute-name-over-the-limit",
-                "<p " + repeat('a', 36) + "=\"1\">$data</p>")
+                "<p " + repeat('a', NAME_LIMIT + 1) + "=\"1\">$data</p>")
                 .note("'Attribute name too long'.")
+                .build());
+
+        // R20's own row: the shape the old cap actually broke on ordinary pages.
+        cases.add(XssCase.id("shape.framework-length-attribute-name")
+                .section(A7)
+                .template("<div data-controller-target-value-for-the-widget=\"1\">$data</div>")
+                .textSink("div")
+                .payloads(Payloads.INERT_MARKER, Payloads.TAG_IMG_ONERROR)
+                .verdict(Verdict.SAFE)
+                .finding("F13")
+                .note("A data-* attribute name of 43 characters, which is unremarkable in any modern"
+                        + " framework and was a failed request before R20 ('Attribute name too"
+                        + " long', at 36). Section 5 observation 1 of the remediation plan is this"
+                        + " row: F13's table lists the tag-name cap and not its attribute sibling,"
+                        + " and the sibling is the one a real template hits. The reference renders in"
+                        + " the <div> text sink, where htmlWhite() escapes it - the name is"
+                        + " plain-text-classified by the data- prefix rule, so nothing about the"
+                        + " length changes the classification either.")
                 .build());
 
         // DOCTYPE placement. The precondition used to be a tagCount that counted every '<' seen in
@@ -3225,19 +3298,45 @@ public final class CanoeCorpus {
                         + " 'DOCTYPE declaration must precede the first element'.")
                 .build());
 
-        cases.add(rejected("reject.second-doctype",
-                "<!DOCTYPE html><!-- c --><!DOCTYPE html><p>$data</p>")
-                .note("'Duplicate DOCTYPE declaration'. The second DOCTYPE is rejected even though"
-                        + " only comments separate it from the first, which is the bound on R18: the"
-                        + " comment stops blocking a DOCTYPE, it does not start permitting one"
-                        + " anywhere. A browser would ignore the second declaration (a parse error in"
-                        + " 'before html' and after it); Canoe rejects, because two DOCTYPEs in one"
-                        + " document is an authoring mistake - typically a layout and an included"
-                        + " fragment each declaring one - and telling the author is the only value"
-                        + " this check has. The rejection is not new: tagCount was already past 1 by"
-                        + " the second '<!', so this shape failed before R18 too, under the single"
-                        + " 'must be at the beginning' message. R18 gives it its own message and"
-                        + " rejects nothing that used to be accepted; whether to relax it is R20's.")
+        cases.add(XssCase.id("doctype.second-is-ignored")
+                .section(A7)
+                .template("<!DOCTYPE html><!-- c --><!DOCTYPE html><p>$data</p>")
+                .textSink("p")
+                .payloads(Payloads.INERT_MARKER, Payloads.TAG_IMG_ONERROR)
+                .verdict(Verdict.SAFE)
+                .note("R20: the page renders, and the second declaration is passed through to the"
+                        + " browser, which discards the token. Was reject.second-doctype (REJECTED,"
+                        + " 'Duplicate DOCTYPE declaration'), added by R18 to bound its own fix and"
+                        + " left for R20 to decide. Decided: the HTML Standard ignores a DOCTYPE"
+                        + " token in every insertion mode after 'initial', so no consuming parser"
+                        + " has an opinion about this document, and the shape it comes from - a"
+                        + " layout and an included fragment each declaring one - is the most ordinary"
+                        + " composition mistake a templating system has. Canoe warns instead"
+                        + " (CanoeRobustnessTest.theSecondDoctypeIsIgnoredWithAWarning asserts the"
+                        + " message and the coordinates), which keeps the whole value the check ever"
+                        + " had. Re-verdicted SAFE by reading the render: the reference reaches the"
+                        + " <p> text sink and htmlWhite() escapes it there, and the DOM skeleton is"
+                        + " the benign one. The comment between the two declarations is kept from the"
+                        + " R18 row, because 'a comment does not re-open the door' is still the bound"
+                        + " on F18 - what changed is that there is no door.")
+                .build());
+
+        cases.add(XssCase.id("doctype.after-leading-text")
+                .section(A7)
+                .template("hello<!DOCTYPE html><p>$data</p>")
+                .textSink("p")
+                .payloads(Payloads.INERT_MARKER, Payloads.TAG_IMG_ONERROR)
+                .verdict(Verdict.SAFE)
+                .note("Accepted before R20 and accepted after it, with a warning added. The HTML"
+                        + " Standard's 'initial' insertion mode ignores whitespace and treats any"
+                        + " other character as a parse error that moves the parser on, so a browser"
+                        + " renders this document in QUIRKS MODE and the declaration does nothing."
+                        + " R18 accepted it silently and said the silence was R20's to decide; R20"
+                        + " keeps the acceptance - a rejection would be a new way for a page that"
+                        + " renders today to fail - and closes the gap with a diagnostic instead. The"
+                        + " row is here because the ledger had no case for this shape at all: it was"
+                        + " an accepted input nothing rendered. What it bounds is that the warning"
+                        + " changed nothing about the OUTPUT, which is the risk in adding one.")
                 .build());
 
         // F18, closed by R18. This row used to be reject.doctype-after-a-comment: a licence header,
@@ -3437,7 +3536,7 @@ public final class CanoeCorpus {
                 .payloads(Payloads.family("TAG_BREAKOUT"))
                 .verdict(Verdict.SAFE)
                 .note("There is no element stack to overflow: Canoe keeps one state variable and one"
-                        + " 36-character buffer, so depth costs it nothing.")
+                        + " fixed-size name buffer, so depth costs it nothing.")
                 .build());
     }
 

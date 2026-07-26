@@ -1079,8 +1079,88 @@ safety argument checked by a real parser rather than by jsoup.
 
 ---
 
-**R20 — Triage the template-rejection table**
+**R20 — Triage the template-rejection table** — ✅ **DONE**
 *Closes:* the availability rows of F13's table. *Depends on:* R21.
+*Landed:* three of the five rows below move, two stay as recorded decisions, and the two rows R18
+added move as well.
+
+**`<br/>` is accepted.** `TAG_NAME`'s "character after the name" test gains `c != '/'`, and nothing
+else was needed — the branch already sets `charNeedsProcessing` and enters `TAG`, where `/` has always
+meant `TAG_EMPTY_ENDING`. Read rather than assumed before it was written, and the one thing worth
+checking was the exit: `TAG_EMPTY_ENDING` leaves for `nextState`, so `<script/>` lands in `SCRIPT`
+exactly as `<script />` did, which is also what a browser does (the self-closing flag is acknowledged
+and ignored on a non-void element). **`<img src="a.png"/ alt="x">` is deliberately still rejected**
+and is not the same shape: a `/` followed by another attribute is the standard's
+*unexpected-solidus-in-tag* parse error, no serializer emits it, and it was not in R20's package.
+
+**`MAX_TAGNAME_LEN` is 128**, so both length caps sit at 127 characters. The attribute sibling is the
+one that mattered (§5 observation 1): `data-controller-target-value-for-the-widget` is 43 characters,
+unremarkable in any framework, and was a failed request. The cap is kept rather than removed because
+the buffer is fixed-size by design; the cost of the raise is 256 bytes per instance instead of 72.
+
+**A second DOCTYPE is ignored with a warning**, and **text before the DOCTYPE now warns** while
+staying accepted. Both go through the slf4j logger Canoe already uses for R5's suppression
+diagnostic, at warn level with the coordinates in the message. `doctypeSeen` is kept — it is what
+makes the second declaration detectable — and a new `textSeen` records that non-whitespace output has
+been written; whitespace deliberately does not set it, because a template whose first line is a
+directive emits a newline above the DOCTYPE and a diagnostic that fires on that is noise.
+`isInitialModeWhitespace()` writes the standard's set out rather than calling
+`Character.isWhitespace()`, which is a wider fold, and omits FF because the C0 guard above it makes FF
+unreachable — including it would have added a twelfth dead branch to the coverage inventory.
+
+**Kept, with the reasoning recorded on `CanoeRobustnessTest.rejections()` rather than left implicit:**
+`<p>5 < 6</p>` (this check is what makes the body context safe to reason about — a raw `<` is exactly
+where Canoe's model and the browser's would part company), `</ p>` and `</>` (not end tags to a browser
+either, and no serializer emits them), and a C0 control in body text (it is in the *template's own*
+text; a control inside an encoded reference becomes the four printable characters `\xNN` before the
+tokenizer sees it). What makes rejecting them affordable is R21: the failure is a catchable
+`CanoeEncodingException` on an unflushed, resettable response.
+
+*Tests:* `CanoeRobustnessTest`'s table loses the `<br/>` row and both duplicate-DOCTYPE rows and gains
+a `<p"x">` row, which keeps the `TAG_NAME` "Invalid character after tag name" call site reached; the
+call-site pin moves 16 → 15 and the message pin 14 → 13.
+`.theNameLengthLimitIsOneLessThanTheBufferLength` keeps its name (the relationship it states is still
+exactly true) and asserts the new boundary plus the three shapes the old one broke.
+`.aCommentBeforeTheDoctypeIsNowLegal` keeps its F18 reasoning and its three surviving `elementSeen`
+rejections; its two duplicate-DOCTYPE assertions are inverted into two new tests,
+`.theSecondDoctypeIsIgnoredWithAWarning` and
+`.theQuirksModeConsequenceOfTextBeforeTheDoctypeIsWarnedAbout`, which assert the diagnostics by
+**capturing** them from the logger rather than by asserting a field — a warning nobody reads is a
+warning that stops being emitted. `CanoeStateMachineTest` gains six transition rows (three for the
+`/`-after-name path including `<script/>`, three for the DOCTYPE arms). `TemplateFuzzTest` now
+generates `<br/>`, a self-closed `<img/>` and a second DOCTYPE, on R18's own reasoning that the shapes
+a fixed finding makes reachable are the ones the fuzzer had never explored.
+`AttributeNameMatrixTest` reads the length bound from the constant instead of a 36-character literal,
+and asserts the accepted side of it too. Every test that used `<br/>` merely as *a template Canoe
+rejects* moved to `5 < 6`, chosen because it is the same length and fails at the same offset, so every
+coordinate, every `write(char[], int, int)` range and every "characters that reached the writer"
+assertion reads exactly as before; the fixture file is renamed `rejected-literal-lt.vm`.
+`BufferResidueTest` and `NearMissNameSweepTest` turned out **not** to encode the old cap — the first
+sweeps names of 1–20 characters and mentions 36 only in prose, the second has no length boundary at
+all — so the change there is prose.
+*Ledger:* eight `REJECTED` invocations become `SAFE` (`reject.void-br`, `reject.void-hr`,
+`reject.void-img` → `void.*-no-space`; `reject.second-doctype` → `doctype.second-is-ignored`), and
+two rows are added for shapes the ledger had none for: `doctype.after-leading-text`, which bounds the
+new warning by asserting it changed no output, and `shape.framework-length-attribute-name`, which is
+§5 observation 1 as a case. Each re-verdict was set by reading the render against the sink — all four
+put their payload in a `<p>`/`<div>` text sink where `htmlWhite()` escapes it and the DOM skeleton is
+the benign one — not by copying the run. The length rows keep their verdicts and move to 127/128.
+**1,008 → 1,012 invocations: SAFE 469 → 481, REJECTED 44 → 36**, KNOWN_VULNERABLE 68,
+SUPPRESSED_BY_DESIGN 415, SUPPRESSED_UNINTENDED 12 all unchanged. F13's exemption in
+`MatrixReportTest.FINDINGS_WITHOUT_CASES` is deleted, because the finding now has corpus cases
+(`void.br-no-space` and `shape.framework-length-attribute-name` cite it) and a stale exemption is what
+that map's second assertion exists to catch.
+*Coverage:* fourteen branch outcomes added, all fourteen reached, and the eleven dead outcomes are
+still the same eleven, re-read from the XML method by method. Canoe 278/289 → **292/303 = 96.37%**
+(floor 95), `reallyProcessChar()` 163/168 → **169/174 = 97.13%** (floor 96), `isInitialModeWhitespace()`
+8/8, HtmlEncoder untouched at 315/320 = 98.44%. No floor moves. `build.gradle`'s inventory records the
+re-measurement, refreshes the line numbers in the dead-outcome list, and corrects one stale figure it
+found on the way: `setTagAttributeContext()` reads 10/10, not the 8/8 recorded under R5 — the two
+extra outcomes are R9's `isResourceLoadingSink()` ternary, fully covered then and now.
+`./gradlew test` (6,128 tests, 0 failures) and `canoeCoverageGate` green; `browserTest` green on
+Chromium — 91 passed, 2 skipped, unchanged by R20, which is what it should be: the rows R20 moved are
+not `browserRelevant` and the output of every row that is, is byte-identical. See R28 for what
+happened when the other two engines turned out to be installed here after all.
 
 Five ordinary inputs raise an encoding error, and per F13 each is currently an unhandled 500:
 
@@ -1320,6 +1400,20 @@ Two known gaps to close while you are there: F20's `nonce` row has no browser de
 a page with an author nonce and a real CSP), and §A.3 of the test plan is missing `onbegin` and
 `onrepeat`, the SVG animation siblings of `onend`.
 
+**Observed while running R20's gates, and worth having before R28 starts.** The other two engines are
+*not* missing here any more: `PLAYWRIGHT_BROWSERS_PATH=/opt/playwright` holds `firefox-1532`,
+`firefox-1538`, `webkit-2311` and `webkit-2336` alongside the Chromium builds, and with that variable
+exported `browserTest` launches Firefox and runs the corpus against it — the first ~100 assertions
+pass. It then **hangs** on `BrowserCorpusTest.theBrowserAgreesWithTheLedger > FIREFOX url.action /
+JS_URL/plain`, a `javascript:` URL in a `<form action>` that `fullInteraction()` submits, with no
+progress for ten minutes and no timeout to end it. Nothing in R20 touches that row (it is
+`browserRelevant`, R20's changed rows are not, and its rendered output is unchanged), so this is an
+engine/harness interaction and not a regression — but it means R28 needs a per-case timeout and a
+decision about form submission under Firefox before the three-engine run can be a gate rather than a
+hang. R20's own browser gate was therefore run with `PLAYWRIGHT_BROWSERS_PATH` pointed at a directory
+holding only the Chromium builds, which reproduces the single-engine environment every browser-tier
+figure in this plan was measured in: 91 passed, 2 skipped.
+
 ---
 
 ## 3. Traceability
@@ -1338,7 +1432,7 @@ a page with an author nonce and a real CSP), and §A.3 of the test plan is missi
 | F10 — `SCRIPT_END` accepts `</scriptfoo>` | Low (latent) | R17 ✅ (delimiter required, mismatch re-processed, fold bounded to ASCII) |
 | F11 — unquoted attribute references vanish | Low | R19 ✅ (`TAG_ATTR_VALUE_BEFORE` shares `TAG_ATTR_VALUE`'s case label); the `COMMENT_*`/`DOCTYPE_*` half of the finding is deliberately left suppressing |
 | F12 — `#set` interpolation uses the wrong context | Low | R24 |
-| F13 — `[Encoding Error]` branch unreachable | Medium | R21 ✅ (typed `CanoeEncodingException` found on the cause chain; the marker is gone, the flush is suppressed and the response is reset so the request can fail cleanly); R20 triages which inputs are rejected at all |
+| F13 — `[Encoding Error]` branch unreachable | Medium | R21 ✅ (typed `CanoeEncodingException` found on the cause chain; the marker is gone, the flush is suppressed and the response is reset so the request can fail cleanly) + R20 ✅ (the rejection table triaged: `<br/>`, names to 127 characters and a second DOCTYPE render; the literal `<`, `</ p>`, `</>` and C0 controls stay rejected, each with its reason recorded) |
 | F14 — comment ending in three dashes never closes | Low | R16 |
 | F15 — `url()` corrupts legitimate URLs five ways | Low | R11, R12 |
 | F16 — `js()` truncates astral; `css()` escapes unterminated | Low | R13 |
@@ -1389,7 +1483,7 @@ R17 SCRIPT_END / CSS_END
 R18 DOCTYPE precondition
 R19 TAG_ATTR_VALUE_BEFORE
 R21 CanoeEncodingException              <- before R20
-R20 rejection-table triage
+R20 rejection-table triage              <- done
 -------------------------------------------- tokenizer faithful, pages stop dying here
 R22 resource loader key
 R23 formal-notation bypass
@@ -1411,6 +1505,13 @@ fold into a task above.
    (`Canoe.java:800`). The review's F13 table lists `Tag name too long` but not its attribute
    sibling, which is the one a real template is likelier to hit — `data-*` attribute names in modern
    frameworks routinely exceed 36 characters, and each one is a 500. Folded into R20.
+
+   **Discharged by R20.** `MAX_TAGNAME_LEN` is 128, so both caps sit at 127 characters, and the
+   observation's own example is now a corpus row rather than a note:
+   `shape.framework-length-attribute-name` renders `<div data-controller-target-value-for-the-widget>`,
+   43 characters, which was a failed request before. The cap is kept rather than removed because the
+   buffer is fixed-size by design — a bounded, allocation-free name scan is the property, and 128 is
+   where the bound went.
 
 2. **`isTagNameChar()` accepts any Unicode letter** (`Canoe.java:196`, via `Character.isLetter`),
    where the HTML tokenizer accepts only ASCII. Not reachable by attacker data — no encoder emits a

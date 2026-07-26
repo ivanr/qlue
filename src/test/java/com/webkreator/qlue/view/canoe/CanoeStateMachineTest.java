@@ -170,6 +170,16 @@ public class CanoeStateMachineTest {
                 row("slash after a closed value", "<img src=\"a\" /",
                         Canoe.TAG_EMPTY_ENDING, Canoe.CTX_SUPPRESS),
 
+                // R20: a '/' straight after the tag name ends the name and is re-processed in the
+                // TAG state, which is where '/' has always meant TAG_EMPTY_ENDING. The three rows
+                // are the whole of the path: the name ends, the tag ends, and the element's own
+                // next state is honoured on the way out - <script/> lands in SCRIPT exactly as
+                // <script /> does, because TAG_EMPTY_ENDING leaves for nextState and not for HTML.
+                row("slash immediately after a tag name", "<br/",
+                        Canoe.TAG_EMPTY_ENDING, Canoe.CTX_SUPPRESS),
+                row("after a self-closed void element", "<br/>", Canoe.HTML, Canoe.CTX_HTML),
+                row("after a self-closed script element", "<script/>", Canoe.SCRIPT, Canoe.CTX_JS),
+
                 // --- comments and doctype ---
                 row("after a bang", "<!", Canoe.COMMENT_OPEN_OR_DOCTYPE, Canoe.CTX_SUPPRESS),
                 row("after one comment dash", "<!-", Canoe.COMMENT_OPEN_2, Canoe.CTX_SUPPRESS),
@@ -199,7 +209,19 @@ public class CanoeStateMachineTest {
                 row("after a doctype that followed a comment", "<!-- c --><!DOCTYPE html>",
                         Canoe.HTML, Canoe.CTX_HTML),
                 row("doctype after leading text", "hello<!DOCTYPE html>",
-                        Canoe.HTML, Canoe.CTX_HTML));
+                        Canoe.HTML, Canoe.CTX_HTML),
+
+                // R20: the two DOCTYPE arms that used to raise. A second declaration is admitted
+                // into DOCTYPE_TEST exactly as the first is - the parser spells the word out and
+                // leaves at the '>' - so the state path after it is indistinguishable from a
+                // document with one, which is the point: the difference is a log line, not a
+                // parse. The rejection that survives is elementSeen's, in CanoeRobustnessTest.
+                row("second doctype, part-way through", "<!DOCTYPE html><!DOC",
+                        Canoe.DOCTYPE_TEST, Canoe.CTX_SUPPRESS),
+                row("after a second doctype", "<!DOCTYPE html><!DOCTYPE html>",
+                        Canoe.HTML, Canoe.CTX_HTML),
+                row("after a second doctype separated by a comment",
+                        "<!DOCTYPE html><!-- c --><!DOCTYPE html>", Canoe.HTML, Canoe.CTX_HTML));
     }
 
     private static Arguments row(String description, String prefix, int state, int context) {
@@ -386,9 +408,9 @@ public class CanoeStateMachineTest {
         // And INVALID, once the parser has given up entirely.
         CanoeStateProbe probe = new CanoeStateProbe();
         try {
-            probe.feed("<br/>");
+            probe.feed("5 < 6");
         } catch (IOException expected) {
-            // Canoe rejects a '/' immediately after a tag name; see CanoeRobustnessTest.
+            // Canoe rejects a literal '<' in body text; see CanoeRobustnessTest.
         }
         assertEquals(Canoe.INVALID, probe.state());
         assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext());

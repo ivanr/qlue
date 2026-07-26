@@ -35,7 +35,8 @@ import java.io.IOException;
  * computed the line and position of the offending character and has always spent them on a string.
  * They are carried here as {@link #getLine()} and {@link #getPosition()}, with the bare
  * {@link #getReason()} beside them, so that a caller can report or triage a rejection without parsing
- * the message back apart. R20 (the rejection-table triage) is the first consumer.
+ * the message back apart. R20 (the rejection-table triage) was the first consumer, and
+ * {@code CanoeRobustnessTest} reads them for every row of the table.
  *
  * <p><strong>The message is unchanged.</strong> {@code getMessage()} is still
  * {@code "Encoding Error: <reason> (line: L, pos: P)"}, byte for byte what the bare
@@ -44,10 +45,12 @@ import java.io.IOException;
  * matches on it any more.
  *
  * <p>An encoding error is <em>not</em> attacker-controlled. Every shape that reaches
- * {@code raiseError()} is a template-authoring hazard — {@code <br/>}, a literal {@code <} in prose,
+ * {@code raiseError()} is a template-authoring error — a literal {@code <} in prose, {@code </ p>},
  * a name longer than {@link Canoe#MAX_TAGNAME_LEN} — so catching this exception means "this page's
- * template is wrong", not "somebody is attacking us". See {@code CanoeRobustnessTest} for the full
- * table and R20 for the triage of it.
+ * template is wrong", not "somebody is attacking us". R20 triaged that set and moved the shapes that
+ * were merely unusual rather than wrong ({@code <br/>}, a long {@code data-*} name, a second DOCTYPE)
+ * out of it; {@code CanoeRobustnessTest.rejections()} is the surviving table, with the reasoning for
+ * each row on it.
  */
 public class CanoeEncodingException extends IOException {
 

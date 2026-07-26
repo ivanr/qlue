@@ -1,5 +1,7 @@
 package com.webkreator.qlue.view.canoe.corpus;
 
+import com.webkreator.qlue.view.Canoe;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -322,11 +324,11 @@ public final class Payloads {
             "DEL, which is not below 0x20 and so takes a different encoder branch");
 
     public static final Payload LENGTH_AT_TAGNAME_LIMIT = payload("LENGTH_STRESS", "at-tagname-limit",
-            repeat('a', 35),
+            repeat('a', Canoe.MAX_TAGNAME_LEN - 1),
             "the MAX_TAGNAME_LEN boundary");
 
     public static final Payload LENGTH_OVER_TAGNAME_LIMIT = payload("LENGTH_STRESS", "over-tagname-limit",
-            repeat('a', 37),
+            repeat('a', Canoe.MAX_TAGNAME_LEN + 1),
             "one character past the MAX_TAGNAME_LEN boundary");
 
     public static final Payload LENGTH_AT_PREFIX_WINDOW = payload("LENGTH_STRESS", "at-prefix-window",

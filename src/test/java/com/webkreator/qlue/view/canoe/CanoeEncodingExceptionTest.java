@@ -57,16 +57,16 @@ public class CanoeEncodingExceptionTest {
     @Test
     public void theExceptionCarriesTheReasonAndTheCoordinatesAsFields() throws IOException {
         CanoeEncodingException error = assertThrows(CanoeEncodingException.class,
-                () -> new Canoe(new StringWriter()).write("<p>\n</p>\n<p>\n<br/>"));
+                () -> new Canoe(new StringWriter()).write("<p>\n</p>\n<p>\n5 < 6"));
 
-        assertEquals("Invalid character after tag name", error.getReason(),
+        assertEquals("Tag name too short", error.getReason(),
                 "the reason on its own, with no prefix and no coordinates: this is what identifies"
                         + " WHICH rejection fired, and getMessage() cannot be used for that because"
                         + " it varies with the position");
         assertEquals(4, error.getLine());
         assertEquals(4, error.getPosition());
 
-        assertEquals(Canoe.ERROR_PREFIX + "Invalid character after tag name (line: 4, pos: 4)",
+        assertEquals(Canoe.ERROR_PREFIX + "Tag name too short (line: 4, pos: 4)",
                 error.getMessage(),
                 "and the message is byte for byte what the bare IOException carried before R21;"
                         + " ERROR_PREFIX is kept for exactly that reason");
@@ -81,7 +81,7 @@ public class CanoeEncodingExceptionTest {
     @Test
     public void itIsStillAnIOExceptionBecauseTheWriterContractAllowsNothingElse() {
         CanoeEncodingException error = assertThrows(CanoeEncodingException.class,
-                () -> new Canoe(new StringWriter()).write("<br/>"));
+                () -> new Canoe(new StringWriter()).write("5 < 6"));
 
         assertInstanceOf(IOException.class, error);
     }
@@ -169,7 +169,8 @@ public class CanoeEncodingExceptionTest {
      * Four real renders, four wrapper messages, no common prefix. Measured rather than asserted from
      * the review's table, which lists the first two.
      *
-     * <p>The template is {@code <br/>} in every case — the review's own first rejection row — so the
+     * <p>The template is a literal {@code <} in prose in every case — {@code <br/>} was the review's
+     * own first rejection row and held this place until R20 made it legal — so the
      * only thing that varies is where Velocity was when the writer threw. Two of the four messages
      * do not contain {@code "IO Error"}; the same two do not contain Canoe's message either, so
      * neither {@code startsWith} nor {@code contains} on the top-level message could have found
@@ -182,15 +183,15 @@ public class CanoeEncodingExceptionTest {
         // The production path, through VelocityViewFactory.render() before R21 unwrapped it. Driven
         // here through the harness's evaluate() twin plus the probe, because render() no longer hands
         // the wrapper out - which is the fix, and is why this row is measured on the raw engine.
-        wrappers.put("evaluate", CanoeTestSupport.render("<p>a</p><br/>").thrown());
+        wrappers.put("evaluate", CanoeTestSupport.render("<p>a</p>5 < 6").thrown());
 
-        CanoeTestSupport.publishFragment("canoe-encoding-exception-fragment.vm", "<br/>");
+        CanoeTestSupport.publishFragment("canoe-encoding-exception-fragment.vm", "5 < 6");
         wrappers.put("#parse", CanoeTestSupport
                 .render("<p>a</p>#parse(\"canoe-encoding-exception-fragment.vm\")").thrown());
         wrappers.put("macro", CanoeTestSupport
-                .render("#macro(m)<br/>#end<p>a</p>#m()").thrown());
+                .render("#macro(m)5 < 6#end<p>a</p>#m()").thrown());
 
-        wrappers.put("reference", CanoeTestSupport.render("<p>$data</p><br/>", "x").thrown());
+        wrappers.put("reference", CanoeTestSupport.render("<p>$data</p>5 < 6", "x").thrown());
 
         for (Map.Entry<String, Throwable> entry : wrappers.entrySet()) {
             Throwable top = entry.getValue();
@@ -203,7 +204,7 @@ public class CanoeEncodingExceptionTest {
             CanoeEncodingException found = CanoeEncodingException.findIn(top);
             assertNotNull(found, entry.getKey() + ": and the type is found regardless: "
                     + top.getMessage());
-            assertEquals("Invalid character after tag name", found.getReason(), entry.getKey());
+            assertEquals("Tag name too short", found.getReason(), entry.getKey());
         }
 
         // The two the review's table did not have. Their messages name the directive rather than the
@@ -228,30 +229,30 @@ public class CanoeEncodingExceptionTest {
      *
      * <p><strong>And the caveat R20 needs.</strong> The coordinates are positions in the
      * <em>rendered output</em>, not in any template file: Canoe counts the characters it is given,
-     * and it is given one stream for the whole response. The {@code /} is the fourth character of the
+     * and it is given one stream for the whole response. The offending character is the fourth of the
      * fragment and the twelfth of the page, and the exception says twelve. That is the right answer to
      * the question Canoe can answer, and it is not the question a developer asks ("where in my
      * template?"), which is worth knowing before anything reports these to a human.
      */
     @Test
     public void aRejectionInsideAParsedFragmentReachesTheCallerTyped() {
-        ProductionRenderProbe.publishFragment("canoe-encoding-exception-probe-fragment.vm", "<br/>");
+        ProductionRenderProbe.publishFragment("canoe-encoding-exception-probe-fragment.vm", "5 < 6");
 
         ProductionRenderProbe.Outcome fromParse = ProductionRenderProbe.render(
                 "<p>a</p>#parse(\"canoe-encoding-exception-probe-fragment.vm\")");
         assertInstanceOf(CanoeEncodingException.class, fromParse.escaped(),
                 () -> "R21: " + fromParse);
-        assertEquals("Invalid character after tag name", fromParse.encodingError().getReason());
+        assertEquals("Tag name too short", fromParse.encodingError().getReason());
         assertEquals(12, fromParse.encodingError().getPosition(),
                 "the position is in the OUTPUT stream: 8 characters of <p>a</p> and then the fourth"
                         + " character of the fragment. Not the position in the fragment, and not the"
                         + " position in any file");
 
         ProductionRenderProbe.Outcome fromMacro =
-                ProductionRenderProbe.render("#macro(m)<br/>#end<p>a</p>#m()");
+                ProductionRenderProbe.render("#macro(m)5 < 6#end<p>a</p>#m()");
         assertInstanceOf(CanoeEncodingException.class, fromMacro.escaped(),
                 () -> "R21: " + fromMacro);
-        assertEquals("Invalid character after tag name", fromMacro.encodingError().getReason());
+        assertEquals("Tag name too short", fromMacro.encodingError().getReason());
     }
 
     private static Throwable wrap(Throwable inner, int depth) {

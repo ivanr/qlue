@@ -962,10 +962,16 @@ public class AttributeNameMatrixTest {
                 () -> Canoe.normalisePlainTextAttributeNames(List.of("-leading-hyphen")));
         assertThrows(IllegalArgumentException.class,
                 () -> Canoe.normalisePlainTextAttributeNames(
-                        List.of("a-name-of-thirty-six-characters-abcd")),
-                "a name longer than the 35 characters the name scan can buffer could never match"
-                        + " either - Canoe raises 'Attribute name too long' before it classifies"
-                        + " anything");
+                        List.of("a".repeat(Canoe.MAX_TAGNAME_LEN))),
+                "a name longer than the name scan can buffer could never match either - Canoe raises"
+                        + " 'Attribute name too long' before it classifies anything. The length is"
+                        + " read from MAX_TAGNAME_LEN rather than written out: R20 raised it from 36"
+                        + " to 128, and this assertion is about the relationship between the"
+                        + " validator and the buffer, not about either number");
+        assertEquals(Set.of("a".repeat(Canoe.MAX_TAGNAME_LEN - 1)),
+                Canoe.normalisePlainTextAttributeNames(
+                        List.of("a".repeat(Canoe.MAX_TAGNAME_LEN - 1))),
+                "...and one character shorter is accepted, which is the boundary the tokenizer has");
 
         // ...and the two shapes that are not errors: nothing at all, and blank entries in a list.
         // A property written as "a, , b" is a typo rather than a misconfiguration.
@@ -1121,8 +1127,12 @@ public class AttributeNameMatrixTest {
         // An attribute after '/' is not a classification question at all: Canoe rejects the template.
         assertTrue(CanoeTestSupport.render("<img src=\"a.png\"/ alt=\"$data\">", "x").isError(),
                 "TAG_EMPTY_ENDING demands '>' immediately after '/', so an XHTML-style tag with a"
-                        + " trailing attribute takes the page down - the same defect as <br/> in"
-                        + " F13's table, reached from the attribute side");
+                        + " trailing attribute takes the page down. This reads like <br/> from F13's"
+                        + " table reached from the attribute side, and R20 decided it is not the same"
+                        + " shape: a '/' that ENDS A TAG NAME is a self-closing start tag and is what"
+                        + " R20 accepted, while a '/' followed by another ATTRIBUTE is the HTML"
+                        + " Standard's unexpected-solidus-in-tag parse error, which no serializer"
+                        + " emits - see the separator.attribute-after-slash corpus row");
     }
 
     /**

@@ -84,7 +84,28 @@ public class Canoe extends Writer {
      */
     public static final String ERROR_PREFIX = "Encoding Error: ";
 
-    public static final int MAX_TAGNAME_LEN = 36;
+    /**
+     * The length of the shared name buffer, and therefore one more than the longest tag or attribute
+     * name Canoe will parse: the scan raises once it would fill the last slot, which is reserved for
+     * the NUL terminator the name scan appends.
+     *
+     * <p><strong>Raised from 36 to 128 by R20</strong>, which triages F13's rejection table. The old
+     * value capped a name at 35 characters and both length checks share it — {@code Tag name too
+     * long} in TAG_NAME and {@code Attribute name too long} in TAG_ATTR_NAME — so the same constant
+     * decided both. The attribute half is the one an ordinary page hits: {@code data-*} attribute
+     * names in modern frameworks routinely run past 35 characters, and every one of them was a
+     * rejected page rather than a rendered one. Custom element names reach it too, though less often.
+     * Neither limit is a security control — a name is template text, never attacker data, and nothing
+     * downstream reads past {@code bufLen} — so the only thing the old value bought was the smaller
+     * buffer, which is 256 bytes per Canoe instance rather than 72 and is not a trade worth a 500.
+     *
+     * <p>128 rather than "no limit" because the buffer is fixed-size by design: the scan is bounded,
+     * allocation-free and cannot be made to grow by output, so the cap is what keeps a pathological
+     * name from being a pathological allocation. It also bounds the application-configured plain-text
+     * allowlist in {@link #normalisePlainTextAttributeNames(Collection)}, which refuses a name the
+     * tokenizer could never buffer.
+     */
+    public static final int MAX_TAGNAME_LEN = 128;
 
     public static final int HTML = 0;
 
@@ -235,20 +256,21 @@ public class Canoe extends Writer {
     /**
      * Whether a DOCTYPE declaration has already been accepted in this document.
      *
-     * <p>A second DOCTYPE is rejected. The HTML Standard ignores it — in "before html" it is a parse
-     * error, and later it is one too — so a browser silently keeps the first; Canoe raises instead,
-     * because a template that emits two DOCTYPEs is a template-authoring mistake (usually a layout and
-     * an included fragment both declaring one) and the whole value of this check is telling the author
-     * about it. Tracked separately from {@link #elementSeen} so the two rejections can say which of
-     * them fired: "must precede the first element" and "Duplicate DOCTYPE declaration" are different
-     * mistakes with different fixes.
+     * <p>A second DOCTYPE is <strong>ignored, with a warning</strong> (R20). It used to be rejected,
+     * on the argument that a template emitting two DOCTYPEs is an authoring mistake — usually a layout
+     * and an included fragment each declaring one — and that saying so is the whole value of the
+     * check. R20's triage keeps the diagnostic and drops the refusal: a browser ignores the second
+     * declaration (it is a parse error in "before html" and after it, and the token is discarded), so
+     * refusing the page is strictness no consuming parser has, and it turns the most ordinary
+     * composition mistake in a templating system into a failed request. The warning goes to the same
+     * logger the unrecognised-attribute diagnostic uses, at warn rather than debug, because unlike
+     * that one it fires at most once per document and names a real authoring defect.
      *
-     * <p><strong>This rejection is not new, and R18 did not add it.</strong> {@code tagCount} was
-     * already 2 by the second {@code <!}, so the old check refused it as well — with the misleading
-     * "DOCTYPE declaration must be at the beginning", which described neither of the two things that
-     * can now go wrong. R18 only splits the message in two: it widens what Canoe accepts and rejects
-     * nothing it accepted before. Whether being stricter than a browser here is the right policy at
-     * all is a question about the rejection table rather than about F18, and R20 owns it.
+     * <p>The field survives the change and is the reason the second declaration is detectable at all;
+     * without it the parser cannot tell the second {@code <!d} from the first. It is still tracked
+     * separately from {@link #elementSeen}, which carries the one DOCTYPE rejection R20 keeps: a
+     * declaration <em>after an element</em> is a template whose document order is wrong, and Canoe has
+     * already emitted the element it would have applied to.
      *
      * <p>Set where the declaration is <em>admitted</em> — the {@code d} of {@code <!d}, before
      * DOCTYPE_TEST has spelt the rest of the word out. A misspelling raises from there and ends the
@@ -256,6 +278,30 @@ public class Canoe extends Writer {
      * parsed.
      */
     protected boolean doctypeSeen;
+
+    /**
+     * Whether non-whitespace text has been written in the {@link #HTML} state, which is what decides
+     * that a DOCTYPE declaration below it will be ignored by the browser (R20).
+     *
+     * <p>Canoe accepts {@code hello<!DOCTYPE html>} and always has. The HTML Standard does not: its
+     * "initial" insertion mode ignores whitespace, and any other character is a parse error that
+     * switches to "before html" — so by the time the declaration arrives the document is already
+     * committed to <strong>quirks mode</strong>, and the DOCTYPE the author wrote does nothing. R18
+     * left this accepted deliberately, on the grounds that turning an input that renders today into a
+     * failed request is the opposite of what a rejection-table triage is for, and R20 keeps that
+     * decision and adds the missing half: the consequence is now discoverable, as a warning, rather
+     * than silent.
+     *
+     * <p>Whitespace does not set it, and that is not a detail: a template whose first line is a
+     * Velocity directive or a comment emits a newline before the DOCTYPE, which is both extremely
+     * common and exactly the case the standard ignores. Warning about it would make the diagnostic
+     * noise and train its reader to ignore the real one.
+     *
+     * <p>Read only where a DOCTYPE is admitted, so it costs one assignment per text character and
+     * nothing else. It keeps being maintained after the DOCTYPE for the same reason {@link
+     * #doctypeSeen} does — a later declaration, if one arrives, gets the same judgement.
+     */
+    protected boolean textSeen;
 
     /**
      * The URL-bearing attribute names, whose values go through {@link HtmlEncoder#url(String)}.
@@ -782,6 +828,26 @@ public class Canoe extends Writer {
     }
 
     /**
+     * Whether a character in body text is whitespace the HTML Standard's "initial" insertion mode
+     * ignores, and therefore text a DOCTYPE declaration may still follow (R20).
+     *
+     * <p>The standard's set is tab, LF, FF, CR and space; this one omits FF, and the omission is
+     * deliberate rather than an oversight. A form feed cannot reach the HTML state at all — the C0
+     * guard in {@link #HTML} rejects every character below 0x20 except tab, CR and LF — so a
+     * {@code c == '\f'} test here would be a branch no input can take, which is precisely the kind of
+     * entry the coverage inventory exists to keep out. The four that remain are the four that can
+     * occur.
+     *
+     * <p>{@link Character#isWhitespace(char)} is deliberately not used either: it is a Unicode fold
+     * that also accepts U+2028, U+3000 and the other space separators, none of which the standard's
+     * "initial" mode ignores, so it would silently withhold the warning for exactly the exotic input a
+     * reader would most want it for.
+     */
+    private static boolean isInitialModeWhitespace(char c) {
+        return (c == ' ') || (c == '\t') || (c == '\n') || (c == '\r');
+    }
+
+    /**
      * ASCII-only case folding, for the two states that match an end tag name against a literal
      * (R17, F10).
      *
@@ -1158,6 +1224,14 @@ public class Canoe extends Writer {
                             raiseError("Invalid character detected in output");
                             return;
                         }
+
+                        // R20: remember that the document has text in it, which is what makes a
+                        // DOCTYPE below this point one the browser will ignore. Whitespace does
+                        // not count, because the HTML Standard's "initial" insertion mode
+                        // ignores it and a template's first line routinely emits some.
+                        if (!isInitialModeWhitespace(c)) {
+                            textSeen = true;
+                        }
                     }
                     break;
 
@@ -1165,25 +1239,44 @@ public class Canoe extends Writer {
                     if (c == '-') {
                         state = COMMENT_OPEN_2;
                     } else if ((c == 'D') || (c == 'd')) {
-                        // The DOCTYPE has to come before the first element and there may
-                        // only be one of it. Comments before it are legal HTML and legal
-                        // here (R18/F18), and so is text - but for a different reason,
-                        // and it is worth being honest about which. The HTML Standard's
-                        // "initial" insertion mode ignores whitespace and calls any other
-                        // text a parse error that moves the parser on, so a browser would
-                        // ignore the DOCTYPE in "hello<!DOCTYPE html>" and render the page
-                        // in quirks mode. Canoe could tell the two apart and does not:
-                        // leading text was accepted before R18 and stays accepted, because
-                        // turning it into a rejection would be a new way for an ordinary
-                        // page to 500 - the opposite of what this task is for. R18 widens
-                        // what is accepted and narrows nothing; the rejection table as a
-                        // whole, including whether a second DOCTYPE should be refused at
-                        // all when a browser merely ignores it, is triaged in R20.
+                        // A DOCTYPE declaration has to come before the first element. That is
+                        // the one rejection R20's triage keeps here, and it is kept because it
+                        // is the shape a browser cannot honour AND cannot be produced by
+                        // ordinary composition: by the time an element has been emitted the
+                        // document's mode is already decided, and a template that declares its
+                        // DOCTYPE after its markup has its document order wrong.
+                        //
+                        // The other two shapes are accepted with a warning rather than refused,
+                        // which is R20's whole subject. A browser IGNORES a second declaration
+                        // and IGNORES one that follows text (going quirks for the latter), so
+                        // refusing either is strictness no consuming parser has, applied to the
+                        // two mistakes template composition produces most often - a layout and
+                        // an included fragment each declaring one, and a fragment that emits a
+                        // line of text above the layout's declaration. Canoe says so and renders
+                        // the page; see doctypeSeen and textSeen for the reasoning in full.
                         if (elementSeen) {
                             raiseError("DOCTYPE declaration must precede the first element");
-                        } else if (doctypeSeen) {
-                            raiseError("Duplicate DOCTYPE declaration");
                         } else {
+                            if (doctypeSeen) {
+                                log.warn("Canoe ignored a duplicate DOCTYPE declaration (line: {},"
+                                                + " pos: {}). A browser keeps the first declaration"
+                                                + " and discards this one; the usual cause is a"
+                                                + " layout and an included fragment each declaring"
+                                                + " one, and the fix is to remove the declaration"
+                                                + " from the fragment.",
+                                        currentLine, currentPos);
+                            }
+
+                            if (textSeen) {
+                                log.warn("Canoe accepted a DOCTYPE declaration that follows text"
+                                                + " (line: {}, pos: {}). A browser ignores a"
+                                                + " declaration that is not the first thing in the"
+                                                + " document and renders the page in QUIRKS MODE,"
+                                                + " so this declaration has no effect; move it above"
+                                                + " every character of output.",
+                                        currentLine, currentPos);
+                            }
+
                             doctypeSeen = true;
                             bufLen = 1;
                             state = DOCTYPE_TEST;
@@ -1300,8 +1393,18 @@ public class Canoe extends Writer {
                             return;
                         }
 
-                        // Char after tag name must be '>' or whitespace
-                        if ((Character.isWhitespace(c) == false) && (c != '>')) {
+                        // Char after tag name must be whitespace, '>' or '/'.
+                        //
+                        // R20 added '/', which is the <br/> row of F13's rejection table: a
+                        // solidus straight after a tag name is the self-closing start tag of
+                        // XHTML and of every serializer that emits it, and it was the one shape
+                        // in that table that no author would think twice about writing. <br />
+                        // with a space already worked - the space ends the name, TAG sees the
+                        // '/' and routes it to TAG_EMPTY_ENDING - so the two spellings simply
+                        // disagreed, and the no-space one took the page down. Nothing else is
+                        // needed to accept it: the branch below already re-processes this
+                        // character in the TAG state, which is where the '/' belongs.
+                        if ((Character.isWhitespace(c) == false) && (c != '>') && (c != '/')) {
                             raiseError("Invalid character after tag name");
                             return;
                         }

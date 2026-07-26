@@ -66,11 +66,18 @@ loses its `alt`. Two quote characters remove the whole class of problem.
 ### What Canoe rejects
 
 Canoe is a strict tokenizer and raises an encoding error rather than emitting markup it cannot
-parse: a DOCTYPE that follows the document's first tag or a second DOCTYPE (a comment above the
-DOCTYPE is legal HTML and is accepted, and so is leading text), `<br/>` (a slash straight after a tag
-name — `<br />` with a space is fine), an unexpected character after a tag name, a literal `<` in
-body text, an XML prolog, and about a dozen more. The error is **not** recovered into a partial page:
-it propagates out of the view factory and the request fails.
+parse: a DOCTYPE that follows the document's first tag, an unexpected character after a tag name, a
+literal `<` in body text, `</ p>` and `</>`, an XML prolog, a control character in the template's own
+text, and about a dozen more. The error is **not** recovered into a partial page: it propagates out
+of the view factory as a `CanoeEncodingException` — carrying the reason, the line and the position —
+and the request fails, with nothing flushed, so the response can still be replaced wholesale.
+
+Four shapes that used to be rejected are accepted: `<br/>` with no space (it always worked with one),
+a tag or attribute name of up to 127 characters (`data-*` names from any modern framework run past
+the old limit of 35), a **second** DOCTYPE, and text above the DOCTYPE. The last two are accepted
+because a browser ignores them, and each is logged as a warning that says so — a second declaration
+is discarded by the browser, and a declaration below any text leaves the document in quirks mode, so
+both are worth fixing in the template and neither is worth failing a request over.
 
 ### What is not covered
 

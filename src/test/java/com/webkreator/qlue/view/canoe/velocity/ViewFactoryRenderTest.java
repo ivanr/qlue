@@ -188,7 +188,7 @@ public class ViewFactoryRenderTest {
             assertTrue(claimed.add(row.file), () -> row.file + " is claimed by two rows");
         }
         // Two fixtures exist for the production switches rather than for the comparison table.
-        claimed.add("rejected-void-element.vm");
+        claimed.add("rejected-literal-lt.vm");
         claimed.add("direct-output.vm");
 
         assertEquals(claimed, fixturesOnDisk(),
@@ -307,12 +307,13 @@ public class ViewFactoryRenderTest {
     @Test
     public void autoEscapingOffStillLeavesCanoeParsingTheTemplate() {
         ProductionRenderProbe.Outcome production = ProductionRenderProbe.renderFile(
-                TEMPLATE_DIR + "rejected-void-element.vm", Map.of(),
+                TEMPLATE_DIR + "rejected-literal-lt.vm", Map.of(),
                 ProductionRenderProbe.Options.defaults().withoutAutoEscaping());
 
         assertTrue(production.exceptionEscaped(),
-                () -> "<br/> is rejected whether or not references are being encoded: " + production);
-        assertTrue(causeChainMentions(production.escaped(), "Invalid character after tag name"),
+                () -> "a rejected template is rejected whether or not references are being encoded: "
+                        + production);
+        assertTrue(causeChainMentions(production.escaped(), "Tag name too short"),
                 () -> "and for the same reason: " + production.escaped());
     }
 
@@ -500,14 +501,14 @@ public class ViewFactoryRenderTest {
      */
     @Test
     public void anEncodingErrorLeavesIdenticalPartialOutputOnBothPathsAndNoMarker() {
-        String template = "<p>ok</p><br/>";
+        String template = "<p>ok</p>5 < 6";
 
         CanoeTestSupport.RenderResult harness = CanoeTestSupport.render(template);
         ProductionRenderProbe.Outcome production =
-                ProductionRenderProbe.renderFile(TEMPLATE_DIR + "rejected-void-element.vm", Map.of());
+                ProductionRenderProbe.renderFile(TEMPLATE_DIR + "rejected-literal-lt.vm", Map.of());
 
         assertTrue(harness.isError(), () -> "the harness reports the error: " + harness);
-        assertEquals("<p>ok</p><br", harness.output(),
+        assertEquals("<p>ok</p>5 <", harness.output(),
                 "Canoe writes the characters it accepted and stops mid-element");
         assertEquals(harness.output(), production.output(),
                 "and the production response contains exactly the same bytes");
@@ -591,11 +592,11 @@ public class ViewFactoryRenderTest {
     @Test
     public void theProductionEntryPointWiresTheResponseReset() throws IOException {
         ProductionRenderProbe.ResponseOutcome outcome =
-                ProductionRenderProbe.renderThroughResponse("<p>ok</p><br/>", false);
+                ProductionRenderProbe.renderThroughResponse("<p>ok</p>5 < 6", false);
 
         assertInstanceOf(CanoeEncodingException.class, outcome.escaped(),
                 () -> "R21: the entry point rethrows Canoe's exception unwrapped. " + outcome);
-        assertEquals("Invalid character after tag name", outcome.encodingError().getReason());
+        assertEquals("Tag name too short", outcome.encodingError().getReason());
         assertTrue(outcome.calls().contains("resetBuffer"),
                 () -> "R21: ...after resetting the response buffer. " + outcome);
         assertEquals("", outcome.body(),
@@ -613,10 +614,10 @@ public class ViewFactoryRenderTest {
         // The residual, on the real path: a response that has already gone out cannot be withdrawn,
         // and the entry point must not turn that into an IllegalStateException from resetBuffer().
         ProductionRenderProbe.ResponseOutcome committed =
-                ProductionRenderProbe.renderThroughResponse("<p>ok</p><br/>", true);
+                ProductionRenderProbe.renderThroughResponse("<p>ok</p>5 < 6", true);
         assertInstanceOf(CanoeEncodingException.class, committed.escaped(),
                 () -> "R21: still Canoe's exception, not the servlet container's. " + committed);
-        assertEquals("<p>ok</p><br", committed.body(),
+        assertEquals("<p>ok</p>5 <", committed.body(),
                 "and the partial page is still there, because there is no recovery for it");
 
         Path source = Path.of(
@@ -659,8 +660,9 @@ public class ViewFactoryRenderTest {
     }
 
     /**
-     * The fixture the F13 assertions use is the {@code <br/>} row from the review's own table, and
-     * the file-backed form behaves exactly as the string-backed one.
+     * The fixture the F13 assertions use is a literal {@code <} in prose — the row R20 kept when it
+     * triaged the review's table, and the one that replaced {@code <br/>} when R20 made that legal —
+     * and the file-backed form behaves exactly as the string-backed one.
      *
      * <p>Worth a row of its own because the two go through different resource loaders and the error
      * is raised from inside {@code merge()} either way; if a loader ever buffered the template
@@ -676,8 +678,8 @@ public class ViewFactoryRenderTest {
     @Test
     public void theFileBackedAndStringBackedTemplatesFailIdentically() {
         ProductionRenderProbe.Outcome fromFile =
-                ProductionRenderProbe.renderFile(TEMPLATE_DIR + "rejected-void-element.vm", Map.of());
-        ProductionRenderProbe.Outcome fromString = ProductionRenderProbe.render("<p>ok</p><br/>");
+                ProductionRenderProbe.renderFile(TEMPLATE_DIR + "rejected-literal-lt.vm", Map.of());
+        ProductionRenderProbe.Outcome fromString = ProductionRenderProbe.render("<p>ok</p>5 < 6");
 
         assertEquals(fromString.output(), fromFile.output(),
                 "the resource loader does not change what reaches the response");

@@ -44,7 +44,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <h2>The mechanism that used to carry it, and what replaced it</h2>
  *
  * <p>{@code detectAttributePrefix()} confirmed the value prefix was exactly {@code javascript} by
- * testing {@code buf[10] == '\0'}. {@code buf} is a 36-character field of the whole render, and it
+ * testing {@code buf[10] == '\0'}. {@code buf} is a fixed-size field of the whole render (36
+ * characters then, {@code MAX_TAGNAME_LEN} = 128 since R20), and it
  * was never cleared — only {@code bufLen} was reset. The value scan writes indices 0 through 9 and
  * bails at {@code bufLen == 10} without writing, so a value could never repair index 10 itself
  * ({@code TAG_ATTR_VALUE} omits the {@code buf[bufLen++] = '\0'} that {@code TAG_ATTR_NAME} does).

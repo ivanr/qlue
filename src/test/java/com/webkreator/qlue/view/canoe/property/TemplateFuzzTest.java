@@ -323,16 +323,19 @@ public class TemplateFuzzTest {
      * <p>A list rather than a string because the minimiser works by dropping fragments, and a
      * fragment boundary is the only place a drop can leave something Canoe will still parse.
      *
-     * <p>The shapes are constrained to what Canoe accepts, which is narrower than HTML: it rejects
-     * {@code <br/>} on a void element, and rejects a DOCTYPE that follows an element or a previous
-     * DOCTYPE. Generating those would turn the run into a rejection benchmark instead of an injection
-     * hunt. Some rejection is still generated deliberately — the unterminated shapes below — because
-     * property 1 is about rejected renders and property 2 has to hold in partial output.
+     * <p>The shapes are constrained to what Canoe accepts, which is narrower than HTML: it rejects a
+     * DOCTYPE that follows an element, and a literal {@code <} in text. Generating those would turn
+     * the run into a rejection benchmark instead of an injection hunt. Some rejection is still
+     * generated deliberately — the unterminated shapes below — because property 1 is about rejected
+     * renders and property 2 has to hold in partial output.
      *
-     * <p>A comment above the DOCTYPE <em>was</em> in that excluded list, because F18 rejected it. R18
-     * makes it legal, so the generator emits one, on the same reasoning the {@link #NOISE} javadoc
-     * gives for keeping F5's fragments: the shapes a fixed finding makes reachable are exactly the
-     * ones the fuzzer had never been able to explore.
+     * <p>Three shapes <em>were</em> in that excluded list and are now generated, on the reasoning
+     * the {@link #NOISE} javadoc gives for keeping F5's fragments: the shapes a fixed finding makes
+     * reachable are exactly the ones the fuzzer had never been able to explore. A comment above the
+     * DOCTYPE, which F18 rejected and R18 made legal; a second DOCTYPE and {@code <br/>} on a void
+     * element, both of which R20 made legal. The second DOCTYPE is emitted at the same point as the
+     * first, so a run explores documents with two of them, which is what a layout plus an included
+     * fragment produces.
      */
     private static List<String> generate(Random random) {
         List<String> fragments = new ArrayList<>();
@@ -342,6 +345,11 @@ public class TemplateFuzzTest {
                 fragments.add("<!-- licence -->");
             }
             fragments.add("<!DOCTYPE html>");
+            // R20: a second declaration is ignored with a warning rather than refused, so the
+            // fuzzer can explore the layout-plus-fragment shape that produces one.
+            if (random.nextInt(4) == 0) {
+                fragments.add("<!DOCTYPE html>");
+            }
         }
 
         int leading = random.nextInt(4);
@@ -376,6 +384,10 @@ public class TemplateFuzzTest {
             "<div class=\"c\">t</div>",
             "<!-- a comment -->",
             "<img src=\"/a.png\" alt=\"a\">",
+            // R20 made the no-space self-closing form legal; before that it was a rejection the
+            // generator had to avoid, so no fuzz run had ever put one in front of a reference.
+            "<br/>",
+            "<img src=\"/a.png\" alt=\"a\"/>",
             "<a href=\"/x\">y</a>",
             "<input placeholder=\"x\">",
             "<input aria-describedby=\"x\">",

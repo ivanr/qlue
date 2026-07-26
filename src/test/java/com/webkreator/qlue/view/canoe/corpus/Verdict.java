@@ -76,8 +76,16 @@ public enum Verdict {
      * <p>None of that changes <em>which</em> inputs are rejected, and R21 changed none of them:
      * {@code VerdictEvaluator} derives this verdict from the harness finding a
      * {@code CanoeEncodingException} in the cause chain, which is the same set of renders it found
-     * an {@code IOException} carrying the prefix in before. Deciding which rejections should stop
-     * being rejections is R20.
+     * an {@code IOException} carrying the prefix in before.
+     *
+     * <p><strong>R20 then decided which of them should stop being rejections</strong>, and eight
+     * invocations left this verdict for {@link #SAFE}: the three XHTML-style void elements
+     * ({@code <br/>}, {@code <hr/>}, {@code <img/>}) and the second DOCTYPE. The name-length rows
+     * stayed, at 127/128 rather than 35/36. What survives is a rejection because it is a
+     * template-authoring <em>error</em> — a literal {@code <} in prose, {@code </ p>}, {@code </>}, a
+     * control character in the template's own text — and the reasoning for each is on
+     * {@code CanoeRobustnessTest.rejections()}. A row that carries this verdict from here on should be
+     * a shape someone can defend rejecting, not one nobody has got round to.
      */
     REJECTED;
 

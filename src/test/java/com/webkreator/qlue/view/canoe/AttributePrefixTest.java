@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@code detectAttributePrefix()} and {@code setTagAttributeContext()}, and the interaction between
- * them. Two functions, one shared 36-character buffer, and three findings that live in the seam:
+ * them. Two functions, one shared fixed-size name buffer, and three findings in the seam:
  * F4 (the value scan discards what the name established), F5 (the value scan reads buffer indices
  * nothing in the value ever wrote), and F7 (a branch that can never be taken).
  *
