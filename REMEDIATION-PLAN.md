@@ -811,8 +811,35 @@ Fix to `i < offset + len`, and the error path to `writer.write(cbuff, offset, i 
 
 ---
 
-**R16 — Fix `COMMENT_CLOSE_2`**
+**R16 — Fix `COMMENT_CLOSE_2`** — ✅ **DONE**
 *Closes:* F14. *Depends on:* nothing.
+*Landed:* the `COMMENT_CLOSE_2` state now stays in `COMMENT_CLOSE_2` on a `-` instead of dropping back
+to `COMMENT` — the one-arm change the HTML Standard's comment-end state describes (another `-`
+appends and stays), so the `>` that follows any run of two or more dashes closes the comment and the
+parser returns to HTML. Before: `> HTML`, else `COMMENT` (a third `-` fell into the else and reset the
+close). After: `> HTML`, `- ` stay, else `COMMENT`. The dash-run cases, verified against the fixed
+code: `<!--a--->` (three), `<!--a---->` (four), `<!------>` (dashes with no body) and `<!---->` (the
+empty comment `<!--`+`-->`) all **close** → `CTX_HTML`; `<!--->` (the shortest abrupt-close form) does
+**not** close and stays `CTX_SUPPRESS`, because Canoe models `<!--` as landing directly in `COMMENT`
+and has no comment-start-dash state, so its single interior dash only reaches `COMMENT_CLOSE_1` — a
+residual divergence of the same "not a faithful tokenizer" class as F10, fail-closed, and deliberately
+out of R16's one-arm scope.
+`CanoeStateMachineTest.aCommentEndingInThreeDashesNeverCloses` is inverted to
+`.aCommentEndingInThreeDashesNowCloses` (former name in the javadoc), asserting the dash-run cases
+above including the `<!--->` residual; `CanoeRobustnessTest.aCommentEndingInThreeDashesEmpties`
+`TheRestOfThePage` is inverted to `.aCommentEndingInThreeDashesNowClosesAndTheRestOfThePageRenders`;
+`BodyContextTest`'s F14 line is inverted to assert the `<p>` reference renders escaped once the comment
+closes. Two transitions rows are added so the split `COMMENT_CLOSE_2` arm keeps its plain-character
+`else` branch covered. Ledger/F14: the corpus row `comment.three-dashes-swallows-the-page`
+(`<!--a---><p>$data</p>`, a `TAG_BREAKOUT` family into a text sink) moves off `SUPPRESSED_UNINTENDED`
+to **SAFE** — the reference now renders in the `<p>` text context where `html()` escapes the payload,
+so the structural oracle sees no shape change — re-verdicted against the fixed output and keeping its
+`finding("F14")` citation for traceability (SAFE rows already cite findings in this corpus, e.g. the
+two `desync.*-end-tag-with-a-suffix` F10 rows), so F14 keeps a live regression case and needs no
+`FINDINGS_WITHOUT_CASES` entry. Coverage: the `COMMENT_CLOSE_2` block went from two branch outcomes to
+four (all reached), so Canoe is 252/263 = 95.82% (was 250/261) against the 0.95 floor and
+`reallyProcessChar()` is 155/160 = 96.88% against 0.96 — no floor moved; the inventory's eleven dead
+outcomes are unchanged. `./gradlew test` and `canoeCoverageGate` green.
 
 `Canoe.java:666-672` drops back to `COMMENT` on a third `-`, so `<!--a--->` never closes and every
 reference for the rest of the page silently renders empty. The HTML Standard's comment-end state stays

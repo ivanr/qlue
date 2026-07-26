@@ -790,18 +790,23 @@ public final class CanoeCorpus {
                         + " and every browser still shipping.")
                 .build());
 
-        // F14: COMMENT_CLOSE_2 drops back to COMMENT on a third '-', so the comment never closes and
-        // every reference for the rest of the page is suppressed.
+        // F14, closed by R16. COMMENT_CLOSE_2 used to drop back to COMMENT on a third '-', so the
+        // comment never closed and every reference for the rest of the page was suppressed. R16 keeps
+        // COMMENT_CLOSE_2 on a third (or later) dash, matching the HTML Standard's comment-end state,
+        // so the '>' closes the comment and the <p> that follows is real markup again.
         cases.add(XssCase.id("comment.three-dashes-swallows-the-page")
                 .section(A1)
                 .template("<!--a---><p>$data</p>")
                 .textSink("p")
                 .payloads(Payloads.family("TAG_BREAKOUT"))
-                .verdict(Verdict.SUPPRESSED_UNINTENDED)
+                .verdict(Verdict.SAFE)
                 .finding("F14")
-                .note("Every browser closes this comment at the '>'. Canoe does not, so the <p> that"
-                        + " follows is comment text to it and the reference inside renders empty -"
-                        + " as does every reference after it, anywhere on the page.")
+                .note("Every browser closes this comment at the '>', and after R16 so does Canoe: the"
+                        + " third dash stays in comment-end and the following '>' returns the parser to"
+                        + " HTML. The reference in the <p> is no longer swallowed - it renders in the"
+                        + " text context, where TAG_BREAKOUT is HTML-escaped and cannot change the"
+                        + " document's shape. Was SUPPRESSED_UNINTENDED (the value, and every value"
+                        + " after it, rendered empty); re-verdicted SAFE against the fixed output.")
                 .build());
 
         cases.add(XssCase.id("doctype.internal-subset")

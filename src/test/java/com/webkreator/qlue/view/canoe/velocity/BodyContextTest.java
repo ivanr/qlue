@@ -448,13 +448,16 @@ public class BodyContextTest {
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<!--[if IE]>"));
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<!DOCTYPE "));
 
-        // ...and the comment that never closes, which suppresses the rest of the page (F14).
-        assertEquals("<!--a---><p></p>",
-                CanoeTestSupport.render("<!--a---><p>$data</p>", Payloads.TAG_IMG_ONERROR.value())
-                        .output(),
-                "F14: every browser closes this comment at the '>' and Canoe does not, so the <p>"
-                        + " that follows is comment text to it - as is every reference after it,"
-                        + " anywhere on the page");
+        // ...and, by contrast, the comment that used to never close now does (F14, closed by R16).
+        // <!--a---> closes at the '>', so the following <p> is real markup again and its reference
+        // renders in the text context - HTML-escaped, not suppressed, and not injected raw.
+        CanoeTestSupport.RenderResult afterThreeDashClose =
+                CanoeTestSupport.render("<!--a---><p>$data</p>", Payloads.TAG_IMG_ONERROR.value());
+        assertTrue(afterThreeDashClose.output().startsWith("<!--a---><p>&lt;img"),
+                "R16: <!--a---> closes, so the reference after it renders escaped in the <p>. Got: "
+                        + afterThreeDashClose.output());
+        assertFalse(afterThreeDashClose.output().contains("<img"),
+                "R16: and there is no raw '<img' to inject with");
     }
 
     /**

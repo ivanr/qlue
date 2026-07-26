@@ -1085,6 +1085,12 @@ public class Canoe extends Writer {
                 case COMMENT_CLOSE_2:
                     if (c == '>') {
                         state = HTML;
+                    } else if (c == '-') {
+                        // A third (or later) dash keeps us in comment-end, exactly as the HTML
+                        // Standard's comment-end state does: another '-' appends and stays, so the
+                        // '>' that follows any run of dashes still closes the comment (F14). Dropping
+                        // back to COMMENT here meant <!--a---> never closed and every reference for
+                        // the rest of the page rendered empty.
                     } else {
                         state = COMMENT;
                     }

@@ -151,6 +151,10 @@ public class CanoeStateMachineTest {
                         Canoe.COMMENT_CLOSE_1, Canoe.CTX_SUPPRESS),
                 row("after two closing dashes", "<!-- a --",
                         Canoe.COMMENT_CLOSE_2, Canoe.CTX_SUPPRESS),
+                row("a run of closing dashes stays in comment-end", "<!-- a ---",
+                        Canoe.COMMENT_CLOSE_2, Canoe.CTX_SUPPRESS),
+                row("a non-dash after two closing dashes drops back to comment", "<!-- a -- b",
+                        Canoe.COMMENT, Canoe.CTX_SUPPRESS),
                 row("dash that does not close", "<!--a-b", Canoe.COMMENT, Canoe.CTX_SUPPRESS),
                 row("after a closed comment", "<!-- c -->", Canoe.HTML, Canoe.CTX_HTML),
                 row("inside a conditional comment", "<!--[if IE]>",
@@ -344,22 +348,47 @@ public class CanoeStateMachineTest {
     }
 
     /**
-     * F14. A comment ending in three or more dashes closes in every browser — the HTML Standard's
-     * comment-end state stays in comment-end on a {@code -} and closes on the following {@code >} —
-     * but {@code COMMENT_CLOSE_2} drops back to {@code COMMENT} instead, so Canoe never sees the
-     * comment close and suppresses the entire rest of the page.
+     * F14, closed by R16 and now inverted. Was {@code aCommentEndingInThreeDashesNeverCloses}: it
+     * pinned the defect that {@code COMMENT_CLOSE_2} dropped back to {@code COMMENT} on a third dash,
+     * so {@code <!--a--->} never closed and every reference for the rest of the page rendered empty.
      *
-     * <p>Fail-closed, so an availability defect rather than a vulnerability, and the same shape as
-     * F10's converse: a state machine that is not a faithful model of the HTML tokenizer.
+     * <p>R16 makes {@code COMMENT_CLOSE_2} stay in {@code COMMENT_CLOSE_2} on a {@code -}, exactly as
+     * the HTML Standard's comment-end state does — another {@code -} keeps us in comment-end — so the
+     * {@code >} that follows any run of two or more dashes closes the comment and the parser returns
+     * to HTML. This test asserts that a dash run of any length now closes.
+     *
+     * <p>One residual divergence, out of R16's scope and recorded rather than hidden: the
+     * <em>shortest</em> abrupt-close form {@code <!--->} does not close in Canoe, because Canoe models
+     * {@code <!--} as landing directly in {@code COMMENT} (comment state) and has no
+     * comment-start/comment-start-dash state, so its single interior dash reaches only
+     * {@code COMMENT_CLOSE_1}, and the {@code >} there returns to {@code COMMENT}. The HTML Standard
+     * treats {@code <!--->} as an abrupt-closing empty comment. This is the same "not a faithful model
+     * of the tokenizer" class as F10, it is fail-closed (the rest of the page is suppressed, never
+     * mis-parsed), and R16 deliberately touches only {@code COMMENT_CLOSE_2}.
      */
     @Test
-    public void aCommentEndingInThreeDashesNeverCloses() {
+    public void aCommentEndingInThreeDashesNowCloses() {
         assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<!--a-b-->"),
-                "two dashes close correctly");
-        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<!--a--->"),
-                "F14: three dashes leave Canoe stuck inside the comment");
-        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<!--a---->"),
-                "F14: and four");
+                "two dashes close, as they always did");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<!--a--->"),
+                "R16: three dashes close now — the third dash stays in comment-end");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<!--a---->"),
+                "R16: and four");
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<!------>"),
+                "R16: a run of dashes with no comment body still closes");
+
+        // The empty comment <!----> is <!-- followed by -->, so its two closing dashes reach
+        // COMMENT_CLOSE_2 and the '>' closes it.
+        assertEquals(Canoe.CTX_HTML, CanoeTestSupport.contextAfter("<!---->"),
+                "R16: the empty comment <!----> closes");
+
+        // The shortest abrupt-close form <!---> has a single interior dash. Canoe has no
+        // comment-start-dash state, so it reaches only COMMENT_CLOSE_1 and the '>' returns to
+        // COMMENT: it does not close. Out of R16's scope, fail-closed, and asserted here so the
+        // residual is a recorded decision rather than an omission.
+        assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<!--->"),
+                "<!---> does not close: Canoe models no comment-start-dash state (fail-closed,"
+                        + " out of R16's scope)");
     }
 
     /** Script and style termination is matched case-insensitively, which is correct. */

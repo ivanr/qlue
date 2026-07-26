@@ -549,43 +549,48 @@ public class CanoeRobustnessTest {
     }
 
     // ------------------------------------------------------------------
-    // F14 - the comment that never closes
+    // F14 - the comment that now closes (R16)
     // ------------------------------------------------------------------
 
     /**
-     * F14, as a rendering outcome. {@code CanoeStateMachineTest.aCommentEndingInThreeDashesNeverCloses}
-     * establishes that {@code COMMENT_CLOSE_2} drops back to {@code COMMENT} on a third dash and so
-     * never sees the {@code >}; this is what that costs.
+     * F14, as a rendering outcome, inverted by R16. Was
+     * {@code aCommentEndingInThreeDashesEmptiesTheRestOfThePage}: it established that
+     * {@code COMMENT_CLOSE_2} dropped back to {@code COMMENT} on a third dash and so never saw the
+     * {@code >}, which cost every reference from the comment onwards its value — silently, with no
+     * error, including references many kilobytes later in a different included template.
      *
-     * <p>No error is raised and nothing is logged. The page renders, every element is where the
-     * author put it, and every reference from the comment onwards is the empty string — including
-     * ones many kilobytes later, in a different included template. Three dashes instead of two is a
-     * typo, and a decorative rule of dashes above a comment's closing line is a house style.
+     * <p>R16 keeps {@code COMMENT_CLOSE_2} on a third (or later) dash, so the {@code >} that follows a
+     * dash run closes the comment and the references after it render in their real context. This test
+     * asserts the value that used to vanish now arrives.
      */
     @Test
-    public void aCommentEndingInThreeDashesEmptiesTheRestOfThePage() {
+    public void aCommentEndingInThreeDashesNowClosesAndTheRestOfThePageRenders() {
         assertEquals("<!--a--><p>PAYLOAD</p>",
                 CanoeTestSupport.render("<!--a--><p>$data</p>", "PAYLOAD").output(),
                 "two dashes: the comment closes and the reference renders");
 
-        assertEquals("<!--a---><p></p>",
+        assertEquals("<!--a---><p>PAYLOAD</p>",
                 CanoeTestSupport.render("<!--a---><p>$data</p>", "PAYLOAD").output(),
-                "F14: three dashes, and the reference after it renders as nothing");
-        assertEquals("<!--a----><p></p>",
+                "R16: three dashes close, and the reference after it renders");
+        assertEquals("<!--a----><p>PAYLOAD</p>",
                 CanoeTestSupport.render("<!--a----><p>$data</p>", "PAYLOAD").output(),
-                "F14: four dashes, likewise");
+                "R16: four dashes, likewise");
 
-        // It is not confined to the element that follows: the parser never leaves COMMENT, so an
-        // attribute value later in the document is emptied too.
-        assertEquals("<!--a---><a title=\"\" href=\"\">x</a>",
+        // The reference is now in its real context, so it is encoded for that context rather than
+        // dropped: markup in a text sink is HTML-escaped, not emptied.
+        assertEquals("<!--a---><p>&lt;b&gt;</p>",
+                CanoeTestSupport.render("<!--a---><p>$data</p>", "<b>").output(),
+                "R16: the reference renders in the text context and is HTML-escaped there");
+
+        // It reaches later elements too: the parser leaves COMMENT at the '>', so an attribute value
+        // several elements on renders normally.
+        assertEquals("<!--a---><a title=\"PAYLOAD\" href=\"PAYLOAD\">x</a>",
                 CanoeTestSupport.render("<!--a---><a title=\"$data\" href=\"$data\">x</a>",
                         "PAYLOAD").output(),
-                "F14: still suppressed several elements later");
+                "R16: later elements render, each in its own context");
 
-        // And silently: no error, so nothing distinguishes it from a page that legitimately has
-        // nothing to show.
         assertFalse(CanoeTestSupport.render("<!--a---><p>$data</p>", "PAYLOAD").isError(),
-                "F14 fails closed and quiet, which is why it survives review");
+                "still no error - the fix is a state transition, not a new failure path");
     }
 
     // ------------------------------------------------------------------

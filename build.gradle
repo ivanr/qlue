@@ -355,10 +355,20 @@ jacocoTestReport {
  * `i - offset`, with no branch added or removed. The catch arm was covered before and after by
  * CanoeWriterContractTest, so the Canoe class figure is unchanged at 250/261 = 95.79%, the eleven dead
  * outcomes are unchanged, and no floor moves. HtmlEncoder is untouched.
+ * RE-MEASURED after R16 (fix COMMENT_CLOSE_2, F14). The COMMENT_CLOSE_2 arm of reallyProcessChar()
+ * gained one condition: it was `if (c == '>') ... else ...` (two outcomes) and is now
+ * `if (c == '>') ... else if (c == '-') ... else ...` (four outcomes), the new middle arm being the
+ * HTML Standard's rule that a further '-' stays in comment-end. All four outcomes are reached -
+ * CanoeStateMachineTest.aCommentEndingInThreeDashesNowCloses and its transitions rows drive '>'
+ * (close), '-' (stay) and a plain char (drop back to COMMENT) - so the Canoe class gains two covered
+ * branches and two total: 252/263 = 95.82% (was 250/261), reallyProcessChar 155/160 = 96.88% (was
+ * 153/158). Both stay above their 0.95 and 0.96 floors, so no floor moves, and the eleven dead
+ * outcomes are unchanged (5 reallyProcessChar + 2 currentContext + 4 inBuf); F14 was never in the
+ * inventory - its bug was a wrong transition target, not an unreachable branch.
  *
- *   Canoe                             250 / 261 branches   95.79%   (unchanged by R15; was 251 / 262
- *                                                                    before R14 removed the CTX_CSS arm)
- *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14, R15)
+ *   Canoe                             252 / 263 branches   95.82%   (was 250 / 261; R16 added the
+ *                                                                    comment-end '-' arm)
+ *   HtmlEncoder                       315 / 320 branches   98.44%   (unchanged by R14, R15, R16)
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],
