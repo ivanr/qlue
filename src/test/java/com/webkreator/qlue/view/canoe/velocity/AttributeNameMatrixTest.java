@@ -1081,6 +1081,43 @@ public class AttributeNameMatrixTest {
                         + " information the developer does not already have");
     }
 
+    /**
+     * Where a developer has to point a logging configuration to see that diagnostic, which is the
+     * only actionable half of "suppression is silent".
+     *
+     * <p>{@code README.md} and {@code qlue_user_guide.md} both tell a developer to raise
+     * {@code com.webkreator.qlue.view.Canoe} to DEBUG when a value has gone missing, and that the
+     * message names the attribute and points at
+     * {@code VelocityViewFactory.addPlainTextAttributes()}. That is three concrete claims — a logger
+     * name, a level, and what the text says — and a logger name is exactly the kind of thing that
+     * goes stale silently when a class moves package.
+     *
+     * <p>Asserted on the logger's <em>name</em> rather than on captured output, deliberately. The
+     * suite runs with slf4j-simple, whose per-logger level is fixed when the logger is constructed —
+     * at {@link Canoe}'s class initialisation, long before any one test could raise it — so capturing
+     * a DEBUG line would mean turning debug on for the whole run and reading a few thousand of them
+     * off {@code System.err}. The level is pinned at the call site by
+     * {@link #theSuppressionDiagnosticNamesTheAttributeTheReferenceIsIn} instead, which reads the
+     * source. Between the two, every word of the documented instruction has something behind it.
+     */
+    @Test
+    public void theSuppressionDiagnosticGoesToTheLoggerTheDocumentationNames() throws Exception {
+        java.lang.reflect.Field logField = Canoe.class.getDeclaredField("log");
+        logField.setAccessible(true);
+        org.slf4j.Logger logger = (org.slf4j.Logger) logField.get(null);
+
+        assertEquals("com.webkreator.qlue.view.Canoe", logger.getName(),
+                "the documentation tells a developer to raise this logger to DEBUG to find out"
+                        + " which attribute swallowed a value; if the class moves, the instruction"
+                        + " in README.md and qlue_user_guide.md moves with it");
+
+        String currentContext = methodBody(canoeSource(), "public int currentContext()");
+        assertTrue(currentContext.contains("addPlainTextAttributes()"),
+                "...and the message must name the way out, not only the problem: a developer who"
+                        + " has just found the drop needs to be sent to the extension point rather"
+                        + " than to $_x.asis()");
+    }
+
     // ------------------------------------------------------------------
     // Case and separator permutations
     // ------------------------------------------------------------------

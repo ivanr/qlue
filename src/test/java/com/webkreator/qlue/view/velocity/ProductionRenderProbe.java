@@ -104,6 +104,7 @@ public final class ProductionRenderProbe {
         private boolean autoEscaping = true;
         private boolean directOutput = false;
         private String[] plainTextAttributes = new String[0];
+        private String[] trustedResourceOrigins = new String[0];
 
         public static Options defaults() {
             return new Options();
@@ -133,6 +134,21 @@ public final class ProductionRenderProbe {
          */
         public Options withPlainTextAttributes(String... names) {
             this.plainTextAttributes = names;
+            return this;
+        }
+
+        /**
+         * {@code VelocityViewFactory.addTrustedResourceOrigins(...)}: R9's CDN escape hatch,
+         * exercised on the real render path.
+         *
+         * <p>Here for the same reason {@link #withPlainTextAttributes(String...)} is. {@code
+         * UrlSinkTest} shows that a {@link com.webkreator.qlue.view.Canoe} constructed with an
+         * allowlist admits the host, which is a claim about the encoder; what only this path can show
+         * is that the <em>factory</em> carries its configured origins into the writer it builds per
+         * render, which is the half an application's configuration actually depends on.
+         */
+        public Options withTrustedResourceOrigins(String... origins) {
+            this.trustedResourceOrigins = origins;
             return this;
         }
     }
@@ -265,6 +281,74 @@ public final class ProductionRenderProbe {
         VelocityViewFactory factory = new ProbeViewFactory();
         factory.buildDefaultVelocityProperties(app);
         return factory.getPlainTextAttributes();
+    }
+
+    /**
+     * The trusted resource origins a factory ends up with when the application declares
+     * {@code qlue.canoe.trustedResourceOrigins} in its Qlue properties.
+     *
+     * <p>The R9 twin of {@link #plainTextAttributesFromProperty(String)}, and it goes through
+     * {@code buildDefaultVelocityProperties()} for the same reason: that is where every shipped
+     * factory's {@code init()} reads the application's properties, so a malformed origin throws from
+     * {@code init()} rather than silently matching nothing on every page.
+     *
+     * @param propertyValue the property's value, or null for an application that does not set it
+     */
+    public static java.util.Set<String> trustedResourceOriginsFromProperty(String propertyValue) {
+        com.webkreator.qlue.QlueApplication app = new CanoeProbePage().getApp();
+        if (propertyValue != null) {
+            app.getProperties().setProperty(
+                    VelocityViewFactory.QLUE_CANOE_TRUSTED_RESOURCE_ORIGINS, propertyValue);
+        }
+
+        VelocityViewFactory factory = new ProbeViewFactory();
+        factory.buildDefaultVelocityProperties(app);
+        return factory.getTrustedResourceOrigins();
+    }
+
+    /**
+     * Whether {@code useAutoEscaping} is assigned anywhere in {@code src/main} other than in
+     * {@code setAutoEscaping()} — the executable form of the documentation's claim that auto-escaping
+     * is on by default and can be turned off only by application code, never by configuration.
+     *
+     * <p>Stated as a source scan rather than as a behaviour because the claim is about the
+     * <em>absence</em> of an input: no test can enumerate every property name that does not switch
+     * the encoder off. What can be pinned is that the field has exactly one writer, which is what
+     * makes the sentence in {@code README.md} and {@code qlue_user_guide.md} true; wire a property to
+     * it and this fails, which is the point.
+     *
+     * @return every line outside {@code setAutoEscaping()} that assigns the field, which should be
+     *         the declaration's own initialiser and nothing else
+     */
+    public static java.util.List<String> assignmentsToUseAutoEscapingOutsideTheSetter()
+            throws java.io.IOException {
+        java.nio.file.Path root = java.nio.file.Path.of("src/main/java");
+        java.util.List<String> offenders = new ArrayList<>();
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(root)) {
+            for (java.nio.file.Path file : (Iterable<java.nio.file.Path>)
+                    files.filter(p -> p.toString().endsWith(".java"))::iterator) {
+                boolean inSetter = false;
+                for (String line : java.nio.file.Files.readAllLines(file,
+                        java.nio.charset.StandardCharsets.UTF_8)) {
+                    String trimmed = line.trim();
+                    if (trimmed.startsWith("public void setAutoEscaping(")) {
+                        inSetter = true;
+                        continue;
+                    }
+                    if (inSetter) {
+                        // The setter is three lines long; its closing brace ends the window.
+                        if (trimmed.equals("}")) {
+                            inSetter = false;
+                        }
+                        continue;
+                    }
+                    if (trimmed.matches(".*\\buseAutoEscaping\\s*=[^=].*")) {
+                        offenders.add(file.getFileName() + ": " + trimmed);
+                    }
+                }
+            }
+        }
+        return offenders;
     }
 
     /**
@@ -638,6 +722,7 @@ public final class ProductionRenderProbe {
         VelocityViewFactory factory = new ProbeViewFactory();
         factory.setAutoEscaping(options.autoEscaping);
         factory.addPlainTextAttributes(options.plainTextAttributes);
+        factory.addTrustedResourceOrigins(options.trustedResourceOrigins);
 
         VelocityView view = new VelocityView(factory, template);
 

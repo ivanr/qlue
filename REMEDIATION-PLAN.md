@@ -1629,7 +1629,7 @@ that reason.
 
 ---
 
-**R25 — Correct the documentation**
+**R25 — Correct the documentation** — ✅ **DONE**
 *Closes:* the documentation half of F8. *Depends on:* Phases A–D, so the docs describe the fixed
 component.
 
@@ -1643,6 +1643,141 @@ Write, in both files: what is encoded and with which encoder; what is suppressed
 suppression is silent and how to detect it; what is *not* covered (external content inclusion, and
 whatever R9's origin policy ends up not covering); and how `$_x` and `allowDirectOutput()` work,
 including the formal-notation trap if R23 does not close it.
+
+**Landed.** Both files acquired an "Output encoding" section before this task, written against the
+pre-remediation component and stale in specifics; R25 is the rewrite, and **every claim in it was
+re-derived from `src/main` rather than from this plan's prose or from the text being replaced.** Six
+claims were wrong in a way that mattered, and one of them was wrong in the direction that gets a
+developer hurt.
+
+**What was false, in both files.**
+
+1. **"Attributes Canoe does not recognise are treated as plain text."** R5 *inverted* this: an
+   unrecognised name is `ATTR_UNKNOWN` and suppresses. Both files told a reader that
+   `<div hx-target="$x">` was encoded when it renders empty, which is the opposite mental model and
+   the behaviour most likely to surprise. It is now the first bullet of "what is suppressed" in both,
+   said as plainly as it can be said.
+2. **"percent-encodes five URL attributes"**, with a table row naming `href`, `src`, `background`,
+   `dynsrc`, `lowsrc`. R6 made `ATTR_URI` seventeen names; the user guide now lists all seventeen and
+   the README names a representative eight and says seventeen. R9's six resource-loading
+   element/attribute pairs are a separate row in both tables, with the origin filter described.
+3. **"the twenty-one `on*` attributes Canoe recognises."** Two errors in one phrase: the rule is a
+   prefix rule with no exceptions since R4, and the old table recognised **eighteen**, not
+   twenty-one — `EventHandlerMatrixTest` asserts 18 of 94, so the corrected sentence uses those
+   numbers.
+4. **"inside a `style` or `data` attribute"** in the suppression list. `data` has been a URL name
+   since R7 (`<object data>` is a URL; the byte-identical branch pair that claimed the name was F7),
+   and what suppresses is the `data:` *value prefix*, which is a different thing and is already its
+   own bullet. The user guide now says so explicitly next to the `data-` prefix family, because
+   `data` and `data-` landing in different classifications is exactly the kind of thing a reader
+   guesses wrong.
+5. **"`style` is protected only up to the first colon"** / "on the list only up to the colon — see
+   the review's F4". R2 deleted the reset that made that true;
+   `AttributePrefixTest.theFirstColonInAValueKeepsTheNameDerivedContext` asserts the whole of a
+   `style` value suppresses now. This was the one falsehood that could have caused harm: it told a
+   reader that `<div style="color:$c">` was reaching `html()`, so a reader auditing their own
+   templates would have looked for a defect that is fixed and possibly "worked around" it.
+6. **"`url()` … percent-encoding of everything outside `a-zA-Z0-9/.-#?=`."** R11/R12 replaced that
+   with a scheme allowlist (`http`, `https`, `mailto`, and relative references — everything else
+   becomes the empty string) plus per-component, per-UTF-8-byte encoding. Both files now describe the
+   scheme filter first, because "which values vanish entirely" is the part a template author meets.
+
+Two further claims were checked and turned out **already correct**, so they were kept rather than
+rewritten: the rejection tables (R20's triage was reflected accurately — `<br/>`, 127-character
+names, the second DOCTYPE and text above the DOCTYPE, each with its warning) and the statement that a
+rejection is a `CanoeEncodingException` rather than a 500 with a marker (R21). The user guide's R24
+paragraphs, written with R24 itself, were also correct and were absorbed rather than redone.
+
+**What was added, because it did not exist anywhere a user of the framework would look.**
+
+- **Both escape hatches**, in both files: `addPlainTextAttributes(…)` with
+  `qlue.canoe.plainTextAttributes`, and `addTrustedResourceOrigins(…)` with
+  `qlue.canoe.trustedResourceOrigins`, each with its accepted syntax. The user guide carries a table
+  of what `normalisePlainTextAttributeNames()` refuses and why — `on*`, `style` and the URL set
+  because Canoe classifies them first, and `sandbox`/`rel`/`integrity`/`nonce`/`http-equiv`/
+  `charset`/`content`/`crossorigin`/`referrerpolicy`/`is`/`srcdoc` and the five URL-bearing names R6
+  declined because each one's suppression *is* the fix for a finding. The point of the table is that
+  a developer who hits a refusal reads the reason instead of looking for a way round it.
+- **How to detect a silent suppression:** raise the logger **`com.webkreator.qlue.view.Canoe`** to
+  DEBUG; one line per suppressed reference, naming the attribute and the position, and pointing at
+  `addPlainTextAttributes()`.
+- **R19's unquoted-attribute residual**, with the exact rendering: `<img src=$u alt="a">` becomes
+  `<img src= alt="a">` and the browser reads `alt="a"` as `src`'s value. Quote attribute values.
+- **`$_x` and `allowDirectOutput()`** with all four bypass spellings, the fact that `${ _x.… }` with a
+  space is not a reference at all, and — corrected from the earlier text — that
+  `allowDirectOutput()` is `Page`'s, delegating to `QlueApplication`'s.
+- **R24's consequences**, including the one that puts bytes on the page: `$_x.asis($msg)` on an
+  interpolated `#set` value now emits raw data. Plus the `#evaluate`/`#parse`/`#include` rule, with
+  the warning that the *plain* spellings hand those directives the raw value and always have, so
+  passing request data into any of the three is application-level template injection regardless of
+  Canoe.
+- **What is not covered**, stated without hedging: the F6 residue on `<a href>`, `<img src>`,
+  `form action`, `ping`, `cite`, `poster`, `srcset`, `formaction` and `usemap` — not origin-filtered,
+  an open-redirect and referrer surface, deliberately, because those sinks fetch or navigate rather
+  than execute; external content inclusion; `srcdoc`; DOM clobbering through `id`/`name`/`form`;
+  the behaviour attributes (`target`, `method`) that are on the plain-text allowlist by decision; and
+  the threat model — the attacker controls data and never the template.
+
+*Scope and shape:* `README.md`'s section is an orientation and points at the guide for the detail;
+`qlue_user_guide.md` carries the argument, in nine subsections. Neither is a copy of this plan: the
+question each answers is "what happens to my value, how do I tell when it was dropped, what do I do
+about it, and what is still my problem". No badges, no emoji, no marketing tone; the tables that were
+there are kept and two are added.
+
+*Tests — a documentation claim with no test behind it is how these files drifted.* Every behavioural
+claim was matched to an existing assertion, and **four claims had none, so four tests were written**
+(all under `src/test/java/com/webkreator/qlue/view/canoe/`):
+
+- `ViewFactoryRenderTest.theFactoryHandsItsTrustedResourceOriginsToEveryCanoeItBuilds` — R9's CDN
+  allowlist was asserted only against a `Canoe` the test constructed itself (`UrlSinkTest`), so
+  nothing covered the factory carrying its configured origins into the writer it builds per render.
+  A factory that parsed and validated the origins and then never passed them on would have satisfied
+  every existing assertion and left every CDN script tag empty in production.
+- `ViewFactoryRenderTest.theTrustedResourceOriginsCanBeConfiguredWithAQlueProperty` — the
+  `qlue.canoe.trustedResourceOrigins` property had **no test at all**; its plain-text twin did. Both
+  accepted forms through the property path, and a path entry and an `ftp://` scheme failing at
+  startup.
+- `ViewFactoryRenderTest.nothingButApplicationCodeCanTurnAutoEscapingOff` — both documents say
+  auto-escaping can be turned off only by application code and never by configuration. &sect;6 of this
+  plan records that nothing asserted it. It is a claim about an *absence*, so it is pinned at the
+  field: the only assignment to `useAutoEscaping` outside `setAutoEscaping()` is the declaration's own
+  `= true`. Wire a property to it and the test fails, which is the documentation asking to be
+  rewritten.
+- `AttributeNameMatrixTest.theSuppressionDiagnosticGoesToTheLoggerTheDocumentationNames` — the docs
+  name a logger, and a logger name goes stale silently when a class moves package. Asserted on the
+  logger's own name, plus that the message names the extension point rather than only the problem.
+
+`ProductionRenderProbe` gained `Options.withTrustedResourceOrigins(…)`,
+`trustedResourceOriginsFromProperty(…)` and `assignmentsToUseAutoEscapingOutsideTheSetter()` to
+support them. It sits in `com.webkreator.qlue.view.velocity` because the methods it reaches are
+package-private; the tests themselves are in the canoe tree.
+
+*What could not be stated accurately, and why.* Three things:
+
+1. **The plain-text allowlist is described by shape, not enumerated.** It is 88 names and no test
+   asserts that count — `AttributeNameMatrixTest` pins the seventeen URL names and the partition, not
+   the allowlist's size — so the docs name the families and the representative members and send a
+   reader to `Canoe.PLAIN_TEXT_ATTRIBUTE_NAMES`. A number in prose that nothing asserts is precisely
+   the kind of claim this task exists to remove.
+2. **The debug diagnostic is asserted by logger name and by source, not by captured output.** The
+   suite runs on slf4j-simple, whose per-logger level is fixed when the logger is constructed — at
+   `Canoe`'s class initialisation, long before any single test could raise it — so capturing a DEBUG
+   line would mean enabling debug for the whole run and reading a few thousand of them off
+   `System.err`. That is a `build.gradle` change, which R27 owns, for a weaker assertion than the
+   pair now in place.
+3. **The cross-engine caveat is stated as a limitation rather than a result**, because R28 has not
+   run. The guide says the browser tier has so far run against one engine.
+
+*Ledger:* **unchanged**, re-tallied rather than assumed from `build/reports/canoe/matrix.csv` — 1,012
+invocations, SAFE 481, KNOWN_VULNERABLE 68, SUPPRESSED_BY_DESIGN 415, SUPPRESSED_UNINTENDED 12,
+REJECTED 36. *Coverage:* **unchanged**, and necessarily so: R25 modifies **no file under
+`src/main`**. `build.gradle` is untouched.
+*Gates:* `./gradlew test` (6,150 tests, 0 failures, 0 errors, 0 skipped — four more than R24's 6,146)
+and `canoeCoverageGate` green. `browserTest` was **not** run: known hang in this environment, owned
+by R28, and a task that changes only Markdown and tests renders nothing new for Chromium.
+
+*Done when:* both documents describe the component that exists, and every behavioural claim in them
+has a test. ✅
 
 ---
 
@@ -1712,7 +1847,7 @@ figure in this plan was measured in: 91 passed, 2 skipped.
 | F5 — prefix detection reads buffer residue | High | R3 |
 | F6 — `url()` is a scheme filter, not an origin filter | High | R9 (with R8, R12) closes the code-execution half; open-redirect/referrer residue on `a href`/`img src`/etc. stays for R26 |
 | F7 — `content` branch tests for `data` | Medium | R7 |
-| F8 — no tests, no docs, no threat model | Medium | R25 (tests: already delivered) |
+| F8 — no tests, no docs, no threat model | Medium | R25 ✅ (`README.md` and `qlue_user_guide.md` rewritten against the fixed component: the unrecognised-name default inverted from "plain text" to "suppressed", five URL names corrected to seventeen plus R9's six resource sinks, the `on*` prefix rule, `style` suppressed past the colon, `data` moved to the URL set, `url()`'s scheme allowlist, both escape hatches with their refusal rules, the DEBUG diagnostic, R19's unquoted residual and R24's `asis()` consequence, and an unhedged "not covered" list headed by the F6 residue; four tests written for the claims nothing asserted); tests and threat model already delivered |
 | F9 — `write(char[],int,int)` length/end confusion | Low (latent) | R15 |
 | F10 — `SCRIPT_END` accepts `</scriptfoo>` | Low (latent) | R17 ✅ (delimiter required, mismatch re-processed, fold bounded to ASCII) |
 | F11 — unquoted attribute references vanish | Low | R19 ✅ (`TAG_ATTR_VALUE_BEFORE` shares `TAG_ATTR_VALUE`'s case label); the `COMMENT_*`/`DOCTYPE_*` half of the finding is deliberately left suppressing |
@@ -1838,4 +1973,6 @@ fold into a task above.
   data and never the template. `$_x.asis()` and `allowDirectOutput()` remain unguarded by design.
 - **`useAutoEscaping` is on by default and cannot be disabled through any Qlue property** — only by
   application code calling `setAutoEscaping(false)`. That is the right default and no task changes
-  it, but nothing in the suite asserts that a misconfiguration cannot turn it off.
+  it, but nothing in the suite asserted that a misconfiguration cannot turn it off. R25 closed that
+  half: `ViewFactoryRenderTest.nothingButApplicationCodeCanTurnAutoEscapingOff` pins the field to a
+  single writer. The default itself remains a decision this plan does not revisit.

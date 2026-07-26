@@ -478,6 +478,108 @@ public class ViewFactoryRenderTest {
     }
 
     // ------------------------------------------------------------------
+    // R9's extension point (R25: the documented escape hatch, asserted)
+    // ------------------------------------------------------------------
+
+    /**
+     * The CDN allowlist, configured on the factory and observed on the real render path.
+     *
+     * <p>{@code UrlSinkTest} owns what {@code urlResource()} does with an allowlist, driving it
+     * through a {@link Canoe} the test constructs itself. What only this file can show is the half a
+     * configuration change depends on: that the <em>factory</em> hands its configured origins to the
+     * writer it builds per render. The two are separable — a factory that parsed the origins,
+     * validated them and then never passed them on would satisfy every assertion in {@code
+     * UrlSinkTest} and would leave every CDN script tag empty in production.
+     *
+     * <p>This is one of the two escape hatches R25 documents in {@code README.md} and {@code
+     * qlue_user_guide.md}, and it is documented because R9's default is fail-closed: without it, an
+     * application that legitimately serves its scripts from a CDN has no move left but
+     * {@code $_x.asis()}, which turns Canoe off for that value entirely.
+     */
+    @Test
+    public void theFactoryHandsItsTrustedResourceOriginsToEveryCanoeItBuilds() {
+        String template = "<script src=\"$data/app.js\"></script>";
+        Map<String, Object> model = Map.of("data", "//cdn.example.com/lib");
+
+        ProductionRenderProbe.Outcome rejected = ProductionRenderProbe.render(template, model);
+        assertFalse(rejected.exceptionEscaped(), () -> "" + rejected);
+        assertEquals("<script src=\"/app.js\"></script>", rejected.output(),
+                "R9: an unconfigured factory rejects the off-origin authority to the empty string,"
+                        + " leaving only the template's own '/app.js'");
+
+        ProductionRenderProbe.Outcome allowed = ProductionRenderProbe.render(template, model,
+                ProductionRenderProbe.Options.defaults()
+                        .withTrustedResourceOrigins("cdn.example.com"));
+        assertFalse(allowed.exceptionEscaped(), () -> "" + allowed);
+        assertEquals("<script src=\"//cdn.example.com/lib/app.js\"></script>", allowed.output(),
+                "...and a configured one carries the origin into the Canoe it builds, so the CDN"
+                        + " host survives byte for byte");
+
+        ProductionRenderProbe.Outcome elsewhere = ProductionRenderProbe.render(template,
+                Map.of("data", "//attacker.invalid/x"),
+                ProductionRenderProbe.Options.defaults()
+                        .withTrustedResourceOrigins("cdn.example.com"));
+        assertEquals("<script src=\"/app.js\"></script>", elsewhere.output(),
+                "the grant is to one host and not to off-origin URLs in general");
+    }
+
+    /**
+     * The same allowlist, configured the way an application actually configures things: the
+     * {@code qlue.canoe.trustedResourceOrigins} Qlue property.
+     *
+     * <p>The R9 twin of {@link #theAllowlistCanBeConfiguredWithAQlueProperty}, and it is read in the
+     * same place for the same reason — {@code buildDefaultVelocityProperties()} is where every
+     * shipped factory's {@code init()} reads the application's properties, so a malformed origin
+     * throws from {@code init()} where somebody is reading the stack trace rather than silently
+     * matching nothing on every page.
+     */
+    @Test
+    public void theTrustedResourceOriginsCanBeConfiguredWithAQlueProperty() {
+        assertEquals(Set.of(),
+                ProductionRenderProbe.trustedResourceOriginsFromProperty(null),
+                "an application that says nothing gets same-origin-relative resources only");
+
+        assertEquals(Set.of("cdn.example.com", "https://static.example.com:8443"),
+                ProductionRenderProbe.trustedResourceOriginsFromProperty(
+                        "cdn.example.com https://static.example.com:8443"),
+                "commas, whitespace or both separate entries, and both accepted forms - a bare host"
+                        + " and an origin with a port - survive the property path");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> ProductionRenderProbe.trustedResourceOriginsFromProperty(
+                        "cdn.example.com/assets"),
+                "an entry with a path is a misconfiguration and must fail at startup: it would"
+                        + " otherwise look like a path restriction and be a host grant");
+        assertThrows(IllegalArgumentException.class,
+                () -> ProductionRenderProbe.trustedResourceOriginsFromProperty(
+                        "ftp://cdn.example.com"),
+                "...and so must a scheme the resource encoder can never emit");
+    }
+
+    /**
+     * Auto-escaping has exactly one writer, and it is application code.
+     *
+     * <p>The documentation says, in both files, that Canoe's reference encoding is on by default and
+     * can be turned off only by an application calling {@code setAutoEscaping(false)} — never by
+     * configuration. That is a claim about something that is <em>absent</em>, and no render can
+     * enumerate the property names that do not exist, so it is pinned at the field instead: the
+     * default is {@code true} and nothing outside the setter assigns it. Wire a Qlue property to it
+     * and this test fails, which is the sentence in the documentation asking to be rewritten.
+     *
+     * <p>&sect;6 of the remediation plan records that nothing asserted this. Now something does.
+     */
+    @Test
+    public void nothingButApplicationCodeCanTurnAutoEscapingOff() throws IOException {
+        assertEquals(List.of("VelocityViewFactory.java: protected boolean useAutoEscaping = true;"),
+                ProductionRenderProbe.assignmentsToUseAutoEscapingOutsideTheSetter(),
+                "the only assignment to useAutoEscaping outside setAutoEscaping() must be the"
+                        + " declaration's own initialiser, and it must initialise to true: a"
+                        + " property, a system property or a constructor argument that reached this"
+                        + " field would be a way to switch the encoder off from outside the"
+                        + " application's own code");
+    }
+
+    // ------------------------------------------------------------------
     // F13
     // ------------------------------------------------------------------
 
