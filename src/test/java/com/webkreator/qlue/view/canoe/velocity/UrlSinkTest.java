@@ -19,10 +19,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,13 +47,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * those judgements were never independent in the first place:
  *
  * <ul>
- *   <li><strong>Tag-name blindness.</strong> Canoe reuses {@code buf} for the attribute name at
- *       {@code Canoe.java:786}, so by the time {@code setTagAttributeContext()} runs the element name
- *       is gone. {@code src} on {@code <script>} and {@code src} on {@code <img>} therefore get the
- *       same encoder, and {@link #everyElementGetsTheSameEncoderForTheSameAttributeName} asserts
- *       byte-identical output across all nine elements rather than leaving the claim to nine notes
- *       that happen to agree. This is F6's structural cause and it is remediation item 5: any fix
- *       that lets {@code <script src>} reject an off-origin URL has to make this test fail.
+ *   <li><strong>The tag name decides the encoder (R9).</strong> R8 keeps the element name available
+ *       through attribute parsing, and R9 uses it: {@code src} on {@code <script>} rejects an
+ *       off-origin authority, {@code src} on {@code <img>} does not.
+ *       {@link #theTagNameNowDecidesTheEncoderForSrcAndHref} asserts the split — an off-origin value
+ *       is empty on the six resource-loading sinks and survives on the open-redirect ones — which is
+ *       the inversion of the old {@code everyElementGetsTheSameEncoderForTheSameAttributeName} that
+ *       measured F6's structural cause before it was fixed.
  *   <li><strong>Position, not bytes, decides whether F6 fires.</strong> The same payload through the
  *       same encoder is a live off-origin script include in full-URL and path-prefix position and
  *       inert in query and fragment position — because what makes a URL off-origin is where its
@@ -91,16 +89,20 @@ public class UrlSinkTest {
      */
     static Stream<Arguments> urlBearingElements() {
         return Stream.of(
+                // The six resource-loading (element, attribute) combinations R9 routes to the
+                // origin-checking encoder: their context is CTX_URI_RESOURCE, not CTX_URI, and that
+                // is the whole of R9. See Canoe.RESOURCE_LOADING_SINKS.
+                Arguments.of("script", "src", Canoe.CTX_URI_RESOURCE, null),
+                Arguments.of("iframe", "src", Canoe.CTX_URI_RESOURCE, null),
+                Arguments.of("embed", "src", Canoe.CTX_URI_RESOURCE, null),
+                Arguments.of("object", "data", Canoe.CTX_URI_RESOURCE, "F7"),
+                Arguments.of("link", "href", Canoe.CTX_URI_RESOURCE, null),
+                Arguments.of("base", "href", Canoe.CTX_URI_RESOURCE, null),
+                // The open-redirect and referrer surfaces, which keep the ordinary url() encoder by
+                // design (R9 scopes them out): a href, img src, and the fetch-not-code names.
                 Arguments.of("a", "href", Canoe.CTX_URI, null),
                 Arguments.of("img", "src", Canoe.CTX_URI, null),
-                Arguments.of("script", "src", Canoe.CTX_URI, null),
-                Arguments.of("iframe", "src", Canoe.CTX_URI, null),
-                Arguments.of("embed", "src", Canoe.CTX_URI, null),
-                Arguments.of("link", "href", Canoe.CTX_URI, null),
-                Arguments.of("base", "href", Canoe.CTX_URI, null),
-                Arguments.of("object", "data", Canoe.CTX_URI, "F7"),
                 Arguments.of("form", "action", Canoe.CTX_URI, "F3"),
-                // The rest of R6's names, each on an element that really carries it.
                 Arguments.of("button", "formaction", Canoe.CTX_URI, "F3"),
                 Arguments.of("video", "poster", Canoe.CTX_URI, "F3"),
                 Arguments.of("blockquote", "cite", Canoe.CTX_URI, "F3"),
@@ -119,14 +121,20 @@ public class UrlSinkTest {
                 Arguments.of("svg", "xml:base", Canoe.CTX_SUPPRESS, "F3"));
     }
 
-    /** The ones that reach {@code url()}, which since R6 and R7 is all but three. */
-    static Stream<Arguments> elementsThatReachUrlEncoding() {
+    /** The resource-loading combinations R9 routes to the origin-checking encoder. */
+    static Stream<Arguments> resourceLoadingSinks() {
+        return urlBearingElements().filter(a -> a.get()[2].equals(Canoe.CTX_URI_RESOURCE));
+    }
+
+    /** The open-redirect/referrer combinations that keep the ordinary url() encoder. */
+    static Stream<Arguments> openRedirectSinks() {
         return urlBearingElements().filter(a -> a.get()[2].equals(Canoe.CTX_URI));
     }
 
     @ParameterizedTest(name = "<{0} {1}>")
     @MethodSource("urlBearingElements")
-    public void theContextOfAUrlAttributeDependsOnlyOnItsName(String element, String attribute,
+    public void theContextOfAUrlAttributeDependsOnTheElementForResourceSinks(String element,
+                                                              String attribute,
                                                               int expected, String finding) {
         assertEquals(expected, CanoeTestSupport.contextAfter("<" + element + " " + attribute + "=\""),
                 () -> (finding == null ? "" : finding + ": ")
@@ -137,94 +145,175 @@ public class UrlSinkTest {
     }
 
     // ------------------------------------------------------------------
-    // Tag-name blindness (F6's structural cause, remediation item 5)
+    // The tag name decides the encoder (R9, formerly F6's structural cause)
     // ------------------------------------------------------------------
 
     /**
-     * The same attribute name on nine different elements produces byte-identical output.
+     * The same attribute name on a resource-loading element and on an open-redirect element no longer
+     * produces the same output: the tag name now decides the encoder.
      *
-     * <p>This is the assertion the plan asks for directly, and it is worth having as an equality
-     * rather than as seven separate expectations: the claim is not "each of these is percent-encoded"
-     * but "Canoe cannot tell them apart", and only a comparison says the second thing.
-     *
-     * <p>The impact of the seven is not equal and that is the finding. An off-origin {@code <img src>}
-     * leaks a referrer and a load; an off-origin {@code <script src>} is arbitrary JavaScript running
-     * with the page's full privileges; an off-origin {@code <base href>} retargets every relative URL
-     * on the rest of the document. Canoe applies one encoder to all of them because the tag name is
-     * already gone.
+     * <p>This inverts {@code everyElementGetsTheSameEncoderForTheSameAttributeName}, which asserted
+     * byte-identical output across every element as the measurement of F6's structural cause — Canoe
+     * could not tell {@code <script src>} from {@code <img src>}. R8 gave it the tag name and R9 used
+     * it: an off-origin value on {@code <script>}, {@code <iframe>}, {@code <embed>}, {@code <object>},
+     * {@code <link>} or {@code <base>} is rejected to the empty string, while the same value on
+     * {@code <a>}, {@code <img>} or {@code <form>} passes through {@code url()} as before. So an
+     * off-origin payload splits the elements into exactly two groups, which is the assertion here.
      */
     @Test
-    public void everyElementGetsTheSameEncoderForTheSameAttributeName() {
-        for (Payload payload : Payloads.families("JS_URL", "PROTOCOL_RELATIVE", "ABSOLUTE_OFFSITE")) {
-            Set<String> encodings = new LinkedHashSet<>();
-            Map<String, String> byElement = new LinkedHashMap<>();
-            for (Arguments row : (Iterable<Arguments>) elementsThatReachUrlEncoding()::iterator) {
-                String element = (String) row.get()[0];
-                String attribute = (String) row.get()[1];
-                String rendered = CanoeTestSupport
-                        .render("<" + element + " " + attribute + "=\"$data\">", payload.value())
-                        .output();
-                String value = rendered.substring(rendered.indexOf("=\"") + 2, rendered.length() - 2);
-                encodings.add(value);
-                byElement.put(element + "/" + attribute, value);
+    public void theTagNameNowDecidesTheEncoderForSrcAndHref() {
+        for (Payload payload : List.of(Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS)) {
+            Map<String, String> resourceOutputs = new LinkedHashMap<>();
+            for (Arguments row : (Iterable<Arguments>) resourceLoadingSinks()::iterator) {
+                resourceOutputs.put(row.get()[0] + "/" + row.get()[1],
+                        renderedValue((String) row.get()[0], (String) row.get()[1], payload));
             }
-            assertEquals(1, encodings.size(),
-                    () -> "F6: Canoe discards the tag name at Canoe.java:786, so every one of these"
-                            + " must encode " + payload.id() + " identically. If this test ever"
-                            + " fails, remediation item 5 has landed and the ledger entries on"
-                            + " url.script-src-prefix, url.iframe-src and url.img-src need"
-                            + " re-deciding one at a time. Observed: " + byElement);
+            Map<String, String> openRedirectOutputs = new LinkedHashMap<>();
+            for (Arguments row : (Iterable<Arguments>) openRedirectSinks()::iterator) {
+                openRedirectOutputs.put(row.get()[0] + "/" + row.get()[1],
+                        renderedValue((String) row.get()[0], (String) row.get()[1], payload));
+            }
+
+            for (Map.Entry<String, String> entry : resourceOutputs.entrySet()) {
+                assertEquals("", entry.getValue(),
+                        () -> "R9: " + entry.getKey() + " is a resource-loading sink, so an off-origin"
+                                + " " + payload.id() + " must be rejected to the empty string. All: "
+                                + resourceOutputs);
+            }
+            for (Map.Entry<String, String> entry : openRedirectOutputs.entrySet()) {
+                assertTrue(entry.getValue().contains(Payloads.SENTINEL_HOST),
+                        () -> "R9 scopes " + entry.getKey() + " out by design: an open-redirect or"
+                                + " referrer surface keeps url(), so the off-origin host survives."
+                                + " Got: " + entry.getValue());
+            }
         }
     }
 
+    private static String renderedValue(String element, String attribute, Payload payload) {
+        return CanoeTestSupport
+                .render("<" + element + " " + attribute + "=\"$data\">", payload.value())
+                .decodedAttr(element, attribute);
+    }
+
     /**
-     * F6's exploitation vector, as the review writes it, end to end.
-     *
-     * <pre>{@code <script src="$cdnBase/app.js"></script>}</pre>
-     *
-     * <p>with {@code cdnBase = //attacker.invalid} passes through <em>byte for byte</em> — every
-     * character of a protocol-relative URL is legal in an authority, so {@code url()} parses it and
- * re-emits it unchanged — and the result is
-     * attacker-controlled JavaScript executing with the page's full privileges.
+     * The inversion of {@code anOffOriginCdnBaseSurvivesIntoAScriptSrcByteForByte}: an off-origin
+     * value no longer survives into a {@code <script src>} by default. It is rejected to the empty
+     * string, so the src falls back to whatever literal the template wrote.
      *
      * <p>The assertion is on the jsoup-decoded attribute value rather than on Canoe's output, which is
-     * the distinction the whole review turns on. It also asserts the negative: the same template with
-     * a {@code javascript:} payload really is neutralised, because since R12 {@code url()} rejects a
- * scheme off its {http, https, mailto} allowlist to the empty string.
-     * Without that half the test would read as "url() does nothing", and {@code url()} is a scheme
-     * filter that works — it is an origin filter that does not exist.
+     * the distinction the whole review turns on. All three off-origin shapes — protocol-relative,
+     * absolute, uppercase-scheme absolute — are rejected, and the {@code http:host} form a browser
+     * still reads as an authority (no {@code //}) is rejected too, which an origin filter that only
+     * looked for {@code //} would have missed.
      */
     @Test
-    public void anOffOriginCdnBaseSurvivesIntoAScriptSrcByteForByte() {
+    public void anOffOriginValueIsRejectedFromAScriptSrcByDefault() {
         String template = "<script src=\"$data/app.js\"></script>";
 
-        String decoded = CanoeTestSupport.render(template, "//attacker.invalid")
-                .decodedAttr("script", "src");
-        assertEquals("//attacker.invalid/app.js", decoded,
-                "F6: every character of a protocol-relative URL is legal in an authority, so the"
-                        + " value reaches the src attribute unmodified and the browser loads the"
-                        + " attacker's script");
-        assertTrue(VerdictEvaluator.analyseUrl(decoded).isDangerous(),
-                "...and the URL oracle, which follows the WHATWG parser, agrees that it leaves the"
-                        + " page's origin");
+        for (String offOrigin : List.of("//attacker.invalid", "https://attacker.invalid",
+                "HTTPS://attacker.invalid", "http:attacker.invalid")) {
+            String decoded = CanoeTestSupport.render(template, offOrigin).decodedAttr("script", "src");
+            assertEquals("/app.js", decoded,
+                    () -> "R9: <script src> is a resource-loading sink, so " + offOrigin + " is"
+                            + " rejected to the empty string and only the template's '/app.js'"
+                            + " remains. Got: " + decoded);
+            assertFalse(VerdictEvaluator.analyseUrl(decoded).isDangerous(),
+                    "...and what remains is same-origin");
+        }
 
-        String absolute = CanoeTestSupport.render(template, "https://attacker.invalid")
-                .decodedAttr("script", "src");
-        assertEquals("https://attacker.invalid/app.js", absolute,
-                "F6: R12 parses the URL and re-emits the scheme from its {http,https,mailto}"
-                        + " allowlist, and the off-origin host survives because it is a valid host");
+        // A same-origin-relative value is untouched: R9 rejects an authority, not a path.
+        assertEquals("/local/app.js",
+                CanoeTestSupport.render("<script src=\"$data\"></script>", "/local/app.js")
+                        .decodedAttr("script", "src"),
+                "a relative URL carries no authority and cannot leave the origin, so it survives");
+    }
 
-        // The half that works, so the finding is not read as "url() does nothing". Since R12 a
-        // rejected scheme is suppressed rather than colon-escaped: url() emits nothing, so the src
-        // falls back to the template's own '/app.js'.
-        String script = CanoeTestSupport.render(template, "javascript:alert(1)")
-                .decodedAttr("script", "src");
-        assertFalse(script.contains("javascript:"),
-                () -> "url() must neutralise the scheme, leaving no javascript: URL. Got: " + script);
-        assertEquals("/app.js", script,
-                () -> "R12: javascript: is off the allowlist, so url() rejects it to the empty string"
-                        + " and only the template's literal '/app.js' remains. Got: " + script);
-        assertFalse(VerdictEvaluator.analyseUrl(script).isDangerous());
+    // ------------------------------------------------------------------
+    // The configurable CDN allowlist (R9)
+    // ------------------------------------------------------------------
+
+    /**
+     * An allowlisted CDN host survives into a {@code <script src>}, byte for byte, while a
+     * non-allowlisted host is still rejected. This is the escape hatch that keeps R9's fail-closed
+     * default from forcing {@code $_x.asis()} on any application that serves scripts from a CDN.
+     */
+    @Test
+    public void anAllowlistedCdnHostSurvivesIntoAScriptSrcWhileOthersAreRejected() {
+        String template = "<script src=\"$data/app.js\"></script>";
+
+        String cdn = renderWithTrustedOrigins(template, "//cdn.example.com/lib",
+                List.of("cdn.example.com")).decodedAttr("script", "src");
+        assertEquals("//cdn.example.com/lib/app.js", cdn,
+                "an allowlisted host survives into a resource-loading sink");
+        assertEquals("https://cdn.example.com/lib/app.js",
+                renderWithTrustedOrigins(template, "https://cdn.example.com/lib",
+                        List.of("cdn.example.com")).decodedAttr("script", "src"),
+                "and so does its absolute form");
+
+        String attacker = renderWithTrustedOrigins(template, "//attacker.invalid/x",
+                List.of("cdn.example.com")).decodedAttr("script", "src");
+        assertEquals("/app.js", attacker,
+                "a host that is not on the allowlist is still rejected, allowlist or no allowlist");
+    }
+
+    /**
+     * The origin form of an allowlist entry pins the scheme: {@code https://cdn.example.com} admits
+     * an {@code https} load but rejects the {@code http} downgrade.
+     */
+    @Test
+    public void anOriginAllowlistEntryPinsTheScheme() {
+        String template = "<script src=\"$data\"></script>";
+
+        assertEquals("https://cdn.example.com/a.js",
+                renderWithTrustedOrigins(template, "https://cdn.example.com/a.js",
+                        List.of("https://cdn.example.com")).decodedAttr("script", "src"),
+                "the allowlisted https origin survives");
+        assertEquals("",
+                renderWithTrustedOrigins(template, "http://cdn.example.com/a.js",
+                        List.of("https://cdn.example.com")).decodedAttr("script", "src"),
+                "the http downgrade is rejected because the origin entry pinned https");
+    }
+
+    /**
+     * The allowlist is per factory (per Canoe instance), never static: one application's trusted
+     * origins cannot widen another's. Two writers with different allowlists, the same off-origin
+     * value, opposite outcomes.
+     */
+    @Test
+    public void theResourceOriginAllowlistIsPerInstance() {
+        String template = "<script src=\"$data\"></script>";
+        String value = "//cdn.example.com/a.js";
+
+        assertEquals("//cdn.example.com/a.js",
+                renderWithTrustedOrigins(template, value, List.of("cdn.example.com"))
+                        .decodedAttr("script", "src"),
+                "the writer that trusts the CDN lets it through");
+        assertEquals("",
+                renderWithTrustedOrigins(template, value, List.of())
+                        .decodedAttr("script", "src"),
+                "a writer with no allowlist rejects the very same value - the allowlist is not shared");
+    }
+
+    /**
+     * The static {@link Canoe#encode(String, int)} dispatcher, with no instance to carry an
+     * allowlist, applies the safe default for the resource context: every off-origin authority is
+     * rejected. This is the path a caller reaches without a configured Canoe, and it must fail closed.
+     */
+    @Test
+    public void theStaticEncoderForTheResourceContextRejectsOffOriginWithNoAllowlist() {
+        assertEquals("", Canoe.encode("//attacker.invalid/x.js", Canoe.CTX_URI_RESOURCE),
+                "the static resource encoder has no allowlist, so an off-origin value is suppressed");
+        assertEquals("/local.js", Canoe.encode("/local.js", Canoe.CTX_URI_RESOURCE),
+                "a same-origin-relative value still survives");
+    }
+
+    private static CanoeTestSupport.RenderResult renderWithTrustedOrigins(String template,
+                                                                          String value,
+                                                                          List<String> origins) {
+        Map<String, Object> model = new LinkedHashMap<>();
+        model.put("data", value);
+        return CanoeTestSupport.render(template, model, CanoeTestSupport.RenderOptions.defaults(),
+                writer -> new Canoe(writer, java.util.Collections.emptySet(), origins));
     }
 
     /**
@@ -232,11 +321,13 @@ public class UrlSinkTest {
      * fix has to look at.
      *
      * <p>{@code href}, {@code src}, {@code background}, {@code dynsrc} and {@code lowsrc} produce
-     * {@code CTX_URI} on <em>any</em> element, including ones where the attribute is not a URL and
-     * not defined at all. {@code <p src>} and {@code <span lowsrc>} are nonsense markup and Canoe
-     * percent-encodes their values anyway. Harmless — {@code url()} is stricter than {@code html()}
-     * for a plain-text value, so this direction fails closed — but it is the same missing information
-     * as the dangerous direction, and remediation item 5 has to supply it once for both.
+     * {@code CTX_URI} on <em>any</em> element that is not one of R9's six resource-loading elements,
+     * including ones where the attribute is not a URL and not defined at all. {@code <p src>} and
+     * {@code <span lowsrc>} are nonsense markup and Canoe percent-encodes their values anyway.
+     * Harmless — {@code url()} is stricter than {@code html()} for a plain-text value, so this
+     * direction fails closed. R9 supplied the tag name that the dangerous direction needed and used it
+     * on exactly the six element/attribute combinations where a URL loads code; everywhere else the
+     * name still decides the context on its own, which is what this test pins.
      */
     @Test
     public void aRecognisedUriNameIsAUrlContextOnAnyElementAtAll() {
@@ -272,7 +363,7 @@ public class UrlSinkTest {
      *   <caption>Position and reach</caption>
      *   <tr><th>Position</th><th>Template</th><th>Reaches the authority</th></tr>
      *   <tr><td>full URL</td><td>{@code href="$data"}</td><td>yes — F6</td></tr>
-     *   <tr><td>path prefix</td><td>{@code src="$data/app.js"}</td><td>yes — F6</td></tr>
+     *   <tr><td>path prefix</td><td>{@code href="$data/app.js"}</td><td>yes — F6</td></tr>
      *   <tr><td>path suffix</td><td>{@code href="/p/$data"}</td><td>no</td></tr>
      *   <tr><td>query parameter</td><td>{@code href="/search?q=$data"}</td><td>no</td></tr>
      *   <tr><td>fragment</td><td>{@code href="/page#$data"}</td><td>no</td></tr>
@@ -282,18 +373,24 @@ public class UrlSinkTest {
      * it is the opposite of what the finding's headline suggests: it is not "a URL attribute holding
      * a reference is vulnerable", it is "a URL attribute whose reference can begin the authority is
      * vulnerable". The grep the review's triage section recommends returns all five shapes.
+     *
+     * <p>This test measures the positional rule on {@code <a href>}, an open-redirect surface that
+     * keeps {@code url()}: R9 does not change it, so it is where the position property is still visible
+     * as a property of the encoder rather than of the sink. On the six resource-loading sinks the
+     * full-URL and path-prefix positions are now rejected outright — that is R9, asserted in
+     * {@link #anOffOriginValueIsRejectedFromAScriptSrcByDefault}.
      */
     @ParameterizedTest(name = "{0}")
     @CsvSource(delimiter = '|', value = {
             "full URL      | <a href=\"$data\">x</a>                  | true",
-            "path prefix   | <script src=\"$data/app.js\"></script>   | true",
+            "path prefix   | <a href=\"$data/app.js\">x</a>           | true",
             "path suffix   | <a href=\"/p/$data\">x</a>               | false",
             "query         | <a href=\"/search?q=$data\">x</a>        | false",
             "fragment      | <a href=\"/page#$data\">x</a>            | false",
     })
     public void theFourSubstitutionPositions(String position, String template, boolean reachesOrigin) {
-        String selector = template.startsWith("<script") ? "script" : "a";
-        String attribute = template.startsWith("<script") ? "src" : "href";
+        String selector = "a";
+        String attribute = "href";
 
         for (Payload payload : List.of(Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS)) {
             String decoded = CanoeTestSupport.render(template, payload.value())

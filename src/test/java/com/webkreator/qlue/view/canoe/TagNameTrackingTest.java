@@ -25,9 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * as a URL on {@code <meta http-equiv="refresh">} (R7's note, R10's task). R8 adds a field,
  * {@code tagName}, that holds the element name for the duration of the tag.
  *
- * <p><strong>R8 changes no behaviour.</strong> Nothing reads the field for a security decision yet;
- * these tests are about the field's own correctness, because R9 and R10 will make security decisions
- * on exactly this value. What they pin:
+ * <p><strong>R8 changed no behaviour on its own</strong> — it added the field and left every verdict
+ * where it was. R9 now reads it (see {@link #theTagNameNowDecidesTheSrcEncoder}), and R10 will; these
+ * tests are about the field's own correctness, which both of those decisions rest on. What they pin:
  *
  * <ul>
  *   <li><strong>Available at decision time.</strong> The name is set when the tag name completes and
@@ -203,27 +203,27 @@ public class TagNameTrackingTest {
     }
 
     // ------------------------------------------------------------------
-    // No behaviour change: the field is set, and nothing consumes it yet.
+    // R9 consumes the field: the tag name now decides the encoder.
     // ------------------------------------------------------------------
 
     /**
-     * The pair R9 exists to separate, rendered today: {@code <script src>} and {@code <img src>}
-     * reach the same attribute context and the same encoder while the tracked names differ. This is
-     * the same current behaviour {@code UrlSinkTest.everyElementGetsTheSameEncoderForTheSame}
-     * {@code AttributeName} pins across nine elements; it is restated here against the new field so
-     * that R8's own file says what R8 deliberately did not change. R9 inverts the context half.
+     * The pair R9 exists to separate, rendered after R9: {@code <script src>} and {@code <img src>}
+     * reach <em>different</em> attribute contexts, because R9 reads the tag name R8 tracks. This is
+     * the inversion of the old {@code theNameIsTrackedButNothingConsumesItYet}, which recorded that R8
+     * deliberately left classification unchanged; R9 is the task that changed it.
      */
     @Test
-    public void theNameIsTrackedButNothingConsumesItYet() throws IOException {
+    public void theTagNameNowDecidesTheSrcEncoder() throws IOException {
         CanoeStateProbe script = new CanoeStateProbe().feed("<script src=\"");
         CanoeStateProbe img = new CanoeStateProbe().feed("<img src=\"");
         assertEquals("script", script.tagName());
         assertEquals("img", img.tagName());
-        assertEquals(script.attributeContext(), img.attributeContext(),
-                "R8 must not change classification; the name-aware split is R9's");
-        assertEquals(script.currentContext(), img.currentContext(),
-                "R8 must not change the output context either");
-        assertEquals(Canoe.CTX_URI, script.currentContext(),
-                "both are still the one URL context F6 lives in until R9");
+        assertEquals(Canoe.ATTR_URI_RESOURCE, script.attributeContext(),
+                "R9: src on <script> is a resource-loading sink");
+        assertEquals(Canoe.ATTR_URI, img.attributeContext(),
+                "R9 scopes <img src> out by design: it keeps the ordinary url() encoder");
+        assertEquals(Canoe.CTX_URI_RESOURCE, script.currentContext(),
+                "so the two elements now produce different output contexts from the same attribute");
+        assertEquals(Canoe.CTX_URI, img.currentContext());
     }
 }

@@ -310,6 +310,21 @@ public class ConcurrencyTest {
                     }
                 }
 
+                if (!immutableType && java.util.Map.class.isAssignableFrom(field.getType())) {
+                    // R9 added Canoe.RESOURCE_LOADING_SINKS, a static Map of element -> resource URL
+                    // attribute. Judged by the same rule as a static collection: acceptable only if
+                    // putting to it throws, so it cannot become a global mutable routing table.
+                    String rejection = rejectsMapMutation(field);
+                    if (rejection == null) {
+                        immutableType = true;
+                    } else {
+                        problems.add(name + " is a static map that " + rejection
+                                + ". A shared routing table anything can add to is the global mutable"
+                                + " state one-Canoe-per-render exists to avoid.");
+                        continue;
+                    }
+                }
+
                 if (!immutableType) {
                     problems.add(name + " is static and of mutable type " + field.getType().getName()
                             + ". One Canoe per render only helps if there is nothing behind it.");
@@ -361,6 +376,32 @@ public class ConcurrencyTest {
 
         try {
             value.add("canoe-concurrency-probe");
+            return "accepted an addition";
+        } catch (UnsupportedOperationException expected) {
+            return null;
+        } catch (RuntimeException e) {
+            return "rejected an addition with " + e.getClass().getName()
+                    + " rather than UnsupportedOperationException, which is not the same guarantee";
+        }
+    }
+
+    /** The {@link #rejectsMutation(Field)} analogue for a static {@code Map} field. */
+    @SuppressWarnings("unchecked")
+    private static String rejectsMapMutation(Field field) {
+        java.util.Map<Object, Object> value;
+        try {
+            field.setAccessible(true);
+            value = (java.util.Map<Object, Object>) field.get(null);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return "could not be read for the mutation check (" + e + ")";
+        }
+
+        if (value == null) {
+            return "is null";
+        }
+
+        try {
+            value.put("canoe-concurrency-probe", "canoe-concurrency-probe");
             return "accepted an addition";
         } catch (UnsupportedOperationException expected) {
             return null;

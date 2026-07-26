@@ -52,7 +52,10 @@ public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHa
             return null;
         }
 
-        // Otherwise encode the text using the correct encoder
-        return Canoe.encode(arg1.toString(), qlueWriter.currentContext());
+        // Otherwise encode the text using the correct encoder. The instance form is used rather than
+        // the static Canoe.encode(value, context) because a resource-loading URL sink (R9) needs this
+        // writer's configured trusted-origin allowlist, which is per instance and not a function of
+        // the context alone.
+        return qlueWriter.encode(arg1.toString());
     }
 }

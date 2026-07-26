@@ -188,29 +188,31 @@ public class SinkSpecificBrowserTest extends BrowserTestBase {
     }
 
     /**
-     * {@code <base href>}: a <em>relative</em> resource elsewhere on the page retargets to the
-     * attacker's origin.
+     * {@code <base href>}: R9 closes the hijack, so a <em>relative</em> resource elsewhere on the page
+     * stays on the application's own origin.
      *
-     * <p>The review does not cover this one. It is worth its own test because the damage is done to
-     * markup the attacker never touched: the corpus template's {@code <img src="/logo.png">} is a
-     * root-relative reference to the application's own asset, and it is the thing that ends up
-     * fetched from {@code attacker.invalid}. Asserting on the <em>path</em> is what says so — a
-     * generic "the sentinel origin was contacted" assertion would pass just as well if the
-     * {@code <base>} element itself had made the request, which it cannot.
+     * <p>Inverted from {@code aBaseHrefHijackRetargetsLaterRelativeUrls}, which measured F6's widest
+     * blast radius before R9 fixed it: the corpus template's {@code <img src="/logo.png">} is a
+     * root-relative reference to the application's own asset, and with an off-origin {@code <base href>}
+     * it was the thing that ended up fetched from {@code attacker.invalid}. R9 treats {@code <base href>}
+     * as a resource-loading sink and rejects the off-origin authority to the empty string, so the base
+     * renders empty and {@code /logo.png} resolves against the page's own origin. Asserting on the
+     * <em>path</em> is still what makes the test precise: the application's server is the one that must
+     * serve {@code /logo.png}, and the sentinel origin must never be asked for it.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
-    public void aBaseHrefHijackRetargetsLaterRelativeUrls(BrowserEngine engine) {
+    public void aBaseHrefHijackIsClosedSoRelativeUrlsStayOnOrigin(BrowserEngine engine) {
         Rendered rendered = render("url.base-href", Payloads.BASE_HIJACK);
 
         BrowserVerdict verdict = runCase(engine, "sink.base-href", rendered.html, passiveLoad());
 
-        assertTrue(verdict.sentinelRequests().stream().anyMatch(u -> u.endsWith("/logo.png")),
-                "the page's own /logo.png was not retargeted to the attacker origin:\n"
-                        + verdict.describe());
-        assertFalse(verdict.serverRequests().contains("GET /logo.png"),
-                "the sentinel origin served /logo.png, so the base href did not take effect:\n"
-                        + verdict.describe());
+        assertFalse(verdict.sentinelRequests().stream().anyMatch(u -> u.endsWith("/logo.png")),
+                "R9: the base href was suppressed, so /logo.png must not have been retargeted to the"
+                        + " attacker origin:\n" + verdict.describe());
+        assertTrue(verdict.serverRequests().contains("GET /logo.png"),
+                "R9: /logo.png must be served from the application's own origin now that the base"
+                        + " href is empty:\n" + verdict.describe());
     }
 
     /**

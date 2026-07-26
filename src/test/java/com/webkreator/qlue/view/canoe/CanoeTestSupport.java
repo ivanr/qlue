@@ -323,6 +323,8 @@ public final class CanoeTestSupport {
                 return "CTX_JS";
             case Canoe.CTX_URI:
                 return "CTX_URI";
+            case Canoe.CTX_URI_RESOURCE:
+                return "CTX_URI_RESOURCE";
             case Canoe.CTX_CSS:
                 return "CTX_CSS";
             default:

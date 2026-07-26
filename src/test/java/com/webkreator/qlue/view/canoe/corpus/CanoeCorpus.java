@@ -373,6 +373,31 @@ public final class CanoeCorpus {
     }
 
     /**
+     * R9's re-verdict for a resource-loading sink. On {@code <script src>}, {@code <iframe src>},
+     * {@code <object data>}, {@code <embed src>}, {@code <link href>} and {@code <base href>}, Canoe
+     * now routes the value to {@link com.webkreator.qlue.util.HtmlEncoder#urlResource} rather than to
+     * {@code url()}, and {@code urlResource} rejects an off-origin or protocol-relative authority to
+     * the empty string. So the payloads that {@code url()} passed through byte for byte — a
+     * protocol-relative {@code //host}, an absolute {@code https://host}, its uppercase-scheme sibling
+     * and (on {@code <base>}) the {@code BASE_HIJACK} host — move from {@link Verdict#KNOWN_VULNERABLE}
+     * citing F6 to {@link Verdict#SUPPRESSED_BY_DESIGN}: rendered against the sink, the src or href
+     * falls back to whatever literal the template wrote and the attacker's authority never reaches the
+     * browser.
+     *
+     * <p>Given the exact off-origin payloads the case uses, because the corpus refuses an override for
+     * a payload the case does not carry. The backslash and userinfo shapes are deliberately absent:
+     * {@code url()} already neutralised those to a same-origin path or an unparseable host, so
+     * {@code urlResource} passes them through unchanged and their verdict does not move.
+     */
+    private static XssCase.Builder resourceSinkRejectsOffOrigin(XssCase.Builder builder,
+                                                                Payload... offOrigin) {
+        for (Payload payload : offOrigin) {
+            builder.override(payload, Verdict.SUPPRESSED_BY_DESIGN);
+        }
+        return builder;
+    }
+
+    /**
      * The shape shared by every URL-bearing name R6 added to {@code ATTR_URI}.
      *
      * <p>It used to be {@link Verdict#KNOWN_VULNERABLE} against F3 for every payload: the name fell
@@ -388,7 +413,15 @@ public final class CanoeCorpus {
      * protocol-relative or absolute {@code http(s)} URL is not neutralised at all: it is a valid URL
      * and {@code url()} emits it byte for byte, uppercase scheme included. A URL attribute routed to
      * {@code url()} inherits {@code url()}'s defects, and the ledger records that rather than reading
-     * the routing fix as a fix for the sink. R9 is what closes these rows.
+     * the routing fix as a fix for the sink.
+     *
+     * <p>Whether R9 closes such a row depends on the element. On a resource-loading combination —
+     * {@code <object data>} is the one built by this helper — R9 routes to {@code urlResource()} and
+     * the off-origin rows become {@link Verdict#SUPPRESSED_BY_DESIGN}; the caller applies
+     * {@link #resourceSinkRejectsOffOrigin} to say so. On an open-redirect or referrer surface —
+     * {@code <form action>}, {@code <button formaction>}, {@code <video poster>}, {@code <a ping>} and
+     * the rest — R9 deliberately leaves the row {@code KNOWN_VULNERABLE} under F6, because an
+     * off-origin navigation or fetch is not code execution; that is the residual F6 R26 tracks.
      */
     private static XssCase.Builder urlAttributeAddedByR6(String id, String template,
                                                          String selector, String attribute,
@@ -1127,8 +1160,10 @@ public final class CanoeCorpus {
      * {@link SinkKind#JAVASCRIPT}, which is a claim that the value is compiled as script; on a
      * {@code <div>} an {@code onstorage} attribute is inert text that no engine will ever register,
      * so the claim is false and the row would be a guaranteed browser-tier failure the moment T28
-     * lands. The classification Canoe applies is identical either way — it discards the tag name
-     * once attribute parsing begins — so moving the element costs nothing and makes the sink real.
+     * lands. The classification Canoe applies is identical either way — an {@code on*} handler is
+     * JavaScript by its name prefix, and R9's tag-name check fires only on the six resource-loading
+     * URL sinks, none of which is a handler — so moving the element costs nothing and makes the sink
+     * real.
      *
      * <p>{@code onunload} is a Window handler too and is deliberately <em>not</em> here. It was one
      * of the 21 names the old table reached, so its row was already {@code SUPPRESSED_BY_DESIGN}
@@ -1240,10 +1275,11 @@ public final class CanoeCorpus {
      * corpus's evidence that the parser decodes exactly once; see
      * {@link #ENTITY_BREAKOUT_IS_THE_CONTROL}.
      *
-     * <p>The element is {@code <div>} unless a case says otherwise. Canoe discards the tag name once
-     * attribute parsing begins ({@code buf} is reused at {@code Canoe.java:786}), so the element
-     * cannot affect the <em>classification</em> and choosing a "realistic" one per handler would
-     * suggest a dependency that does not exist. It does affect whether the declared
+     * <p>The element is {@code <div>} unless a case says otherwise. An {@code on*} handler is
+     * classified by its name prefix and nothing else — R8 tracks the tag name now, but R9 consults it
+     * only on the six resource-loading URL sinks, so no handler's classification depends on the
+     * element — and choosing a "realistic" one per handler would suggest a dependency that does not
+     * exist. It does affect whether the declared
      * {@link SinkKind#JAVASCRIPT} sink <em>exists</em>, which is a different question and one the
      * ledger has to get right: see {@link #WINDOW_REFLECTING_HANDLERS}, which are generated on
      * {@code <body>} because {@code <div onstorage>} is an attribute no engine will ever register.
@@ -1526,10 +1562,16 @@ public final class CanoeCorpus {
      * The five names {@code setTagAttributeContext()} has always mapped to {@code ATTR_URI}, so the
      * value goes through {@code HtmlEncoder.url()}.
      *
-     * <p>All five behave identically, and identically wrongly, because {@code url()} is a scheme
-     * filter rather than an origin filter (F6). Every {@code javascript:}-style scheme is genuinely
-     * neutralised — since R12 it is rejected to the empty string rather than colon-escaped — and the
-     * origin is what survives.
+     * <p>On the elements that do not load a subresource with the name — {@code <a href>},
+     * {@code <img src>}, {@code <table background>} and the rest — all of these behave identically,
+     * and identically wrongly, because {@code url()} is a scheme filter rather than an origin filter
+     * (F6). Every {@code javascript:}-style scheme is genuinely neutralised — since R12 it is rejected
+     * to the empty string rather than colon-escaped — and the off-origin authority is what survives.
+     * That is the F6 residue R9 scopes out by design: an open redirect or a referrer leak, not code
+     * execution. Where the same name <em>does</em> load a subresource — {@code src} on {@code
+     * <script>}, and {@code data} on {@code <object>} in {@link #unrecognisedUrlAttributes} — R9
+     * routes it to {@code urlResource()} instead and the off-origin authority is rejected; see
+     * {@code url.script-src-prefix} and {@code attr.data-on-object}.
      *
      * <p>Since R6 there are seventeen names in the group rather than five, and the twelve additions
      * are in {@link #unrecognisedUrlAttributes} with the F3 history that brought them here. Their
@@ -1557,9 +1599,12 @@ public final class CanoeCorpus {
 
         cases.add(recognisedUriAttribute("url.img-src",
                 "<img src=\"$data\">", "img", "src")
-                .note("Same encoder as <script src>, because Canoe discards the tag name once"
-                        + " attribute parsing begins (buf is reused at Canoe.java:786). The impact"
-                        + " differs enormously; the encoding does not.")
+                .note("R9 keeps <img src> on url(): an off-origin image is a referrer leak and a load,"
+                        + " not code execution, so it stays an open-redirect/referrer surface by"
+                        + " design. This is where the off-origin passthrough is still KNOWN_VULNERABLE"
+                        + " under F6 - the residual R9 scopes out and R26 tracks - and it is exactly"
+                        + " the row url.script-src-prefix used to be byte-identical to before R8 gave"
+                        + " Canoe the tag name to tell them apart.")
                 .browserRelevant()
                 .build());
 
@@ -1580,8 +1625,10 @@ public final class CanoeCorpus {
                 "<img lowsrc=\"$data\">", "img", "lowsrc")
                 .build());
 
-        // Canoe discards the tag name once attribute parsing begins, so src on <script> and src on
-        // <img> get the same encoder.
+        // <script src> is a resource-loading sink (R9): with R8's tag name available, Canoe routes it
+        // to urlResource(), which rejects an off-origin or protocol-relative authority. It is no
+        // longer the same encoder as <img src>, which is the whole point of R9 and is why
+        // UrlSinkTest.everyElementGetsTheSameEncoderForTheSameAttributeName is inverted.
         XssCase.Builder scriptSrcPrefix = XssCase.id("url.script-src-prefix")
                 .section(A2)
                 .template("<script src=\"$data/app.js\"></script>")
@@ -1589,45 +1636,61 @@ public final class CanoeCorpus {
                 .payloads(allUrlPayloads())
                 .verdict(Verdict.SAFE)
                 .finding("F6")
-                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
-                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, Verdict.KNOWN_VULNERABLE)
-                .note("Attacker-controlled JavaScript executing with full page privileges. Path-prefix"
-                        + " position, so the payload reaches the authority. The rejected schemes"
-                        + " suppress (url() emits nothing, so the src falls back to the template's"
-                        + " '/app.js'); the uppercase off-origin URL is KNOWN_VULNERABLE now that R12"
-                        + " normalises the scheme rather than the old regex leaving it relative.")
+                .note("Re-verdicted by R9, from KNOWN_VULNERABLE/F6 to SUPPRESSED_BY_DESIGN. The"
+                        + " sink loads and executes JavaScript, so an off-origin value here is"
+                        + " arbitrary code with full page privileges - the code-execution end of F6,"
+                        + " and what R9 closes. Path-prefix position, so the payload reaches the"
+                        + " authority; urlResource() rejects a protocol-relative //host, an absolute"
+                        + " https://host and its uppercase sibling to the empty string, so the src"
+                        + " falls back to the template's own '/app.js'. Reviewed against the sink: the"
+                        + " rendered script tag carries no attacker host. The rejected-scheme payloads"
+                        + " were already SUPPRESSED_BY_DESIGN under R12.")
                 .browserRelevant();
         applyUrlSchemeReverdict(scriptSrcPrefix, allUrlPayloads(), true);
+        resourceSinkRejectsOffOrigin(scriptSrcPrefix, Payloads.PROTOCOL_RELATIVE,
+                Payloads.ABSOLUTE_OFFSITE_HTTPS, Payloads.ABSOLUTE_OFFSITE_UPPERCASE);
         cases.add(scriptSrcPrefix.build());
 
-        // The rest of the elements F6's exploitation vector applies to. The verdicts are identical
-        // to url.img-src's and that identity IS the finding: Canoe reuses buf for the attribute name
-        // at Canoe.java:786, so by the time setTagAttributeContext() runs the tag name is gone and
-        // <script src>, <iframe src>, <embed src> and <img src> are indistinguishable. The
-        // consequences are not: an off-origin <img src> leaks a referrer, an off-origin <script src>
-        // and an off-origin <iframe src> are arbitrary code in the page. UrlSinkTest (T16) asserts
-        // the byte-identity across all nine elements rather than leaving it to these five notes.
-        cases.add(recognisedUriAttribute("url.iframe-src",
-                "<iframe src=\"$data\"></iframe>", "iframe", "src")
-                .note("An off-origin iframe is not same-origin script execution, but it is an"
+        // The rest of the resource-loading elements. Before R8 gave Canoe the tag name these were
+        // byte-identical to <img src> - the same encoder for a referrer leak and for arbitrary code -
+        // and that identity WAS F6's structural cause. R9 ends it: <iframe src>, <embed src> and
+        // <link href> reject an off-origin authority where <img src> passes it, because an off-origin
+        // iframe or embed is an attacker document in the page and an off-origin stylesheet can
+        // overlay and exfiltrate. UrlSinkTest.theTagNameNowDecidesTheEncoderForSrcAndHref asserts the
+        // split rather than the old byte-identity.
+        cases.add(resourceSinkRejectsOffOrigin(recognisedUriAttribute("url.iframe-src",
+                "<iframe src=\"$data\"></iframe>", "iframe", "src"),
+                Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS,
+                Payloads.ABSOLUTE_OFFSITE_UPPERCASE)
+                .note("Re-verdicted by R9, from KNOWN_VULNERABLE/F6. An off-origin iframe is an"
                         + " attacker-controlled document inside the page's frame tree, with"
-                        + " postMessage, top-level navigation and full-viewport overlay available"
-                        + " to it. Same encoder as <img src>.")
+                        + " postMessage, top-level navigation and full-viewport overlay available to"
+                        + " it - the code-execution end of F6. R9 routes <iframe src> to"
+                        + " urlResource(), which rejects the authority, so the src renders empty. No"
+                        + " longer the same encoder as <img src>: that is the finding, now fixed.")
                 .browserRelevant()
                 .build());
 
-        cases.add(recognisedUriAttribute("url.embed-src",
-                "<embed src=\"$data\">", "embed", "src")
-                .note("<embed> loads a plugin document. Same encoder again, and the tag name Canoe"
-                        + " threw away is the only thing that distinguishes it from <img>.")
+        cases.add(resourceSinkRejectsOffOrigin(recognisedUriAttribute("url.embed-src",
+                "<embed src=\"$data\">", "embed", "src"),
+                Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS,
+                Payloads.ABSOLUTE_OFFSITE_UPPERCASE)
+                .note("Re-verdicted by R9, from KNOWN_VULNERABLE/F6. <embed> loads a plugin document"
+                        + " from the URL, so R9 treats <embed src> as a resource-loading sink and"
+                        + " urlResource() rejects the off-origin authority. The tag name R8 keeps is"
+                        + " what now distinguishes it from <img>.")
                 .build());
 
-        cases.add(recognisedUriAttribute("url.link-href",
-                "<link rel=\"stylesheet\" href=\"$data\">", "link", "href")
-                .note("An off-origin stylesheet is not inert: it can lay a full-viewport overlay,"
-                        + " exfiltrate DOM content through attribute-selector url() rules, and"
-                        + " restyle a form's submit target's surroundings. Same href, same url(),"
-                        + " as <a href>.")
+        cases.add(resourceSinkRejectsOffOrigin(recognisedUriAttribute("url.link-href",
+                "<link rel=\"stylesheet\" href=\"$data\">", "link", "href"),
+                Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS,
+                Payloads.ABSOLUTE_OFFSITE_UPPERCASE)
+                .note("Re-verdicted by R9, from KNOWN_VULNERABLE/F6. An off-origin stylesheet can lay"
+                        + " a full-viewport overlay, exfiltrate DOM content through attribute-selector"
+                        + " url() rules, and restyle a form's submit surroundings, so <link href> is a"
+                        + " resource-loading sink. urlResource() rejects the authority; the href"
+                        + " renders empty. <a href> keeps url() and stays an open-redirect surface -"
+                        + " the deliberate boundary R9 draws.")
                 .build());
 
         // The four substitution positions. url() escapes the same characters wherever the reference
@@ -1672,47 +1735,44 @@ public final class CanoeCorpus {
         applyUrlSchemeReverdict(hrefFragment, allUrlPayloads(), false);
         cases.add(hrefFragment.build());
 
-        // href on <base> is recognised, so url() applies - and url() lets a protocol-relative URL
-        // through byte for byte, which retargets every relative URL on the rest of the page.
-        cases.add(XssCase.id("url.base-href")
+        // <base href> is the widest resource sink of all: it retargets every relative URL on the
+        // rest of the page. R9 routes it to urlResource(), which rejects the off-origin authority.
+        XssCase.Builder baseHref = XssCase.id("url.base-href")
                 .section(A2)
                 .template("<base href=\"$data\"><img src=\"/logo.png\">")
                 .sink(SinkKind.URL, "base", "href")
                 .payloads(Payloads.families("BASE_HIJACK", "PROTOCOL_RELATIVE", "ABSOLUTE_OFFSITE"))
                 .verdict(Verdict.SAFE)
                 .finding("F6")
-                .overrideFamily("BASE_HIJACK", Verdict.KNOWN_VULNERABLE)
-                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
-                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, Verdict.KNOWN_VULNERABLE)
-                .override(Payloads.ABSOLUTE_OFFSITE_UPPERCASE, Verdict.KNOWN_VULNERABLE)
-                .note("The widest blast radius of any F6 case: <base href> retargets every subsequent"
-                        + " relative URL on the page, so one attacker-controlled value moves every"
-                        + " script, stylesheet, image and form action to the attacker's origin. The"
-                        + " review does not cover <base> specifically; it is F6's mechanism exactly."
-                        + " The uppercase absolute URL joins the vulnerable set under R12: it used to"
-                        + " be neutralised by the old case-sensitive scheme regex, and the rewrite"
-                        + " normalises the scheme and passes the off-origin host through.")
-                .browserRelevant()
-                .build());
+                .note("Re-verdicted by R9, from KNOWN_VULNERABLE/F6. The widest blast radius of any"
+                        + " F6 case: <base href> retargets every subsequent relative URL on the page,"
+                        + " so one attacker-controlled value would move every script, stylesheet,"
+                        + " image and form action to the attacker's origin - which is why it belongs"
+                        + " in the resource-loading set even though the review does not name <base>"
+                        + " specifically. urlResource() rejects the BASE_HIJACK host, the"
+                        + " protocol-relative and both absolute off-origin URLs to the empty string,"
+                        + " so the base href renders empty and the page keeps its own origin.")
+                .browserRelevant();
+        resourceSinkRejectsOffOrigin(baseHref, Payloads.BASE_HIJACK, Payloads.PROTOCOL_RELATIVE,
+                Payloads.ABSOLUTE_OFFSITE_HTTPS, Payloads.ABSOLUTE_OFFSITE_UPPERCASE);
+        cases.add(baseHref.build());
 
         // F7, closed by R7. The branch that was meant to test for 'content' tested for 'data'
         // instead, so 'data' resolved to ATTR_CONTENT and the value was dropped - fail-safe, and a
         // functional bug developers route around with $_x.asis() - while 'content' had no test at
         // all. R7 resolved the pair: <object data> is a URL.
-        cases.add(urlAttributeAddedByR6("attr.data-on-object",
-                "<object data=\"$data\"></object>", "object", "data")
-                .note("Re-verdicted by R7, from SUPPRESSED_UNINTENDED/F7. Two consequences of one"
-                        + " copy-paste, and this is the availability one: <object data> silently"
-                        + " dropped its value because the branch above it, commented 'content',"
-                        + " compared the characters of 'data' and returned first. The security"
-                        + " consequence was the other half - there was no check for 'content' at all"
-                        + " - and refresh.meta-content records it. Reviewed against the sink: the"
-                        + " value is percent-encoded by url() now, so a data: or javascript: URL"
-                        + " arrives with its colon escaped and an off-origin URL arrives byte for"
-                        + " byte, which is F6 on this name as it is on href. The finding citation"
-                        + " moves from F7, which is closed, to F6, which is not."
-                        + " AttributePrefixTest.theDataBranchPairIsResolved is the mechanism side of"
-                        + " this row, and it keeps F7's reasoning where the branches used to be.")
+        cases.add(resourceSinkRejectsOffOrigin(urlAttributeAddedByR6("attr.data-on-object",
+                "<object data=\"$data\"></object>", "object", "data"),
+                Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS)
+                .note("Re-verdicted twice: by R7 from SUPPRESSED_UNINTENDED/F7 (the copy-paste that"
+                        + " compared 'data' where it meant 'content' dropped this value; R7 made"
+                        + " <object data> a URL), and by R9 from KNOWN_VULNERABLE/F6 to"
+                        + " SUPPRESSED_BY_DESIGN. <object data> loads the object element's resource -"
+                        + " a document, an image or, historically, a plugin - so R9 treats it as a"
+                        + " resource-loading sink and urlResource() rejects the off-origin authority."
+                        + " Reviewed against the sink: the data attribute renders empty for a"
+                        + " protocol-relative or absolute off-origin URL. AttributePrefixTest"
+                        + ".theDataBranchPairIsResolved is the mechanism side of the F7 half.")
                 .build());
     }
 
@@ -2125,12 +2185,12 @@ public final class CanoeCorpus {
                         + " an attribute Canoe had no branch for at all - the second consequence of"
                         + " F7's copy-paste, with F3's impact. R7 leaves 'content' off the URL list"
                         + " deliberately: it carries a URL on exactly one element and"
-                        + " attribute-value combination, <meta http-equiv=refresh>, and Canoe"
-                        + " discards the tag name before attribute parsing begins, so it cannot tell"
-                        + " that combination from <meta name=description content=...>. Routing every"
-                        + " content attribute to url() would percent-encode ordinary prose in every"
-                        + " meta description on the page; suppressing is correct and fail-safe until"
-                        + " R8 and R10 give it the tag name. Reviewed against the sink: the"
+                        + " attribute-value combination, <meta http-equiv=refresh>. R8 now tracks the"
+                        + " tag name, but R10 has not yet used it to tell that combination from <meta"
+                        + " name=description content=...>, so 'content' stays suppressed. Routing"
+                        + " every content attribute to url() would percent-encode ordinary prose in"
+                        + " every meta description on the page; suppressing is correct and fail-safe"
+                        + " until R10 does the sibling-attribute check. Reviewed against the sink: the"
                         + " attribute renders empty, so there is no refresh target for the browser"
                         + " to navigate to - the template's own meta element remains and does"
                         + " nothing. SUPPRESSED_BY_DESIGN rather than SUPPRESSED_UNINTENDED because"

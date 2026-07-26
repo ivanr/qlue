@@ -109,8 +109,10 @@ public class CanoeStateMachineTest {
                 row("onclick", "<a onclick=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_JS),
                 // R7: <object data> is a URL. It was CTX_SUPPRESS here while the two identical
                 // `data` branches stood, one of them commented "content" (F7), and the suppression
-                // was a functional bug rather than a defence - the value simply vanished.
-                row("data", "<object data=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_URI),
+                // was a functional bug rather than a defence - the value simply vanished. R9 narrows
+                // it further: <object data> loads a subresource, so it is the resource-loading URL
+                // context that rejects an off-origin authority.
+                row("data", "<object data=\"", Canoe.TAG_ATTR_VALUE, Canoe.CTX_URI_RESOURCE),
                 // R5: a name on none of the lists suppresses. This row is the fail-closed default in
                 // the same table as the names that have a classification, which is where the two are
                 // easiest to compare.
@@ -387,7 +389,8 @@ public class CanoeStateMachineTest {
         // "content" had no branch at all; the author's XXX marker sat above the pair. <object data>
         // is a URL, and "content" is a URL only on <meta http-equiv=refresh>, which needs the tag
         // name (R10) - so it suppresses, which is where R5's fail-closed default puts it anyway.
-        assertEquals(Canoe.ATTR_URI, attributeContextOf("<object data=\"x"));
+        assertEquals(Canoe.ATTR_URI_RESOURCE, attributeContextOf("<object data=\"x"),
+                "R7 made <object data> a URL; R9 narrows it to the resource-loading variant");
         assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("<meta content=\"x"),
                 "R7: content is suppressed by default until R10 can distinguish a refresh from a"
                         + " description");

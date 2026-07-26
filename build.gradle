@@ -290,7 +290,7 @@ jacocoTestReport {
  *   inBuf(), 4 outcomes  (not gated individually; part of the class figure)
  *      4  the method is called only from commented-out debug statements (Canoe.java:995, 1107).
  *
- *   HtmlEncoder, 2 outcomes
+ *   HtmlEncoder, 5 outcomes
  *      1  the null guard of the private css(String, StringBuilder). The public css(String) returns
  *         null before calling it and nothing else calls it.
  *         -> HtmlEncoderTest.theAppendingOverloadsAppendNothingForNull says so in its javadoc.
@@ -301,14 +301,39 @@ jacocoTestReport {
  *         false outcome, which the control flow cannot reach.
  *         -> HtmlEncoderUrlTest.aFullHierarchyIsSplitIntoItsComponents and .theAuthorityStopsAtThe
  *            FirstQueryOrFragment reach every fragment/no-fragment path there is.
+ *      3  the two incomplete-escape guards of percentDecode() (`c == '%' && i + 2 < length` and the
+ *         two isHex() tests). Introduced by R9. percentDecode() runs only on url()'s own output, and
+ *         url() never emits a bare or truncated `%` - every `%` it writes begins a complete `%XX`
+ *         from a hex pair, and a `%` that did not was itself escaped to `%25`. So the "not a `%`" and
+ *         "a complete `%XX`" outcomes are both reached, and the "`%` with no two hex digits after it"
+ *         outcomes cannot be, because that input shape does not exist in url()'s output.
+ *         -> HtmlEncoderResourceUrlTest.valuesUrlAlreadyNeutralisedAreNotSuppressedAgain and
+ *            .aHostThatFailsToParseIsNotAnOffOriginAuthority reach the live percent-decode paths
+ *            (%40, %5C, %01, %7F) through url()-encoded input, which is the only way percentDecode()
+ *            is called.
  *
  *   R11 deleted the non-final `uriPattern` field (the last non-final static in either class), and R12
  *   replaced the private url(String, StringBuilder) worker with appendHierPart()/appendEncoded(),
  *   both fully covered by HtmlEncoderUrlTest bar the one short-circuit outcome above.
+ *
+ * RE-MEASURED after R9 (reject off-origin/protocol-relative URLs in resource-loading sinks). Canoe
+ * gained a small, fully covered routing narrowing - isResourceLoadingSink(), the ATTR_URI_RESOURCE
+ * arm of setTagAttributeContext(), and the CTX_URI_RESOURCE arms of currentContext() and encode() -
+ * and its class figure is 251/262 = 95.80% against the 0.95 floor, the same eleven dead outcomes as
+ * after R8, no twelfth. HtmlEncoder gained urlResource() and its TrustedOrigin allowlist, an origin
+ * filter over url()'s own output: 85 new branches, all reachable and exercised by
+ * HtmlEncoderResourceUrlTest except the three percentDecode() guards inventoried above, which url()'s
+ * output shape cannot reach. It is 315/320 = 98.44%, so the HtmlEncoder floor moves 0.99 -> 0.98;
+ * losing one more branch would be 98.13%. The three new dead outcomes are the only additions to the
+ * inventory, and none of them is a finding.
+ *
+ *   Canoe                             251 / 262 branches   95.80%   (was 265 / 276; R8 then R9)
+ *   HtmlEncoder                       315 / 320 branches   98.44%   (was 230 / 232; R9 added
+ *                                                                    urlResource() + TrustedOrigin)
  */
 ext.canoeCoverageFloors = [
         [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.95],
-        [kind: 'class',  target: 'com/webkreator/qlue/util/HtmlEncoder', floor: 0.99],
+        [kind: 'class',  target: 'com/webkreator/qlue/util/HtmlEncoder', floor: 0.98],
         [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#setTagAttributeContext', floor: 0.99],
         [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#reallyProcessChar',      floor: 0.96],
         [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#normalisePlainTextAttributeNames',

@@ -406,8 +406,55 @@ two are small.
 
 ---
 
-**R9 — Reject off-origin and protocol-relative URLs in resource-loading sinks**
-*Closes:* F6. *Depends on:* R8, R12.
+**R9 — Reject off-origin and protocol-relative URLs in resource-loading sinks** — ✅ **DONE**
+*Closes:* the code-execution half of F6. *Depends on:* R8, R12.
+*Landed:* R8's `tagName` now decides the encoder for `src`/`href`/`data`. Six element/attribute
+combinations — `<script src>`, `<iframe src>`, `<object data>`, `<embed src>`, `<link href>`,
+`<base href>` (`Canoe.RESOURCE_LOADING_SINKS`) — route to a new `ATTR_URI_RESOURCE`/`CTX_URI_RESOURCE`
+context and a new encoder, `HtmlEncoder.urlResource(input, allowlist)`. `urlResource()` is `url()`
+plus an origin filter: it runs the value through `url()` (so every scheme rejection and per-component
+encoding is inherited) and then rejects to the empty string any value whose **`url()` output**
+introduces an authority whose host is not on a configured allowlist. "Off-origin" is defined
+soundly at encode time as *specifies an authority at all* — Canoe never knows the deploying app's own
+origin — so a protocol-relative `//host`, an absolute `scheme://host`, and the special-scheme
+`scheme:host`/`scheme:/host` forms a browser reads as an authority are all rejected, while a relative
+reference (`/path`, `path`, `?q`, `#f`) always passes. Checking the authority on `url()`'s output is
+what makes it both catch the reviewer's `http:evil` case (asserted) and *not* over-reject the tricks
+`url()` already neutralised — a backslash is a `%5C` path and a userinfo `@` is a `%40` forbidden
+host char, so neither reaches a live authority. The CDN escape hatch mirrors R5:
+`VelocityViewFactory.addTrustedResourceOrigins(...)` and the `qlue.canoe.trustedResourceOrigins`
+property, per factory and never static, validated by `HtmlEncoder.parseTrustedOrigins` (a bad origin
+throws at startup) and plumbed to Canoe via a third constructor arg; an entry is a host
+(`cdn.example.com`) or an origin (`https://cdn.example.com`, optional `:port`).
+
+**`<a href>` and `<img src>` keep `url()` by design** — an off-origin link is an open redirect and an
+off-origin image is a referrer leak, not code execution — so **F6 does not reach zero**. Ledger,
+every one of the 18 re-verdicted rows read against its sink: `KNOWN_VULNERABLE` **84→66**,
+`SUPPRESSED_BY_DESIGN` **390→408**, `SAFE` 457, `SUPPRESSED_UNINTENDED` 27, `REJECTED` 44 (1002
+invocations). The 18 R9 closed are the resource sinks: `url.script-src-prefix` (3),
+`url.iframe-src` (3), `url.embed-src` (3), `url.link-href` (3), `url.base-href` (4, including the
+`BASE_HIJACK` host) and `attr.data-on-object` (2). The **66 that remain are all F6 on
+open-redirect/referrer/fetch-not-code surfaces** — `a href` (27), `img src`, `form action`,
+`button formaction`, `video poster`, `a ping`, `blockquote cite`, `img srcset`/`usemap`/`longdesc`,
+`table background`, `img dynsrc`/`lowsrc`, `a xlink:href`, `applet codebase`, `html manifest` — which
+R9 scopes out by design. This is a residual, not a defect: it is an open redirect and a referrer leak,
+not XSS, and it stays `KNOWN_VULNERABLE` citing F6 for the record, tracked by **R26** (drive the
+ledger to zero / decide the acceptable residue) and re-confirmed cross-engine by **R28**. `<meta
+http-equiv=refresh content>` (a forced navigation) is **R10**, still suppressed.
+Tests: `UrlSinkTest.everyElementGetsTheSameEncoderForTheSameAttributeName` inverted to
+`.theTagNameNowDecidesTheEncoderForSrcAndHref`, `.anOffOriginCdnBaseSurvivesIntoAScriptSrcByteForByte`
+inverted to `.anOffOriginValueIsRejectedFromAScriptSrcByDefault`, three new allowlist tests (CDN host
+survives, origin form pins the scheme, per-factory isolation),
+`.theQueryPositionIsSafeBecauseOfTheTemplateAndNotBecauseOfTheEncoder` unchanged and still green; a
+new `HtmlEncoderResourceUrlTest` covers `urlResource()` and `TrustedOrigin`; `TagNameTrackingTest`'s
+"nothing consumes it yet" row inverted; the `<object data>` rows in `CanoeStateMachineTest` and
+`AttributePrefixTest` moved to `CTX_URI_RESOURCE`; `ConcurrencyTest` learned to check a static `Map`;
+`SinkSpecificBrowserTest.aBaseHrefHijackRetargetsLaterRelativeUrls` inverted to
+`.aBaseHrefHijackIsClosedSoRelativeUrlsStayOnOrigin`; `BrowserCorpusTest`'s budget 72/28/44/0 →
+62/18/44/0. Coverage: HtmlEncoder 230/232 → 315/320 (floor 0.99→0.98, three new dead `percentDecode`
+guards inventoried); Canoe 251/262 against 0.95, same dead outcomes as after R8. Both suites green;
+browser tier re-verified on Chromium (90 tests, 0 failures, 2 skipped — Firefox and WebKit are not
+installed here).
 
 `url()` is a scheme filter: it neutralises `javascript:` and `data:`, and passes
 `//attacker.example/x.js` and `https://attacker.example/x.js` through byte for byte, because every
@@ -864,7 +911,7 @@ a page with an author nonce and a real CSP), and §A.3 of the test plan is missi
 | F3 — URL/markup/refresh attributes unrecognised | Critical | R5, R6, R7, R10 |
 | F4 — prefix scan discards the name-derived context | High | R2 |
 | F5 — prefix detection reads buffer residue | High | R3 |
-| F6 — `url()` is a scheme filter, not an origin filter | High | R9 (with R8, R12) |
+| F6 — `url()` is a scheme filter, not an origin filter | High | R9 (with R8, R12) closes the code-execution half; open-redirect/referrer residue on `a href`/`img src`/etc. stays for R26 |
 | F7 — `content` branch tests for `data` | Medium | R7 |
 | F8 — no tests, no docs, no threat model | Medium | R25 (tests: already delivered) |
 | F9 — `write(char[],int,int)` length/end confusion | Low (latent) | R15 |

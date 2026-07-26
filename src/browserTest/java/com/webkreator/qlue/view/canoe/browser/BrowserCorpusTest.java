@@ -201,6 +201,18 @@ public class BrowserCorpusTest extends BrowserTestBase {
      *   <li>The <strong>total is 72</strong>: 63 after R7 plus those nine uppercase KNOWN_VULNERABLE
      *       rows, which each earn a page load now that they are a live vector rather than a control.
      * </ul>
+     *
+     * <p>R9 (reject off-origin and protocol-relative URLs in resource-loading sinks) takes it to
+     * <strong>62/18/44/0</strong>. The three browser-relevant resource sinks re-verdict every
+     * off-origin row to {@code SUPPRESSED_BY_DESIGN}: {@code url.script-src-prefix} and
+     * {@code url.iframe-src} lose three must-fire rows each, and {@code url.base-href} loses four
+     * (the {@code BASE_HIJACK} host plus the three off-origin URLs), so the must-fire count falls
+     * 28 &rarr; 18 and the total falls 72 &rarr; 62 by exactly those ten pages. Each case still
+     * contributes its one safe control, so the <strong>quiet count is unchanged at 44</strong>. The
+     * eighteen rows that remain must-fire are all F6 on {@code <a href>}, {@code <img src>}, a form
+     * action or another open-redirect/referrer surface that R9 scopes out by design — the residual
+     * F6 that R26 tracks and that this component does not treat as code execution.
+     * </p>
      */
     @Test
     public void theBrowserRelevantSubsetIsTheSizeTheCorpusClaims() {
@@ -213,9 +225,9 @@ public class BrowserCorpusTest extends BrowserTestBase {
                 .count();
         long quiet = invocations.size() - mustFire;
 
-        assertEquals(72, invocations.size(), "browser-relevant invocation count");
+        assertEquals(62, invocations.size(), "browser-relevant invocation count");
         assertEquals(0, unobservable, "invocations flagged as not browser-observable");
-        assertEquals(28, mustFire, "invocations that must trip a detector");
+        assertEquals(18, mustFire, "invocations that must trip a detector");
         assertEquals(44, quiet, "invocations that must trip none");
     }
 

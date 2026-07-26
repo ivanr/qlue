@@ -775,8 +775,10 @@ public class AttributePrefixTest {
     @Test
     public void theDataBranchPairIsResolved() throws IOException {
         for (String name : List.of("data", "DATA", "Data", "dAtA", "dATa")) {
-            assertEquals(Canoe.ATTR_URI, attributeContextOf("<object " + name + "=\"x"),
-                    "R7: <object data> is a URL, in every spelling the name scan lower-cases");
+            assertEquals(Canoe.ATTR_URI_RESOURCE, attributeContextOf("<object " + name + "=\"x"),
+                    "R7: <object data> is a URL, in every spelling the name scan lower-cases; R9"
+                            + " narrows it to the resource-loading variant because <object data> loads"
+                            + " a subresource");
         }
 
         assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf("<meta content=\"x"),
@@ -814,9 +816,11 @@ public class AttributePrefixTest {
      */
     @Test
     public void theDataAttributeAndTheDataUrlPrefixAreDifferentConstants() throws IOException {
-        assertEquals(Canoe.ATTR_URI, attributeContextOf("<object data=\"x"));
+        // The name 'data' on <object> is a resource-loading URL sink (R9's narrowing of R7's URL);
+        // the value prefix 'data:' is ATTR_DATA. Different constants, different encoders.
+        assertEquals(Canoe.ATTR_URI_RESOURCE, attributeContextOf("<object data=\"x"));
         assertEquals(Canoe.ATTR_DATA, attributeContextOf("<a href=\"data:"));
-        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<object data=\"x"));
+        assertEquals(Canoe.CTX_URI_RESOURCE, CanoeTestSupport.contextAfter("<object data=\"x"));
         assertEquals(Canoe.CTX_SUPPRESS, CanoeTestSupport.contextAfter("<a href=\"data:"));
 
         // Name and prefix together: the value prefix narrows, exactly as it does on href.
@@ -826,8 +830,9 @@ public class AttributePrefixTest {
         // The F4 reset used to apply here too: an attribute named data whose value carried any other
         // colon lost its name-derived context and became html-encoded. R2 removed that, so what the
         // value contains decides nothing unless it is one of the five prefixes.
-        assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<object data=\"http://x/"),
-                "R2: the classification of data= no longer changes at the first colon in the value");
+        assertEquals(Canoe.CTX_URI_RESOURCE, CanoeTestSupport.contextAfter("<object data=\"http://x/"),
+                "R2: the classification of data= no longer changes at the first colon in the value"
+                        + " (R9: and it is the resource-loading URL context, since <object> loads it)");
     }
 
     /**

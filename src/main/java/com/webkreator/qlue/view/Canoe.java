@@ -25,8 +25,10 @@ import java.io.Writer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -49,6 +51,16 @@ public class Canoe extends Writer {
     public static final int CTX_URI = 4;
 
     public static final int CTX_CSS = 5;
+
+    /**
+     * A URL that loads a subresource or reroutes the page: {@code src} on {@code <script>},
+     * {@code <iframe>} and {@code <embed>}, {@code data} on {@code <object>}, and {@code href} on
+     * {@code <link>} and {@code <base>}. Routed to {@link HtmlEncoder#urlResource(String, java.util.List)},
+     * which rejects an off-origin or protocol-relative authority (F6/R9). Distinct from {@link #CTX_URI}
+     * because {@code <a href>} and {@code <img src>} are open-redirect and referrer surfaces, not
+     * code-execution ones, and keep the ordinary {@code url()} encoder.
+     */
+    public static final int CTX_URI_RESOURCE = 6;
 
     public static final String ERROR_PREFIX = "Encoding Error: ";
 
@@ -123,6 +135,13 @@ public class Canoe extends Writer {
     public static final int ATTR_UNKNOWN = 5;
 
     public static final int ATTR_ACTIONSCRIPT = 6;
+
+    /**
+     * A URL-bearing attribute name on an element that loads a subresource with it (R9). Reached only
+     * from {@link #setTagAttributeContext()}, which narrows {@link #ATTR_URI} to this when the tag
+     * name says the value is a resource-loading sink; maps to {@link #CTX_URI_RESOURCE}.
+     */
+    public static final int ATTR_URI_RESOURCE = 7;
 
     private static final Logger log = LoggerFactory.getLogger(Canoe.class);
 
@@ -204,6 +223,46 @@ public class Canoe extends Writer {
                     "action", "background", "cite", "codebase", "data", "dynsrc", "formaction",
                     "href", "longdesc", "lowsrc", "manifest", "ping", "poster", "src", "srcset",
                     "usemap", "xlink:href")));
+
+    /**
+     * The element/attribute combinations that load a subresource or reroute the page, and so take the
+     * origin-checking {@link HtmlEncoder#urlResource(String, java.util.List)} rather than the ordinary
+     * {@code url()} — the resource-loading half of the URL set, made distinguishable by R8's tag-name
+     * tracking (R9). Each key is an element name; the value is the URL attribute on it that a browser
+     * dereferences into an executable or page-controlling context.
+     *
+     * <ul>
+     *   <li>{@code <script src>} — arbitrary JavaScript with the page's full privileges.
+     *   <li>{@code <iframe src>} — an attacker document in the page's frame tree.
+     *   <li>{@code <embed src>} — a plugin document.
+     *   <li>{@code <object data>} — the object element's resource, script or document.
+     *   <li>{@code <link href>} — a stylesheet or other subresource; an off-origin stylesheet can
+     *       overlay, exfiltrate and restyle.
+     *   <li>{@code <base href>} — reroutes <em>every</em> relative URL on the rest of the page, the
+     *       widest blast radius of the group.
+     * </ul>
+     *
+     * <p>Deliberately <em>not</em> here, and kept on the ordinary {@code url()} encoder: {@code <a
+     * href>} and {@code <img src>} (and the other fetch-not-code names — {@code poster}, {@code cite},
+     * {@code ping}, {@code srcset}, {@code formaction}, {@code action}, ...). An off-origin {@code <a
+     * href>} is an open redirect and an off-origin {@code <img src>} is a referrer leak and a load;
+     * neither is code execution, and rejecting an off-origin value from them would break the ordinary
+     * "link to another site" and "hotlink an image" cases that are not a Canoe concern. &sect;6 of the
+     * remediation plan records that boundary: these remain open-redirect/referrer surfaces by design,
+     * F6 residue that R9 scopes out rather than closes.
+     */
+    private static final Map<String, String> RESOURCE_LOADING_SINKS;
+
+    static {
+        Map<String, String> sinks = new LinkedHashMap<>();
+        sinks.put("script", "src");
+        sinks.put("iframe", "src");
+        sinks.put("embed", "src");
+        sinks.put("object", "data");
+        sinks.put("link", "href");
+        sinks.put("base", "href");
+        RESOURCE_LOADING_SINKS = Collections.unmodifiableMap(sinks);
+    }
 
     /**
      * The attribute names whose value the browser treats as plain text, and which therefore reach
@@ -407,6 +466,15 @@ public class Canoe extends Writer {
     private final Set<String> extraPlainTextAttributes;
 
     /**
+     * The origins a resource-loading sink ({@link #RESOURCE_LOADING_SINKS}) may load from, beyond the
+     * page's own — the CDN allowlist for R9, per Canoe instance and never static for the same reason
+     * {@link #extraPlainTextAttributes} is. Empty by default, which means "same-origin-relative URLs
+     * only" on those six sinks. {@code VelocityViewFactory} owns the configuration and hands the parsed
+     * list to every Canoe it constructs.
+     */
+    private final List<HtmlEncoder.TrustedOrigin> trustedResourceOrigins;
+
+    /**
      * The name of the element whose tag is currently being parsed, in lower case, or null when the
      * parser is not inside a tag whose name has been read.
      *
@@ -456,7 +524,8 @@ public class Canoe extends Writer {
     protected String unknownAttributeName;
 
     /**
-     * Create a Canoe instance with no application-level additions to the plain-text allowlist.
+     * Create a Canoe instance with no application-level additions to the plain-text allowlist and no
+     * trusted resource origins — resource-loading sinks accept same-origin-relative URLs only.
      */
     public Canoe(Writer writer) {
         this(writer, Collections.<String>emptySet());
@@ -479,11 +548,34 @@ public class Canoe extends Writer {
      *                                  {@link #normalisePlainTextAttributeNames(Collection)} refuses
      */
     public Canoe(Writer writer, Set<String> extraPlainTextAttributeNames) {
+        this(writer, extraPlainTextAttributeNames, Collections.<String>emptyList());
+    }
+
+    /**
+     * Create a Canoe instance that also permits resource-loading sinks to load from the given origins.
+     *
+     * <p>The origins are parsed and validated here through
+     * {@link HtmlEncoder#parseTrustedOrigins(Collection)}, for the same reason the plain-text names
+     * are put through {@link #normalisePlainTextAttributeNames(Collection)}: this is public API on a
+     * public {@link Writer}, so validating at construction rather than trusting the caller is the
+     * guard, and a bad origin fails here instead of silently matching nothing on every page.
+     *
+     * @param writer                       the writer parsed output is passed to
+     * @param extraPlainTextAttributeNames additional plain-text attribute names
+     * @param trustedResourceOrigins       hosts/origins a {@code <script src>}, {@code <iframe src>},
+     *                                     {@code <object data>}, {@code <embed src>}, {@code <link
+     *                                     href>} or {@code <base href>} may load from; a null or empty
+     *                                     collection means same-origin-relative only
+     * @throws IllegalArgumentException if a plain-text name is refused or an origin is malformed
+     */
+    public Canoe(Writer writer, Set<String> extraPlainTextAttributeNames,
+                 Collection<String> trustedResourceOrigins) {
         this.writer = writer;
         this.state = HTML;
         this.extraPlainTextAttributes = (extraPlainTextAttributeNames == null)
                 ? Collections.<String>emptySet()
                 : normalisePlainTextAttributeNames(extraPlainTextAttributeNames);
+        this.trustedResourceOrigins = HtmlEncoder.parseTrustedOrigins(trustedResourceOrigins);
     }
 
     /**
@@ -759,7 +851,10 @@ public class Canoe extends Writer {
         String name = bufferedName();
 
         if (URL_ATTRIBUTE_NAMES.contains(name)) {
-            attributeContext = ATTR_URI;
+            // R9: the same URL name is a code-execution sink on some elements and an open-redirect
+            // surface on others, and R8's tag name is what tells them apart. src on <script> rejects
+            // an off-origin authority; src on <img> does not.
+            attributeContext = isResourceLoadingSink(name) ? ATTR_URI_RESOURCE : ATTR_URI;
             return;
         }
 
@@ -774,6 +869,19 @@ public class Canoe extends Writer {
         }
 
         unknownAttributeName = name;
+    }
+
+    /**
+     * Whether the current attribute is a resource-loading sink: a URL name on the element that
+     * dereferences it into a code-execution or page-controlling context (R9). Reads {@link #tagName},
+     * which R8 keeps available for the duration of the tag, so a {@code src} knows whether it is on a
+     * {@code <script>} or an {@code <img>}. A null {@code tagName} needs no guard: this method runs
+     * only while an attribute is being parsed, which is always inside a named tag, and even if it were
+     * not, {@code RESOURCE_LOADING_SINKS.get(null)} is null and {@code attributeName.equals(null)} is
+     * false, so the answer is the correct "not a resource sink" either way.
+     */
+    private boolean isResourceLoadingSink(String attributeName) {
+        return attributeName.equals(RESOURCE_LOADING_SINKS.get(tagName));
     }
 
     /**
@@ -1362,6 +1470,9 @@ public class Canoe extends Writer {
                     case ATTR_URI:
                         return CTX_URI;
 
+                    case ATTR_URI_RESOURCE:
+                        return CTX_URI_RESOURCE;
+
                     case ATTR_UNKNOWN:
                         log.debug("Canoe suppressed a reference in the unrecognised attribute"
                                         + " \"{}\" (line: {}, pos: {}). Add the name to the"
@@ -1403,6 +1514,11 @@ public class Canoe extends Writer {
                 return EMPTY_STRING;
             case CTX_URI:
                 return HtmlEncoder.url(input);
+            case CTX_URI_RESOURCE:
+                // No instance in hand, so no configured allowlist: the safe default, which rejects
+                // every off-origin authority. The instance path {@link #encode(String)} supplies the
+                // application's trusted origins.
+                return HtmlEncoder.urlResource(input, Collections.<HtmlEncoder.TrustedOrigin>emptyList());
             case CTX_CSS:
                 // Do not output anything into CSS contexts
                 // return HtmlEncoder.encodeForCSS(input);
@@ -1415,12 +1531,31 @@ public class Canoe extends Writer {
     }
 
     /**
+     * Encodes a value for the context the parser is in <em>now</em>, using this instance's configured
+     * trusted resource origins where the static {@link #encode(String, int)} cannot.
+     *
+     * <p>Every context but {@link #CTX_URI_RESOURCE} is context-only and the static dispatcher handles
+     * it; the resource sink is the one place the answer depends on per-instance configuration (the CDN
+     * allowlist), so it cannot be a static method of a value and a context. This is what
+     * {@code CanoeReferenceInsertionHandler} calls, so a reference in a {@code <script src>} sees the
+     * application's allowlist while a bare {@code Canoe.encode(value, CTX_URI_RESOURCE)} sees the empty
+     * one.
+     */
+    public String encode(String input) {
+        int ctx = currentContext();
+        if (ctx == CTX_URI_RESOURCE) {
+            return HtmlEncoder.urlResource(input, trustedResourceOrigins);
+        }
+        return encode(input, ctx);
+    }
+
+    /**
      * Writes a string to output, encoding it properly in the process.
      *
      * @param input
      * @throws Exception
      */
     public void writeEncoded(String input) throws Exception {
-        write(encode(input, currentContext()));
+        write(encode(input));
     }
 }

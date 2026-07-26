@@ -191,6 +191,7 @@ public class CanoeStateProbe extends Canoe {
             case ATTR_CSS: return "ATTR_CSS";
             case ATTR_JS: return "ATTR_JS";
             case ATTR_URI: return "ATTR_URI";
+            case ATTR_URI_RESOURCE: return "ATTR_URI_RESOURCE";
             case ATTR_DATA: return "ATTR_DATA";
             case ATTR_UNKNOWN: return "ATTR_UNKNOWN";
             case ATTR_ACTIONSCRIPT: return "ATTR_ACTIONSCRIPT";

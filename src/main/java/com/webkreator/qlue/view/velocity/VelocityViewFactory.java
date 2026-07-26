@@ -70,6 +70,21 @@ public abstract class VelocityViewFactory implements ViewFactory {
      */
     public static final String QLUE_CANOE_PLAIN_TEXT_ATTRIBUTES = "qlue.canoe.plainTextAttributes";
 
+    /**
+     * Qlue property naming origins a resource-loading URL sink may load from, beyond the page's own,
+     * separated by commas or whitespace, e.g.
+     * {@code qlue.canoe.trustedResourceOrigins = cdn.example.com, https://static.example.com}.
+     *
+     * <p>Canoe rejects an off-origin or protocol-relative value on {@code <script src>},
+     * {@code <iframe src>}, {@code <object data>}, {@code <embed src>}, {@code <link href>} and
+     * {@code <base href>} by default (R9, closing the code-execution half of F6); this is the CDN
+     * escape hatch. An entry is a host ({@code cdn.example.com}) or an origin
+     * ({@code https://cdn.example.com}, optionally with a {@code :port}), validated by
+     * {@link com.webkreator.qlue.util.HtmlEncoder#parseTrustedOrigins(java.util.Collection)}, so a
+     * malformed origin fails at startup rather than silently matching nothing.
+     */
+    public static final String QLUE_CANOE_TRUSTED_RESOURCE_ORIGINS = "qlue.canoe.trustedResourceOrigins";
+
     protected static Logger log = LoggerFactory.getLogger(VelocityViewFactory.class);
 
     protected String inputEncoding = "UTF-8";
@@ -95,6 +110,17 @@ public abstract class VelocityViewFactory implements ViewFactory {
      * {@link Canoe} the factory constructs, which is one per render.
      */
     protected Set<String> plainTextAttributes = Collections.emptySet();
+
+    /**
+     * The origins a resource-loading URL sink may load from, on top of the page's own — the CDN
+     * allowlist for R9.
+     *
+     * <p>Held per factory, and therefore per engine, for the same reason as {@link
+     * #plainTextAttributes}: two applications in one JVM must not widen each other's, and nothing
+     * should widen anybody's after rendering has started. The set is handed to every {@link Canoe} the
+     * factory constructs, one per render, where it is parsed and validated.
+     */
+    protected Set<String> trustedResourceOrigins = Collections.emptySet();
 
     protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
         Properties properties = new Properties();
@@ -153,6 +179,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
         // because this is the one method every shipped factory's init() calls with the application
         // in hand; a bad name throws from init() rather than dropping values at request time.
         addPlainTextAttributesFromProperty(qlueApp.getProperty(QLUE_CANOE_PLAIN_TEXT_ATTRIBUTES));
+        addTrustedResourceOriginsFromProperty(qlueApp.getProperty(QLUE_CANOE_TRUSTED_RESOURCE_ORIGINS));
 
         // Pass raw Velocity configuration from Qlue properties.
         Properties qlueProperties = qlueApp.getProperties();
@@ -238,7 +265,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
         });
 
         try {
-            Canoe qlueWriter = new Canoe(writer, plainTextAttributes);
+            Canoe qlueWriter = new Canoe(writer, plainTextAttributes, trustedResourceOrigins);
 
             Template template = view.getTemplate();
             VelocityContext velocityContext = new VelocityContext(model);
@@ -365,6 +392,71 @@ public abstract class VelocityViewFactory implements ViewFactory {
      */
     public Set<String> getPlainTextAttributes() {
         return plainTextAttributes;
+    }
+
+    /**
+     * Adds origins a resource-loading URL sink may load from, on top of the page's own — the CDN
+     * escape hatch for R9.
+     *
+     * <p>By default Canoe rejects an off-origin or protocol-relative value on {@code <script src>},
+     * {@code <iframe src>}, {@code <object data>}, {@code <embed src>}, {@code <link href>} and
+     * {@code <base href>}, which closes the code-execution half of F6 and is the right default;
+     * without a way to widen it, an application that legitimately serves its scripts from a CDN has no
+     * option but {@code $_x.asis()}, which turns Canoe off for that value. An entry is a host
+     * ({@code cdn.example.com}) or an origin ({@code https://cdn.example.com}, optionally with a
+     * {@code :port}).
+     *
+     * <p>Call before the first render; the set is validated and copied into every {@link Canoe} the
+     * factory constructs. A malformed origin is refused with an exception rather than accepted and
+     * ignored — see
+     * {@link com.webkreator.qlue.util.HtmlEncoder#parseTrustedOrigins(Collection)}.
+     *
+     * @param origins hosts or origins, in any case
+     * @throws IllegalArgumentException if an entry is not a legal host or origin
+     */
+    public void addTrustedResourceOrigins(String... origins) {
+        addTrustedResourceOrigins(Arrays.asList(origins));
+    }
+
+    /** The collection form of {@link #addTrustedResourceOrigins(String...)}. */
+    public void addTrustedResourceOrigins(Collection<String> origins) {
+        // Parse to validate up front, exactly as addPlainTextAttributes normalises; keep the raw
+        // strings, because Canoe parses them again at construction (its constructor is public API and
+        // does not trust the caller).
+        com.webkreator.qlue.util.HtmlEncoder.parseTrustedOrigins(origins);
+        Set<String> merged = new LinkedHashSet<>(trustedResourceOrigins);
+        for (String origin : origins) {
+            if (origin != null && !origin.trim().isEmpty()) {
+                merged.add(origin.trim());
+            }
+        }
+        trustedResourceOrigins = Collections.unmodifiableSet(merged);
+    }
+
+    /**
+     * The property form of {@link #addTrustedResourceOrigins(String...)}: a comma- or
+     * whitespace-separated list, or null for "the application said nothing".
+     */
+    protected void addTrustedResourceOriginsFromProperty(String originsFromProperty) {
+        if (originsFromProperty == null) {
+            return;
+        }
+
+        List<String> origins = new ArrayList<>();
+        for (String origin : originsFromProperty.split("[,\\s]+")) {
+            if (!origin.isEmpty()) {
+                origins.add(origin);
+            }
+        }
+        addTrustedResourceOrigins(origins);
+    }
+
+    /**
+     * The application's trusted resource origins, as configured. Never null; empty unless the
+     * application asked for something.
+     */
+    public Set<String> getTrustedResourceOrigins() {
+        return trustedResourceOrigins;
     }
 
     /**
