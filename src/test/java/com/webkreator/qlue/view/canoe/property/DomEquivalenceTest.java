@@ -202,14 +202,22 @@ public class DomEquivalenceTest {
     // ------------------------------------------------------------------
 
     /**
-     * The blind spot, demonstrated rather than described: four templates the ledger records as
-     * {@code KNOWN_VULNERABLE} whose skeletons are identical under attack.
+     * The blind spot, demonstrated rather than described: four templates whose skeletons are
+     * identical under attack even though the bytes are not.
      *
      * <p>This is the most important test in the file, because it is the one that stops a green run
-     * from being read as "nothing got through". Each row is a real, cited vulnerability that this
+     * from being read as "nothing got through". Each row is a real, cited F6 vector that this
      * oracle cannot see, and each names the test that does see it. If a future change ever made one
      * of these divergent, that would be a strictly better world and this test would fail — which is
      * the right way round.
+     *
+     * <p>The four rows no longer share a verdict, and that is worth knowing when reading them: two
+     * are {@link com.webkreator.qlue.view.canoe.corpus.Verdict#SUPPRESSED_BY_DESIGN} since R9 closed
+     * the resource sinks ({@code url.script-src-prefix}, {@code url.base-href}) and two are
+     * {@link com.webkreator.qlue.view.canoe.corpus.Verdict#ACCEPTED_RESIDUAL} since R26
+     * ({@code url.href-full}, {@code url.formaction}). The blindness is a property of the skeleton
+     * and not of the verdict, so the rows are kept as they are: what each demonstrates is that a
+     * value which changed the page's behaviour did not change its shape.
      */
     @Test
     public void structuralEquivalenceDoesNotMeanSafeAndHereAreFourProofs() {

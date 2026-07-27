@@ -7,14 +7,17 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,6 +60,318 @@ public class CanoeCorpusTest {
                         + " src/test/java/com/webkreator/qlue/view/canoe/README.md for what to do"
                         + " next, and build/reports/canoe/matrix.md for the other rows on the same"
                         + " finding.");
+    }
+
+    // ------------------------------------------------------------------
+    // R26's guard: the count is zero, and the residue cannot grow
+    // ------------------------------------------------------------------
+
+    /**
+     * <strong>The number this suite was built to move.</strong>
+     *
+     * <p>It opened at 281 invocations across the corpus and it is zero. Everything that was
+     * exploitable — a value arriving live in a JavaScript, CSS, markup or resource-loading sink — is
+     * closed at the component, by R2 through R12; what could not be closed is 68 invocations of F6
+     * on sinks that are not code execution, and those carry {@link Verdict#ACCEPTED_RESIDUAL} with a
+     * declared {@link ResidualSink} rather than sitting on a list nobody can empty.
+     *
+     * <p>This assertion is the one that has to hold from here on. A new {@code KNOWN_VULNERABLE}
+     * row is a regression <em>or</em> a newly discovered vulnerability, and either way it is
+     * something a person has to decide about rather than something that lands in a generated table.
+     * It is deliberately not "the count did not go up": the count is zero, and the failure message
+     * says what the two honest ways out are.
+     */
+    @Test
+    public void noInvocationIsKnownVulnerable() {
+        List<XssCase.Invocation> vulnerable = CanoeCorpus.allInvocations().stream()
+                .filter(i -> i.verdict() == Verdict.KNOWN_VULNERABLE)
+                .collect(java.util.stream.Collectors.toList());
+
+        assertTrue(vulnerable.isEmpty(),
+                () -> "The KNOWN_VULNERABLE count is " + vulnerable.size() + " and it must be zero."
+                        + " These rows claim attacker data reaches a sink live at a sink that IS"
+                        + " code execution:\n  "
+                        + vulnerable.stream()
+                                .map(i -> i + "  (" + i.testCase().finding() + ")")
+                                .collect(java.util.stream.Collectors.joining("\n  "))
+                        + "\n\nThere are exactly two honest ways out of this failure, and neither is"
+                        + " editing this test.\n"
+                        + "  1. Fix Canoe, and re-verdict the row to whatever the fixed component"
+                        + " does.\n"
+                        + "  2. If the row is a residual - the data reaches the sink and the sink is"
+                        + " not code execution - give it Verdict.ACCEPTED_RESIDUAL, a ResidualSink"
+                        + " naming what the browser does with the value instead, a finding citation,"
+                        + " and an entry in this file's PINNED_RESIDUALS. That is a decision to"
+                        + " record in review, not a relabelling: read"
+                        + " Verdict.ACCEPTED_RESIDUAL's javadoc first.\n"
+                        + "A row that is genuinely exploitable and genuinely unfixable today is a"
+                        + " reason to stop and talk to somebody, not a reason to widen a table.");
+    }
+
+    /**
+     * The residue is pinned: exactly these cases, with exactly these sinks, and the list may only
+     * shrink.
+     *
+     * <p>{@link Verdict#ACCEPTED_RESIDUAL} is the one verdict in the ledger that records a live data
+     * flow somebody decided to live with. The failure mode it invites is obvious and is the reason
+     * for this list: a row that becomes inconvenient gets quietly promoted into the accepted set,
+     * and because the set is described rather than enumerated, nothing notices. So it is
+     * enumerated. A case that starts carrying the verdict fails here until somebody adds it
+     * deliberately; a case that stops carrying it fails here too, because the list is meant to
+     * shrink and a stale entry is how a closed residual keeps a reputation for being open.
+     *
+     * <p>The invocation count is pinned per case as well as the sink class, which is what stops a
+     * <em>payload</em> from joining the residue silently: adding a fourth off-origin family to
+     * {@code url.href-full} is exactly as much a decision as adding a twenty-seventh case.
+     */
+    private static final Map<String, Residual> PINNED_RESIDUALS = pinnedResiduals();
+
+    private static Map<String, Residual> pinnedResiduals() {
+        Map<String, Residual> pinned = new java.util.LinkedHashMap<>();
+
+        // <a href> and its SVG twin: a click leaves the origin. Twelve cases, and nine of them are
+        // the same sink written a different way - the case, separator and quoting permutations that
+        // pin "the spelling does not change the classification".
+        pinned.put("url.href-full", new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("transition.attribute-then-text", new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("name.href-uppercase", new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("name.href-mixed-case", new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("separator.space-before-equals", new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("separator.tab-before-equals", new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("separator.newline-before-equals", new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("separator.crlf-before-equals", new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("separator.duplicate-attribute-reversed",
+                new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("url.xlink-href", new Residual(ResidualSink.OPEN_REDIRECT, 3));
+        pinned.put("unquoted.immediately-after-equals", new Residual(ResidualSink.OPEN_REDIRECT, 1));
+        pinned.put("unquoted.whitespace-then-reference", new Residual(ResidualSink.OPEN_REDIRECT, 1));
+
+        // Not an <a href>, and here because review moved it off INERT_SINK: longdesc is never
+        // fetched, but Gecko exposes a 'showlongdesc' accessibility action that opens it, so a user
+        // acting on the element still leaves the origin.
+        pinned.put("url.longdesc", new Residual(ResidualSink.OPEN_REDIRECT, 2));
+
+        // A form's submission target: the navigation plus everything the user typed.
+        pinned.put("url.action", new Residual(ResidualSink.FORM_RETARGET, 3));
+        pinned.put("url.formaction", new Residual(ResidualSink.FORM_RETARGET, 3));
+
+        // Fetched as a subresource; the response gets no authority in the document.
+        pinned.put("url.img-src", new Residual(ResidualSink.REFERRER_LEAK, 3));
+        pinned.put("url.background", new Residual(ResidualSink.REFERRER_LEAK, 3));
+        pinned.put("url.srcset", new Residual(ResidualSink.REFERRER_LEAK, 3));
+        pinned.put("url.poster", new Residual(ResidualSink.REFERRER_LEAK, 3));
+        pinned.put("url.ping", new Residual(ResidualSink.REFERRER_LEAK, 2));
+
+        // Reaches the attribute; no shipping engine dereferences it.
+        pinned.put("url.dynsrc", new Residual(ResidualSink.INERT_SINK, 3));
+        pinned.put("url.lowsrc", new Residual(ResidualSink.INERT_SINK, 3));
+        pinned.put("url.cite", new Residual(ResidualSink.INERT_SINK, 2));
+        pinned.put("url.usemap", new Residual(ResidualSink.INERT_SINK, 2));
+        pinned.put("url.codebase", new Residual(ResidualSink.INERT_SINK, 2));
+        pinned.put("url.manifest", new Residual(ResidualSink.INERT_SINK, 2));
+
+        return java.util.Collections.unmodifiableMap(pinned);
+    }
+
+    private static final class Residual {
+
+        final ResidualSink sink;
+        final int invocations;
+
+        Residual(ResidualSink sink, int invocations) {
+            this.sink = sink;
+            this.invocations = invocations;
+        }
+
+        @Override
+        public String toString() {
+            return sink + " x" + invocations;
+        }
+    }
+
+    /** See {@link #PINNED_RESIDUALS}. */
+    @Test
+    public void theAcceptedResidueIsExactlyTheListItWasPinnedTo() {
+        Map<String, Residual> observed = new java.util.LinkedHashMap<>();
+        for (XssCase.Invocation invocation : CanoeCorpus.allInvocations()) {
+            if (invocation.verdict() != Verdict.ACCEPTED_RESIDUAL) {
+                continue;
+            }
+            Residual seen = observed.get(invocation.testCase().id());
+            observed.put(invocation.testCase().id(), new Residual(invocation.residualSink(),
+                    seen == null ? 1 : seen.invocations + 1));
+        }
+
+        String help = "\n\nWhat this list is. Every entry is a (case, payload) pairing where"
+                + " attacker data reaches the sink and somebody decided the sink is not code"
+                + " execution - an off-origin link, an off-origin image, an off-origin form"
+                + " action. R9 drew that line and R26 wrote it down. The list is pinned so that"
+                + " the set can be READ rather than described, because a set described as 'the"
+                + " ones we accepted' is a set that grows.\n"
+                + "It is allowed to shrink and not to grow. If you are here because you closed a"
+                + " residual - an origin filter on <form action>, say - delete its line and say so"
+                + " in the commit; that is the direction this list is for.\n"
+                + "If you are here because a new row wants in, it needs the whole argument, not an"
+                + " entry: which sink, why the sink does not execute what it fetches, and why the"
+                + " availability cost of closing it is not worth paying. Verdict.ACCEPTED_RESIDUAL"
+                + " and ResidualSink have the reasoning for the twenty-six that are already here.";
+
+        List<String> problems = new ArrayList<>();
+        for (Map.Entry<String, Residual> entry : observed.entrySet()) {
+            Residual pin = PINNED_RESIDUALS.get(entry.getKey());
+            if (pin == null) {
+                problems.add("NEW residual, not on the pinned list: " + entry.getKey() + " ("
+                        + entry.getValue() + ")");
+            } else if (pin.sink != entry.getValue().sink) {
+                problems.add(entry.getKey() + " is pinned as " + pin.sink + " and now declares "
+                        + entry.getValue().sink);
+            } else if (pin.invocations != entry.getValue().invocations) {
+                problems.add(entry.getKey() + " is pinned at " + pin.invocations
+                        + " residual invocations and now has " + entry.getValue().invocations);
+            }
+        }
+        for (String id : PINNED_RESIDUALS.keySet()) {
+            if (!observed.containsKey(id)) {
+                problems.add("GONE from the residue, and still pinned: " + id + ". If the residual"
+                        + " was closed, that is good news - delete the line.");
+            }
+        }
+
+        assertTrue(problems.isEmpty(),
+                () -> "The accepted residue does not match its pinned list:\n  "
+                        + String.join("\n  ", problems) + help);
+    }
+
+    /**
+     * The invariants every residual row carries, checked over the ledger rather than trusted to the
+     * builder that produced them: a finding citation, a declared sink class, and no sink class
+     * anywhere else.
+     */
+    @Test
+    public void everyResidualCitesAFindingAndNamesItsSink() {
+        for (XssCase testCase : CanoeCorpus.all()) {
+            boolean residual = testCase.payloads().stream()
+                    .anyMatch(p -> testCase.verdictFor(p) == Verdict.ACCEPTED_RESIDUAL);
+            if (residual) {
+                assertNotNull(testCase.finding(),
+                        testCase.id() + " accepts a residual and cites no finding. The data still"
+                                + " reaches the sink, so the row owes the same citation the"
+                                + " KNOWN_VULNERABLE row it came from owed.");
+                assertNotNull(testCase.residualSink(),
+                        testCase.id() + " accepts a residual and does not say which sink");
+            } else {
+                assertNull(testCase.residualSink(),
+                        testCase.id() + " declares the residual sink " + testCase.residualSink()
+                                + " but has no ACCEPTED_RESIDUAL row, so the sink class describes a"
+                                + " residue that is not there");
+            }
+
+            // INERT_SINK and browser relevance cannot both be true. The browser tier expects a
+            // detector to fire for every live row it loads, and INERT_SINK is precisely the claim
+            // that no engine dereferences the value - so a case asserting both would be a
+            // guaranteed browser-tier failure written into the corpus. It is the same conflict the
+            // notBrowserObservable flag was invented for, caught at its source instead.
+            if (testCase.residualSink() == ResidualSink.INERT_SINK) {
+                assertFalse(testCase.isBrowserRelevant(),
+                        testCase.id() + " declares INERT_SINK and is browser-relevant. Those"
+                                + " contradict: the tier expects a detector to fire for a live row,"
+                                + " and INERT_SINK says no engine touches the value. Either the sink"
+                                + " class is wrong - if a browser really does fetch or navigate to"
+                                + " it, this is REFERRER_LEAK or OPEN_REDIRECT - or the case should"
+                                + " not be loaded in a browser.");
+            }
+        }
+    }
+
+    /** The two halves of that constraint, exercised on the builder so they cannot be loosened. */
+    @Test
+    public void aResidualNeedsASinkClassAndNothingElseMayCarryOne() {
+        assertThrows(IllegalArgumentException.class, () -> XssCase.id("residual-without-a-sink")
+                .template("<a href=\"$data\">x</a>")
+                .sink(SinkKind.URL, "a", "href")
+                .payloads(Payloads.PROTOCOL_RELATIVE)
+                .verdict(Verdict.ACCEPTED_RESIDUAL)
+                .finding("none - self test")
+                .build());
+
+        assertThrows(IllegalArgumentException.class, () -> XssCase.id("residual-without-a-finding")
+                .template("<a href=\"$data\">x</a>")
+                .sink(SinkKind.URL, "a", "href")
+                .payloads(Payloads.PROTOCOL_RELATIVE)
+                .verdict(Verdict.ACCEPTED_RESIDUAL)
+                .residualSink(ResidualSink.OPEN_REDIRECT)
+                .build());
+
+        assertThrows(IllegalArgumentException.class, () -> XssCase.id("sink-class-on-a-safe-row")
+                .template("<a href=\"$data\">x</a>")
+                .sink(SinkKind.URL, "a", "href")
+                .payloads(Payloads.PROTOCOL_RELATIVE)
+                .verdict(Verdict.SAFE)
+                .residualSink(ResidualSink.OPEN_REDIRECT)
+                .build());
+    }
+
+    /**
+     * A residual row is still asserted, and this is the assertion. The oracle observes {@link
+     * Verdict#KNOWN_VULNERABLE} for it — it reads output and cannot tell a redirect from an
+     * execution — and nothing else is accepted, so the day the value stops reaching the sink the row
+     * fails and has to be re-verdicted by hand.
+     *
+     * <p>Without this, {@code ACCEPTED_RESIDUAL} would be a verdict that matches whatever happens,
+     * which is precisely the rubber stamp the corpus's design note is about. It is checked on a
+     * synthetic case rather than on a corpus row, so that it keeps meaning something after the last
+     * residual is closed.
+     */
+    @Test
+    public void aResidualStopsMatchingWhenTheDataStopsReachingTheSink() {
+        XssCase live = XssCase.id("residual-selftest-live")
+                .section("self-test")
+                .template("<a href=\"$data\">go</a>")
+                .sink(SinkKind.URL, "a", "href")
+                .payloads(Payloads.PROTOCOL_RELATIVE)
+                .verdict(Verdict.ACCEPTED_RESIDUAL)
+                .residualSink(ResidualSink.OPEN_REDIRECT)
+                .finding("none - self test")
+                .build();
+        VerdictEvaluator.Observation reaching =
+                VerdictEvaluator.observe(live, Payloads.PROTOCOL_RELATIVE);
+        assertEquals(Verdict.KNOWN_VULNERABLE, reaching.verdict(),
+                "the oracle judges reach, not consequence, so it still says KNOWN_VULNERABLE");
+        assertTrue(reaching.matches(Verdict.ACCEPTED_RESIDUAL));
+
+        // ...and the same template on a payload url() rejects. The data no longer reaches the sink,
+        // so the residual claim is false and must not match.
+        VerdictEvaluator.Observation suppressed = VerdictEvaluator.observe(
+                XssCase.id("residual-selftest-suppressed")
+                        .section("self-test")
+                        .template("<a href=\"$data\">go</a>")
+                        .sink(SinkKind.URL, "a", "href")
+                        .payloads(Payloads.JS_URL)
+                        .verdict(Verdict.SUPPRESSED_BY_DESIGN)
+                        .build(),
+                Payloads.JS_URL);
+        assertTrue(suppressed.verdict().isSuppression());
+        assertFalse(suppressed.matches(Verdict.ACCEPTED_RESIDUAL),
+                "a residual row whose value stopped reaching the sink must fail, or the verdict is"
+                        + " a label rather than an assertion");
+
+        // A safe arrival must not match either: the residue is a claim that the data got there.
+        VerdictEvaluator.Observation safe = VerdictEvaluator.observe(
+                XssCase.id("residual-selftest-safe")
+                        .section("self-test")
+                        .template("<a href=\"/p/$data\">go</a>")
+                        .sink(SinkKind.URL, "a", "href")
+                        .payloads(Payloads.PROTOCOL_RELATIVE)
+                        .verdict(Verdict.SAFE)
+                        .build(),
+                Payloads.PROTOCOL_RELATIVE);
+        assertEquals(Verdict.SAFE, safe.verdict());
+        assertFalse(safe.matches(Verdict.ACCEPTED_RESIDUAL));
+
+        // And the asymmetry is one-way: a KNOWN_VULNERABLE ledger entry is never satisfied by
+        // anything but an observed KNOWN_VULNERABLE, so ACCEPTED_RESIDUAL cannot be used to hold a
+        // row whose verdict somebody meant to lower.
+        assertFalse(safe.matches(Verdict.KNOWN_VULNERABLE));
     }
 
     /**
@@ -476,11 +791,17 @@ public class CanoeCorpusTest {
         }
     }
 
+    /**
+     * Both live verdicts, not just {@link Verdict#KNOWN_VULNERABLE}. Asking the narrower question
+     * would make this loop body unreachable now that the count is zero — the ledger-level twin of
+     * the builder guard in {@code XssCase.validate()}, which R26 widened to
+     * {@link Verdict#reachesSinkLive()} for exactly this reason.
+     */
     @Test
     public void vulnerableCasesCiteAFinding() {
         for (XssCase testCase : CanoeCorpus.all()) {
             boolean anyVulnerable = testCase.payloads().stream()
-                    .anyMatch(p -> testCase.verdictFor(p) == Verdict.KNOWN_VULNERABLE);
+                    .anyMatch(p -> testCase.verdictFor(p).reachesSinkLive());
             if (anyVulnerable) {
                 assertNotNull(testCase.finding(),
                         testCase.id() + " records a vulnerability but cites no finding");
@@ -597,11 +918,13 @@ public class CanoeCorpusTest {
             if (invocation.isBrowserObservable()) {
                 continue;
             }
-            assertEquals(Verdict.KNOWN_VULNERABLE, invocation.verdict(),
-                    () -> invocation + " is flagged not-browser-observable but is not"
-                            + " KNOWN_VULNERABLE. The flag only means something for a row that claims"
-                            + " a live vector: for anything else the browser tier already expects"
-                            + " silence, so the flag hides the reasoning instead of recording it.");
+            assertTrue(invocation.verdict().reachesSinkLive(),
+                    () -> invocation + " is flagged not-browser-observable and is "
+                            + invocation.verdict() + ", which does not claim the data reached the"
+                            + " sink. The flag only means something for a row that claims a live"
+                            + " vector - either live verdict, since R26 - because for anything else"
+                            + " the browser tier already expects silence and the flag hides the"
+                            + " reasoning instead of recording it.");
             assertTrue(invocation.testCase().isBrowserRelevant(),
                     () -> invocation + " is flagged not-browser-observable, but its case is not"
                             + " browser-relevant, so no browser will ever load it and the flag is"

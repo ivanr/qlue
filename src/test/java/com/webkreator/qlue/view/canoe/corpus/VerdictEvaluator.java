@@ -936,10 +936,33 @@ public final class VerdictEvaluator {
          * verdicts are interchangeable here: observation sees an empty value and cannot tell whether
          * emitting nothing was the design or an accident. That distinction is the reviewer's, and it
          * is recorded in the ledger rather than derived.
+         *
+         * <p>{@link Verdict#ACCEPTED_RESIDUAL} is the same kind of gap and is deliberately
+         * <strong>asymmetric</strong> where the suppression pair is symmetric. This class judges
+         * rendered output: for a URL sink it asks whether the value reaching the attribute names an
+         * origin the page is not on, which is true of {@code <script src>} and of {@code <a href>}
+         * alike. It has no way to know that one loads code and the other navigates — that is a fact
+         * about the element, and it is exactly the fact R9 used to draw its line. So the oracle goes
+         * on observing {@code KNOWN_VULNERABLE} for a residual row, and this method accepts that one
+         * observation against a recorded {@code ACCEPTED_RESIDUAL}.
+         *
+         * <p>It accepts nothing else, and the omission is the point. A residual row whose value
+         * stops reaching the sink — because an origin filter was extended to it, because the
+         * attribute started suppressing, because a payload was neutralised — observes
+         * {@code SAFE} or a suppression, and <strong>fails here</strong>. That is the property that
+         * stops {@code ACCEPTED_RESIDUAL} from becoming a place rows go to be forgotten: the
+         * acceptance is of a specific, still-measured data flow, and when the flow changes somebody
+         * has to look at it again. The converse direction is not admitted either: a ledger entry of
+         * {@code KNOWN_VULNERABLE} is never satisfied by anything but an observed
+         * {@code KNOWN_VULNERABLE}, so downgrading the ledger is a deliberate edit and never a
+         * side effect.
          */
         public boolean matches(Verdict recorded) {
             if (recorded.isSuppression() && verdict.isSuppression()) {
                 return true;
+            }
+            if (recorded == Verdict.ACCEPTED_RESIDUAL) {
+                return verdict == Verdict.KNOWN_VULNERABLE;
             }
             return recorded == verdict;
         }

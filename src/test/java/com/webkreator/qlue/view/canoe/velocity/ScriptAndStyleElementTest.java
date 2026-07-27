@@ -531,7 +531,9 @@ public class ScriptAndStyleElementTest {
 
         for (XssCase testCase : f10) {
             for (Payload payload : testCase.payloads()) {
-                assertNotEquals(Verdict.KNOWN_VULNERABLE, testCase.verdictFor(payload),
+                // Either live verdict is a claim that F10 is live; ACCEPTED_RESIDUAL would be one
+                // too, and would slip past a test that only excluded KNOWN_VULNERABLE.
+                assertFalse(testCase.verdictFor(payload).reachesSinkLive(),
                         () -> testCase.id() + " / " + payload.id() + " claims F10 is live. It is"
                                 + " not, and the reason is the corollary the whole review rests on:"
                                 + " attacker data can never emit a raw '<', so it can never enter"

@@ -655,6 +655,18 @@ The two suppression verdicts are interchangeable to the *observer* — `VerdictE
 value and cannot tell design from accident. That distinction is the reviewer's, and is recorded in
 the ledger rather than derived.
 
+> **There is a sixth verdict since R26 of `REMEDIATION-PLAN.md` (2026-07-27), and this document is
+> otherwise left as the record of what the suite was built to be.** `ACCEPTED_RESIDUAL` — attacker
+> data reaches the sink live, and the reached sink is **not code execution**. It exists because the
+> last 68 `KNOWN_VULNERABLE` invocations were all F6 on surfaces R9 origin-filtered by design and
+> could not be driven to zero by fixing anything: an off-origin `<a href>`, `<img src>` or
+> `<form action>`. It keeps every property `KNOWN_VULNERABLE` has — it cites a finding, and it
+> **fails when the data stops reaching the sink** — and adds two: a required `ResidualSink` naming
+> what the browser does with the value instead, and a pinned list of the cases allowed to hold it.
+> Its asymmetry in `matches()` is the deliberate counterpart to the symmetric one above: the
+> observer sees `KNOWN_VULNERABLE` for these rows and that is the *only* observation the verdict
+> accepts. `KNOWN_VULNERABLE` itself is now asserted to be **zero**.
+
 The suite is green today and green after the fixes; it is red exactly during the window when
 behaviour changed and the ledger has not been updated. That is the property we want.
 

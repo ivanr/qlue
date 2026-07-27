@@ -9,7 +9,21 @@
 
 ## 0. Where things stand
 
-Verified today, on this working tree:
+**As of R26 (2026-07-27): every task through R26 has landed, and the ledger is closed.** R27
+(coverage gate) and R28 (three-engine browser run) are what remain.
+
+| Check | Result |
+|---|---|
+| `./gradlew test` | **BUILD SUCCESSFUL** — 6,156 tests, 0 failures, 0 errors, 0 skipped |
+| `./gradlew canoeCoverageGate` | **passing** |
+| `./gradlew browserTest` | not run since R20 — hangs on `FIREFOX url.action / JS_URL/plain` in this environment, which is R28's to fix; Chromium-only runs were green through R19 |
+| Findings in the review | 24, of which **none is a live code-execution vector**; F6's open-redirect/referrer residue is accepted with reasoning recorded (see the closing addendum in the review) |
+| Corpus ledger | 1,012 invocations across 279 cases: 481 `SAFE`, **0 `KNOWN_VULNERABLE`**, 68 `ACCEPTED_RESIDUAL`, 415 `SUPPRESSED_BY_DESIGN`, 12 `SUPPRESSED_UNINTENDED`, 36 `REJECTED` |
+
+The rest of this section is the state the plan **started** from, kept because every task's landed
+note is written as a delta against it.
+
+Verified 2026-07-26, before any remediation:
 
 | Check | Result |
 |---|---|
@@ -23,23 +37,33 @@ failing on them: every exploitable case carries an explicit `KNOWN_VULNERABLE` v
 finding, and `Verdict`'s own javadoc says such a case **fails when the vulnerability disappears**.
 That is the design. It also means the number to drive down is not the failure count — it is this:
 
-| Finding | `KNOWN_VULNERABLE` invocations | Closed by |
-|---|---|---|
-| F3 — unrecognised URL/markup/refresh attributes | 93 | R5, R6, R7 |
-| F2 — `on*` allowlist misses 76 of 94 handlers | 92 | R4 |
-| F4 — prefix scan discards the attribute's context | 38 | R2 |
-| F6 — `url()` is a scheme filter, not an origin filter | 37 | R9, R11, R12 |
-| F5 — prefix detection reads buffer residue | 6 | R3 |
-| F20 — policy-bearing attributes arrive verbatim | 5 | R5 |
-| F1 — `onselect`/`onsubmit` never classified as JS | 4 | R4 |
-| F17 — the reset defeats JS suppression too | 4 | R2 |
-| F19 — `onreadystatechange` never classified as JS | 2 | R4 |
-| **Total** | **281** | |
+| Finding | `KNOWN_VULNERABLE` invocations | Closed by | After R26 |
+|---|---|---|---|
+| F3 — unrecognised URL/markup/refresh attributes | 93 | R5, R6, R7 | 0 |
+| F2 — `on*` allowlist misses 76 of 94 handlers | 92 | R4 | 0 |
+| F4 — prefix scan discards the attribute's context | 38 | R2 | 0 |
+| F6 — `url()` is a scheme filter, not an origin filter | 37 | R9, R11, R12 | 0, **plus 68 `ACCEPTED_RESIDUAL`** |
+| F5 — prefix detection reads buffer residue | 6 | R3 | 0 |
+| F20 — policy-bearing attributes arrive verbatim | 5 | R5 | 0 |
+| F1 — `onselect`/`onsubmit` never classified as JS | 4 | R4 | 0 |
+| F17 — the reset defeats JS suppression too | 4 | R2 | 0 |
+| F19 — `onreadystatechange` never classified as JS | 2 | R4 | 0 |
+| **Total** | **281** | | **0** |
+
+F6's count went to 84 before it went to 0: R6 routed twelve more names to `url()`, closing F3's
+classification defect on each and handing each one F6's off-origin passthrough. R9 closed 18 of
+those — the six resource-loading combinations — and the 68 that remain are the open-redirect,
+form-retarget, referrer and inert surfaces R9 scoped out by design. R26 re-verdicts them
+`ACCEPTED_RESIDUAL`, each with a declared `ResidualSink` and its citation kept; they are still
+asserted, and still fail if the value stops reaching the sink.
 
 Plus 30 `SUPPRESSED_UNINTENDED` (F7, F11 — values silently vanishing) and 44 `REJECTED` (F13, F18 —
 ordinary templates taking the page down). Those are the availability half of the work, and they
 matter for security indirectly: every silent drop and every 500 is a reason a developer reaches for
-`$_x.asis()` and turns Canoe off for that value.
+`$_x.asis()` and turns Canoe off for that value. **They finished at 12 and 36.** The twelve are the
+`COMMENT_*`/`DOCTYPE_*` half of F11, left suppressing deliberately by R26 — there is no encoding that
+is correct inside a comment — and the thirty-six are the template-authoring errors R20 kept after
+triaging the table, each with its reason recorded.
 
 I re-derived each finding from the source rather than taking the review on trust. All 24 hold, at
 the locations cited. Three additional observations that are not in the review are recorded in §5.
@@ -443,7 +467,9 @@ open-redirect/referrer/fetch-not-code surfaces** — `a href` (27), `img src`, `
 `table background`, `img dynsrc`/`lowsrc`, `a xlink:href`, `applet codebase`, `html manifest` — which
 R9 scopes out by design. This is a residual, not a defect: it is an open redirect and a referrer leak,
 not XSS, and it stays `KNOWN_VULNERABLE` citing F6 for the record, tracked by **R26** (drive the
-ledger to zero / decide the acceptable residue) and re-confirmed cross-engine by **R28**. `<meta
+ledger to zero / decide the acceptable residue) and re-confirmed cross-engine by **R28**.
+**R26 has since settled it:** the residue — 68 invocations by then, R19 having added two — carries
+`ACCEPTED_RESIDUAL` and a per-case `ResidualSink`, and R26's landed note has the split. `<meta
 http-equiv=refresh content>` (a forced navigation) is **R10**, still suppressed.
 Tests: `UrlSinkTest.everyElementGetsTheSameEncoderForTheSameAttributeName` inverted to
 `.theTagNameNowDecidesTheEncoderForSrcAndHref`, `.anOffOriginCdnBaseSurvivesIntoAScriptSrcByteForByte`
@@ -1781,16 +1807,102 @@ has a test. ✅
 
 ---
 
-**R26 — Drive the ledger to zero and hold it there**
+**R26 — Drive the ledger to zero and hold it there** — ✅ **DONE**
 *Closes:* the scoreboard. *Depends on:* everything above.
+*Landed:* `KNOWN_VULNERABLE` is **0**, from 281. It got there by a sixth verdict rather than by a
+fix, because the last 68 invocations were not fixable: every one is F6 on a surface R9 scoped out by
+design, and no amount of work on `url()` was going to move them. `Verdict.ACCEPTED_RESIDUAL` says
+what they are — *attacker data reaches the sink, and the reached sink is not code execution* — and
+carries the same failure property that makes `KNOWN_VULNERABLE` worth having: the row **fails when
+the data stops reaching the sink**. `VerdictEvaluator` still observes `KNOWN_VULNERABLE` for all 68
+(it reads rendered output and cannot tell a redirect from an execution), and
+`Observation.matches()` accepts that one observation against a recorded `ACCEPTED_RESIDUAL` **and
+nothing else** — not `SAFE`, not a suppression, and never in the other direction. The asymmetry is
+deliberate and is documented beside the symmetric one the two suppression verdicts already had.
 
-When the last `KNOWN_VULNERABLE` entry is re-verdicted, add a CI assertion that the count **is** zero
-and that any future `KNOWN_VULNERABLE` entry must cite a finding that exists in the review document.
-The suite's own design note says a ledger rots into a rubber stamp; the count going back above zero
-without a finding attached is what that rot looks like from the outside.
+**The sink class.** A new `ResidualSink` enum, required on an `ACCEPTED_RESIDUAL` case and refused
+on any other by `XssCase.validate()`, exactly as `notBrowserObservable` is constrained. Four
+constants, chosen after reading all 68 rather than in advance, ordered worst-first:
+`FORM_RETARGET` (6 invocations / 2 cases — `<form action>`, `<button formaction>`: the submission and
+everything the user typed into it), `OPEN_REDIRECT` (34 / 13 — `<a href>` in ten spellings, SVG's
+`<a xlink:href>`, and `img longdesc`), `REFERRER_LEAK` (14 / 5 — `<img src>`, `srcset`, `<video
+poster>`, `<table background>`, `<a ping>`: the request, never the response), `INERT_SINK` (14 / 6 —
+`dynsrc`, `lowsrc`, `usemap`, `cite`, `applet codebase`, `html manifest`: no shipping engine
+dereferences the value). Each of the 26 cases keeps its `finding()` citation and carries its own
+paragraph reading the row against its sink; the only shared string is the sentence saying what the
+re-verdict was, because a shared *judgement* would be the rubber stamp the ledger's design note
+warns about.
 
-Regenerate `build/reports/canoe/matrix.md` and record the before/after in the review document as a
-closing addendum.
+**Review corrected one classification.** `img longdesc` shipped as `INERT_SINK` on the argument that
+no current engine touches it, and that is wrong: Gecko exposes a `showlongdesc` accessibility action
+(the one NVDA and JAWS invoke) and still reads the attribute for the image context menu, so a user
+acting on the element navigates off-origin. It is never *fetched*, so it is not `REFERRER_LEAK`; it
+is `OPEN_REDIRECT`, and the split above is the corrected one. The lesson is in the review addendum:
+`INERT_SINK` is a claim about engine code, not about what a specification calls obsolete.
+
+**Nothing else in the 68 was worse than R9 assumed** — none is reachable code execution, and no
+`OPEN_REDIRECT` row carries a script scheme, because R12's `{http, https, mailto}` allowlist empties
+those before they reach an `<a href>` — but two things are worth having said out loud, and both are
+in the review addendum. `FORM_RETARGET` has the weakest
+acceptance argument of the four: R9's reasoning is that an off-origin link is ordinary, and an
+off-origin form action is not, so an origin filter there would cost far less availability than one on
+`href`. And `INERT_SINK` is inert by *feature removal* — `applet codebase` loaded the attacker's
+classes when applets existed and `html manifest` was persistent same-origin XSS when Application
+Cache did — not because the value is harmless.
+
+**The guard, three assertions.** `CanoeCorpusTest.noInvocationIsKnownVulnerable` (the count is zero,
+with a failure message naming the only two honest ways out);
+`MatrixReportTest.everyRowThatReachesItsSinkLiveCitesAFindingTheReviewHas` (a live row's citation
+must resolve against the review's own glance table, reusing `readFindingsFromTheReview()` rather
+than adding a second parser — and it covers both live verdicts, which is what keeps it non-vacuous
+while `KNOWN_VULNERABLE` is empty); and
+`CanoeCorpusTest.theAcceptedResidueIsExactlyTheListItWasPinnedTo`, which pins all 26 case ids to
+their sink class **and their invocation count**, so neither a new case nor a new payload joins the
+residue silently. It fails in the shrinking direction too, and the message says that is good news
+and to delete the line. Plus `.aResidualStopsMatchingWhenTheDataStopsReachingTheSink`, a synthetic
+self-test that keeps `matches()`'s asymmetry honest after the last real residual is gone.
+
+**The predicate that had to be added.** `Verdict.reachesSinkLive()` is `KNOWN_VULNERABLE ||
+ACCEPTED_RESIDUAL`, and five places that asked `== KNOWN_VULNERABLE` about *reach* would otherwise
+have emptied silently: `XssCase.Invocation.isBrowserRelevant()` and its safe-control companion,
+`UrlSinkTest.noRecognisedUrlCaseIsVulnerableWithoutReachingTheAuthority` (all 68 of its rows),
+`BodyContextTest.theCorpusRecordsNoVulnerabilityInBodyContext` (which would have gained
+`ACCEPTED_RESIDUAL` as a way past the review's headline bound),
+`CssContextTest.everyCssRowIsEitherSuppressedOutrightOrLiveVerbatim` and
+`ScriptAndStyleElementTest.theFourDesyncRowsRecordNoDefectAtAll`. The first two now also assert they
+inspected something, so a set that empties fails rather than passing. `Verdict.isDefect()` excludes
+the new verdict and says why: it is a reviewed decision pinned to a shrinking list, and counting it
+would put the defect total permanently above zero, which is the exact failure R26 exists to end.
+
+**The 12 `SUPPRESSED_UNINTENDED`, settled.** Still four cases × three payloads, still the
+`COMMENT_*`/`DOCTYPE_*` half of F11, and re-read rather than assumed: `currentContext()` has no case
+label for those states and they fall to the trailing `CTX_SUPPRESS`. They stay, deliberately. There
+is no encoding that is correct inside a comment — the parser does not decode character references
+there, so `html()` would emit literal `&#45;` text, and `-->` (or `>` in a DOCTYPE) has no reference
+the parser would honour — so the answer is not "route it" but "keep dropping it and say why". They
+keep `SUPPRESSED_UNINTENDED` rather than moving to `SUPPRESSED_BY_DESIGN` for one honest reason: the
+drop is still silent. R5 added a debug diagnostic for a value the unknown-name rule drops; there is
+no equivalent for one that vanishes inside a comment. The reasoning is now on the verdict's javadoc
+rather than in a plan note.
+
+**Everything that enumerates verdicts learned the sixth.** `MatrixReportTest`: `meaningOf()`, the
+scoreboard note (which now reads "`KNOWN_VULNERABLE`: 0" and explains the residual count beside it),
+a new `ACCEPTED_RESIDUAL` column in the finding-coverage table, a second roster listing all 68 with
+their sink class, a `residual_sink` column in `matrix.csv`, and the browser-expectation cell.
+`BrowserCorpusTest` reads `reachesSinkLive()` in both places it judged a row; `BrowserVerdict` needed
+nothing, being the detector record rather than a ledger verdict. The canoe suite's `README.md` gained
+the verdict row and a paragraph on what a failing residual means. Browser-tier budget is
+**unchanged at 65/19/46/0**, recomputed from the corpus — the same pages load and the same detectors
+are expected to fire, which is the check that nothing read the narrower predicate.
+
+*Ledger, final:* 1,012 invocations across 279 cases — SAFE **481**, KNOWN_VULNERABLE **0**,
+ACCEPTED_RESIDUAL **68**, SUPPRESSED_BY_DESIGN **415**, SUPPRESSED_UNINTENDED **12**, REJECTED **36**.
+`build/reports/canoe/matrix.md` regenerated; `CANOE-SECURITY-REVIEW-2026-07-25.md` gained a
+`Resolved` block on F6 and a closing addendum recording before/after per finding, per verdict and per
+residual sink class. `./gradlew test` 6,156 tests, 0 failures; `./gradlew canoeCoverageGate` passing
+(no branch moved — R26 is test-tier only, so R27's floors and inventory are untouched).
+**`browserTest` was not run** — the known Firefox hang R28 owns — so the browser-tier changes are
+compile-checked only and the 65/19/46/0 figures are derived rather than observed.
 
 ---
 
@@ -1820,6 +1932,15 @@ Two known gaps to close while you are there: F20's `nonce` row has no browser de
 a page with an author nonce and a real CSP), and §A.3 of the test plan is missing `onbegin` and
 `onrepeat`, the SVG animation siblings of `onend`.
 
+**R26 left this tier changed and unverified, and that is the first thing to check.** The sixth
+verdict means `BrowserCorpusTest` can no longer ask `verdict() == KNOWN_VULNERABLE`: both the
+must-fire expectation and `XssCase.Invocation.isBrowserRelevant()` read `Verdict.reachesSinkLive()`
+now, so that the nineteen F6 residuals still load and still expect a detector. The budget figures are
+**unchanged at 65/19/46/0**, recomputed from the corpus rather than from a run — if a run produces
+different numbers, the cause is a predicate somewhere reading the narrower test. Every must-fire row
+is an `ACCEPTED_RESIDUAL` one, so what R28 is really confirming for them is that a real engine still
+fetches or navigates to the attacker's origin, which is the evidence the acceptance rests on.
+
 **Observed while running R20's gates, and worth having before R28 starts.** The other two engines are
 *not* missing here any more: `PLAYWRIGHT_BROWSERS_PATH=/opt/playwright` holds `firefox-1532`,
 `firefox-1538`, `webkit-2311` and `webkit-2336` alongside the Chromium builds, and with that variable
@@ -1845,7 +1966,7 @@ figure in this plan was measured in: 91 passed, 2 skipped.
 | F3 — URL/markup/refresh attributes unrecognised | Critical | R5, R6, R7, R10 |
 | F4 — prefix scan discards the name-derived context | High | R2 |
 | F5 — prefix detection reads buffer residue | High | R3 |
-| F6 — `url()` is a scheme filter, not an origin filter | High | R9 (with R8, R12) closes the code-execution half; open-redirect/referrer residue on `a href`/`img src`/etc. stays for R26 |
+| F6 — `url()` is a scheme filter, not an origin filter | High | R9 (with R8, R11, R12) closes the code-execution half ✅; the open-redirect/form-retarget/referrer/inert residue on `a href`, `img src`, `form action` and the rest is **accepted by design** — R26 ✅ re-verdicts all 68 invocations to `ACCEPTED_RESIDUAL` with a declared `ResidualSink`, keeps every citation, and pins the set to a list that may only shrink. R28 re-confirms cross-engine |
 | F7 — `content` branch tests for `data` | Medium | R7 |
 | F8 — no tests, no docs, no threat model | Medium | R25 ✅ (`README.md` and `qlue_user_guide.md` rewritten against the fixed component: the unrecognised-name default inverted from "plain text" to "suppressed", five URL names corrected to seventeen plus R9's six resource sinks, the `on*` prefix rule, `style` suppressed past the colon, `data` moved to the URL set, `url()`'s scheme allowlist, both escape hatches with their refusal rules, the DEBUG diagnostic, R19's unquoted residual and R24's `asis()` consequence, and an unhedged "not covered" list headed by the F6 residue; four tests written for the claims nothing asserted); tests and threat model already delivered |
 | F9 — `write(char[],int,int)` length/end confusion | Low (latent) | R15 |
@@ -1870,11 +1991,20 @@ line. R4 closes F1, F2 and F19 by deleting 200. R5 closes F3's policy half and F
 default. If the work has to stop early, stop after R5.
 
 **Phase A is complete.** Every finding it owned is closed: F1, F2, F3, F4, F5, F7, F17, F19 and F20.
-The ledger's `KNOWN_VULNERABLE` count is **61 invocations across 30 cases, every one of them F6** —
-`url()` is a scheme filter and not an origin filter — so what is left of the exploitable surface is
-one defect in one encoder, owned by R9, R11 and R12. The count rose against F6 while F3's fell to
-zero, because twelve names R6 routed to `url()` inherited its off-origin passthrough; that is the
-honest arithmetic of closing a classification defect before the encoder defect underneath it.
+At the end of it the ledger's `KNOWN_VULNERABLE` count was **61 invocations across 30 cases, every
+one of them F6** — `url()` is a scheme filter and not an origin filter — so what was left of the
+exploitable surface was one defect in one encoder, owned by R9, R11 and R12. The count rose against
+F6 while F3's fell to zero, because twelve names R6 routed to `url()` inherited its off-origin
+passthrough; that is the honest arithmetic of closing a classification defect before the encoder
+defect underneath it.
+
+**And the count is now zero (R26).** R11 and R12 rewrote `url()`, R8 gave Canoe the tag name and R9
+used it to origin-filter the six resource-loading sinks — the code-execution half of F6. The 68
+invocations left are F6 on surfaces R9 declined to filter, because an off-origin link is an ordinary
+thing for a page to contain; they carry `ACCEPTED_RESIDUAL` and a `ResidualSink` naming what the
+browser does with the value instead, and they still fail if the value stops arriving. **Every finding
+in the review is now closed or accepted with its reasoning recorded**, and what is left of the plan
+is build hygiene (R27) and cross-engine confirmation (R28).
 
 ---
 
@@ -1909,7 +2039,8 @@ R22 resource loader key
 R23 formal-notation bypass
 R24 #set context                        <- done; was after R4 and R5
 R25 documentation
-R26 ledger to zero + CI guard
+R26 ledger to zero + CI guard        <- done; KNOWN_VULNERABLE is 0
+-------------------------------------------- the ledger is closed here
 R27 coverage gate
 R28 browser re-confirmation
 ```

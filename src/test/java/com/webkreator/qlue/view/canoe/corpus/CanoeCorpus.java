@@ -74,9 +74,12 @@ public final class CanoeCorpus {
     }
 
     /**
-     * The pairings that earn a browser run: every {@link Verdict#KNOWN_VULNERABLE} entry in a
-     * browser-relevant case, plus one safe control per case so a green run means the detectors
-     * stayed quiet rather than that nothing was loaded.
+     * The pairings that earn a browser run: every entry in a browser-relevant case whose verdict
+     * says the data reached the sink live ({@link Verdict#reachesSinkLive()}, so
+     * {@link Verdict#KNOWN_VULNERABLE} or {@link Verdict#ACCEPTED_RESIDUAL}), plus one safe control
+     * per case so a green run means the detectors stayed quiet rather than that nothing was loaded.
+     * Since R26 every one of them is a residual, and a browser confirming that the attacker's origin
+     * really is reached is the evidence the acceptance rests on.
      */
     public static List<XssCase.Invocation> browserInvocations() {
         return allInvocations().stream()
@@ -164,6 +167,25 @@ public final class CanoeCorpus {
      * sides - and not about either number.
      */
     private static final int NAME_LIMIT = Canoe.MAX_TAGNAME_LEN - 1;
+
+    /**
+     * The sentence every one of R26's 68 re-verdicted rows carries, so that a reader who lands on
+     * one of them knows what changed without going to the plan.
+     *
+     * <p>Kept short deliberately. What is <em>not</em> shared is the part that matters: each of the
+     * 26 cases carries its own paragraph saying what its sink does with the value, because that
+     * judgement is what the verdict is, and a shared string would be the rubber stamp the ledger's
+     * design note warns about.
+     */
+    private static final String R26_RESIDUAL =
+            "Re-verdicted by R26, from KNOWN_VULNERABLE to ACCEPTED_RESIDUAL, citation kept. Nothing"
+                    + " about the render changed: the off-origin authority still reaches the"
+                    + " attribute byte for byte, url() is still a scheme filter and not an origin"
+                    + " filter, and VerdictEvaluator still observes KNOWN_VULNERABLE here - the"
+                    + " oracle reads output and cannot tell a redirect from an execution. What"
+                    + " changed is that the ledger now says which of those two it is. The row still"
+                    + " fails if the data stops reaching the sink, which is what keeps the"
+                    + " acceptance from being a way of forgetting the row.";
 
     // ------------------------------------------------------------------
     // Shared payload selections and notes
@@ -362,14 +384,38 @@ public final class CanoeCorpus {
             Payloads.VBSCRIPT_URL, Payloads.VIEW_SOURCE_URL);
 
     /**
+     * The verdict an off-origin URL that reaches the authority carries, since R26.
+     *
+     * <p>It was {@link Verdict#KNOWN_VULNERABLE} from R6 until R26, on every URL sink Canoe does not
+     * origin-filter. R9 filtered the six resource-loading combinations, where the response is script
+     * or a document with the page's privileges, and deliberately left the rest — so what remained
+     * was 68 invocations that no fix was going to move, sitting under a heading that said "drive
+     * this to zero". R26 gives them a verdict that says what they are:
+     * {@link Verdict#ACCEPTED_RESIDUAL}, the data still reaching the sink and the sink not being
+     * code execution, with the finding citation kept and a {@link ResidualSink} naming what the
+     * browser does with the value instead.
+     *
+     * <p>Named as a constant rather than written out per case so that the next task to move this
+     * boundary — an origin filter on {@code action}, most plausibly — moves one symbol and gets a
+     * compile-time list of everywhere it applied.
+     */
+    private static final Verdict OFF_ORIGIN_RESIDUE = Verdict.ACCEPTED_RESIDUAL;
+
+    /**
      * Applies R11+R12's two verdict deltas to a URL case, for whichever of the affected payloads it
      * actually uses. A rejected scheme suppresses; an uppercase absolute off-origin URL, which the old
      * case-sensitive regex used to neutralise by accident, is now normalised and passes through, so it
-     * is {@link Verdict#KNOWN_VULNERABLE} under F6 exactly like its lowercase sibling.
+     * carries {@link #OFF_ORIGIN_RESIDUE} exactly like its lowercase sibling.
      *
      * <p>{@code reachesAuthority} is false for the query and fragment positions, where the template's
      * own literal text keeps every payload on the page's origin: there the uppercase URL stays SAFE
      * and only the rejected schemes move.
+     *
+     * <p>A resource-sink caller applies this first and {@link #resourceSinkRejectsOffOrigin} after,
+     * which replaces the residual verdict with {@link Verdict#SUPPRESSED_BY_DESIGN}. That ordering is
+     * load-bearing in one useful direction: a resource sink that forgot the second call would build a
+     * case claiming {@code ACCEPTED_RESIDUAL} with no {@link ResidualSink} declared, and
+     * {@code XssCase.validate()} rejects it.
      */
     private static void applyUrlSchemeReverdict(XssCase.Builder builder, List<Payload> payloads,
                                                 boolean reachesAuthority) {
@@ -379,7 +425,7 @@ public final class CanoeCorpus {
             }
         }
         if (reachesAuthority && payloads.contains(Payloads.ABSOLUTE_OFFSITE_UPPERCASE)) {
-            builder.override(Payloads.ABSOLUTE_OFFSITE_UPPERCASE, Verdict.KNOWN_VULNERABLE);
+            builder.override(Payloads.ABSOLUTE_OFFSITE_UPPERCASE, OFF_ORIGIN_RESIDUE);
         }
     }
 
@@ -417,8 +463,8 @@ public final class CanoeCorpus {
      * names to {@code url()} and the shape becomes {@link #recognisedUriAttribute}'s, byte for byte
      * and verdict for verdict — which is the honest statement of what R6 bought and what it did not.
      *
-     * <p><strong>The default is SAFE and the off-origin payloads are KNOWN_VULNERABLE citing
-     * F6</strong>, not F3. Every script-bearing scheme is genuinely neutralised: since R12
+     * <p><strong>The default is SAFE and the off-origin payloads are the F6 residue</strong>, cited
+     * against F6 and not F3. Every script-bearing scheme is genuinely neutralised: since R12
      * {@code url()} rejects a scheme off its {http, https, mailto} allowlist to the empty string, so
      * those rows are {@link Verdict#SUPPRESSED_BY_DESIGN} — see {@link #applyUrlSchemeReverdict}. A
      * protocol-relative or absolute {@code http(s)} URL is not neutralised at all: it is a valid URL
@@ -429,14 +475,17 @@ public final class CanoeCorpus {
      * <p>Whether R9 closes such a row depends on the element. On a resource-loading combination —
      * {@code <object data>} is the one built by this helper — R9 routes to {@code urlResource()} and
      * the off-origin rows become {@link Verdict#SUPPRESSED_BY_DESIGN}; the caller applies
-     * {@link #resourceSinkRejectsOffOrigin} to say so. On an open-redirect or referrer surface —
-     * {@code <form action>}, {@code <button formaction>}, {@code <video poster>}, {@code <a ping>} and
-     * the rest — R9 deliberately leaves the row {@code KNOWN_VULNERABLE} under F6, because an
-     * off-origin navigation or fetch is not code execution; that is the residual F6 R26 tracks.
+     * {@link #resourceSinkRejectsOffOrigin} to say so, and passes {@code null} for
+     * {@code residualSink} because nothing is left over. On an open-redirect, form, referrer or dead
+     * surface — {@code <form action>}, {@code <button formaction>}, {@code <video poster>},
+     * {@code <a ping>} and the rest — R9 deliberately leaves the value reaching the sink, because an
+     * off-origin navigation or fetch is not code execution; since R26 those rows are
+     * {@link Verdict#ACCEPTED_RESIDUAL} with the sink class the caller names.
      */
     private static XssCase.Builder urlAttributeAddedByR6(String id, String template,
                                                          String selector, String attribute,
-                                                         List<Payload> payloads) {
+                                                         List<Payload> payloads,
+                                                         ResidualSink residualSink) {
         XssCase.Builder builder = XssCase.id(id)
                 .section(A2)
                 .template(template)
@@ -444,8 +493,11 @@ public final class CanoeCorpus {
                 .payloads(payloads)
                 .verdict(Verdict.SAFE)
                 .finding("F6")
-                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
-                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, Verdict.KNOWN_VULNERABLE);
+                .override(Payloads.PROTOCOL_RELATIVE, OFF_ORIGIN_RESIDUE)
+                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, OFF_ORIGIN_RESIDUE);
+        if (residualSink != null) {
+            builder.residualSink(residualSink);
+        }
         applyUrlSchemeReverdict(builder, payloads, true);
         return builder;
     }
@@ -456,8 +508,9 @@ public final class CanoeCorpus {
      * thirteen.
      */
     private static XssCase.Builder urlAttributeAddedByR6(String id, String template,
-                                                         String selector, String attribute) {
-        return urlAttributeAddedByR6(id, template, selector, attribute, urlProbe());
+                                                         String selector, String attribute,
+                                                         ResidualSink residualSink) {
+        return urlAttributeAddedByR6(id, template, selector, attribute, urlProbe(), residualSink);
     }
 
     /**
@@ -489,9 +542,14 @@ public final class CanoeCorpus {
      * {@code ATTR_URI}. R6's twelve additions take {@link #urlAttributeAddedByR6}, which is the same
      * shape with a different history attached; the two are kept apart so that a reader can still see
      * which rows were F3 and which never were.
+     *
+     * <p>{@code residualSink} names what the browser does with the off-origin value that survives,
+     * and is {@code null} only for the three resource-loading callers that follow this with
+     * {@link #resourceSinkRejectsOffOrigin} and so have no residue at all.
      */
     private static XssCase.Builder recognisedUriAttribute(String id, String template,
-                                                          String selector, String attribute) {
+                                                          String selector, String attribute,
+                                                          ResidualSink residualSink) {
         XssCase.Builder builder = XssCase.id(id)
                 .section(A2)
                 .template(template)
@@ -499,8 +557,11 @@ public final class CanoeCorpus {
                 .payloads(allUrlPayloads())
                 .verdict(Verdict.SAFE)
                 .finding("F6")
-                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
-                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, Verdict.KNOWN_VULNERABLE);
+                .override(Payloads.PROTOCOL_RELATIVE, OFF_ORIGIN_RESIDUE)
+                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, OFF_ORIGIN_RESIDUE);
+        if (residualSink != null) {
+            builder.residualSink(residualSink);
+        }
         applyUrlSchemeReverdict(builder, allUrlPayloads(), true);
         return builder;
     }
@@ -928,7 +989,8 @@ public final class CanoeCorpus {
                 .payloads(Payloads.family("PROTOCOL_RELATIVE"))
                 .verdict(Verdict.SAFE)
                 .finding("F6")
-                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
+                .residualSink(ResidualSink.OPEN_REDIRECT)
+                .override(Payloads.PROTOCOL_RELATIVE, OFF_ORIGIN_RESIDUE)
                 .note("Re-verdicted by R19, and the citation moved with the verdict. Was"
                         + " SUPPRESSED_UNINTENDED x3 under F11: currentContext() had no case for"
                         + " TAG_ATTR_VALUE_BEFORE, so the value vanished with no error and no"
@@ -941,7 +1003,14 @@ public final class CanoeCorpus {
                         + " origin filter, which is F6 and is the residual R26 tracks; the two"
                         + " backslash spellings are percent-escaped to same-origin paths and are"
                         + " SAFE. The row cites the finding its current verdict is about, so it"
-                        + " cites F6; F11's own evidence moved to unquoted.plain-text-after-equals.")
+                        + " cites F6; F11's own evidence moved to unquoted.plain-text-after-equals. "
+                        + R26_RESIDUAL
+                        + " Read against the sink for R26: the rendered element is <a"
+                        + " href=//attacker.invalid/x.js>, an anchor whose href is unquoted and"
+                        + " otherwise byte-identical to url.href-full's, so the sink is that case's"
+                        + " open redirect. The browser tier loads this row for exactly that reason -"
+                        + " to settle whether a real engine reads the unquoted value as the href the"
+                        + " DOM oracle says it is.")
                 // Browser-relevant since R19, and it is the tier that settles the safety argument:
                 // whether a real engine reads an unquoted url()-encoded value as the href the DOM
                 // oracle says it is. Its quoted twin url.href-full has been loaded since the tier
@@ -956,12 +1025,15 @@ public final class CanoeCorpus {
                 .payloads(Payloads.family("PROTOCOL_RELATIVE"))
                 .verdict(Verdict.SAFE)
                 .finding("F6")
-                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
+                .residualSink(ResidualSink.OPEN_REDIRECT)
+                .override(Payloads.PROTOCOL_RELATIVE, OFF_ORIGIN_RESIDUE)
                 .note("TAG_ATTR_VALUE_BEFORE skips whitespace, so the extra space changes nothing -"
                         + " which was true when this row recorded F11's suppression and is still true"
                         + " now that it records R19's routing. Re-verdicted with its twin above, and"
                         + " for the same reasons; the rendered output differs from that row's by the"
-                        + " one space the template itself contains.")
+                        + " one space the template itself contains. " + R26_RESIDUAL
+                        + " Same sink as that twin, checked on the rendered bytes: one anchor, one"
+                        + " off-origin href, an open redirect.")
                 .build());
 
         // Script and style element bodies. Both suppressed, and both deliberately: refusing to output
@@ -1017,12 +1089,18 @@ public final class CanoeCorpus {
                 .payloads(allUrlPayloads())
                 .verdict(Verdict.SAFE)
                 .finding("F6")
-                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
-                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, Verdict.KNOWN_VULNERABLE)
+                .residualSink(ResidualSink.OPEN_REDIRECT)
+                .override(Payloads.PROTOCOL_RELATIVE, OFF_ORIGIN_RESIDUE)
+                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, OFF_ORIGIN_RESIDUE)
                 .note("Two references, two contexts, one render. The second is a fixed model value"
                         + " rather than the payload so that the sink under test stays unambiguous."
                         + " Full-URL position, so R12's scheme reverdict applies: rejected schemes"
-                        + " suppress, the uppercase off-origin URL is KNOWN_VULNERABLE.");
+                        + " suppress, and the uppercase off-origin URL joins the other two off-origin"
+                        + " rows. " + R26_RESIDUAL
+                        + " Read against the sink for R26: the reference under test is the anchor's"
+                        + " whole href, so the sink is url.href-full's open redirect; the second"
+                        + " reference lands in text and is html()-encoded, and no payload reaches"
+                        + " it.");
         applyUrlSchemeReverdict(transition, allUrlPayloads(), true);
         cases.add(transition.build());
     }
@@ -1659,40 +1737,70 @@ public final class CanoeCorpus {
                         + " URL fails to parse. ABSOLUTE_OFFSITE_UPPERCASE, by contrast, is NO longer"
                         + " safe: the old case-sensitive regex neutralised it by accident, and R12"
                         + " normalises the scheme, so it is a real off-origin URL and is"
-                        + " KNOWN_VULNERABLE under F6 like its lowercase sibling.";
+                        + " the F6 residue under R26's ACCEPTED_RESIDUAL, like its lowercase"
+                        + " sibling.";
 
         cases.add(recognisedUriAttribute("url.href-full",
-                "<a href=\"$data\">link</a>", "a", "href")
-                .note(urlAccidents)
+                "<a href=\"$data\">link</a>", "a", "href", ResidualSink.OPEN_REDIRECT)
+                .note(urlAccidents + " " + R26_RESIDUAL
+                        + " Read against the sink for R26: the value is the whole href of an anchor,"
+                        + " so a click leaves the origin for a document of the attacker's own, with"
+                        + " none of this page's privileges and no access to its DOM or cookies. That"
+                        + " is an open redirect, and it is the row R9's scope decision is really"
+                        + " about - a component that emptied every off-origin link would be switched"
+                        + " off for href altogether.")
                 .browserRelevant()
                 .build());
 
         cases.add(recognisedUriAttribute("url.img-src",
-                "<img src=\"$data\">", "img", "src")
+                "<img src=\"$data\">", "img", "src", ResidualSink.REFERRER_LEAK)
                 .note("R9 keeps <img src> on url(): an off-origin image is a referrer leak and a load,"
-                        + " not code execution, so it stays an open-redirect/referrer surface by"
-                        + " design. This is where the off-origin passthrough is still KNOWN_VULNERABLE"
-                        + " under F6 - the residual R9 scopes out and R26 tracks - and it is exactly"
-                        + " the row url.script-src-prefix used to be byte-identical to before R8 gave"
-                        + " Canoe the tag name to tell them apart.")
+                        + " not code execution, so it stays a referrer surface by design. " + R26_RESIDUAL
+                        + " Read against the sink for R26: the browser issues a GET for the attacker's"
+                        + " URL and hands the response to the image decoder, which gives it no"
+                        + " authority in the document - what the attacker gets is the request, its"
+                        + " Referer and the client's address. It is exactly the row"
+                        + " url.script-src-prefix was byte-identical to before R8 gave Canoe the tag"
+                        + " name to tell them apart, and the difference between the two is the whole"
+                        + " of R9.")
                 .browserRelevant()
                 .build());
 
         cases.add(recognisedUriAttribute("url.background",
-                "<table background=\"$data\"><tr><td>x</td></tr></table>", "table", "background")
+                "<table background=\"$data\"><tr><td>x</td></tr></table>", "table", "background",
+                ResidualSink.REFERRER_LEAK)
                 .note("background is ten characters, which is exactly the length that leaves buf[10]"
                         + " holding its own NUL terminator - see residue.data-url-armed-buffer for"
-                        + " what that does to the shorter prefix checks.")
+                        + " what that does to the shorter prefix checks. " + R26_RESIDUAL
+                        + " Read against the sink for R26: background is not in the HTML Standard's"
+                        + " element definitions but IS in its rendering section as a presentational"
+                        + " hint that engines implement for table, tr, td and body, so the URL really"
+                        + " is fetched and decoded as an image. Same class as url.img-src, by a"
+                        + " legacy route rather than a current one.")
                 .build());
 
         cases.add(recognisedUriAttribute("url.dynsrc",
-                "<img dynsrc=\"$data\">", "img", "dynsrc")
+                "<img dynsrc=\"$data\">", "img", "dynsrc", ResidualSink.INERT_SINK)
                 .note("A dead Internet Explorer attribute. Recognised, while HTML5's srcset is not -"
-                        + " a good marker of the table's age.")
+                        + " a good marker of the table's age. " + R26_RESIDUAL
+                        + " Read against the sink for R26: no engine but Internet Explorer ever"
+                        + " implemented dynsrc, and to every current parser this is an unknown"
+                        + " attribute on an <img> that nothing dereferences. INERT_SINK rather than"
+                        + " REFERRER_LEAK: the authority reaches the attribute and no request is"
+                        + " made.")
                 .build());
 
         cases.add(recognisedUriAttribute("url.lowsrc",
-                "<img lowsrc=\"$data\">", "img", "lowsrc")
+                "<img lowsrc=\"$data\">", "img", "lowsrc", ResidualSink.INERT_SINK)
+                .note("dynsrc's sibling, and inert for the same reason: no current engine fetches"
+                        + " it. Provenance corrected in review - lowsrc was a Netscape Navigator"
+                        + " extension that IE adopted, not an IE attribute, and unlike dynsrc it does"
+                        + " survive in both engines this suite can be read against. It survives as"
+                        + " bookkeeping only: WebCore lists lowsrcAttr in"
+                        + " HTMLImageElement::isURLAttribute, which governs URL rewriting on"
+                        + " serialisation, and Gecko reflects it through GetURIAttr. Neither"
+                        + " parseAttribute nor any presentational-hint path reacts to it, so no"
+                        + " request is made and INERT_SINK stands. " + R26_RESIDUAL)
                 .build());
 
         // <script src> is a resource-loading sink (R9): with R8's tag name available, Canoe routes it
@@ -1729,7 +1837,7 @@ public final class CanoeCorpus {
         // overlay and exfiltrate. UrlSinkTest.theTagNameNowDecidesTheEncoderForSrcAndHref asserts the
         // split rather than the old byte-identity.
         cases.add(resourceSinkRejectsOffOrigin(recognisedUriAttribute("url.iframe-src",
-                "<iframe src=\"$data\"></iframe>", "iframe", "src"),
+                "<iframe src=\"$data\"></iframe>", "iframe", "src", null),
                 Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS,
                 Payloads.ABSOLUTE_OFFSITE_UPPERCASE)
                 .note("Re-verdicted by R9, from KNOWN_VULNERABLE/F6. An off-origin iframe is an"
@@ -1742,7 +1850,7 @@ public final class CanoeCorpus {
                 .build());
 
         cases.add(resourceSinkRejectsOffOrigin(recognisedUriAttribute("url.embed-src",
-                "<embed src=\"$data\">", "embed", "src"),
+                "<embed src=\"$data\">", "embed", "src", null),
                 Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS,
                 Payloads.ABSOLUTE_OFFSITE_UPPERCASE)
                 .note("Re-verdicted by R9, from KNOWN_VULNERABLE/F6. <embed> loads a plugin document"
@@ -1752,7 +1860,7 @@ public final class CanoeCorpus {
                 .build());
 
         cases.add(resourceSinkRejectsOffOrigin(recognisedUriAttribute("url.link-href",
-                "<link rel=\"stylesheet\" href=\"$data\">", "link", "href"),
+                "<link rel=\"stylesheet\" href=\"$data\">", "link", "href", null),
                 Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS,
                 Payloads.ABSOLUTE_OFFSITE_UPPERCASE)
                 .note("Re-verdicted by R9, from KNOWN_VULNERABLE/F6. An off-origin stylesheet can lay"
@@ -1832,7 +1940,7 @@ public final class CanoeCorpus {
         // functional bug developers route around with $_x.asis() - while 'content' had no test at
         // all. R7 resolved the pair: <object data> is a URL.
         cases.add(resourceSinkRejectsOffOrigin(urlAttributeAddedByR6("attr.data-on-object",
-                "<object data=\"$data\"></object>", "object", "data"),
+                "<object data=\"$data\"></object>", "object", "data", null),
                 Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS)
                 .note("Re-verdicted twice: by R7 from SUPPRESSED_UNINTENDED/F7 (the copy-paste that"
                         + " compared 'data' where it meant 'content' dropped this value; R7 made"
@@ -2010,9 +2118,10 @@ public final class CanoeCorpus {
      *       template interpolates into. Their verdicts become {@link #recognisedUriAttribute}'s,
      *       because they now <em>are</em> recognised URI attributes: script schemes neutralised,
      *       off-origin URLs passing byte for byte, and the rows that stay
-     *       {@link Verdict#KNOWN_VULNERABLE} citing <strong>F6</strong> rather than F3. That is the
-     *       honest record of the change: the classification defect is closed and the encoder defect
-     *       underneath it is not.
+     *       live citing <strong>F6</strong> rather than F3 — {@link Verdict#ACCEPTED_RESIDUAL}
+     *       since R26, {@link Verdict#KNOWN_VULNERABLE} before it. That is the honest record of the
+     *       change: the classification defect is closed and the encoder defect underneath it is
+     *       not.
      *   <li><strong>Suppressed</strong> — {@code imagesrcset}, {@code xml:base}, {@code archive},
      *       {@code classid} and {@code profile}, which R5's fail-closed default catches because R6
      *       deliberately did not list them. Suppression is strictly stronger than {@code url()};
@@ -2031,9 +2140,9 @@ public final class CanoeCorpus {
                         + " a scheme off its {http, https, mailto} allowlist to the empty string, so"
                         + " reviewed against the sink: a clean javascript:, data:, vbscript: or"
                         + " view-source: URL is SUPPRESSED_BY_DESIGN (nothing renders), an off-origin"
-                        + " http(s) or protocol-relative URL arrives byte for byte and is"
-                        + " KNOWN_VULNERABLE under F6 - and the uppercase-scheme off-origin URL joins"
-                        + " it, because R12 normalises the scheme rather than the old regex leaving it"
+                        + " http(s) or protocol-relative URL arrives byte for byte and is the F6"
+                        + " residue (KNOWN_VULNERABLE until R26, ACCEPTED_RESIDUAL since) - and the"
+                        + " uppercase-scheme off-origin URL joins it, because R12 normalises the scheme rather than the old regex leaving it"
                         + " relative. The JS_URL variants with no clean scheme (a tab-split, an"
                         + " entity- or percent-encoded prefix, a leading control) carry no colon at"
                         + " the head, so url() reads them as relative references and they stay SAFE."
@@ -2061,24 +2170,38 @@ public final class CanoeCorpus {
         // The four headline sinks carry the full thirteen payloads, so the per-payload distinctions
         // are pinned exhaustively somewhere.
         cases.add(urlAttributeAddedByR6("url.action",
-                "<form action=\"$data\"></form>", "form", "action", allUrlPayloads())
+                "<form action=\"$data\"></form>", "form", "action", allUrlPayloads(),
+                ResidualSink.FORM_RETARGET)
                 .note("A javascript: URL here used to run on submit; an absolute URL still sends the"
                         + " form's contents - including any CSRF token - to the attacker, which is"
-                        + " the half R6 does not close. " + underUrlEncodingNow)
+                        + " the half R6 does not close. " + underUrlEncodingNow + " " + R26_RESIDUAL
+                        + " Read against the sink for R26: the rendered form posts to the attacker's"
+                        + " origin, so submitting it hands over every field the user filled in as"
+                        + " well as leaving the page - FORM_RETARGET rather than OPEN_REDIRECT,"
+                        + " because the navigation is the smaller half. Nothing the attacker's"
+                        + " origin returns runs with this page's privileges, which is why it is a"
+                        + " residual at all; it is also the residual class with the best case for"
+                        + " being closed later, since an off-origin form action is not the ordinary"
+                        + " thing an off-origin link is. See ResidualSink.FORM_RETARGET.")
                 .browserRelevant()
                 .build());
 
         cases.add(urlAttributeAddedByR6("url.formaction",
                 "<form action=\"/save\"><button formaction=\"$data\">go</button></form>",
-                "button", "formaction", allUrlPayloads())
+                "button", "formaction", allUrlPayloads(), ResidualSink.FORM_RETARGET)
                 .note("formaction overrides the form's own action, so a template that carefully sets"
                         + " action from a constant is still fully controllable by whoever controls"
-                        + " this value. " + underUrlEncodingNow)
+                        + " this value. " + underUrlEncodingNow + " " + R26_RESIDUAL
+                        + " Read against the sink for R26: url.action's sink reached through the"
+                        + " override, and the sharper of the two - the template here does set its"
+                        + " action from a constant, and the rendered button retargets the submission"
+                        + " anyway.")
                 .browserRelevant()
                 .build());
 
         cases.add(urlAttributeAddedByR6("url.srcset",
-                "<img srcset=\"$data\" src=\"/i.png\">", "img", "srcset", allUrlPayloads())
+                "<img srcset=\"$data\" src=\"/i.png\">", "img", "srcset", allUrlPayloads(),
+                ResidualSink.REFERRER_LEAK)
                 .note("srcset takes precedence over src where the browser supports it, and it is a"
                         + " comma-and-whitespace separated list of candidates with descriptors."
                         + " " + underUrlEncodingNow
@@ -2094,13 +2217,23 @@ public final class CanoeCorpus {
                         + " flag went with the KNOWN_VULNERABLE verdict it qualified: an image source"
                         + " is fetched, never navigated to or executed, so no srcset candidate has"
                         + " ever run a javascript: URL in any engine. The off-origin rows are the"
-                        + " ones a browser confirms, and they are the ones still vulnerable.")
+                        + " ones a browser confirms, and they are the ones still vulnerable. "
+                        + R26_RESIDUAL
+                        + " Read against the sink for R26: the payload is a single candidate with no"
+                        + " descriptor, so the parser takes the whole value as one URL and fetches"
+                        + " it as an image. Same class as url.img-src - REFERRER_LEAK, the request"
+                        + " and not the response - reached through the candidate list rather than"
+                        + " through src.")
                 .browserRelevant()
                 .build());
 
         cases.add(urlAttributeAddedByR6("url.poster",
-                "<video poster=\"$data\"></video>", "video", "poster", allUrlPayloads())
-                .note(underUrlEncodingNow)
+                "<video poster=\"$data\"></video>", "video", "poster", allUrlPayloads(),
+                ResidualSink.REFERRER_LEAK)
+                .note(underUrlEncodingNow + " " + R26_RESIDUAL
+                        + " Read against the sink for R26: poster is the still frame a <video>"
+                        + " shows before playback, fetched as an image and decoded as one, so the"
+                        + " attacker gets the request and nothing else. REFERRER_LEAK.")
                 .build());
 
         // F3's clearest single row, closed by R6. isTagNameChar accepts ':', so xlink:href always
@@ -2108,14 +2241,21 @@ public final class CanoeCorpus {
         // away from the best-protected sink in the component was the worst-protected one.
         cases.add(urlAttributeAddedByR6("url.xlink-href",
                 "<svg><a xlink:href=\"$data\"><text>go</text></a></svg>", "a", "xlink:href",
-                Payloads.families("JS_URL", "PROTOCOL_RELATIVE", "ABSOLUTE_OFFSITE"))
+                Payloads.families("JS_URL", "PROTOCOL_RELATIVE", "ABSOLUTE_OFFSITE"),
+                ResidualSink.OPEN_REDIRECT)
                 .note(underUrlEncodingNow
                         + " This is the row the finding was easiest to see in: plain href was"
                         + " protected by url() and this was not, so the safe-by-analogy assumption a"
                         + " developer would make was wrong. The two names are one classification"
                         + " now, which AttributeNameMatrixTest.hrefAndXlinkHrefReachTheSameEncoder"
                         + " asserts as an equality rather than as two expectations."
-                        + " " + DEAD_URL_VECTORS + " " + VIEW_SOURCE_IS_BLOCKED_FROM_CONTENT)
+                        + " " + DEAD_URL_VECTORS + " " + VIEW_SOURCE_IS_BLOCKED_FROM_CONTENT
+                        + " " + R26_RESIDUAL
+                        + " Read against the sink for R26: an <a> inside <svg> is a link, and"
+                        + " xlink:href is where SVG 1.1 puts its target, so activating it navigates"
+                        + " the browsing context off-origin exactly as url.href-full does."
+                        + " OPEN_REDIRECT, and the one row in that class that is not an HTML"
+                        + " anchor.")
                 .browserRelevant()
                 .build());
 
@@ -2127,18 +2267,42 @@ public final class CanoeCorpus {
                 + " the sink live; where a dead vector sits in a browser-relevant case it is"
                 + " flagged not-browser-observable rather than having its verdict rewritten. None"
                 + " of these cases is browser-relevant, so nothing is asked of the browser tier"
-                + " here.";
+                + " here. Since R26 the deadness is said in the ledger rather than only in this"
+                + " note: the ones that carry a verdict at all declare ResidualSink.INERT_SINK,"
+                + " which is the same claim in a form the report can count and the pin list can"
+                + " check. Read that per case rather than off this shared string - 'not fetched'"
+                + " and 'not dereferenced' are different claims, and url.longdesc is the row where"
+                + " they came apart: it is never fetched and Gecko still opens it on a user action,"
+                + " so it is OPEN_REDIRECT.";
 
         cases.add(urlAttributeAddedByR6("url.cite",
-                "<blockquote cite=\"$data\">x</blockquote>", "blockquote", "cite")
-                .note(underUrlEncodingNow).build());
+                "<blockquote cite=\"$data\">x</blockquote>", "blockquote", "cite",
+                ResidualSink.INERT_SINK)
+                .note(underUrlEncodingNow + " " + R26_RESIDUAL
+                        + " Read against the sink for R26: cite is metadata. The standard says a"
+                        + " user agent MAY expose it and no engine dereferences it - there is no"
+                        + " fetch, no navigation and no user affordance that reaches it - so"
+                        + " INERT_SINK rather than REFERRER_LEAK.").build());
 
         cases.add(urlAttributeAddedByR6("url.ping",
-                "<a ping=\"$data\" href=\"/x\">y</a>", "a", "ping")
+                "<a ping=\"$data\" href=\"/x\">y</a>", "a", "ping",
+                ResidualSink.REFERRER_LEAK)
                 .note("ping fires a POST to the named URL on click, with no user-visible effect -"
                         + " the quietest exfiltration channel in this group, and one R6's routing"
                         + " does nothing about: an off-origin ping is exactly the payload url()"
-                        + " passes through. " + underUrlEncodingNow)
+                        + " passes through. " + underUrlEncodingNow + " " + R26_RESIDUAL
+                        + " Read against the sink for R26: clicking the link sends a background POST"
+                        + " to the attacker's URL - body 'PING', Content-Type text/ping, credentials"
+                        + " mode 'include' - while the anchor itself still goes to the template's own"
+                        + " /x, so this is a beacon and not a redirect. REFERRER_LEAK. Corrected in"
+                        + " review: the first draft of this note said the POST carries Ping-From, and"
+                        + " it does not. The hyperlink auditing algorithm sets the request's referrer"
+                        + " to 'no-referrer' and withholds Ping-From when the document is HTTPS and"
+                        + " the ping URL is cross-origin, which is exactly this row (the oracle's"
+                        + " base origin is https://app.example). What the attacker gets is Ping-TO,"
+                        + " which is the resolved href on the deploying origin, plus the client"
+                        + " address and the fact of the click - the page's own URL by a different"
+                        + " route, which is why the class is unchanged.")
                 .build());
 
         cases.add(urlAttributeSuppressedByR5("url.imagesrcset",
@@ -2160,20 +2324,46 @@ public final class CanoeCorpus {
                 .build());
 
         cases.add(urlAttributeAddedByR6("url.usemap",
-                "<img usemap=\"$data\" src=\"/i.png\">", "img", "usemap")
-                .note(legacy + " " + underUrlEncodingNow).build());
+                "<img usemap=\"$data\" src=\"/i.png\">", "img", "usemap",
+                ResidualSink.INERT_SINK)
+                .note(legacy + " " + underUrlEncodingNow + " " + R26_RESIDUAL
+                        + " Read against the sink for R26: usemap is specified as a valid hash-name"
+                        + " reference, so a value that does not begin '#' names no map in this"
+                        + " document and the image simply has no client-side map. An absolute or"
+                        + " protocol-relative URL can never be one. INERT_SINK.").build());
 
         cases.add(urlAttributeAddedByR6("url.longdesc",
-                "<img longdesc=\"$data\" src=\"/i.png\">", "img", "longdesc")
+                "<img longdesc=\"$data\" src=\"/i.png\">", "img", "longdesc",
+                ResidualSink.OPEN_REDIRECT)
                 .note(legacy + " Also worth noting that longdesc used to fail 'lowsrc' at"
                         + " buf[2]=='n', which was the near-miss shape that made the hand-unrolled"
                         + " table hard to audit; the classification is a set lookup now."
-                        + " " + underUrlEncodingNow)
+                        + " " + underUrlEncodingNow + " " + R26_RESIDUAL
+                        + " Read against the sink for R26, and the one row in this group that is NOT"
+                        + " inert - R26 first classified it INERT_SINK and review corrected it."
+                        + " longdesc is obsolete and no engine FETCHES it, but Gecko still"
+                        + " dereferences it on user action, today: ImageAccessible exposes a"
+                        + " 'showlongdesc' default action through the platform accessibility API,"
+                        + " which is what NVDA and JAWS invoke (NVDA+D) to open the URL in a new tab,"
+                        + " and ContextMenuChild.sys.mjs still reads the attribute for the image"
+                        + " context menu. A user acting on the element therefore navigates"
+                        + " off-origin, which is OPEN_REDIRECT's definition and not INERT_SINK's"
+                        + " ('no shipping engine dereferences it at all'). Narrower than"
+                        + " url.href-full - it needs a deliberate act, in one engine, mostly through"
+                        + " assistive technology - but the difference is reach, not kind, and the"
+                        + " enum records what the browser does rather than how likely it is.")
                 .build());
 
         cases.add(urlAttributeAddedByR6("url.codebase",
-                "<applet codebase=\"$data\"></applet>", "applet", "codebase")
-                .note(legacy + " " + underUrlEncodingNow).build());
+                "<applet codebase=\"$data\"></applet>", "applet", "codebase",
+                ResidualSink.INERT_SINK)
+                .note(legacy + " " + underUrlEncodingNow + " " + R26_RESIDUAL
+                        + " Read against the sink for R26, and worth reading twice: an <applet>"
+                        + " whose codebase the attacker chose used to load the attacker's classes,"
+                        + " which was code execution outright. It is INERT_SINK today only because"
+                        + " every engine removed the element with plugin support - inert by feature"
+                        + " removal, not because the value is harmless. jsoup parses the element and"
+                        + " the attribute is present in the DOM; nothing dereferences it.").build());
 
         cases.add(urlAttributeSuppressedByR5("url.archive",
                 "<object archive=\"$data\"></object>", "object", "archive")
@@ -2184,8 +2374,16 @@ public final class CanoeCorpus {
                 .note(legacy + " " + suppressedInstead).build());
 
         cases.add(urlAttributeAddedByR6("url.manifest",
-                "<html manifest=\"$data\"><body>x</body></html>", "html", "manifest")
-                .note(legacy + " " + underUrlEncodingNow).build());
+                "<html manifest=\"$data\"><body>x</body></html>", "html", "manifest",
+                ResidualSink.INERT_SINK)
+                .note(legacy + " " + underUrlEncodingNow + " " + R26_RESIDUAL
+                        + " Read against the sink for R26, and the other row worth reading twice: a"
+                        + " poisoned application cache was persistent same-origin XSS in its day."
+                        + " Two things make it inert now rather than one - Application Cache is"
+                        + " removed from Chrome, Firefox and Safari, and the specification required"
+                        + " the manifest to be SAME-ORIGIN with the document, so an off-origin"
+                        + " manifest was ignored even while the feature existed. INERT_SINK.")
+                .build());
 
         cases.add(urlAttributeSuppressedByR5("url.profile",
                 "<html><head profile=\"$data\"></head><body>x</body></html>", "head", "profile")
@@ -2415,14 +2613,25 @@ public final class CanoeCorpus {
      */
     private static void attributeNameSyntax(List<XssCase> cases) {
 
+        // Every case in this group is <a href> written a different way, so every one of them is
+        // url.href-full's sink: an anchor the user clicks, which leaves the origin. R26 read each
+        // rendered output against that sink rather than inheriting the class from the helper - the
+        // point of the group is that the spelling does not change the classification, and the
+        // residual sink class is the same claim one level up.
         cases.add(recognisedUriAttribute("name.href-uppercase",
-                "<a HREF=\"$data\">x</a>", "a", "href")
+                "<a HREF=\"$data\">x</a>", "a", "href", ResidualSink.OPEN_REDIRECT)
                 .note("TAG_ATTR_NAME does buf[bufLen++] = Character.toLowerCase(c), so the whole"
-                        + " recognised set is case-insensitive. Verdicts identical to url.href-full.")
+                        + " recognised set is case-insensitive. Verdicts identical to url.href-full,"
+                        + " and so is the sink: the rendered anchor is byte-identical to that case's"
+                        + " but for the attribute name's casing, which the parser folds. "
+                        + R26_RESIDUAL)
                 .build());
 
         cases.add(recognisedUriAttribute("name.href-mixed-case",
-                "<a HrEf=\"$data\">x</a>", "a", "href").build());
+                "<a HrEf=\"$data\">x</a>", "a", "href", ResidualSink.OPEN_REDIRECT)
+                .note("The same, mixed rather than upper: the fold is per character, so no casing"
+                        + " reaches a different classification or a different sink. " + R26_RESIDUAL)
+                .build());
 
         cases.add(XssCase.id("name.onclick-uppercase")
                 .section(A2)
@@ -2436,19 +2645,21 @@ public final class CanoeCorpus {
                 .build());
 
         cases.add(recognisedUriAttribute("separator.space-before-equals",
-                "<a href =\"$data\">x</a>", "a", "href")
+                "<a href =\"$data\">x</a>", "a", "href", ResidualSink.OPEN_REDIRECT)
                 .note("TAG_ATTR_NAME_AFTER skips whitespace before the '='. All four separator"
-                        + " permutations resolve to the same ATTR_URI classification.")
+                        + " permutations resolve to the same ATTR_URI classification, and - checked"
+                        + " for R26 rather than assumed - to the same rendered anchor and the same"
+                        + " open-redirect sink. " + R26_RESIDUAL)
                 .build());
 
         cases.add(recognisedUriAttribute("separator.tab-before-equals",
-                "<a href\t=\"$data\">x</a>", "a", "href").build());
+                "<a href\t=\"$data\">x</a>", "a", "href", ResidualSink.OPEN_REDIRECT).build());
 
         cases.add(recognisedUriAttribute("separator.newline-before-equals",
-                "<a href\n=\"$data\">x</a>", "a", "href").build());
+                "<a href\n=\"$data\">x</a>", "a", "href", ResidualSink.OPEN_REDIRECT).build());
 
         cases.add(recognisedUriAttribute("separator.crlf-before-equals",
-                "<a href\r\n=\"$data\">x</a>", "a", "href").build());
+                "<a href\r\n=\"$data\">x</a>", "a", "href", ResidualSink.OPEN_REDIRECT).build());
 
         // The one case in this group where the first hand verdict was wrong. It was written as a
         // copy of url.href-full - same attribute, same classification, therefore same verdict - and
@@ -2467,7 +2678,7 @@ public final class CanoeCorpus {
                         + " emitted bytes are byte-identical to url.href-full's. What makes this SAFE"
                         + " is the parser, not the encoder: the duplicate is dropped before any URL"
                         + " is resolved, so even the uppercase off-origin URL stays SAFE here while"
-                        + " it is KNOWN_VULNERABLE in url.href-full. Swap the two attributes and every"
+                        + " it is a residual in url.href-full. Swap the two attributes and every"
                         + " verdict flips to url.href-full's - which is why the encoding is worth"
                         + " recording even though today's outcome is safe. The rejected-scheme"
                         + " payloads suppress under R12 for the ordinary reason and would suppress"
@@ -2486,14 +2697,21 @@ public final class CanoeCorpus {
                 .payloads(allUrlPayloads())
                 .verdict(Verdict.SAFE)
                 .finding("F6")
-                .override(Payloads.PROTOCOL_RELATIVE, Verdict.KNOWN_VULNERABLE)
-                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, Verdict.KNOWN_VULNERABLE)
+                .residualSink(ResidualSink.OPEN_REDIRECT)
+                .override(Payloads.PROTOCOL_RELATIVE, OFF_ORIGIN_RESIDUE)
+                .override(Payloads.ABSOLUTE_OFFSITE_HTTPS, OFF_ORIGIN_RESIDUE)
                 .note("Every verdict here is url.href-full's, and separator.duplicate-attribute's are"
                         + " all SAFE, from the same Canoe output. The difference is entirely the"
                         + " parser's duplicate-attribute rule, and a template author who writes a"
                         + " fallback after a dynamic value rather than before it has written the"
                         + " vulnerable one. Worth a case rather than a sentence, because the safe"
-                        + " ordering being SAFE is the kind of result that gets generalised.");
+                        + " ordering being SAFE is the kind of result that gets generalised. "
+                        + R26_RESIDUAL
+                        + " Read against the sink for R26: the surviving href is the attacker's, on"
+                        + " an anchor, so this is url.href-full's open redirect reached by the"
+                        + " parser's first-wins rule. Its twin above has no residual sink class at"
+                        + " all, because the attacker's href is the one discarded - which is the pair"
+                        + " saying the same thing about the parser twice.");
         applyUrlSchemeReverdict(duplicateAttributeReversed, allUrlPayloads(), true);
         cases.add(duplicateAttributeReversed.build());
 

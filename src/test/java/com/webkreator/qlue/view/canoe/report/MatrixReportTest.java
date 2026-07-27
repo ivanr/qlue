@@ -48,8 +48,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <ul>
  *   <li>{@code matrix.md} — the scoreboard, the finding-coverage table, one table per Appendix A
- *       section, and the roster of every {@code KNOWN_VULNERABLE} pairing. That last one is the
- *       working list: it is the set of things a fix has to flip.
+ *       section, and two rosters: every {@code KNOWN_VULNERABLE} pairing, which since R26 is empty
+ *       and asserted to be, and every {@code ACCEPTED_RESIDUAL} one with the non-executing sink it
+ *       reaches. The first is the working list - the set of things a fix has to flip; the second is
+ *       the set somebody decided to live with, which is the list that needs re-reading rather than
+ *       fixing.
  *   <li>{@code matrix.csv} — the same data at (case, payload) granularity, one row per invocation,
  *       so the browser tier and anything written later can consume it without parsing Markdown.
  * </ul>
@@ -246,6 +249,65 @@ public class MatrixReportTest {
     }
 
     /**
+     * <strong>R26's second guard: a live row's citation has to resolve.</strong>
+     *
+     * <p>The corpus already refuses a live verdict with no citation at all ({@code
+     * XssCase.validate()}), and {@link #everyFindingIsEitherCoveredOrExplained} already refuses a
+     * citation the review does not have — but it applies that to every case, including the safe ones
+     * whose citation is historical. This states the property where it matters most and in the form
+     * R26 asked for: <em>a row that says attacker data reaches the sink live must point at a real
+     * finding in {@code CANOE-SECURITY-REVIEW-2026-07-25.md}</em>. That is the sentence the ledger's
+     * design note rests on, and "the count went back above zero with nothing attached" is what its
+     * failure looks like from outside.
+     *
+     * <p>It lives here rather than in {@code CanoeCorpusTest} because the review is the authority for
+     * the finding list and {@link #readFindingsFromTheReview()} is the one parser for it. A second
+     * parser next to the ledger would be a second list to drift.
+     *
+     * <p>Both live verdicts are checked, which is also what keeps this from being vacuous while
+     * {@code KNOWN_VULNERABLE} is empty: the 68 {@link Verdict#ACCEPTED_RESIDUAL} rows all cite F6
+     * and all resolve, so the assertion is exercised on every run and would notice F6 being
+     * renumbered out from under them.
+     */
+    @Test
+    public void everyRowThatReachesItsSinkLiveCitesAFindingTheReviewHas() throws IOException {
+        Map<String, Finding> findings = readFindingsFromTheReview();
+
+        List<String> offenders = new ArrayList<>();
+        int checked = 0;
+        for (XssCase.Invocation invocation : CanoeCorpus.allInvocations()) {
+            if (!invocation.verdict().reachesSinkLive()) {
+                continue;
+            }
+            checked++;
+            String finding = invocation.testCase().finding();
+            if (finding == null || finding.isEmpty()) {
+                offenders.add(invocation + " (" + invocation.verdict() + ") cites nothing");
+            } else if (!findings.containsKey(finding)) {
+                offenders.add(invocation + " (" + invocation.verdict() + ") cites " + finding
+                        + ", which is not in the review's glance table");
+            }
+        }
+
+        assertTrue(offenders.isEmpty(),
+                () -> "These rows record attacker data reaching a sink live without a finding the"
+                        + " review actually has:\n  " + String.join("\n  ", offenders)
+                        + "\n\nA live row is a claim about this component's security, and the"
+                        + " citation is what makes it reviewable: it says where the reasoning is and"
+                        + " who agreed to it. If the vector is new, open a finding in "
+                        + REVIEW + " and cite it. If the finding was renumbered, fix the citation."
+                        + " Do not leave the row uncited - an unattributed vulnerability in a ledger"
+                        + " is indistinguishable from a note somebody left themselves.");
+
+        assertTrue(checked > 0,
+                "no row in the ledger records data reaching a sink live at all, so this assertion"
+                        + " checked nothing. If F6's residue has genuinely been closed, that is the"
+                        + " best possible reason for this failure and the test should be reduced to"
+                        + " its KNOWN_VULNERABLE half; if it has not, the ledger has stopped being"
+                        + " readable from here.");
+    }
+
+    /**
      * The review's glance table parses, and it has the number of rows the review's summary claims.
      *
      * <p>The report's whole coverage denominator comes from a regular expression over a Markdown
@@ -311,21 +373,41 @@ public class MatrixReportTest {
                 .append(CanoeCorpus.all().size()).append("** | |\n\n");
 
         int vulnerable = byVerdict.get(Verdict.KNOWN_VULNERABLE);
-        sb.append("> **`KNOWN_VULNERABLE`: ").append(vulnerable).append(" invocations across ")
-                .append(casesByVerdict.get(Verdict.KNOWN_VULNERABLE).size())
-                .append(" cases. This is the number to drive to zero.**\n>\n")
-                .append("> Each of them is a template where attacker data reaches a sink live. When a"
-                        + " fix lands, the corresponding test **fails** - that is the design"
-                        + " (PLAN.md section 2.1), and it is the signal to update the ledger rather"
-                        + " than a regression. The roster is at the end of this file.\n\n");
+        int residual = byVerdict.get(Verdict.ACCEPTED_RESIDUAL);
+        if (vulnerable == 0) {
+            sb.append("> **`KNOWN_VULNERABLE`: 0.** It opened at 281 invocations. Everything that"
+                    + " was exploitable - a value arriving live in a JavaScript, CSS, markup or"
+                    + " resource-loading sink - is closed at the component;"
+                    + " `CanoeCorpusTest.noInvocationIsKnownVulnerable` asserts the count and"
+                    + " fails if it ever goes back up.\n>\n");
+        } else {
+            sb.append("> **`KNOWN_VULNERABLE`: ").append(vulnerable).append(" invocations across ")
+                    .append(casesByVerdict.get(Verdict.KNOWN_VULNERABLE).size())
+                    .append(" cases, and the count is asserted to be zero - so the build is red.**"
+                            + " Each of them is a template where attacker data reaches a sink that"
+                            + " executes what it is given. See the roster below.\n>\n");
+        }
+        sb.append("> **`ACCEPTED_RESIDUAL`: ").append(residual).append(" invocations across ")
+                .append(casesByVerdict.get(Verdict.ACCEPTED_RESIDUAL).size())
+                .append(" cases.** These are the ones that could not be driven to zero by fixing"
+                        + " anything: attacker data reaches the sink and the sink is not code"
+                        + " execution - an off-origin link, an off-origin image, an off-origin form"
+                        + " action. Every one is F6, every one carries a `ResidualSink` saying what"
+                        + " the browser does with the value instead, and the set is pinned to an"
+                        + " explicit list that may only shrink. Their roster is at the end of this"
+                        + " file too.\n>\n")
+                .append("> A row under either verdict **fails when it stops being true** - that is"
+                        + " the design (PLAN.md section 2.1), and it is the signal to update the"
+                        + " ledger rather than a regression.\n\n");
 
         // Finding coverage.
         sb.append("## Finding coverage\n\n");
         sb.append("One row per finding in the review's glance table. A finding with no corpus case"
                 + " is a coverage gap unless the corpus is structurally the wrong instrument for"
                 + " it, in which case the reason and the file that does test it are given.\n\n");
-        sb.append("| Finding | Severity | Cases | Invocations | `KNOWN_VULNERABLE` | Summary |\n");
-        sb.append("|---|---|---:|---:|---:|---|\n");
+        sb.append("| Finding | Severity | Cases | Invocations | `KNOWN_VULNERABLE` |"
+                + " `ACCEPTED_RESIDUAL` | Summary |\n");
+        sb.append("|---|---|---:|---:|---:|---:|---|\n");
         for (Map.Entry<String, Finding> entry : findings.entrySet()) {
             String id = entry.getKey();
             List<Row> forFinding = rows.stream()
@@ -333,10 +415,13 @@ public class MatrixReportTest {
             long cases = forFinding.stream().map(r -> r.caseId).distinct().count();
             long vulnerableRows = forFinding.stream()
                     .filter(r -> r.verdict == Verdict.KNOWN_VULNERABLE).count();
+            long residualRows = forFinding.stream()
+                    .filter(r -> r.verdict == Verdict.ACCEPTED_RESIDUAL).count();
             sb.append("| **").append(id).append("** | ").append(entry.getValue().severity)
                     .append(" | ").append(cases == 0 ? "**0**" : String.valueOf(cases))
                     .append(" | ").append(forFinding.size())
-                    .append(" | ").append(vulnerableRows)
+                    .append(" | ").append(vulnerableRows == 0 ? "0" : "**" + vulnerableRows + "**")
+                    .append(" | ").append(residualRows)
                     .append(" | ").append(entry.getValue().summary).append(" |\n");
         }
         sb.append('\n');
@@ -391,20 +476,52 @@ public class MatrixReportTest {
             sb.append('\n');
         }
 
-        // The roster.
+        // The rosters.
         sb.append("## The `KNOWN_VULNERABLE` roster\n\n");
-        sb.append("Every pairing where attacker data reaches a sink live. Drive this list to"
-                + " zero.\n\n");
-        sb.append("| Case | Payload | Finding | Sink | Context | Browser |\n");
-        sb.append("|---|---|---|---|---|---|\n");
         List<Row> vulnerableRows = rows.stream()
                 .filter(r -> r.verdict == Verdict.KNOWN_VULNERABLE)
                 .sorted(Comparator.comparing((Row r) -> r.finding == null ? "zz" : padded(r.finding))
                         .thenComparing(r -> r.caseId).thenComparing(r -> r.payloadId))
                 .collect(Collectors.toList());
-        for (Row row : vulnerableRows) {
+        if (vulnerableRows.isEmpty()) {
+            sb.append("**Empty**, and asserted to be, by"
+                    + " `CanoeCorpusTest.noInvocationIsKnownVulnerable`. A pairing appears here when"
+                    + " attacker data reaches a sink that executes what it is given; the count"
+                    + " opened at 281 and the tasks that closed it are R2 through R12.\n\n");
+        } else {
+            sb.append("Every pairing where attacker data reaches a sink live at a sink that"
+                    + " executes. Drive this list to zero.\n\n");
+            sb.append("| Case | Payload | Finding | Sink | Context | Browser |\n");
+            sb.append("|---|---|---|---|---|---|\n");
+            for (Row row : vulnerableRows) {
+                sb.append("| `").append(row.caseId).append("` | `").append(row.payloadId)
+                        .append("` | ").append(row.finding == null ? "" : row.finding)
+                        .append(" | ").append(row.sink)
+                        .append(" | ").append(row.context)
+                        .append(" | ").append(browserCell(List.of(row), browser))
+                        .append(" |\n");
+            }
+            sb.append('\n');
+        }
+
+        sb.append("## The `ACCEPTED_RESIDUAL` roster\n\n");
+        sb.append("Every pairing where attacker data reaches the sink and the sink is not code"
+                + " execution. The `Residual sink` column is the claim: `OPEN_REDIRECT` a"
+                + " navigation the user starts, `FORM_RETARGET` a submission and its contents,"
+                + " `REFERRER_LEAK` a subresource fetch whose response gets no authority in the"
+                + " document, `INERT_SINK` an attribute no shipping engine dereferences. The set"
+                + " is pinned in `CanoeCorpusTest.PINNED_RESIDUALS` and may only shrink.\n\n");
+        sb.append("| Case | Payload | Finding | Residual sink | Sink | Context | Browser |\n");
+        sb.append("|---|---|---|---|---|---|---|\n");
+        List<Row> residualRows = rows.stream()
+                .filter(r -> r.verdict == Verdict.ACCEPTED_RESIDUAL)
+                .sorted(Comparator.comparing((Row r) -> r.residualSink == null ? "zz" : r.residualSink)
+                        .thenComparing(r -> r.caseId).thenComparing(r -> r.payloadId))
+                .collect(Collectors.toList());
+        for (Row row : residualRows) {
             sb.append("| `").append(row.caseId).append("` | `").append(row.payloadId)
                     .append("` | ").append(row.finding == null ? "" : row.finding)
+                    .append(" | `").append(row.residualSink).append('`')
                     .append(" | ").append(row.sink)
                     .append(" | ").append(row.context)
                     .append(" | ").append(browserCell(List.of(row), browser))
@@ -416,7 +533,9 @@ public class MatrixReportTest {
         if (browser.isEmpty()) {
             sb.append("`build/reports/canoe-browser/corpus-results.csv` does not exist, so no"
                     + " browser results are overlaid. The column shows the corpus's *expectation*"
-                    + " only: **fire** for a browser-relevant `KNOWN_VULNERABLE` pairing a browser"
+                    + " only: **fire** for a browser-relevant pairing whose verdict says the data"
+                    + " reached the sink live (`KNOWN_VULNERABLE` or `ACCEPTED_RESIDUAL` - since"
+                    + " R26 every one of them is the latter) and a browser"
                     + " acts on, **silent** for one it must not act on, **inert** for a pairing"
                     + " flagged `notBrowserObservable`, and blank for a case the browser tier does"
                     + " not load. Run `./gradlew browserTest` and regenerate.\n\n");
@@ -453,7 +572,7 @@ public class MatrixReportTest {
                 continue;
             }
             String expectation = !row.browserObservable ? "inert"
-                    : row.verdict == Verdict.KNOWN_VULNERABLE ? "fire" : "silent";
+                    : row.verdict.reachesSinkLive() ? "fire" : "silent";
             BrowserResult result = browser.get(row.caseId + " / " + row.payloadId);
             cells.add(result == null ? expectation : expectation + "/" + result.detectors);
         }
@@ -465,7 +584,11 @@ public class MatrixReportTest {
             case SAFE:
                 return "attacker data reaches the sink inert";
             case KNOWN_VULNERABLE:
-                return "attacker data reaches the sink **live**; cites a finding";
+                return "attacker data reaches the sink **live**; cites a finding."
+                        + " **This column must read 0** (R26)";
+            case ACCEPTED_RESIDUAL:
+                return "attacker data reaches the sink live and the sink is **not code"
+                        + " execution**; cites a finding and names the sink it reaches";
             case SUPPRESSED_BY_DESIGN:
                 return "Canoe emits nothing, and that is the intent";
             case SUPPRESSED_UNINTENDED:
@@ -480,7 +603,8 @@ public class MatrixReportTest {
 
     private static String renderCsv(List<Row> rows, Map<String, BrowserResult> browser) {
         StringBuilder sb = new StringBuilder(64 * 1024);
-        sb.append("section,case,payload,family,sink,attribute,context,encoder,verdict,finding,"
+        sb.append("section,case,payload,family,sink,attribute,context,encoder,verdict,"
+                + "residual_sink,finding,"
                 + "browser_relevant,browser_observable,browser_result,template\n");
         for (Row row : rows) {
             BrowserResult result = browser.get(row.caseId + " / " + row.payloadId);
@@ -493,6 +617,7 @@ public class MatrixReportTest {
                     .append(csv(row.context)).append(',')
                     .append(csv(row.encoder)).append(',')
                     .append(csv(row.verdict.name())).append(',')
+                    .append(csv(row.residualSink == null ? "" : row.residualSink)).append(',')
                     .append(csv(row.finding == null ? "" : row.finding)).append(',')
                     .append(row.browserRelevant).append(',')
                     .append(row.browserObservable).append(',')
@@ -528,6 +653,8 @@ public class MatrixReportTest {
                 row.payloadId = invocation.payload().id();
                 row.family = invocation.payload().family();
                 row.verdict = invocation.verdict();
+                row.residualSink = invocation.residualSink() == null
+                        ? null : invocation.residualSink().name();
                 row.finding = testCase.finding();
                 row.browserRelevant = invocation.isBrowserRelevant();
                 row.browserObservable = invocation.isBrowserObservable();
@@ -665,6 +792,7 @@ public class MatrixReportTest {
         String payloadId;
         String family;
         Verdict verdict;
+        String residualSink;
         String finding;
         boolean browserRelevant;
         boolean browserObservable;

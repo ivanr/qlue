@@ -377,8 +377,12 @@ public class CssContextTest {
             return;
         }
 
-        assertEquals(Verdict.KNOWN_VULNERABLE, invocation.verdict(),
-                () -> invocation + ": a CSS row is either suppressed or live. A SAFE CSS row would"
+        // Either live verdict satisfies "live" here; the CSS group has neither today, and asking
+        // only about KNOWN_VULNERABLE would make an ACCEPTED_RESIDUAL CSS row fail with a message
+        // about the wrong thing.
+        assertTrue(invocation.verdict().reachesSinkLive(),
+                () -> invocation + " is " + invocation.verdict() + ": a CSS row is either suppressed"
+                        + " or live. A SAFE CSS row would"
                         + " mean the value reached the CSS parser and was harmless there, which"
                         + " nothing in this component can currently produce - if one appears, it is a"
                         + " new behaviour and needs a finding rather than a widened test.");

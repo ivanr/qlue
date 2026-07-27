@@ -111,8 +111,13 @@ public class BodyContextTest {
     public void theCorpusRecordsNoVulnerabilityInBodyContext() {
         List<String> vulnerable = new ArrayList<>();
         for (XssCase.Invocation invocation : bodyContextInvocations()) {
-            if (invocation.verdict() == Verdict.KNOWN_VULNERABLE) {
-                vulnerable.add(invocation.toString() + " (" + invocation.testCase().finding() + ")");
+            // Either live verdict breaks the bound, and asking only about KNOWN_VULNERABLE would
+            // leave ACCEPTED_RESIDUAL as a way to record a body-context vector without tripping
+            // this. There is no non-executing body-text sink for the residual verdict to describe:
+            // if a payload changes the document's shape in body context, the sink is the HTML parser.
+            if (invocation.verdict().reachesSinkLive()) {
+                vulnerable.add(invocation + " (" + invocation.verdict() + ", "
+                        + invocation.testCase().finding() + ")");
             }
         }
         assertTrue(vulnerable.isEmpty(),

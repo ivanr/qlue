@@ -40,10 +40,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <h2>What the assertion is</h2>
  *
- * <p>A pairing is expected to trip a detector exactly when it is {@link Verdict#KNOWN_VULNERABLE}
- * <em>and</em> {@link XssCase.Invocation#isBrowserObservable()}. Everything else — {@code SAFE},
- * the two suppression verdicts, and the vulnerable-but-unobservable rows — is expected to be
- * silent.
+ * <p>A pairing is expected to trip a detector exactly when its verdict says the data reaches the
+ * sink live — {@link Verdict#reachesSinkLive()}, which is {@link Verdict#KNOWN_VULNERABLE} or
+ * {@link Verdict#ACCEPTED_RESIDUAL} — <em>and</em> {@link XssCase.Invocation#isBrowserObservable()}.
+ * Everything else — {@code SAFE}, the two suppression verdicts, and the live-but-unobservable rows —
+ * is expected to be silent.
+ *
+ * <p><strong>Reading the wider predicate is not a relaxation; it is the whole of R26 as far as this
+ * tier is concerned.</strong> Every row this tier expects to fire is an F6 residual now: an
+ * off-origin {@code <a href>}, {@code <img src>}, {@code srcset}, {@code xlink:href} or form action
+ * that {@code url()} passes through and R9 deliberately does not filter. What fires for them is the
+ * sentinel-origin detector or the off-origin-navigation one, exactly as before the verdict was
+ * renamed — the browser cannot tell the difference either, which is the point. Had this test kept
+ * asking {@code == KNOWN_VULNERABLE}, all nineteen would have flipped to "expected silent" while
+ * still firing, and the tier would have gone red for a paperwork reason.
  *
  * <p>The second half of that condition is not a loophole and it is not derived here. The corpus
  * carries the flag, set by review, for rows that target vectors no shipping engine acts on:
@@ -112,7 +122,7 @@ public class BrowserCorpusTest extends BrowserTestBase {
         assertFalse(rendered.isError(),
                 "a browser-relevant case must render: " + rendered.errorMessage());
 
-        boolean expectHit = invocation.verdict() == Verdict.KNOWN_VULNERABLE
+        boolean expectHit = invocation.verdict().reachesSinkLive()
                 && invocation.isBrowserObservable();
 
         BrowserVerdict verdict = runCase(engine, invocation.toString(), rendered.output(),
@@ -224,12 +234,25 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * safety argument for R19 stops being an argument: the claim is that {@code html()} and
      * {@code url()} cannot emit a character that ends an unquoted attribute value, and here a real
      * engine parses the result rather than jsoup.
+     *
+     * <p>R26 (the sixth verdict, {@link Verdict#ACCEPTED_RESIDUAL}) leaves all four figures
+     * <strong>unchanged at 65/19/46/0</strong>, and that is a result rather than a coincidence.
+     * Every one of the 68 rows it re-verdicted was {@code KNOWN_VULNERABLE} and is a residual now;
+     * nineteen of them sit on browser-relevant cases, and both the relevance rule
+     * ({@code XssCase.Invocation.isBrowserRelevant}) and the expectation above read
+     * {@link Verdict#reachesSinkLive()}, so the same pages load and the same detectors are expected
+     * to fire. If any of these four numbers moves with R26, something read the narrower predicate.
+     *
+     * <p><strong>Unverified.</strong> R26 could not run this tier: {@code browserTest} hangs in this
+     * environment on {@code FIREFOX url.action / JS_URL/plain}, the known interaction R28 owns. The
+     * four figures above were recomputed from the corpus rather than from a run, and the changes to
+     * this file are compile-checked only. R28 is where they are confirmed.
      */
     @Test
     public void theBrowserRelevantSubsetIsTheSizeTheCorpusClaims() {
         List<XssCase.Invocation> invocations = CanoeCorpus.browserInvocations();
         long mustFire = invocations.stream()
-                .filter(i -> i.verdict() == Verdict.KNOWN_VULNERABLE && i.isBrowserObservable())
+                .filter(i -> i.verdict().reachesSinkLive() && i.isBrowserObservable())
                 .count();
         long unobservable = invocations.stream()
                 .filter(i -> !i.isBrowserObservable())

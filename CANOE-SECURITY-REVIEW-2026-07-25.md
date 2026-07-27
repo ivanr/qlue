@@ -47,7 +47,7 @@ by application code calling `setAutoEscaping(false)`.
 | F3 | Critical | `srcdoc`, `xlink:href`, `action`, `formaction`, `content` and other URL/markup sinks unrecognised |
 | F4 | High | `detectAttributePrefix()` discards the attribute's context, defeating CSS suppression |
 | F5 | High | `javascript:` prefix detection reads uninitialised buffer residue |
-| F6 | High | `HtmlEncoder.url()` is a scheme filter, not an origin filter |
+| F6 | High | `HtmlEncoder.url()` is a scheme filter, not an origin filter — **the code-execution half fixed in R9** (with R8, R11, R12); the open-redirect, form-retarget and referrer residue on `<a href>`, `<img src>`, `<form action>` and the rest is accepted by design and recorded as 68 `ACCEPTED_RESIDUAL` ledger rows in R26 |
 | F7 | Medium | The `content` attribute branch tests for `data` (author-flagged) |
 | F8 | Medium | No tests, no documentation, no published threat model |
 | F9 | Low (latent) | `write(char[],int,int)` confuses length with end index |
@@ -770,6 +770,43 @@ prevention.
 > safe is the template's own literal text, not the encoder. The practical consequence for the triage
 > guidance below: the grep for `="$` returns all five shapes, and only the two that let the reference
 > begin the authority are F6.
+
+> **Resolved in part — R9 (2026-07-26), and closed as far as it is going to be by R26 (2026-07-27).**
+> This is the only finding in this document with anything live left, and the residue is deliberate.
+>
+> - **R11 and R12** deleted the `uriPattern` passthrough above and rewrote `url()` to parse the URL
+>   and encode each component by its own rules, with a `{http, https, mailto}` scheme allowlist:
+>   anything off it is rejected to the empty string rather than escaped one delimiter at a time. That
+>   also removed the accident this finding notes — the case-sensitive regex — so `HTTP://attacker` is
+>   a real off-origin URL now and is ledgered as one rather than being neutralised by luck.
+> - **R8** gave Canoe the tag name through attribute parsing, which is what the finding says it
+>   cannot do.
+> - **R9** used it. `src`/`href`/`data` on `script`, `iframe`, `object`, `embed`, `link` and `base`
+>   (`Canoe.RESOURCE_LOADING_SINKS`) route to a new `HtmlEncoder.urlResource()`, which is `url()`
+>   plus an origin filter: any value whose *encoded output* introduces an authority is rejected to
+>   the empty string, since Canoe cannot know the deploying application's own origin. A protocol-
+>   relative `//host`, an absolute `scheme://host` and the special-scheme `scheme:host` form a
+>   browser reads as an authority are all rejected; a relative reference always passes. The CDN case
+>   has `VelocityViewFactory.addTrustedResourceOrigins(...)` and the
+>   `qlue.canoe.trustedResourceOrigins` property. `UrlSinkTest.everyElementGetsTheSameEncoderForThe`
+>   `SameAttributeName` — the test this finding's review note called the one remediation has to break
+>   — is inverted to `.theTagNameNowDecidesTheEncoderForSrcAndHref`.
+>
+> **What is deliberately not fixed.** `<a href>`, `<img src>`, `<form action>`, `<button
+> formaction>`, `<video poster>`, `<a ping>`, `srcset`, `xlink:href` and the legacy URL attributes
+> keep `url()`. An off-origin link is an ordinary thing for a page to contain; a component that
+> emptied every one of them would be switched off for the attribute, which is a worse outcome than
+> the redirect. So the exploitation vector this finding opens with — `<script src="$cdnBase/app.js">`
+> — is closed, and the `<img src>` and `<a href>` sentences at the end of it are not.
+>
+> That residue is **68 corpus invocations across 26 cases**, re-verdicted by R26 from
+> `KNOWN_VULNERABLE` to a new verdict, `ACCEPTED_RESIDUAL`, with a per-case sink class recording what
+> the browser does with the value: 34 `OPEN_REDIRECT`, 6 `FORM_RETARGET`, 14 `REFERRER_LEAK`, 14
+> `INERT_SINK`. The rows still assert — the oracle observes them as live and the ledger accepts only
+> that observation, so one going quiet is a build failure — and the set is pinned so it cannot grow
+> silently. The closing addendum at the end of this document has the full accounting, including the
+> note that `FORM_RETARGET` has the weakest acceptance argument of the four and is where to start if
+> this is ever reopened.
 
 ---
 
@@ -2325,3 +2362,167 @@ item that does **not** close the script-execution finding before the one that do
 - **Browser confirmation.** Confirm F1, F2, F3 (`srcdoc`, `xlink:href`) and F4 once in a real
   browser. They all turn on character-reference decoding order in the HTML parser, which is worth
   seeing directly rather than reasoning about.
+
+---
+
+## Closing addendum — the ledger, opened and closed (R26, 2026-07-27)
+
+The remediation plan built on this review is complete through R26. This section records what moved,
+measured the same way at both ends: the corpus ledger in
+`src/test/java/com/webkreator/qlue/view/canoe/corpus/CanoeCorpus.java`, one row per (template,
+payload) invocation, each row's verdict set by reading the rendered output against the sink. The
+generated form is `build/reports/canoe/matrix.md`; the numbers below come from it.
+
+### The scoreboard
+
+| Verdict | Before (2026-07-26) | After (R26) |
+|---|---:|---:|
+| `SAFE` | 564 | 481 |
+| `KNOWN_VULNERABLE` | **281** | **0** |
+| `ACCEPTED_RESIDUAL` | — (verdict did not exist) | 68 |
+| `SUPPRESSED_BY_DESIGN` | 77 | 415 |
+| `SUPPRESSED_UNINTENDED` | 30 | 12 |
+| `REJECTED` | 44 | 36 |
+| **Total invocations** | **996** | **1,012** |
+
+`SAFE` falls and `SUPPRESSED_BY_DESIGN` rises by a great deal, and that is the shape of the fix
+rather than a loss: R5 inverted the unknown-attribute default from `html()` to suppression and R12
+made `url()` reject a scheme off its `{http, https, mailto}` allowlist, so hundreds of rows that were
+safe *because the payload happened to be inert after encoding* are now safe *because nothing is
+emitted at all*. The invocation count rises by 16 because six cases gained payload families as their
+classification changed (`url.xlink-href` widened from one family to three when it joined the URL
+group) and R19 and R20 added rows for shapes that previously could not render.
+
+### Per finding
+
+`KNOWN_VULNERABLE` invocations, from §0 of the remediation plan, against the same count today.
+
+| Finding | Before | After | Closed by | What is left |
+|---|---:|---:|---|---|
+| F3 — unrecognised URL/markup/refresh attributes | 93 | **0** | R5, R6, R7, R10 | Nothing. 21 invocations remain in the corpus, all `SUPPRESSED_BY_DESIGN`: the names R6 deliberately did not route (`imagesrcset`, `xml:base`, `archive`, `classid`, `profile`), `srcdoc`, and `meta content`. |
+| F2 — `on*` allowlist misses 76 of 94 handlers | 92 | **0** | R4 | Nothing. All 93 invocations are `SUPPRESSED_BY_DESIGN`; any name beginning `on` suppresses, and `EventHandlerMatrixTest` reads the HTML Standard's list to keep it that way. |
+| F4 — prefix scan discards the attribute's context | 38 | **0** | R2 | Nothing. 36 suppressions and 8 safe. |
+| F6 — `url()` is a scheme filter, not an origin filter | 37 | **0** | R9 (with R8, R11, R12) | **68 invocations across 26 cases, re-verdicted `ACCEPTED_RESIDUAL`.** See below — this is the only finding with anything live left, and what is live is not code execution. |
+| F5 — prefix detection reads buffer residue | 6 | **0** | R3 | Nothing. |
+| F20 — policy-bearing attributes arrive verbatim | 5 | **0** | R5 | Nothing. `sandbox`, `rel`, `integrity` and `nonce` suppress. |
+| F1 — `onselect`/`onsubmit` never classified as JS | 4 | **0** | R4 | Nothing; the dead branches went with the table. |
+| F17 — the reset defeats JS suppression too | 4 | **0** | R2 | Nothing. |
+| F19 — `onreadystatechange` never classified as JS | 2 | **0** | R4 | Nothing; the misspelt chain went with the table. |
+| **Total** | **281** | **0** | | 68 accepted residuals, all F6 |
+
+The count went *up* against F6 before it went down, and the arithmetic is worth keeping. F6 opened at
+37. R6 routed twelve more attribute names to `url()`, which closed F3's classification defect on each
+of them and handed each one F6's off-origin passthrough, so F6 peaked at 84 while F3 fell to zero.
+R9 then closed 18 of those — the six resource-loading combinations, where the response is script, a
+document or a stylesheet with the page's privileges — and R19 added two more rows for the unquoted
+shape it made renderable. What is left is 68.
+
+### The 68, and why they are not zero
+
+R9's scope decision is the whole of it, and R26 records rather than revisits it. `HtmlEncoder.url()`
+is now a correct per-component URL encoder with a scheme allowlist, and
+`HtmlEncoder.urlResource()` adds an origin filter on top of it — but only six element/attribute
+combinations use the second one. `<a href>`, `<img src>`, `<form action>` and the rest keep `url()`,
+because an off-origin link is an ordinary thing for a page to contain and a component that emptied
+every one of them would be switched off for the attribute.
+
+So the data still reaches those sinks, and the sinks are not code execution. Rather than leave 68
+rows under a heading reading "drive this to zero", R26 added a sixth verdict, `ACCEPTED_RESIDUAL`,
+and a per-case `ResidualSink` naming what the browser does with the value instead:
+
+| Residual sink | Invocations | Cases | What the attacker gets |
+|---|---:|---:|---|
+| `OPEN_REDIRECT` | 34 | 13 | A click leaves the page's origin for a document of the attacker's own — no access to this page's DOM, script or cookies. `<a href>` in ten spellings, SVG's `<a xlink:href>`, and `<img longdesc>` (see the correction below). |
+| `FORM_RETARGET` | 6 | 2 | The submission and everything the user typed into it, including a CSRF token in a hidden field. `<form action>` and `<button formaction>`. |
+| `REFERRER_LEAK` | 14 | 5 | The request only: `Referer`, client address, timing. The response is decoded as an image or discarded. `<img src>`, `<img srcset>`, `<video poster>`, `<table background>`, `<a ping>`. |
+| `INERT_SINK` | 14 | 6 | Nothing, in any shipping engine. `<img dynsrc>`, `<img lowsrc>`, `<img usemap>`, `<blockquote cite>`, `<applet codebase>`, `<html manifest>`. |
+
+Three remarks that belong in a security document rather than in a scoreboard.
+
+**`FORM_RETARGET` is the one with the weakest acceptance argument.** R9's reasoning — an off-origin
+link is ordinary — does not transfer to an off-origin form action, which is not ordinary, and an
+origin filter on `action`/`formaction` would cost far less availability than one on `href`. R26 does
+not take that decision because R9 owns the scope and R26's job was to record the residue; it is
+written down here so that whoever reopens it starts from the right end of the list.
+
+**`INERT_SINK` is inert by feature removal, not by design.** `<applet codebase>` loaded the
+attacker's classes when applets existed, and a poisoned application cache — `<html manifest>` — was
+persistent same-origin XSS when Application Cache existed. Both are dead in every current engine
+(and the manifest was required to be same-origin even when it was not), so nothing dereferences the
+value today. They are recorded as residuals rather than as `SAFE` because the ledger's subject is
+Canoe's output: the encoder let the authority through, and only the browser's disinterest stops it
+mattering.
+
+**One classification was wrong, and review corrected it.** R26 first put `<img longdesc>` under
+`INERT_SINK` on the argument that longdesc is obsolete and "ignored outright by every current
+engine". The second half is false. Gecko today exposes a `showlongdesc` default action through the
+platform accessibility API — `accessible/generic/ImageAccessible.cpp` — which is the action NVDA and
+JAWS invoke (NVDA+D) to open the description, and `browser/actors/ContextMenuChild.sys.mjs` still
+reads the attribute for the image context menu. The URL is never *fetched*, so this is not
+`REFERRER_LEAK`; it is a navigation the user reaches by acting on the element, which is
+`OPEN_REDIRECT`'s definition. It is a narrow affordance — one engine, mostly through assistive
+technology — but "how many users can reach it" is not what the class records. `<img longdesc>` is
+`OPEN_REDIRECT`, which is why the table above reads 34/13 and 14/6 rather than 32/12 and 16/7.
+
+The general lesson is worth more than the row: `INERT_SINK` is a claim about *engines*, and it is
+tempting to satisfy it by reading a specification. "Obsolete in the standard" and "dead in the
+code" are different claims, and only the second one is this class's. The other six were checked
+against engine source or spec algorithm rather than against a reputation — `lowsrc` and `longdesc`
+appear in WebCore's `HTMLImageElement::isURLAttribute`, which governs URL rewriting on
+serialisation and not loading; `usemap` is resolved by "parse a hash-name reference" and never
+fetched; `cite` reaches no UI and no accessibility tree in any engine.
+
+Apart from that reclassification, nothing in the 68 turned out to be reachable code execution when
+they were re-read one at a time against their templates and payloads. Had one been, it would have
+been a finding rather than a relabelling. Every payload that survives to one of these sinks is
+`//attacker.invalid/x.js`, `https://attacker.invalid/x.js` or its uppercase-scheme spelling: R12's
+`{http, https, mailto}` allowlist means no script-bearing scheme reaches an `<a href>` at all, so no
+`OPEN_REDIRECT` row can be a `javascript:` URL in disguise.
+
+### The other half of the ledger
+
+The plan's §0 called `SUPPRESSED_UNINTENDED` and `REJECTED` "the availability half of the work", on
+the argument that every silent drop and every 500 is a reason a developer reaches for `$_x.asis()`
+and turns Canoe off for that value. Both moved and both stopped.
+
+- **`SUPPRESSED_UNINTENDED` 30 → 12.** R7 closed F7's three (the `content`/`data` branch pair), R5
+  moved three more, and R19 closed F11's attribute-value half. The twelve that remain are four
+  templates × three payloads: a reference inside a comment body, inside a conditional comment, inside
+  an unclosed comment, and inside a DOCTYPE internal subset. They stay suppressed **deliberately**.
+  There is no encoding that is correct for those positions — a comment does not decode character
+  references, so `html()` would emit literal `&#45;` text, and the sequence that actually matters
+  (`-->`, or `>` in a DOCTYPE) has no reference the parser would honour. Suppression is fail-safe and
+  cheap, because nobody interpolates into a comment on purpose. They keep the `SUPPRESSED_UNINTENDED`
+  verdict rather than moving to `SUPPRESSED_BY_DESIGN` for one honest reason: the drop is still
+  silent. R5 added a debug diagnostic naming the attribute when the unknown-name rule drops a value,
+  and there is no equivalent for a value that vanishes inside a comment.
+- **`REJECTED` 44 → 36.** R21 made the rejection a typed, catchable `CanoeEncodingException` that
+  leaves the response replaceable instead of an unhandled 500 on a committed response, and R20 then
+  triaged the table: `<br/>`, `<hr/>`, `<img/>`, a second DOCTYPE and attribute names up to 127
+  characters render now. What still rejects is a template-authoring error — a literal `<` in prose,
+  `</ p>`, `</>`, a C0 control in the template's own text — with the reasoning for each recorded on
+  `CanoeRobustnessTest.rejections()`.
+
+### What now holds the line
+
+Three assertions, added by R26, that fail rather than degrade:
+
+1. `CanoeCorpusTest.noInvocationIsKnownVulnerable` — the count **is** zero.
+2. `MatrixReportTest.everyRowThatReachesItsSinkLiveCitesAFindingTheReviewHas` — a row recording live
+   data must cite a finding that exists in this document's own glance table, parsed from it rather
+   than restated.
+3. `CanoeCorpusTest.theAcceptedResidueIsExactlyTheListItWasPinnedTo` — the 26 residual cases, their
+   sink classes and their invocation counts are pinned, so a new residual fails the build instead of
+   joining the set, and a closed one fails it too, because the list is meant to shrink.
+
+And the property that makes the sixth verdict mean something: `VerdictEvaluator` still observes
+`KNOWN_VULNERABLE` for every residual row — it reads rendered output and cannot tell a redirect from
+an execution — and `Observation.matches()` accepts that observation against `ACCEPTED_RESIDUAL` and
+nothing else. A residual whose value stops reaching its sink goes red.
+
+### Verification at the close
+
+`./gradlew test` — 6,156 tests, 0 failures. `./gradlew canoeCoverageGate` — passing.
+`./gradlew browserTest` has run on Chromium only throughout; Firefox and WebKit are installed in this
+environment but the run hangs on one `<form action>` row, which is **R28**, and every cross-engine
+statement in this document remains a single-engine observation until it runs.

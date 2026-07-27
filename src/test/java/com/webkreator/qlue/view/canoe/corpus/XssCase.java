@@ -40,6 +40,7 @@ public final class XssCase {
     private final Map<Payload, Verdict> overrides;
     private final String finding;
     private final String note;
+    private final ResidualSink residualSink;
     private final boolean browserRelevant;
     private final Set<Payload> notBrowserObservable;
     private final Set<String> notBrowserObservableFamilies;
@@ -61,6 +62,7 @@ public final class XssCase {
         this.overrides = Collections.unmodifiableMap(new LinkedHashMap<>(builder.overrides));
         this.finding = builder.finding;
         this.note = builder.note;
+        this.residualSink = builder.residualSink;
         this.browserRelevant = builder.browserRelevant;
         this.notBrowserObservable =
                 Collections.unmodifiableSet(new LinkedHashSet<>(builder.notBrowserObservable));
@@ -107,13 +109,39 @@ public final class XssCase {
         }
 
         // A verdict with no citation is a review failure, so the corpus refuses to hold one. This is
-        // the guard that keeps the ledger from becoming a record of "whatever the code did".
-        boolean anyVulnerable = payloads.stream()
-                .anyMatch(p -> verdictFor(p) == Verdict.KNOWN_VULNERABLE);
-        if (anyVulnerable && (finding == null || finding.isEmpty())) {
+        // the guard that keeps the ledger from becoming a record of "whatever the code did". Both
+        // live verdicts are covered: an ACCEPTED_RESIDUAL row is a row where the data still reaches
+        // the sink, so it owes the same citation as the KNOWN_VULNERABLE row it was promoted from -
+        // and R26 kept every one of the 68 citations rather than letting the verdict change wash
+        // them away.
+        boolean anyLive = payloads.stream().anyMatch(p -> verdictFor(p).reachesSinkLive());
+        if (anyLive && (finding == null || finding.isEmpty())) {
             throw new IllegalArgumentException("Case " + id
-                    + " is marked KNOWN_VULNERABLE but cites no finding. Cite one from"
-                    + " CANOE-SECURITY-REVIEW-2026-07-25.md, or open a new one.");
+                    + " records attacker data reaching the sink live but cites no finding. Cite one"
+                    + " from CANOE-SECURITY-REVIEW-2026-07-25.md, or open a new one.");
+        }
+
+        // The residual sink class is required on an ACCEPTED_RESIDUAL case and forbidden anywhere
+        // else, the same way notBrowserObservable is constrained to the rows it means something on.
+        // Required, because the verdict's whole content is a claim about what the sink does and an
+        // unnamed sink is an unmade claim. Forbidden elsewhere, because a sink class on a suppressed
+        // or safe row is a residue that is not there - and the pin list in CanoeCorpusTest reads
+        // this field, so a stray one would put a case on a list it does not belong on.
+        boolean anyResidual = payloads.stream()
+                .anyMatch(p -> verdictFor(p) == Verdict.ACCEPTED_RESIDUAL);
+        if (anyResidual && residualSink == null) {
+            throw new IllegalArgumentException("Case " + id
+                    + " is marked ACCEPTED_RESIDUAL but declares no residual sink class. Say which"
+                    + " non-executing sink the data reaches - ResidualSink.OPEN_REDIRECT,"
+                    + " FORM_RETARGET, REFERRER_LEAK or INERT_SINK - by calling .residualSink(...)."
+                    + " The verdict means 'the sink is not code execution', and naming the sink is"
+                    + " what turns that from an assertion into a reviewable one.");
+        }
+        if (!anyResidual && residualSink != null) {
+            throw new IllegalArgumentException("Case " + id
+                    + " declares the residual sink class " + residualSink + " but has no"
+                    + " ACCEPTED_RESIDUAL payload. Either the verdict was lowered and the sink class"
+                    + " should go with it, or the sink class is on the wrong case.");
         }
     }
 
@@ -188,6 +216,14 @@ public final class XssCase {
     }
 
     /**
+     * Which non-executing sink this case's {@link Verdict#ACCEPTED_RESIDUAL} rows reach; null on
+     * every case that has none. See {@link ResidualSink}.
+     */
+    public ResidualSink residualSink() {
+        return residualSink;
+    }
+
+    /**
      * Whether this case participates in the browser tier at all. Which of its <em>invocations</em>
      * actually get loaded is a narrower question — see {@link Invocation#isBrowserRelevant()} — so
      * that a case with thirteen payloads, eight of them safe, does not cost thirteen page loads
@@ -212,9 +248,17 @@ public final class XssCase {
      *
      * <p>Rather than redefine the verdict for those rows — which is what the {@code legacy} note in
      * {@code CanoeCorpus} had started doing — they are flagged here, so the browser tier can expect a
-     * detector <em>miss</em> and still assert the Velocity-tier verdict unchanged. A row that is
-     * {@code KNOWN_VULNERABLE} and not browser-observable is a claim about Canoe's output with an
-     * explicit note that no engine will confirm it.
+     * detector <em>miss</em> and still assert the Velocity-tier verdict unchanged. A row that claims
+     * a live vector and is not browser-observable is a claim about Canoe's output with an explicit
+     * note that no engine will confirm it.
+     *
+     * <p>The flag is still empty after R26, and the residue it would have described is now said in
+     * a verdict instead: {@link ResidualSink#INERT_SINK} records "no engine dereferences this" as a
+     * property of the sink, on every row, rather than as an expectation of the browser tier on the
+     * rows the tier happens to load. None of the six inert cases is browser-relevant, so nothing is
+     * asked of the tier for them and no flag is needed — and neither is {@code url.longdesc}, which
+     * review moved out of that class to {@link ResidualSink#OPEN_REDIRECT}, so the correction did
+     * not change what the tier loads either.
      */
     public boolean isBrowserObservable(Payload payload) {
         return !notBrowserObservable.contains(payload)
@@ -267,17 +311,24 @@ public final class XssCase {
         }
 
         /**
-         * Whether this pairing earns a browser run. Everything ledgered {@link
-         * Verdict#KNOWN_VULNERABLE} does, because those are the entries whose verdict depends on
-         * parser behaviour rather than on Canoe's output alone. Safe pairings are loaded only as
-         * controls, one per case, so that a green browser run means the detectors stayed quiet when
-         * they should rather than that nothing was loaded.
+         * Whether this pairing earns a browser run. Everything whose verdict says the data reaches
+         * the sink live does, because those are the entries whose verdict depends on parser
+         * behaviour rather than on Canoe's output alone. Safe pairings are loaded only as controls,
+         * one per case, so that a green browser run means the detectors stayed quiet when they
+         * should rather than that nothing was loaded.
+         *
+         * <p>The test is {@link Verdict#reachesSinkLive()} and not {@code == KNOWN_VULNERABLE},
+         * which matters since R26: an {@link Verdict#ACCEPTED_RESIDUAL} row is one where the
+         * attacker's authority arrives at the sink, and a browser confirming that is exactly what
+         * keeps the acceptance honest. Reading the narrower test would have quietly dropped every
+         * residual row out of the browser tier at the moment the verdict was introduced, taking the
+         * evidence with it.
          */
         public boolean isBrowserRelevant() {
             if (!testCase.isBrowserRelevant()) {
                 return false;
             }
-            if (verdict() == Verdict.KNOWN_VULNERABLE) {
+            if (verdict().reachesSinkLive()) {
                 return true;
             }
             return isFirstSafeControlOfItsCase();
@@ -288,9 +339,14 @@ public final class XssCase {
             return testCase.isBrowserObservable(payload);
         }
 
+        /** The case's declared {@link ResidualSink}; null unless this row is a residual. */
+        public ResidualSink residualSink() {
+            return verdict() == Verdict.ACCEPTED_RESIDUAL ? testCase.residualSink() : null;
+        }
+
         private boolean isFirstSafeControlOfItsCase() {
             for (Payload candidate : testCase.payloads()) {
-                if (testCase.verdictFor(candidate) != Verdict.KNOWN_VULNERABLE) {
+                if (!testCase.verdictFor(candidate).reachesSinkLive()) {
                     return candidate.equals(payload);
                 }
             }
@@ -319,6 +375,7 @@ public final class XssCase {
         private final Map<Payload, Verdict> overrides = new LinkedHashMap<>();
         private String finding;
         private String note;
+        private ResidualSink residualSink;
         private boolean browserRelevant;
         private final Set<Payload> notBrowserObservable = new LinkedHashSet<>();
         private final Set<String> notBrowserObservableFamilies = new LinkedHashSet<>();
@@ -406,6 +463,16 @@ public final class XssCase {
 
         public Builder note(String note) {
             this.note = note;
+            return this;
+        }
+
+        /**
+         * Names the non-executing sink this case's {@link Verdict#ACCEPTED_RESIDUAL} rows reach.
+         * Required on such a case and rejected on any other; see {@link ResidualSink} and
+         * {@link XssCase#validate()}.
+         */
+        public Builder residualSink(ResidualSink residualSink) {
+            this.residualSink = residualSink;
             return this;
         }
 

@@ -210,7 +210,9 @@ public final class Payloads {
             "HTTPS://" + SENTINEL_HOST + "/x.js",
             "an uppercase scheme, which schemes being case-insensitive makes exactly as off-origin"
                     + " as its lowercase sibling. The old case-sensitive regex missed it and escaped"
-                    + " the colon by accident; R12 normalises it, so this is KNOWN_VULNERABLE/F6 now");
+                    + " the colon by accident; R12 normalises it, so it reaches the sink live under"
+                    + " F6 now - suppressed on the six resource sinks R9 origin-filters, and"
+                    + " ACCEPTED_RESIDUAL on the open-redirect and referrer sinks R9 does not");
 
     public static final Payload ABSOLUTE_OFFSITE_USERINFO = payload("ABSOLUTE_OFFSITE", "userinfo",
             "https://trusted.example@" + SENTINEL_HOST + "/x.js",

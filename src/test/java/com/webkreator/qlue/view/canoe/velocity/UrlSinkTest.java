@@ -482,21 +482,30 @@ public class UrlSinkTest {
     }
 
     /**
-     * The corpus's URL group agrees with the positional rule: every {@code KNOWN_VULNERABLE} URL row
-     * on a <em>recognised</em> attribute name is one where the reference can reach the authority.
+     * The corpus's URL group agrees with the positional rule: every URL row on a <em>recognised</em>
+     * attribute name whose verdict says the value reached the sink live is one where the reference
+     * can reach the authority.
      *
      * <p>Stated over the data rather than over behaviour, and it is the guard that stops the rule
      * above from quietly becoming false. A case added later that puts a reference in query or
-     * fragment position and ledgers it vulnerable is either a mistake or a new finding, and either
+     * fragment position and ledgers it live is either a mistake or a new finding, and either
      * way somebody has to look at it.
+     *
+     * <p>The selector is {@link Verdict#reachesSinkLive()} rather than {@code == KNOWN_VULNERABLE},
+     * and after R26 that is the difference between a test and an empty loop: all 68 rows it inspects
+     * are {@link Verdict#ACCEPTED_RESIDUAL} now. The property is about whether the payload could
+     * change the URL's <em>origin</em>, which is a question about position and not about what the
+     * element does with the result, so the wider predicate is also the right one.
      */
     @Test
     public void noRecognisedUrlCaseIsVulnerableWithoutReachingTheAuthority() {
         List<String> offenders = new ArrayList<>();
+        int inspected = 0;
         for (XssCase.Invocation invocation : urlInvocations()) {
-            if (invocation.verdict() != Verdict.KNOWN_VULNERABLE) {
+            if (!invocation.verdict().reachesSinkLive()) {
                 continue;
             }
+            inspected++;
             String template = invocation.testCase().template();
             int at = template.indexOf("$" + invocation.testCase().referenceName());
             String before = at < 0 ? "" : template.substring(0, at);
@@ -512,6 +521,16 @@ public class UrlSinkTest {
                         + " the fragment, where it cannot change the URL's origin: " + offenders
                         + "\nEither the verdict is wrong, or url() has started doing something this"
                         + " file does not model - in which case it is a new finding.");
+
+        // ...and the loop above must have had something to look at. A property over a set that has
+        // become empty is a test that cannot fail, which is what this assertion is here to notice -
+        // R26 moved every row in that set from one verdict to another, and a narrower selector would
+        // have emptied it silently.
+        assertTrue(inspected > 0,
+                "no URL row on a recognised name records the value reaching the sink live any more."
+                        + " If F6's residue has genuinely been closed that is excellent news and this"
+                        + " test should be retired with its reasoning moved; if it has not, the"
+                        + " selector above has stopped matching the ledger.");
     }
 
     // ------------------------------------------------------------------

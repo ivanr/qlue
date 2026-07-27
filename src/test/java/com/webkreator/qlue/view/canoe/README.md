@@ -10,16 +10,17 @@ Read this before you change anything here, and *especially* before you "fix" a f
 
 ## The one thing to know: a failing `KNOWN_VULNERABLE` test is good news
 
-Canoe is currently broken in ten ways an attacker who controls only data can exploit. A suite that
-asserted *desired* behaviour would be red from its first commit and useless as a regression net. A
-suite that asserted only *current* behaviour would enshrine the vulnerabilities.
+Canoe was broken in ten ways an attacker who controls only data could exploit. A suite that
+asserted *desired* behaviour would have been red from its first commit and useless as a regression
+net. A suite that asserted only *current* behaviour would have enshrined the vulnerabilities.
 
 So every case in the corpus carries an explicit, reviewed **verdict**:
 
 | Verdict | Meaning | What the test asserts |
 |---|---|---|
 | `SAFE` | Attacker data reaches the sink inert | It stays that way |
-| `KNOWN_VULNERABLE` | Attacker data reaches the sink **live** | The vulnerability is *still present*, and the case cites a finding |
+| `KNOWN_VULNERABLE` | Attacker data reaches the sink **live**, at a sink that executes | The vulnerability is *still present*, and the case cites a finding. **The count is zero and is asserted to be** (R26) |
+| `ACCEPTED_RESIDUAL` | Attacker data reaches the sink live, and the sink is **not code execution** | The data *still arrives* — the row fails when it stops. Cites a finding, names a `ResidualSink`, and is on a pinned list that may only shrink |
 | `SUPPRESSED_BY_DESIGN` | Canoe emits the empty string, and that is the intent | The suppression holds |
 | `SUPPRESSED_UNINTENDED` | Canoe emits the empty string where it should have encoded | Fail-safe, but a defect; tracked separately so the defect count can reach zero |
 | `REJECTED` | Canoe raises an encoding error | The rejection, its message and its reported position |
@@ -36,6 +37,19 @@ So every case in the corpus carries an explicit, reviewed **verdict**:
    finding; one row flipping does not close a finding with twelve.
 5. Update `CANOE-SECURITY-REVIEW-2026-07-25.md` — the finding gets a "fixed in" note — and the
    remediation list if the item is done.
+
+**The same is true of a failing `ACCEPTED_RESIDUAL` test, and for the same reason.** That verdict
+says the data still reaches a sink somebody decided is not code execution — an off-origin link, an
+off-origin image, an off-origin form action, the 68 F6 rows R9 scoped out by design. It is not a
+weaker `SAFE`: the oracle still observes `KNOWN_VULNERABLE` for those rows and `matches()` accepts
+that observation *and nothing else*, so the row goes red the day the value stops arriving. When it
+does, that is a residual closing, and the answer is to delete its line from
+`CanoeCorpusTest.PINNED_RESIDUALS` and re-verdict the case — not to widen anything.
+
+Going the other way is harder on purpose. A new `ACCEPTED_RESIDUAL` row needs a sink class, a
+finding, and a pin-list entry, and three tests fail until it has all three; the count of
+`KNOWN_VULNERABLE` rows is asserted to be **zero**, so a newly discovered live-and-executing vector
+is a build failure and a conversation rather than a table entry.
 
 The failure message on every ledger assertion says this too, at the point of failure, because
 nobody reads a README at 2am.
@@ -104,11 +118,15 @@ compiles instead of failing loudly, which is why the rule has to be a rule rathe
 of the toolchain. Javadoc prose may use typographic characters.
 `TemplateFuzzTest.everyFragmentIsPureAscii` enforces it for the generated corpus.
 
-### Every `KNOWN_VULNERABLE` case cites a finding
+### Every case whose data reaches the sink live cites a finding
 
-`XssCase` refuses to build otherwise. A verdict with no citation is a review failure, not a test
-detail: it is how a suite turns into a record of "whatever the code did". If you find something new,
-open a finding in the review document first, then cite it.
+Both live verdicts, `KNOWN_VULNERABLE` and `ACCEPTED_RESIDUAL`. `XssCase` refuses to build
+otherwise. A verdict with no citation is a review failure, not a test detail: it is how a suite
+turns into a record of "whatever the code did". If you find something new, open a finding in the
+review document first, then cite it.
+`MatrixReportTest.everyRowThatReachesItsSinkLiveCitesAFindingTheReviewHas` goes one step further and
+resolves the citation against the review's own glance table, so a renumbered or invented finding ID
+fails rather than reading plausibly.
 
 ### Cases live in the corpus, properties live in `property/`
 
@@ -171,7 +189,8 @@ promote it into `CanoeCorpus` as a permanent case unless the corpus structurally
 
 1. Add it to `CanoeCorpus`, in the method for its Appendix A section, with:
    `.section(...)`, `.template(...)`, `.sink(kind, selector, attribute)`, `.payloads(...)`,
-   `.verdict(...)`, and `.finding(...)` if any pairing is `KNOWN_VULNERABLE`.
+   `.verdict(...)`, `.finding(...)` if any pairing reaches its sink live, and `.residualSink(...)`
+   if any pairing is `ACCEPTED_RESIDUAL`.
 2. Run `./gradlew test`. `CanoeCorpusTest.ledgerMatchesObservedBehaviour` will tell you if your
    verdict disagrees with what Canoe actually does. **Do not change the verdict to match the
    observation without thinking about it** — that is how the ledger rots into a rubber stamp for
