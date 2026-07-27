@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 /**
  * The corpus, in a real browser (T28).
@@ -86,6 +87,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * engines; a tier that took the union or the intersection would report agreement it never
  * measured. Each (engine, invocation) pair is its own test, so a divergence is a named failing test
  * rather than a line in a log.
+ *
+ * <p><strong>R28 ran all three engines and found no divergence — and neither of the two vectors
+ * &sect;5.2 named could be exercised.</strong> R6 suppresses both, so {@code markup.srcdoc},
+ * {@code markup.srcdoc-whole-value} and {@code url.xlink-href} &times; {@code JS_URL/plain} render
+ * an empty attribute and are silent in every engine for a reason that has nothing to do with the
+ * engines. Read the headline accordingly: it is agreement among the rows that still emit something.
+ * What is genuinely measured on those sinks is narrower — {@code url.xlink-href}'s three off-origin
+ * rows fire identically everywhere, and {@code SinkSpecificBrowserTest} confirms per engine that a
+ * suppressed {@code srcdoc} still leaves a same-origin iframe with nothing in it. If either
+ * attribute is ever re-opened, &sect;5.2's question is open with it.
  */
 public class BrowserCorpusTest extends BrowserTestBase {
 
@@ -93,6 +104,69 @@ public class BrowserCorpusTest extends BrowserTestBase {
             Paths.get("build", "reports", "canoe-browser", "corpus-results.md");
 
     private static final List<Result> RESULTS = Collections.synchronizedList(new ArrayList<>());
+
+    private static final String FIREFOX_INSECURE_FORM_SUBMISSION =
+            "Playwright's Firefox build wedges the page when a form whose action is an OFF-LOOPBACK"
+                    + " http: URL is submitted, and emits no request, requestfailed or"
+                    + " framenavigated event for the submission - so there is no observation to"
+                    + " compare with the ledger in either direction. Measured in R28 against a real"
+                    + " page.click on the submit button as well as scripted activation, and against"
+                    + " https: to the same host (fine), a same-origin http: action (fine), a"
+                    + " cross-origin LOOPBACK http: action on another port (fine - which is why the"
+                    + " trigger is recorded as off-loopback rather than merely cross-origin, and it"
+                    + " holds whether that port answers, refuses or accepts and never replies) and"
+                    + " location.href to the identical off-loopback http: URL (fine). Not DNS:"
+                    + " http://example.com, which does resolve here, wedges too. Not Firefox's"
+                    + " HTTPS-First upgrade: dom.security.https_first, https_first_schemeless,"
+                    + " https_first_pbm and https_only_mode all off changes nothing. Not this"
+                    + " harness: reproduced against bare Playwright with no route interception, no"
+                    + " init script and no detectors wired, while Chromium and WebKit submit the"
+                    + " same markup without incident. The same sink is confirmed on Firefox by this"
+                    + " case's ABSOLUTE_OFFSITE/https and /uppercase-scheme rows, which fire.";
+
+    /**
+     * The (engine, row) pairs a browser engine cannot be asked about here, each with its cause.
+     *
+     * <p><strong>This is not a way to make a red row green.</strong> A row goes in only when the
+     * engine produces <em>no observation at all</em> — not a different one — so that there is
+     * nothing to compare against the ledger in either direction. Every entry is measured, not
+     * assumed, and {@link #everyEngineLimitationIsNarrowAndAccountedFor} pins the shape of the
+     * table so it cannot become a place to put inconvenient results.
+     *
+     * <p>R28 found exactly one such limitation, in Playwright's Firefox build. Submitting a form
+     * whose {@code action} is an <em>off-loopback {@code http:}</em> URL wedges the page: the
+     * submitting {@code page.evaluate} never returns, and Firefox emits no {@code request},
+     * {@code requestfailed} or {@code framenavigated} event for the submission — measured with a
+     * real {@code page.click} on the submit button as well as with scripted activation, so it is
+     * the submission and not the harness's way of triggering it, and reproduced against bare
+     * Playwright with none of this class's detectors wired, so it is not this harness at all.
+     *
+     * <p><strong>Off-loopback, not merely cross-origin</strong>, and the distinction is measured: a
+     * form action pointing at a second loopback server on another port is cross-origin and submits
+     * without incident, whether that port answers, refuses the connection or accepts it and never
+     * replies. {@code https:} to the same off-loopback host is fine, {@code location.href} to the
+     * identical URL is fine, and Chromium and WebKit take the same markup without incident. The two
+     * rows below are the only browser-relevant rows whose form action resolves to an off-loopback
+     * {@code http:} URL, and they resolve to one only because the sentinel server is
+     * {@code http://127.0.0.1}: the payload is {@code //attacker.invalid/x.js}, so it inherits the
+     * page's scheme. Each case's other two must-fire rows are {@code https:} and are unaffected.
+     *
+     * <p>Nothing about F6 goes unmeasured on Firefox as a result. Both cases carry
+     * {@code ABSOLUTE_OFFSITE/https} and {@code ABSOLUTE_OFFSITE/uppercase-scheme} rows against the
+     * same sink, both are {@code ACCEPTED_RESIDUAL}/{@code FORM_RETARGET}, and both fire on Firefox
+     * — an {@code https:} form action to the same unreachable host is submitted, observed and
+     * aborted at the route exactly as it is in Chromium and WebKit. What the two rows below would
+     * have added on Firefox is that the scheme-relative spelling reaches the same sink, and that is
+     * what is lost.
+     */
+    static final Map<BrowserEngine, Map<String, String>> ENGINE_LIMITATIONS = Map.of(
+            BrowserEngine.FIREFOX, Map.of(
+                    "url.action / PROTOCOL_RELATIVE/slashes", FIREFOX_INSECURE_FORM_SUBMISSION,
+                    "url.formaction / PROTOCOL_RELATIVE/slashes",
+                    FIREFOX_INSECURE_FORM_SUBMISSION));
+
+    private static final List<String> LIMITATIONS_APPLIED =
+            Collections.synchronizedList(new ArrayList<>());
 
     static List<BrowserEngine> engines() {
         return engineArgumentsOrSkipMarker();
@@ -117,6 +191,12 @@ public class BrowserCorpusTest extends BrowserTestBase {
     @ParameterizedTest(name = "{0} {1}")
     @MethodSource("browserInvocations")
     public void theBrowserAgreesWithTheLedger(BrowserEngine engine, XssCase.Invocation invocation) {
+        String limitation = limitationFor(engine, invocation);
+        if (limitation != null) {
+            LIMITATIONS_APPLIED.add(engine + " / " + invocation);
+            abort(engine + " cannot be asked about '" + invocation + "': " + limitation);
+        }
+
         CanoeTestSupport.RenderResult rendered =
                 VerdictEvaluator.render(invocation.testCase(), invocation.payload().value());
         assertFalse(rendered.isError(),
@@ -243,10 +323,20 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * {@link Verdict#reachesSinkLive()}, so the same pages load and the same detectors are expected
      * to fire. If any of these four numbers moves with R26, something read the narrower predicate.
      *
-     * <p><strong>Unverified.</strong> R26 could not run this tier: {@code browserTest} hangs in this
-     * environment on {@code FIREFOX url.action / JS_URL/plain}, the known interaction R28 owns. The
-     * four figures above were recomputed from the corpus rather than from a run, and the changes to
-     * this file are compile-checked only. R28 is where they are confirmed.
+     * <p><strong>R26's figures were verified by R28's first run and they were right</strong>:
+     * 65/19/46/0, measured rather than recomputed, on Chromium, Firefox and WebKit. That is what
+     * R26 left unverified — {@code browserTest} could not complete in this environment until R28
+     * bounded it — and nothing had read the narrower predicate.
+     *
+     * <p>R28 then moves it to <strong>67/19/48/0</strong>, and only the two counts that describe
+     * <em>silence</em> move. The task closed the coverage gap Appendix A &sect;A.3 had recorded
+     * since T15 by adding the SVG animation handlers {@code onbegin} and {@code onrepeat}; both are
+     * {@code SUPPRESSED_BY_DESIGN} like every other handler since R4, so each contributes one safe
+     * control and nothing to the must-fire count. They are loaded rather than left to the Velocity
+     * tier because SMIL starts on load: an SVG animation handler fires with no user interaction in
+     * all three engines, which makes these two of the cheapest suppressed handlers in the corpus to
+     * demonstrate and two of the few where "no detector fired" means the sink was reached and
+     * refused rather than never reached.
      */
     @Test
     public void theBrowserRelevantSubsetIsTheSizeTheCorpusClaims() {
@@ -259,10 +349,75 @@ public class BrowserCorpusTest extends BrowserTestBase {
                 .count();
         long quiet = invocations.size() - mustFire;
 
-        assertEquals(65, invocations.size(), "browser-relevant invocation count");
+        assertEquals(67, invocations.size(), "browser-relevant invocation count");
         assertEquals(0, unobservable, "invocations flagged as not browser-observable");
         assertEquals(19, mustFire, "invocations that must trip a detector");
-        assertEquals(46, quiet, "invocations that must trip none");
+        assertEquals(48, quiet, "invocations that must trip none");
+    }
+
+    private static String limitationFor(BrowserEngine engine, XssCase.Invocation invocation) {
+        return ENGINE_LIMITATIONS.getOrDefault(engine, Map.of()).get(invocation.toString());
+    }
+
+    /**
+     * The guard on {@link #ENGINE_LIMITATIONS}: it stays small, it stays explained, and every entry
+     * still names a row this tier actually loads.
+     *
+     * <p>An escape hatch with no guard is a place to put failures. Four things are asserted. The
+     * count is pinned, so widening the table is a deliberate edit to this number rather than a
+     * quiet addition. Every entry names a real browser-relevant invocation, so a corpus rename
+     * turns into a failure here instead of into a silently ineffective exemption — which would
+     * otherwise read as "the row runs everywhere" while the row it was meant to cover had gone. And
+     * every reason is long enough to be a reason: the cause, and what was measured to establish it.
+     *
+     * <p>The fourth is the one that keeps the table honest about <em>consequences</em> rather than
+     * about its own shape. <strong>An excused row may not be the only thing measuring its case's
+     * sink on that engine.</strong> The whole argument for excusing these two is that the sink is
+     * reached anyway — {@code url.action} and {@code url.formaction} each carry two {@code https:}
+     * must-fire rows against the same {@code FORM_RETARGET} sink, and those do fire on Firefox — so
+     * that argument is asserted here instead of being left in prose that nothing checks. If the
+     * sibling rows were ever dropped, re-verdicted or excused as well, the exemption would quietly
+     * become "Firefox does not measure this sink at all", which is the thing it claims not to be.
+     */
+    @Test
+    public void everyEngineLimitationIsNarrowAndAccountedFor() {
+        List<XssCase.Invocation> invocations = CanoeCorpus.browserInvocations();
+        List<String> known = invocations.stream()
+                .map(Object::toString)
+                .collect(Collectors.toList());
+
+        long entries = ENGINE_LIMITATIONS.values().stream().mapToLong(Map::size).sum();
+        assertEquals(2, entries,
+                "the number of (engine, row) pairs excused from the browser tier. Raising it means"
+                        + " another engine cannot be measured somewhere; say why in the entry.");
+
+        ENGINE_LIMITATIONS.forEach((engine, rows) -> rows.forEach((row, reason) -> {
+            assertTrue(known.contains(row),
+                    "the limitation for " + engine + " names '" + row + "', which is not a"
+                            + " browser-relevant invocation. Either the corpus renamed it - in which"
+                            + " case the exemption has been silently inactive - or it was never"
+                            + " loaded here.");
+            assertTrue(reason.length() > 200,
+                    engine + " / " + row + " is excused with a reason too short to be one: "
+                            + reason);
+
+            XssCase.Invocation excused = invocations.stream()
+                    .filter(i -> i.toString().equals(row))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("unreachable: " + row));
+            List<String> stillMeasured = invocations.stream()
+                    .filter(i -> i.testCase().id().equals(excused.testCase().id()))
+                    .filter(i -> i.verdict().reachesSinkLive() && i.isBrowserObservable())
+                    .filter(i -> limitationFor(engine, i) == null)
+                    .map(Object::toString)
+                    .collect(Collectors.toList());
+            assertTrue(!stillMeasured.isEmpty(),
+                    "excusing '" + row + "' on " + engine + " leaves that case with no row this"
+                            + " engine is asked to fire, so " + engine + " no longer measures the"
+                            + " sink at all. An exemption is only narrow while a sibling row still"
+                            + " reaches the same sink on the same engine; either restore one or"
+                            + " stop calling this a narrow limitation.");
+        }));
     }
 
     @AfterAll
@@ -275,7 +430,11 @@ public class BrowserCorpusTest extends BrowserTestBase {
 
         StringBuilder sb = new StringBuilder();
         sb.append("# Canoe browser tier — corpus results\n\n");
-        sb.append("Engines that ran: ").append(enginesThatRan()).append("\n\n");
+        sb.append("Engines that ran:\n\n");
+        for (BrowserEngine engine : enginesThatRan()) {
+            sb.append("- **").append(engine).append("** ").append(versionOf(engine)).append('\n');
+        }
+        sb.append('\n');
         for (BrowserEngine engine : BrowserEngine.values()) {
             if (!enginesThatRan().contains(engine)) {
                 sb.append("- **").append(engine).append("** did not run: ")
@@ -283,6 +442,16 @@ public class BrowserCorpusTest extends BrowserTestBase {
             }
         }
         sb.append('\n');
+
+        if (!LIMITATIONS_APPLIED.isEmpty()) {
+            sb.append("## Rows an engine could not be asked about\n\n");
+            List<String> applied = new ArrayList<>(LIMITATIONS_APPLIED);
+            Collections.sort(applied);
+            for (String entry : applied) {
+                sb.append("- `").append(entry).append("`\n");
+            }
+            sb.append('\n').append(FIREFOX_INSECURE_FORM_SUBMISSION).append("\n\n");
+        }
 
         for (Map.Entry<BrowserEngine, List<Result>> entry : byEngine.entrySet()) {
             sb.append("## ").append(entry.getKey()).append("\n\n");

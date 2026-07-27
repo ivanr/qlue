@@ -1662,7 +1662,9 @@ them.
   wall-clock including JaCoCo and the fuzz run.
 - **155 tests** in `./gradlew browserTest`, about two minutes, Chromium only in this environment —
   Firefox and WebKit skip with the reason attached, so everything §5.2 says about cross-engine
-  divergence remains **unmeasured**.
+  divergence remains **unmeasured**. *(This whole section is the snapshot at the end of the test
+  plan, before any remediation; it is left as it was written. The browser tier is 270 tests on three
+  engines since R28 — see "What is still missing" below and §6 of `REMEDIATION-PLAN.md`.)*
 - **275 corpus cases / 996 invocations**, of which **281 are `KNOWN_VULNERABLE`** across 150 cases.
   That is the number to drive to zero, and `build/reports/canoe/matrix.md` is where it is kept.
 - **Branch coverage of `Canoe.java` at 94.69% and `HtmlEncoder.java` at 99.42%** — 100% of the
@@ -1671,14 +1673,21 @@ them.
 
 ### What is still missing
 
-- **Cross-engine divergence is unmeasured.** One engine ran. Three of the four
-  `notBrowserObservable` flag groups are single-engine observations — defensible ones, but
-  observations from one engine.
-- **F20's `nonce` row has no browser demonstration**, because it needs a template with an author
-  nonce and a Content-Security-Policy, and serving one would be the browser tier editing the
-  document under test.
-- **§A.3 has a real gap**: `onbegin` and `onrepeat`, the SVG animation siblings of `onend`, are in
-  neither the corpus nor the exclusions.
+- ~~**Cross-engine divergence is unmeasured.**~~ **Measured by R28**: Chromium, Firefox and WebKit
+  all ran the whole tier, and the 65 rows measurable on all three produced byte-identical detector
+  output. The `notBrowserObservable` axis is empty since Phase A, so no flag group rests on a
+  single-engine observation any more. Two rows cannot be asked of Firefox and say so by name; see
+  `BrowserCorpusTest.ENGINE_LIMITATIONS`. **With one qualification that outlives the bullet:** the
+  two vectors §5.2 named as engine-sensitive, `xlink:href` and `srcdoc`, are both suppressed since
+  R6, so their premise could not be exercised and their cross-engine agreement is agreement about
+  silence. "No divergence" means no divergence among the rows that still emit something.
+- ~~**F20's `nonce` row has no browser demonstration.**~~ **Built by R28**:
+  `SinkSpecificBrowserTest.aSuppressedNonceCannotSatisfyACspThatAChosenNonceWould` serves a real
+  `script-src 'nonce-…'` policy naming the *author's* nonce, shows the author's script admitted,
+  shows a hand-written script carrying the same nonce admitted (F20's mechanism, and the
+  calibration), and shows Canoe's rendered `nonce=""` refused. The header is on the response and not
+  in the document, and only that one test can ask for it.
+- ~~**§A.3 has a real gap**: `onbegin` and `onrepeat`.~~ **Closed by R28**; see §A.3.
 - **The fuzzer's grammar is a grammar somebody wrote.** It removes the choosing of *shapes*, not the
   choosing of *vocabulary*. F24 came out of it on the first run; a second mechanism reachable only
   from a construct not in `HOSTS` or `NOISE` would not.
@@ -1736,11 +1745,17 @@ same reason the defect exists: they counted the handlers somebody thought of. Th
 replaced it was wrong for a subtler version of the same reason — the checked-in list it was measured
 against had been transcribed from the wrong section of the standard. See §0.11 and §0.12.
 
-**Known gap.** SVG animation event attributes are absent except for `onend`, which Canoe happens to
-recognise. `onbegin` and `onrepeat` are defined by the same SVG 1.1 section, take the same
-`ATTR_HTML` fall-through, and have no case here and no entry in the resource file's exclusion list.
-Recorded rather than quietly closed, because a completeness guard is only as complete as the list it
-reads.
+**Gap closed by R28.** SVG animation event attributes were absent except for `onend`, which Canoe
+happened to recognise: `onbegin` and `onrepeat` are defined by the same SVG 1.1 section (§19, on
+`<animate>`, `<set>`, `<animateMotion>` and `<animateTransform>`), take the same `ATTR_HTML`
+fall-through, and had no case here and no entry in the resource file's exclusion list. R28 adds
+`handler.onbegin` and `handler.onrepeat`, each on a real SMIL animation so the sink can actually fire
+— `onbegin` dispatches on load with no user interaction, `onrepeat` on every repetition after the
+first — and each an entry in the resource file's exclusion list saying why the name is out of scope
+for a list derived from the HTML Standard and in scope for the corpus anyway. §A.3 is 118 cases.
+The gap was worth recording rather than quietly closing for the reason that made it a gap: a
+completeness guard is only as complete as the list it reads, and "not in the standard's list" is not
+"not worth a case".
 
 ### A.4 Attribute value prefixes (~45 cases)
 

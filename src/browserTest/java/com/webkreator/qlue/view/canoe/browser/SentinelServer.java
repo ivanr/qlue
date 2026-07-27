@@ -102,6 +102,7 @@ public final class SentinelServer implements AutoCloseable {
     private final ExecutorService executor;
     private final String origin;
     private final Map<String, String> cases = new ConcurrentHashMap<>();
+    private final Map<String, String> casePolicies = new ConcurrentHashMap<>();
     private final List<LoggedRequest> log = new CopyOnWriteArrayList<>();
     private final AtomicLong sequence = new AtomicLong();
 
@@ -159,8 +160,32 @@ public final class SentinelServer implements AutoCloseable {
      * served from the browser's cache and cannot have its two request logs confused.
      */
     public String publish(String id, String html) {
+        return publish(id, html, null);
+    }
+
+    /**
+     * Publishes rendered HTML under a {@code Content-Security-Policy} response header (R28).
+     *
+     * <p>Only one test needs this and it needs it for a reason worth stating, because a browser tier
+     * that adds headers to the document under test is editing the thing it is measuring. F20's
+     * {@code nonce} row is the one finding in the review with no browser evidence either before or
+     * after the fix, and it cannot have any without a policy: a {@code nonce} attribute does nothing
+     * at all unless the response carries a CSP naming one. The header served here names the
+     * <em>author's</em> nonce — a value the attacker never sees and the corpus never renders — so
+     * the policy is the page author's, as it would be in production, and not a policy written around
+     * the attacker's payload. Assuming the conclusion would be a header naming the attacker's nonce;
+     * this is the opposite.
+     *
+     * <p>Deliberately not reachable from the corpus tier. {@link BrowserCorpusTest} publishes with
+     * the no-header form, so every one of the 67 corpus rows is still served exactly as Canoe
+     * rendered it.
+     */
+    public String publish(String id, String html, String contentSecurityPolicy) {
         String slug = sanitise(id) + "-" + sequence.incrementAndGet();
         cases.put(slug, html);
+        if (contentSecurityPolicy != null) {
+            casePolicies.put(slug, contentSecurityPolicy);
+        }
         return url(CASE_PREFIX + slug);
     }
 
@@ -196,11 +221,16 @@ public final class SentinelServer implements AutoCloseable {
 
         try {
             if (path.startsWith(CASE_PREFIX)) {
-                String body = cases.get(path.substring(CASE_PREFIX.length()));
+                String slug = path.substring(CASE_PREFIX.length());
+                String body = cases.get(slug);
                 if (body == null) {
                     respond(exchange, 404, "text/plain; charset=UTF-8",
                             "no such case".getBytes(StandardCharsets.UTF_8));
                 } else {
+                    String policy = casePolicies.get(slug);
+                    if (policy != null) {
+                        exchange.getResponseHeaders().set("Content-Security-Policy", policy);
+                    }
                     respond(exchange, 200, View.CONTENT_TYPE_TEXT_HTML_UTF8,
                             body.getBytes(StandardCharsets.UTF_8));
                 }

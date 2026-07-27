@@ -9,17 +9,17 @@
 
 ## 0. Where things stand
 
-**As of R27 (2026-07-27): every task through R27 has landed, the ledger is closed and the coverage
-gate is reconciled.** R28 (three-engine browser run) is what remains.
+**As of R28 (2026-07-27): every task in this plan has landed.** The ledger is closed, the coverage
+gate is reconciled, and the browser tier has run on three engines.
 
 | Check | Result |
 |---|---|
-| `./gradlew test` | **BUILD SUCCESSFUL** — 6,159 tests, 0 failures, 0 errors, 0 skipped |
+| `./gradlew test` | **BUILD SUCCESSFUL** — 6,175 tests, 0 failures, 0 errors, 0 skipped |
 | `./gradlew canoeCoverageGate` | **passing** — thirteen floors, each one branch outcome below its measurement, each seen to fail when that outcome goes (R27) |
 | `./gradlew build` | **BUILD SUCCESSFUL** from a clean `build/`; the gate runs as part of `check` |
-| `./gradlew browserTest` | not run since R20 — hangs on `FIREFOX url.action / JS_URL/plain` in this environment, which is R28's to fix; Chromium-only runs were green through R19 |
+| `./gradlew browserTest` | **268 passed, 2 skipped, 0 failed** on Chromium 149.0.7827.0, Firefox 151.0 and WebKit 26.5 (R28). The two skips are the only (engine, row) pairs an engine cannot be asked about, each carrying its measured cause |
 | Findings in the review | 24, of which **none is a live code-execution vector**; F6's open-redirect/referrer residue is accepted with reasoning recorded (see the closing addendum in the review) |
-| Corpus ledger | 1,012 invocations across 279 cases: 481 `SAFE`, **0 `KNOWN_VULNERABLE`**, 68 `ACCEPTED_RESIDUAL`, 415 `SUPPRESSED_BY_DESIGN`, 12 `SUPPRESSED_UNINTENDED`, 36 `REJECTED` |
+| Corpus ledger | 1,014 invocations across 281 cases: 481 `SAFE`, **0 `KNOWN_VULNERABLE`**, 68 `ACCEPTED_RESIDUAL`, 417 `SUPPRESSED_BY_DESIGN`, 12 `SUPPRESSED_UNINTENDED`, 36 `REJECTED` |
 
 The rest of this section is the state the plan **started** from, kept because every task's landed
 note is written as a delta against it.
@@ -473,7 +473,7 @@ open-redirect/referrer/fetch-not-code surfaces** — `a href` (27), `img src`, `
 `table background`, `img dynsrc`/`lowsrc`, `a xlink:href`, `applet codebase`, `html manifest` — which
 R9 scopes out by design. This is a residual, not a defect: it is an open redirect and a referrer leak,
 not XSS, and it stays `KNOWN_VULNERABLE` citing F6 for the record, tracked by **R26** (drive the
-ledger to zero / decide the acceptable residue) and re-confirmed cross-engine by **R28**.
+ledger to zero / decide the acceptable residue) and re-confirmed cross-engine by **R28 ✅**.
 **R26 has since settled it:** the residue — 68 invocations by then, R19 having added two — carries
 `ACCEPTED_RESIDUAL` and a per-case `ResidualSink`, and R26's landed note has the split. `<meta
 http-equiv=refresh content>` (a forced navigation) is **R10**, still suppressed.
@@ -558,7 +558,9 @@ the application has itself validated), not silent interpolation. The reasoning i
 `Canoe.URL_ATTRIBUTE_NAMES`' javadoc (the `content` bullet) and on the `tagName` field, which notes
 that R10 considered reading it and deliberately did not.
 
-**R28 note.** The refresh row turns on character-reference decoding in a real HTML parser — a browser
+**R28 note — discharged.** R28 ran the row on all three engines and it is empty in every one, so the
+regression witness this note asked for exists. The reasoning it recorded, kept because it is what
+decides the row: the refresh row turns on character-reference decoding in a real HTML parser — a browser
 decodes the `content` value's entities before reading `N; url=`, which is exactly the asymmetry F3
 exploited. Because the decision is *suppression*, there is no encoded output for that decoding to act
 on: the value is empty in every engine, so R28's cross-engine concern (which is about how Firefox and
@@ -655,6 +657,8 @@ short-circuit outcome in `appendHierPart()`'s fragment guard); `Canoe` untouched
 browser tier re-verified on Chromium (100 tests, 0 failures, 2 skipped — Firefox and WebKit are not
 installed here). **What remains:** R9 (reject off-origin/protocol-relative URLs in resource-loading
 sinks, which needs the tag name from R8) closes the F6 rows; R28 re-confirms across Firefox and WebKit.
+**Both have since landed, and R28's re-confirmation is in its own note: the residual F6 rows fire
+identically in all three engines.**
 
 The private worker at `HtmlEncoder.java:206-231` allows `a-z A-Z 0-9 / . - # ? =`, percent-escapes a
 Java `char` directly for anything up to 255, and substitutes a literal `?` above that. Five ordinary
@@ -1798,7 +1802,8 @@ package-private; the tests themselves are in the canoe tree.
    `System.err`. That is a `build.gradle` change, which R27 owns, for a weaker assertion than the
    pair now in place. **R27 declined it**, on this reasoning; see its note.
 3. **The cross-engine caveat is stated as a limitation rather than a result**, because R28 has not
-   run. The guide says the browser tier has so far run against one engine.
+   run. The guide says the browser tier has so far run against one engine. **R28 has since run it
+   and rewritten the bullet**: three engines, and they agree.
 
 *Ledger:* **unchanged**, re-tallied rather than assumed from `build/reports/canoe/matrix.csv` — 1,012
 invocations, SAFE 481, KNOWN_VULNERABLE 68, SUPPRESSED_BY_DESIGN 415, SUPPRESSED_UNINTENDED 12,
@@ -2101,8 +2106,102 @@ test would close it. ✅
 
 ---
 
-**R28 — Re-confirm in a browser, on more than one engine**
+**R28 — Re-confirm in a browser, on more than one engine** — ✅ **DONE**
 *Closes:* verification. *Depends on:* Phases A–C.
+*Landed:* the browser tier runs on **Chromium 149.0.7827.0, Firefox 151.0 and WebKit 26.5** — the
+`chromium-1228`, `firefox-1532` and `webkit-2311` revisions Playwright Java 1.61.0 asks for, read
+from the running browser rather than from the install directory, which also holds a newer
+Playwright's builds. **268 passed, 2 skipped, 0 failed.** `EngineRosterTest` reports three engines
+and each one's version.
+
+**No cross-engine divergence.** Of the 67 browser-relevant rows, the 65 every engine could be asked
+about produced *byte-identical* results — not the same pass/fail, the same detector with the same URL
+in it. That covers every row this task named: F1/F2/F19's eleven handler rows, F3's `srcdoc` and
+`xlink:href`, F4 and F23's CSS rows, and R10's meta-refresh row, which is **empty in every engine** —
+R10's own R28 note discharged, since a suppressed value gives a character-reference decoder nothing
+to act on and no engine's decoding order can matter. The nineteen F6 residual rows fire in every
+engine that can be asked — nineteen in Chromium and WebKit, seventeen in Firefox, which is the two
+excused rows and nothing else — and that is what the acceptance in R26 rests on.
+
+**The hang was diagnosed and it was not what it looked like.** It is not a `javascript:` form action
+and not `url.action / JS_URL/plain` — that row was simply the last one Gradle *printed*, because
+`testLogging` reports a test when it finishes. The wedge is the **next** row,
+`url.action / PROTOCOL_RELATIVE/slashes`, and the trigger is narrower and stranger: Playwright's
+Firefox build wedges the page when a form whose `action` is an **off-loopback `http:` URL** is
+submitted. The submitting `page.evaluate` never returns and Firefox emits no `request`,
+`requestfailed` or `framenavigated` event for the submission. Measured: `https:` to the same
+unreachable host is fine, a same-origin `http:` action is fine, a **cross-origin loopback** `http:`
+action on another port is fine — whether that port answers, refuses the connection or accepts it and
+never replies, which is what narrows the trigger from "cross-origin" to "off-loopback" —
+`location.href =` to the identical URL is fine, and a real `page.click` on a submit button wedges it
+exactly as scripted activation does, so it is the submission and not the way the harness triggers
+it. Bare Playwright with no route interception and no detectors wired reproduces it, so it is not
+this harness; Chromium and WebKit take the same markup without incident. DNS resolvability is
+irrelevant (`http://example.com` resolves here and wedges too), and none of
+`dom.security.https_first*`, `fission.autostart` or `network.predictor.enabled` changes it.
+
+**Two properties of the wedge shaped the fix.** `setDefaultTimeout` does **not** bound
+`page.evaluate` — Playwright's evaluate takes no timeout and parks in the driver connection with no
+deadline — and the wedge is per *page*, not per connection: `context.close()`, `browser.newContext()`
+and a fresh page all still work from another thread afterwards. So every case now runs on a
+disposable daemon worker thread under a 60-second budget. A wedged engine produces a **named
+failure** — the engine, the case, and the thread to take a dump of — rather than silence, and the run
+carries on. The context's default operation and navigation timeouts are set too, and the class
+javadoc says why they are the braces and not the belt.
+
+**Two rows cannot be asked of Firefox, and the corpus now says so by name.**
+`BrowserCorpusTest.ENGINE_LIMITATIONS` carries `url.action` and `url.formaction` ×
+`PROTOCOL_RELATIVE/slashes` for `FIREFOX` with the measured cause attached; they abort with that
+reason rather than passing quietly, appear in the generated report under their own heading, and
+`everyEngineLimitationIsNarrowAndAccountedFor` pins the table to two entries, requires each to name a
+row the tier actually loads, requires each reason to be long enough to be one, and — the assertion
+that guards the *consequence* rather than the table's shape — requires each excused row's case to
+keep at least one must-fire row that the same engine is still asked about. The bar for an entry is
+that the engine produces **no observation at all** — not a different one — so there is nothing to
+compare with the ledger in either direction. Nothing about F6 goes unmeasured on Firefox as a
+result: both cases' `ABSOLUTE_OFFSITE/https` and `/uppercase-scheme` rows target the same sink, are
+the same `ACCEPTED_RESIDUAL`/`FORM_RETARGET`, and fire on Firefox — and that is now asserted rather
+than only written down, so dropping or re-verdicting the sibling rows fails the guard instead of
+quietly turning the exemption into "Firefox does not measure this sink". What is lost is
+confirmation that the *scheme-relative spelling* reaches it, and the two rows are protocol-relative
+only because the sentinel server is `http://127.0.0.1`.
+
+**R26's budget was right.** The first three-engine run measured **65/19/46/0** — the figures R26
+recomputed from the corpus and could not run — so nothing had read the narrower predicate. R28 then
+moves it to **67/19/48/0** by closing §A.3's gap; only the two counts that describe silence move.
+
+**Both known gaps are closed.**
+*F20's `nonce` row now has a browser demonstration.*
+`SinkSpecificBrowserTest.aSuppressedNonceCannotSatisfyACspThatAChosenNonceWould` serves three
+documents under a real `script-src 'nonce-<author>'` header naming the **author's** nonce: the
+author's own nonced script runs; the corpus template with the author's nonce where the reference is —
+byte for byte what Canoe emitted before R5, since `html()` passes a nonce through verbatim — is
+**admitted** and its script fetched; and Canoe's render, carrying `nonce=""`, is **refused**. The
+second document is what makes it a demonstration rather than a tautology, and the policy names the
+author's nonce and never the attacker's, so it is the page author's policy rather than one written
+around the payload. `SentinelServer.publish(id, html, csp)` is the only way to put a header on a
+document under test, it is used by this one test, and its javadoc says why a browser tier is
+otherwise not allowed to.
+*§A.3 has `onbegin` and `onrepeat`.* Both on a real SMIL animation, so the sink can fire, and
+`SinkSpecificBrowserTest.anSvgAnimationHandlerCanFireAndTheRenderedOneDoesNot` asserts in all three
+engines that a hand-written handler on the corpus's own template **does** fire — `onbegin` on load
+with no interaction, `onrepeat` on the second repetition — and that Canoe's render does not. Without
+that pair the two rows would be decoration: a suppressed row's silence is only evidence once
+something has been shown able to make a noise in the same engine. The resource file's exclusion list
+gains an entry saying why the names are out of scope for a list derived from the HTML Standard and in
+scope for the corpus anyway.
+
+*Ledger:* **1,012 → 1,014 invocations across 279 → 281 cases**; `SUPPRESSED_BY_DESIGN` 415 → **417**,
+every other verdict unchanged, `KNOWN_VULNERABLE` still **0**. §A.3 is 118 cases and
+`EventHandlerMatrixTest`'s partition is 118 rows over 117 names.
+*Verification:* `./gradlew test` — **6,175 tests**, 0 failures; `./gradlew canoeCoverageGate` —
+passing, no floor moved (the two new cases add corpus rows, not source branches); `./gradlew
+browserTest` — 268 passed, 2 skipped, 0 failed, on three engines.
+
+**No change to `src/main`, and no Canoe defect surfaced.** Every engine agreed with the ledger
+everywhere it could be asked.
+
+The task as originally written follows.
 
 The browser tier ran here with Chromium only; Firefox and WebKit skipped with the reason attached, so
 everything the plan says about cross-engine divergence is **unmeasured**. Install the other two
@@ -2124,7 +2223,10 @@ different numbers, the cause is a predicate somewhere reading the narrower test.
 is an `ACCEPTED_RESIDUAL` one, so what R28 is really confirming for them is that a real engine still
 fetches or navigates to the attacker's origin, which is the evidence the acceptance rests on.
 
-**Observed while running R20's gates, and worth having before R28 starts.** The other two engines are
+**Observed while running R20's gates, and worth having before R28 starts.** *(The attribution in
+this paragraph is wrong, and R28's landed note above has the correction: the hanging row is the one
+after the one named here, and the trigger is an off-loopback `http:` form action rather than a
+`javascript:` one.)* The other two engines are
 *not* missing here any more: `PLAYWRIGHT_BROWSERS_PATH=/opt/playwright` holds `firefox-1532`,
 `firefox-1538`, `webkit-2311` and `webkit-2336` alongside the Chromium builds, and with that variable
 exported `browserTest` launches Firefox and runs the corpus against it — the first ~100 assertions
@@ -2149,7 +2251,7 @@ figure in this plan was measured in: 91 passed, 2 skipped.
 | F3 — URL/markup/refresh attributes unrecognised | Critical | R5, R6, R7, R10 |
 | F4 — prefix scan discards the name-derived context | High | R2 |
 | F5 — prefix detection reads buffer residue | High | R3 |
-| F6 — `url()` is a scheme filter, not an origin filter | High | R9 (with R8, R11, R12) closes the code-execution half ✅; the open-redirect/form-retarget/referrer/inert residue on `a href`, `img src`, `form action` and the rest is **accepted by design** — R26 ✅ re-verdicts all 68 invocations to `ACCEPTED_RESIDUAL` with a declared `ResidualSink`, keeps every citation, and pins the set to a list that may only shrink. R28 re-confirms cross-engine |
+| F6 — `url()` is a scheme filter, not an origin filter | High | R9 (with R8, R11, R12) closes the code-execution half ✅; the open-redirect/form-retarget/referrer/inert residue on `a href`, `img src`, `form action` and the rest is **accepted by design** — R26 ✅ re-verdicts all 68 invocations to `ACCEPTED_RESIDUAL` with a declared `ResidualSink`, keeps every citation, and pins the set to a list that may only shrink. **R28 ✅ re-confirmed it cross-engine**: the nineteen browser-relevant residual rows fire in Chromium, Firefox and WebKit alike (seventeen in Firefox, the two excused rows apart), so a real engine does still fetch from or navigate to the attacker's origin — the evidence the acceptance rests on |
 | F7 — `content` branch tests for `data` | Medium | R7 |
 | F8 — no tests, no docs, no threat model | Medium | R25 ✅ (`README.md` and `qlue_user_guide.md` rewritten against the fixed component: the unrecognised-name default inverted from "plain text" to "suppressed", five URL names corrected to seventeen plus R9's six resource sinks, the `on*` prefix rule, `style` suppressed past the colon, `data` moved to the URL set, `url()`'s scheme allowlist, both escape hatches with their refusal rules, the DEBUG diagnostic, R19's unquoted residual and R24's `asis()` consequence, and an unhedged "not covered" list headed by the F6 residue; four tests written for the claims nothing asserted); tests and threat model already delivered |
 | F9 — `write(char[],int,int)` length/end confusion | Low (latent) | R15 |
@@ -2186,8 +2288,9 @@ used it to origin-filter the six resource-loading sinks — the code-execution h
 invocations left are F6 on surfaces R9 declined to filter, because an off-origin link is an ordinary
 thing for a page to contain; they carry `ACCEPTED_RESIDUAL` and a `ResidualSink` naming what the
 browser does with the value instead, and they still fail if the value stops arriving. **Every finding
-in the review is now closed or accepted with its reasoning recorded**, and what is left of the plan
-is cross-engine confirmation (R28); R27's build hygiene has landed.
+in the review is now closed or accepted with its reasoning recorded**, R27's build hygiene has
+landed, and R28 has confirmed the whole browser tier on three engines with no divergence between
+them. **Nothing is left of the plan.**
 
 ---
 
@@ -2225,7 +2328,7 @@ R25 documentation
 R26 ledger to zero + CI guard        <- done; KNOWN_VULNERABLE is 0
 -------------------------------------------- the ledger is closed here
 R27 coverage gate                       <- done; thirteen floors, each one outcome above red
-R28 browser re-confirmation
+R28 browser re-confirmation           <- done; three engines, no divergence
 ```
 
 ---
@@ -2276,8 +2379,39 @@ fold into a task above.
 
 ## 6. What this plan does not address
 
-- **Cross-engine browser divergence.** One engine has ever run against this component. R28 opens it;
-  until then every browser-tier conclusion is a single-engine observation.
+- ~~**Cross-engine browser divergence.**~~ **Measured by R28, and there is none.** Chromium
+  149.0.7827.0, Firefox 151.0 and WebKit 26.5 each ran the whole browser tier; of the 67
+  browser-relevant corpus rows, the 65 every engine could be asked about produced byte-identical
+  results — the same detector, with the same URL in it — and the bespoke sink tests pass on all
+  three. What this bullet becomes is narrower and worth keeping:
+  - **"No divergence" is a statement about the rows that still emit something**, and that is the
+    qualification the headline needs most. §5.2 of `PLAN.md` named `xlink:href` and `srcdoc` as the
+    two vectors expected to behave differently across engines, and **neither premise could be
+    exercised**: R6 suppresses both, so `markup.srcdoc`, `markup.srcdoc-whole-value` and
+    `url.xlink-href × JS_URL/plain` render an empty attribute and are silent in all three engines
+    for a reason that has nothing to do with the engines. Their agreement is agreement about
+    silence. What *was* measured on those sinks is real but narrower: `url.xlink-href`'s three
+    off-origin rows fire identically everywhere, and
+    `SinkSpecificBrowserTest.srcdocIsSuppressedSoNothingRunsInsideTheIframe` confirms in each engine
+    that the iframe is still present and still inherits the page's origin. If a future change ever
+    re-opens either attribute, the cross-engine question §5.2 asked is still open and will have to
+    be measured then.
+  - **Two rows cannot be asked of Firefox at all**, and it is the driver rather than the browser:
+    Playwright's Firefox build wedges the page when a form whose action is an **off-loopback**
+    `http:` URL is submitted. `url.action` and `url.formaction` × `PROTOCOL_RELATIVE/slashes`
+    therefore have no Firefox result, which `BrowserCorpusTest.ENGINE_LIMITATIONS` records by name
+    with the cause. The sink is confirmed on Firefox by the same cases' `https:` rows — asserted,
+    not merely stated, by `everyEngineLimitationIsNarrowAndAccountedFor`; the scheme-relative
+    spelling is what goes unconfirmed there. **And nothing re-checks that the exemption is still
+    needed:** if a later Playwright build fixes Firefox, the two rows go on being skipped until
+    somebody deletes the entries by hand. That is the price of not spending two minutes of every run
+    proving a driver defect still exists, and it is the one way this table can decay.
+  - **Three engines are three engines, not every engine.** No Chromium-derived browser with a
+    modified network stack, no older release line, no mobile WebView. The tier is written so adding
+    one is an enum constant.
+  - **A green browser tier is a statement about the rows the corpus loads** — 67 of 1,014
+    invocations, chosen because loading a page per invocation across three engines is 3,000 page
+    loads. The other 947 are asserted at the byte level and not in an engine.
 - **`srcdoc` double-encoding.** R6 suppresses it. If an application genuinely needs to interpolate
   into `srcdoc`, that is a feature to design, not a bug to fix.
 - **DOM clobbering.** `<div id="$data">` is out of scope by the review's own criteria — an `id` is a

@@ -292,7 +292,11 @@ nothing. That is deliberate: a bypass that fails open would be worse than one th
 - **The template itself.** The threat model is that the attacker controls data and never the
   template. `$_x.asis()`, `allowDirectOutput()`, `#evaluate($data)`, `#parse($data)` and
   `#include($data)` are template and application decisions, unguarded by design.
-- **Cross-engine behaviour.** The browser tier of the test suite has so far run against one engine.
+- **Cross-engine behaviour.** The browser tier of the test suite runs against Chromium, Firefox and
+  WebKit, and they agree: of the 67 corpus rows it loads, the 65 every engine can be asked about
+  produce identical results. Three engines are not every engine, and two rows have no Firefox result
+  at all — the driver wedges on a form submission to an off-loopback `http:` action — which
+  `BrowserCorpusTest.ENGINE_LIMITATIONS` records by name.
 
 ### Further reading
 

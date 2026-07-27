@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -30,5 +31,14 @@ public class EngineRosterTest {
                     + BrowserTestBase.unavailabilityOf(engine));
         }
         assertTrue(BrowserTestBase.enginesThatRan().contains(engine));
+
+        // Which build, not just which engine (R28). A cross-engine result is only reproducible
+        // against a named version, and R28's one engine-specific limitation is a defect in a
+        // particular Playwright Firefox build rather than in Firefox as such.
+        String version = BrowserTestBase.versionOf(engine);
+        System.out.println("[canoe] " + engine + " " + version);
+        assertNotEquals("unknown", version,
+                engine + " launched but would not name its version, so the run cannot say which"
+                        + " build it is a result about");
     }
 }

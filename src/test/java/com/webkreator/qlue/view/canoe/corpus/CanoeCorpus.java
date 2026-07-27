@@ -1366,7 +1366,7 @@ public final class CanoeCorpus {
                     + " showed which. Reviewed against the sink after R4 and unchanged: the rendered"
                     + " handler body is the template's own text with an empty string literal in it."
                     + " Two qualifications this note used to carry are gone. They are no longer one"
-                    + " of 21 names out of 115 - every on* name reaches the same two-character"
+                    + " of 21 names out of 117 - every on* name reaches the same two-character"
                     + " comparison now - and they are no longer suppressed only while the value has"
                     + " no colon in its first eleven characters, which was F17 and which R2 closed;"
                     + " prefix.colon-in-a-recognised-handler is that row.";
@@ -1481,6 +1481,62 @@ public final class CanoeCorpus {
                     + " reach, which is the same class of mistake as declaring SinkKind.JAVASCRIPT"
                     + " for a Window handler on a <div>.";
 
+    /**
+     * The two SVG animation event attributes {@code onend}'s siblings, added by R28.
+     *
+     * <p>Appendix A &sect;A.3 carried this as a "known gap" from T15 onwards: {@code onend} is in the
+     * corpus because Canoe's deleted {@code on*} table happened to declare it, not because anyone
+     * decided SVG animation handlers were in scope, and {@code onbegin} and {@code onrepeat} are
+     * defined by the same section of SVG 1.1 (&sect;19) on the same four elements
+     * ({@code <animate>}, {@code <set>}, {@code <animateMotion>}, {@code <animateTransform>}). They
+     * took the same {@code ATTR_HTML} fall-through before R4 and take the same prefix rule now, so
+     * the gap was never a hole in the fix — it was a hole in the evidence, and a completeness guard
+     * is only as complete as the list it reads.
+     *
+     * <p>{@code onreadystatechange} is deliberately not here: it is a Document IDL attribute, which
+     * is a different reason for a handler name to have no element that hosts it.
+     */
+    private static final List<String> SVG_ANIMATION_HANDLERS =
+            Arrays.asList("onbegin", "onrepeat");
+
+    private static final String SVG_ANIMATION_HANDLERS_ARE_REAL_SINKS =
+            "An SVG animation event attribute, defined by SVG 1.1 section 19 on <animate>, <set>,"
+                    + " <animateMotion> and <animateTransform>. It is a real sink and not a"
+                    + " decorative one: SMIL starts the animation on load, so onbegin dispatches"
+                    + " with no user interaction at all and onrepeat dispatches on every repetition"
+                    + " after the first -- which is why each case below carries a real animation"
+                    + " with a real duration, and onrepeat's carries repeatCount. Canoe never had a"
+                    + " branch for either name; both took the ATTR_HTML fall-through, which is F2's"
+                    + " mechanism reached through a specification F2 never mentions, and both are"
+                    + " suppressed by R4's prefix rule without it knowing they exist. The sibling"
+                    + " onend was in the corpus from T15 only because the deleted on* table happened"
+                    + " to declare it; these two were the gap Appendix A section A.3 recorded and"
+                    + " R28 closes.";
+
+    /**
+     * A handler on an SVG animation element that is genuinely animating.
+     *
+     * <p>Same argument as {@link #animatedHandler}: an animation handler on an element with no
+     * animation is a sink that cannot fire and a browser expectation nobody can meet. The
+     * {@code <rect>} is there because {@code <animate>} needs a target element, and the target has
+     * to have a geometry for the animation to be applied to.
+     */
+    private static XssCase.Builder svgAnimationHandler(String name) {
+        String animation = "<animate attributeName=\"opacity\" from=\"0.9\" to=\"1\" dur=\"0.1s\""
+                + ("onrepeat".equals(name) ? " repeatCount=\"4\"" : "")
+                + " " + name + "=\"f('$data')\"></animate>";
+        return XssCase.id("handler." + name)
+                .section(A3)
+                .template("<svg width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\">"
+                        + animation + "</rect></svg>")
+                .sink(SinkKind.JAVASCRIPT, "animate", name)
+                .payloads(Payloads.QUOTE_SINGLE_BREAKOUT)
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
+                .finding("F2")
+                .note(SVG_ANIMATION_HANDLERS_ARE_REAL_SINKS)
+                .browserRelevant();
+    }
+
     /** A handler on an element that is genuinely animating; see {@link #CSS_ANIMATION_KEYFRAMES}. */
     private static XssCase.Builder animatedHandler(String name) {
         return XssCase.id("handler." + name)
@@ -1504,9 +1560,10 @@ public final class CanoeCorpus {
 
     /**
      * The event-handler matrix: the 21 names the deleted {@code on*} table could reach, the three it
-     * declared and could not, and the 91 it had never heard of.
+     * declared and could not, the 91 it had never heard of, and the two SVG animation names R28
+     * added to close &sect;A.3's recorded gap.
      *
-     * <p>Every one of the 115 is {@code SUPPRESSED_BY_DESIGN} since R4, and the group's value is in
+     * <p>Every one of the 117 is {@code SUPPRESSED_BY_DESIGN} since R4, and the group's value is in
      * the split rather than in the verdicts: 97 of these rows were {@code KNOWN_VULNERABLE} against
      * F1, F2 and F19, and keeping them named and grouped is what makes a re-introduced allowlist
      * fail loudly instead of quietly re-opening the finding on whichever names it forgets.
@@ -1558,6 +1615,15 @@ public final class CanoeCorpus {
                 .browserRelevant()
                 .build());
         alreadyDeclared.add("onselect");
+
+        // R28 closes the coverage gap Appendix A section A.3 recorded rather than fixed: the SVG
+        // animation event attributes. onend was in the corpus only because Canoe's deleted on*
+        // table happened to declare it; its two siblings, defined by the same SVG 1.1 section on the
+        // same four elements, were in neither the corpus nor the resource file's exclusion list.
+        for (String name : SVG_ANIMATION_HANDLERS) {
+            cases.add(svgAnimationHandler(name).build());
+            alreadyDeclared.add(name);
+        }
 
         for (String name : RECOGNISED_HANDLERS) {
             if (alreadyDeclared.contains(name)) {
@@ -2597,10 +2663,20 @@ public final class CanoeCorpus {
                         + " could act on. Measured in Chromium by BrowserCorpusTest. The flag is"
                         + " gone with the KNOWN_VULNERABLE verdict it qualified - a suppressed row"
                         + " expects browser silence anyway, and the corpus only permits the flag"
-                        + " where it changes an expectation - and R28 still owns building the"
-                        + " template that would demonstrate the finding in a browser, which is worth"
-                        + " doing even now: it is the one row in the review with no browser evidence"
-                        + " either before or after the fix.")
+                        + " where it changes an expectation."
+                        + " R28 has since built the demonstration this note said was missing, and"
+                        + " it lives in the browser tier rather than here because it needs three"
+                        + " documents and a response header that the corpus, whose unit is one"
+                        + " template rendered by Canoe, has no way to express:"
+                        + " SinkSpecificBrowserTest.aSuppressedNonceCannotSatisfyACspThatAChosen"
+                        + "NonceWould serves a real script-src 'nonce-<author>' policy naming the"
+                        + " AUTHOR's nonce, shows the author's own script admitted, shows THIS"
+                        + " template with the author's nonce in place of the reference admitted -"
+                        + " which is F20's mechanism, and byte for byte what Canoe emitted before"
+                        + " R5, since html() passes a nonce through verbatim - and shows the"
+                        + " nonce=\"\" R5 renders refused, in Chromium, Firefox and WebKit. The"
+                        + " policy names the author's nonce and never the attacker's, so it is the"
+                        + " page author's policy rather than one written around the payload.")
                 .browserRelevant()
                 .build());
     }

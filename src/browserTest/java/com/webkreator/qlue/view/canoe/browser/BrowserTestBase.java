@@ -21,6 +21,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -41,6 +50,36 @@ import static org.junit.jupiter.api.Assumptions.abort;
  * skipped; the engines that are present run. {@link #enginesThatRan()} names them, and every
  * parameterised test in this package carries the engine in its display name, so a green run says
  * which engines it is green in rather than implying all three.
+ *
+ * <h2>Why every case is bounded (R28)</h2>
+ *
+ * <p>A browser tier with no per-case bound can never fail — it hangs, and a hang reads as "still
+ * running" rather than as a result. R28 found a real one: in Playwright's Firefox build, submitting
+ * a form whose {@code action} is an off-loopback <em>{@code http:}</em> URL wedges that page. The
+ * submitting {@code page.evaluate} never returns, no {@code request}, {@code requestfailed} or
+ * {@code framenavigated} event is emitted for the submission, and the three-engine run stopped dead
+ * with no output for as long as it was left running.
+ *
+ * <p>Two properties of that wedge shape the design here.
+ *
+ * <ul>
+ *   <li><strong>{@code setDefaultTimeout} does not bound it.</strong> Playwright's
+ *       {@code evaluate} takes no timeout and is not governed by the page's or the context's
+ *       default; the call parks inside the driver connection with no deadline. The defaults are
+ *       still set below, because they bound everything else, but they are not the fix and must not
+ *       be mistaken for it.
+ *   <li><strong>The wedge is per <em>page</em>, not per connection.</strong> Measured: after a
+ *       wedged submission, {@code context.close()}, {@code browser.newContext()} and a fresh page
+ *       all still work from another thread. So one wedged case need not cost the run — it costs one
+ *       named failure and the tier carries on.
+ * </ul>
+ *
+ * <p>So each case runs on a disposable worker thread with a hard budget
+ * ({@value #CASE_BUDGET_MILLIS} ms). If the budget expires the thread is abandoned — it is a daemon,
+ * an interrupt cannot free a thread parked in the driver, and it will never return — its browser
+ * context is abandoned with it, and the case fails with a message naming the engine, the case and
+ * the thread to take a dump of. A JUnit {@code @Timeout} would report the same failure and leave
+ * the JUnit thread parked in the driver, which is why the bound is here rather than there.
  *
  * <h2>The five detectors</h2>
  *
@@ -92,6 +131,29 @@ public abstract class BrowserTestBase {
     private static final long SETTLE_FLOOR_MILLIS = 200;
 
     private static final long SETTLE_CEILING_MILLIS = 1200;
+
+    /**
+     * The hard bound on one case's browser work, from {@code newPage()} to the last assertion.
+     *
+     * <p>Generous on purpose. A case is a page load, an interaction sweep and about 1.2 seconds of
+     * settling, so a second is typical and five is a slow one; a minute cannot be reached by
+     * anything except a wedge. Sizing it tightly would trade a class of failure that is always real
+     * for one that is sometimes a busy machine.
+     */
+    static final long CASE_BUDGET_MILLIS = 60_000;
+
+    /**
+     * The default Playwright deadline for a page or context operation that takes one.
+     *
+     * <p>Belt to the budget's braces, and cheaper: it turns a stuck {@code click} or
+     * {@code waitForSelector} into a Playwright error naming the selector, seconds after it
+     * happened, rather than into a case that burns the whole budget before saying anything. It does
+     * <em>not</em> bound {@code evaluate}; see the class javadoc.
+     */
+    private static final double DEFAULT_OPERATION_TIMEOUT_MILLIS = 15_000;
+
+    /** Names the worker threads, so a thread dump of a wedged run says which case wedged. */
+    private static final AtomicInteger CASE_SERIAL = new AtomicInteger();
 
     /**
      * Installed into every page before any document script runs.
@@ -240,6 +302,25 @@ public abstract class BrowserTestBase {
     }
 
     /**
+     * The build that ran, for the report (R28).
+     *
+     * <p>"Firefox ran" is not a result anybody can reproduce; "Firefox 151.0 ran" is. R28's one
+     * engine-specific finding is a defect in a particular Playwright Firefox build, so the build
+     * number is part of the evidence rather than decoration.
+     */
+    public static String versionOf(BrowserEngine engine) {
+        Browser browser = PlaywrightFixture.get().browser(engine);
+        if (browser == null) {
+            return "not launched";
+        }
+        try {
+            return browser.version();
+        } catch (RuntimeException e) {
+            return "unknown";
+        }
+    }
+
+    /**
      * The engine list a {@code @MethodSource} should use.
      *
      * <p>JUnit fails a {@code @ParameterizedTest} whose source is empty, which would turn "no
@@ -295,54 +376,158 @@ public abstract class BrowserTestBase {
      * screenshot on failure possible: by the time a JUnit failure is visible to the runner the
      * context would otherwise be gone. On failure the trace and screenshot are written under
      * {@code build/reports/canoe-browser/} and named in the rethrown error.
+     *
+     * <p>Everything from {@code newContext()} onwards runs on a disposable worker thread under
+     * {@link #CASE_BUDGET_MILLIS}; see the class javadoc for why the bound is here and not on the
+     * Playwright calls themselves.
      */
     protected void runCase(BrowserEngine engine, String label, String html,
                            Consumer<Page> interaction,
                            BiConsumer<Page, BrowserVerdict> assertions) {
+        runCase(engine, label, html, null, interaction, assertions);
+    }
+
+    /**
+     * The same, with a {@code Content-Security-Policy} on the response.
+     *
+     * <p>One test uses this — F20's {@code nonce} demonstration — and
+     * {@link SentinelServer#publish(String, String, String)} says why a browser tier is allowed to
+     * put a header on the document under test in that one case and nowhere else.
+     */
+    protected void runCase(BrowserEngine engine, String label, String html,
+                           String contentSecurityPolicy,
+                           Consumer<Page> interaction,
+                           BiConsumer<Page, BrowserVerdict> assertions) {
         Browser browser = browserFor(engine);
-        String url = server.publish(label, html);
+        String url = server.publish(label, html, contentSecurityPolicy);
         int logMark = server.log().size();
-
-        BrowserContext context = browser.newContext();
         BrowserVerdict verdict = new BrowserVerdict(label, engine, url);
-        boolean tracing = startTracing(context);
-        try {
-            Page page = context.newPage();
-            wireDetectors(page, verdict);
 
+        AtomicBoolean abandoned = new AtomicBoolean();
+        withinBudget(engine, label, abandoned, () -> {
+            BrowserContext context = browser.newContext();
+            context.setDefaultTimeout(DEFAULT_OPERATION_TIMEOUT_MILLIS);
+            context.setDefaultNavigationTimeout(DEFAULT_OPERATION_TIMEOUT_MILLIS);
+            boolean tracing = startTracing(context);
             try {
-                page.navigate(url, new Page.NavigateOptions()
-                        .setWaitUntil(WaitUntilState.LOAD)
-                        .setTimeout(15_000));
-            } catch (RuntimeException e) {
-                // A navigation can be superseded by the document itself — a meta refresh that fires
-                // before load, for instance. That is a result, not an error, and the detectors have
-                // already recorded it.
-                verdict.recordConsoleError("navigation: " + e.getMessage());
+                Page page = context.newPage();
+                wireDetectors(page, verdict);
+
+                try {
+                    page.navigate(url, new Page.NavigateOptions()
+                            .setWaitUntil(WaitUntilState.LOAD)
+                            .setTimeout(15_000));
+                } catch (RuntimeException e) {
+                    // A navigation can be superseded by the document itself — a meta refresh that
+                    // fires before load, for instance. That is a result, not an error, and the
+                    // detectors have already recorded it.
+                    verdict.recordConsoleError("navigation: " + e.getMessage());
+                }
+
+                interaction.accept(page);
+                readWindowSentinel(page, verdict);
+                settle(page, verdict);
+                readWindowSentinel(page, verdict);
+                verdict.recordServerRequests(serverRequestsSince(logMark));
+
+                try {
+                    assertions.accept(page, verdict);
+                } catch (RuntimeException | Error failure) {
+                    // Not `Throwable`: this body is a Callable, whose checked-exception signature
+                    // would swallow the precise rethrow. A BiConsumer cannot throw a checked
+                    // exception, and an assertion failure is an Error, so nothing is lost.
+                    captureArtifacts(page, context, engine, label, tracing);
+                    throw failure;
+                }
+            } finally {
+                // Not if this worker has already been given up on. Playwright Java requires that
+                // only one thread be inside it at a time, and by the time an abandoned worker
+                // reaches here the run has moved on to another case on another thread; closing the
+                // context from here would put two threads into the same connection at once and turn
+                // the one named failure this design promises into a cascade of unrelated ones. The
+                // context leaks instead, which is what the budget's javadoc says it costs.
+                if (!abandoned.get()) {
+                    context.close();
+                }
             }
+            return null;
+        });
+    }
 
-            interaction.accept(page);
-            readWindowSentinel(page, verdict);
-            settle(page, verdict);
-            readWindowSentinel(page, verdict);
-            verdict.recordServerRequests(serverRequestsSince(logMark));
-
+    /**
+     * Runs one case's browser work on a worker thread, bounded by {@link #CASE_BUDGET_MILLIS}.
+     *
+     * <p>On expiry the worker is abandoned rather than interrupted: a thread parked inside the
+     * driver connection does not respond to an interrupt, and cancelling the {@link Future} would
+     * only make the leak invisible. The thread is a daemon, so it cannot keep the JVM alive; the
+     * cost of a wedge is one leaked thread and one leaked browser context per occurrence, which is
+     * the right price for the run continuing.
+     *
+     * <p>Whatever the body throws is rethrown here with its type intact — an {@code AssertionError}
+     * stays an assertion failure and a {@code TestAbortedException} stays a skip — because the whole
+     * point of the wrapper is that a caller cannot tell it is there.
+     *
+     * <p>{@code abandoned} is set before the failure is thrown, and the body must consult it before
+     * calling back into Playwright on the way out. A worker that has been given up on is running
+     * beside the case that came after it, and Playwright Java permits one thread inside it at a
+     * time; without the flag, a wedge that eventually unwedged would take the rest of the run with
+     * it instead of costing the one failure this design is built to cost.
+     */
+    private static <T> T withinBudget(BrowserEngine engine, String label, AtomicBoolean abandoned,
+                                      Callable<T> body) {
+        String threadName = "canoe-browser-" + engine + "-" + CASE_SERIAL.incrementAndGet();
+        ExecutorService worker = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, threadName);
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            Future<T> future = worker.submit(body);
             try {
-                assertions.accept(page, verdict);
-            } catch (Throwable failure) {
-                captureArtifacts(page, context, engine, label, tracing);
-                throw failure;
+                return future.get(CASE_BUDGET_MILLIS, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                abandoned.set(true);
+                throw new AssertionError(engine + " wedged on '" + label + "': no Playwright call"
+                        + " returned within " + CASE_BUDGET_MILLIS + "ms, so this case produced no"
+                        + " result at all.\n"
+                        + "  The worker thread is '" + threadName + "'; take a thread dump to see"
+                        + " which call is parked.\n"
+                        + "  A known cause is submitting a form to an off-loopback http: action"
+                        + " under Firefox, which wedges that page in Playwright's Firefox build;"
+                        + " see BrowserTestBase's class javadoc and"
+                        + " BrowserCorpusTest.ENGINE_LIMITATIONS.");
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof Error) {
+                    throw (Error) cause;
+                }
+                if (cause instanceof RuntimeException) {
+                    throw (RuntimeException) cause;
+                }
+                throw new IllegalStateException(cause);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
             }
         } finally {
-            context.close();
+            // shutdown(), never shutdownNow(): an interrupt cannot free a thread parked in the
+            // driver, and the executor must not outlive this method for a case that finished.
+            worker.shutdown();
         }
     }
 
     /** The common shape: load, interact, and judge the verdict alone. */
     protected BrowserVerdict runCase(BrowserEngine engine, String label, String html,
                                      Consumer<Page> interaction) {
+        return runCase(engine, label, html, null, interaction);
+    }
+
+    /** The common shape, under a {@code Content-Security-Policy}. */
+    protected BrowserVerdict runCase(BrowserEngine engine, String label, String html,
+                                     String contentSecurityPolicy, Consumer<Page> interaction) {
         BrowserVerdict[] holder = new BrowserVerdict[1];
-        runCase(engine, label, html, interaction, (page, verdict) -> holder[0] = verdict);
+        runCase(engine, label, html, contentSecurityPolicy, interaction,
+                (page, verdict) -> holder[0] = verdict);
         return holder[0];
     }
 

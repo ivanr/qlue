@@ -372,6 +372,150 @@ public class SinkSpecificBrowserTest extends BrowserTestBase {
                         + " framed script must not run:\n" + withoutEscape.describe());
     }
 
+    /**
+     * F20's {@code nonce} row, in a browser at last (R28) — the one finding in the review that had
+     * no browser evidence either before or after the fix.
+     *
+     * <p>A {@code nonce} attribute does nothing at all unless the response carries a
+     * Content-Security-Policy naming one, and the corpus template has no author nonce for a policy
+     * to name. So the corpus row could only ever be loaded and watched staying quiet, which is what
+     * a suppressed row does for a dozen reasons. This test supplies the missing half: a real policy,
+     * {@code script-src 'nonce-<author>'}, naming a nonce the page author chose and the attacker
+     * never sees.
+     *
+     * <p>Three documents, and the argument is in the differences between them.
+     *
+     * <ol>
+     *   <li><b>The policy is real and it does admit the author's script.</b> Without this, "the
+     *       attacker's script did not run" would be satisfied by a policy that blocks everything, or
+     *       by the sentinel being broken. The author's own nonced script calls the sentinel and must
+     *       be seen to run.
+     *   <li><b>An attacker who chooses the nonce defeats the policy.</b> The same page with a second
+     *       script element carrying the author's nonce, written by hand rather than through Canoe —
+     *       this is F20's mechanism, and it is a browser fact rather than a Canoe one. It must run.
+     *       If it ever stops running, this test is measuring a broken CSP and its third assertion is
+     *       worthless.
+     *   <li><b>Canoe does not let the attacker choose it.</b> The corpus's own
+     *       {@code policy.nonce} template rendered with the author's nonce as the payload: R5
+     *       suppresses {@code nonce}, so the attribute arrives empty, the policy refuses the script,
+     *       and the sentinel stays silent.
+     * </ol>
+     *
+     * <p>Document 2 is the reason this is a demonstration rather than a tautology, and it is why the
+     * payload is the author nonce itself: guessing is not part of the finding. F20's claim is that
+     * the value arrives verbatim, so an attacker who <em>knows</em> or <em>can predict</em> the
+     * nonce authors a script the policy admits — and against a per-response random nonce that is a
+     * high bar, which is exactly why F20 is Medium. What Canoe owes is that the attribute cannot be
+     * chosen at all, and that is what document 3 asserts.
+     *
+     * <p>Hand-written rather than taken from the corpus, and that is the third exception this class
+     * has: documents 1 and 2 are the calibration, and the corpus has no template with an author
+     * nonce in it. Document 3 <em>is</em> the corpus template, rendered by the same
+     * {@code VerdictEvaluator.render} everything else here uses.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    public void aSuppressedNonceCannotSatisfyACspThatAChosenNonceWould(BrowserEngine engine) {
+        String authorNonce = "canoe-author-nonce-2026";
+        String policy = "script-src 'nonce-" + authorNonce + "'";
+        String authorScript = "<script nonce=\"" + authorNonce + "\">"
+                + Payloads.SENTINEL_FUNCTION + "('author');</script>";
+
+        // 1. The policy admits the author's own script. Calibration: without this the test below
+        // cannot tell "the policy refused it" from "nothing on this page can run".
+        BrowserVerdict authorOnly = runCase(engine, "sink.nonce-author",
+                "<title>t</title>" + authorScript, policy, passiveLoad());
+        assertTrue(authorOnly.scriptExecutions().contains("author"),
+                "the author's nonced script must run, or this page proves nothing about what the"
+                        + " policy refuses:\n" + authorOnly.describe());
+
+        // 2. F20's mechanism, hand-written: the corpus template with the author's nonce where the
+        // reference is - which is byte for byte what Canoe emitted before R5, since html() passes a
+        // nonce through verbatim. The policy admits it, so /app.js is fetched and runs.
+        XssCase nonceCase = CanoeCorpus.byId("policy.nonce");
+        String chosenByTheAttacker =
+                nonceCase.template().replace("$data", authorNonce);
+        BrowserVerdict chosenNonce = runCase(engine, "sink.nonce-chosen",
+                "<title>t</title>" + authorScript + chosenByTheAttacker, policy, passiveLoad());
+        assertTrue(chosenNonce.serverRequests().contains("GET /app.js"),
+                "F20: a script element carrying the author's nonce is admitted by the policy however"
+                        + " it got there, so the browser fetches it. If this stops being true the"
+                        + " calibration is gone and the assertion below means nothing:\n"
+                        + chosenNonce.describe());
+
+        // 3. And Canoe's answer: the attacker cannot choose the attribute at all, because R5
+        // suppresses it. Same template, same policy, same page - one empty attribute.
+        CanoeTestSupport.RenderResult canoeRendered =
+                VerdictEvaluator.render(nonceCase, authorNonce);
+        assertFalse(canoeRendered.isError(), canoeRendered.errorMessage());
+        assertFalse(canoeRendered.output().contains(authorNonce),
+                "R5: the nonce must be suppressed rather than encoded - a nonce survives html()"
+                        + " verbatim, which is the whole of F20 on this attribute. Rendered: "
+                        + canoeRendered.output());
+
+        BrowserVerdict suppressed = runCase(engine, "sink.nonce-suppressed",
+                "<title>t</title>" + authorScript + canoeRendered.output(), policy, passiveLoad());
+        assertTrue(suppressed.scriptExecutions().contains("author"),
+                "the author's script must still run on this page too, or the comparison is between"
+                        + " two blocked pages:\n" + suppressed.describe());
+        assertFalse(suppressed.serverRequests().contains("GET /app.js"),
+                "R5: the nonce Canoe rendered is empty, so the policy must refuse this script and"
+                        + " the browser must never fetch it:\n" + suppressed.describe());
+    }
+
+    /**
+     * The two SVG animation handlers R28 added to &sect;A.3, with the half a suppressed corpus row
+     * cannot assert about itself: that the sink it names is a sink.
+     *
+     * <p>{@code handler.onbegin} and {@code handler.onrepeat} are {@code SUPPRESSED_BY_DESIGN}, so
+     * {@link BrowserCorpusTest} loads each once and watches it stay quiet — which is what a page
+     * with no animation on it would do too, and what a page in an engine with no SMIL would do. The
+     * corpus's own rule for this class of row is that a handler attribute on an element that cannot
+     * fire it is "a sink that exists in the markup and can never fire"; the same rule has to be
+     * satisfied here or the two new rows are decoration.
+     *
+     * <p>So each name is asserted twice, on the corpus's own template: hand-written, calling the
+     * sentinel directly, it must fire — SMIL starts the animation on load, so {@code onbegin}
+     * dispatches with no user interaction and {@code onrepeat} dispatches on the second repetition.
+     * Rendered by Canoe with the corpus payload, it must not.
+     *
+     * <p>The pair is the point, exactly as it is for {@code policy.sandbox}: "nothing ran" is only
+     * evidence about Canoe once "something can run here" has been established in the same engine.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    public void anSvgAnimationHandlerCanFireAndTheRenderedOneDoesNot(BrowserEngine engine) {
+        for (String name : List.of("onbegin", "onrepeat")) {
+            XssCase testCase = CanoeCorpus.byId("handler." + name);
+
+            // 1. The sink is real in this engine: the same template with a direct sentinel call.
+            String authored = testCase.template()
+                    .replace(name + "=\"f('$data')\"",
+                            name + "=\"" + Payloads.SENTINEL_FUNCTION + "('svg-" + name + "')\"");
+            BrowserVerdict fires = runCase(engine, "sink.svg-" + name + "-authored", authored,
+                    passiveLoad());
+            assertTrue(fires.scriptExecutions().contains("svg-" + name),
+                    "the SVG animation never dispatched " + name + " in " + engine + ", so the"
+                            + " corpus row for it is a sink that cannot fire and its silence means"
+                            + " nothing. Either SMIL is unavailable here or the animation in"
+                            + " CanoeCorpus.svgAnimationHandler no longer runs:\n"
+                            + fires.describe());
+
+            // 2. And Canoe's render of it is silent, because R4's prefix rule suppresses the value.
+            Rendered rendered = render("handler." + name, Payloads.QUOTE_SINGLE_BREAKOUT);
+            assertEquals(Verdict.SUPPRESSED_BY_DESIGN, rendered.verdict);
+            assertFalse(rendered.html.contains(Payloads.SENTINEL_FUNCTION),
+                    "R4: the payload must not appear in the rendered page at all: " + rendered.html);
+
+            BrowserVerdict silent = runCase(engine, "sink.svg-" + name + "-rendered", rendered.html,
+                    passiveLoad());
+            assertFalse(silent.exploited(),
+                    "an SVG animation handler built from data fired " + silent.firedDetectors()
+                            + ", so " + name + " is not taking the on* prefix rule:\n"
+                            + silent.describe());
+        }
+    }
+
     // ------------------------------------------------------------------
 
     private static Rendered render(String caseId, Payload payload) {

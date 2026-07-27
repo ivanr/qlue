@@ -47,16 +47,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <h2>What this file does that the corpus does not</h2>
  *
- * <p>The corpus is the per-name ledger: 115 names, one reviewed verdict each, asserted by {@code
+ * <p>The corpus is the per-name ledger: 117 names, one reviewed verdict each, asserted by {@code
  * CanoeCorpusTest.ledgerMatchesObservedBehaviour}. This file consumes those cases and adds the two
  * things a ledger cannot state about itself:
  *
  * <ul>
  *   <li><strong>The partition.</strong> Every {@code on*} name in the matrix classifies as
  *       {@code ATTR_JS}, with nothing on the other side and nothing else anywhere. It used to be a
- *       21/94 split; it is a partition of 115 real names (116 corpus rows, counting F19's
+ *       21/94 split; it is a partition of 117 real names (118 corpus rows, counting F19's
  *       {@code onredystatechange} evidence) into "all handlers" and "nothing" now, and a ledger of
- *       115 individually-correct rows does not say either.
+ *       117 individually-correct rows does not say either.
  *   <li><strong>The completeness guard.</strong>
  *       {@link #everySpecEventHandlerAttributeHasACorpusCase} enumerates the HTML Standard's event
  *       handler content attributes from a checked-in resource file and fails if any of them has no
@@ -135,7 +135,7 @@ public class EventHandlerMatrixTest {
      *
      * <p>It used to select on {@code defaultVerdict().isSuppression()}, which was the same set while
      * the two halves had different verdicts. Every handler case is a suppression now, so a
-     * verdict-based filter would silently widen this stream to all 115 and the inverted sibling
+     * verdict-based filter would silently widen this stream to all 117 and the inverted sibling
      * below would run on nothing — the failure mode where a parameterised test passes because its
      * source is empty.
      */
@@ -145,7 +145,13 @@ public class EventHandlerMatrixTest {
                 .filter(c -> reachable.contains(c.attribute()));
     }
 
-    /** The 91 the old table had never heard of: everything but the 21 and the three dead ones. */
+    /**
+     * The 93 the old table had never heard of: everything but the 21 and the three dead ones.
+     *
+     * <p>91 until R28, which added the two SVG animation names {@code onbegin} and {@code onrepeat}
+     * — the gap Appendix A &sect;A.3 had recorded rather than closed. They belong on this side by
+     * the same rule as everything else here: the deleted table had no branch for either.
+     */
     static Stream<XssCase> casesTheOldTableMissed() {
         Set<String> reachable = namesTheOldTableCouldReach();
         return handlerCases().stream()
@@ -172,7 +178,7 @@ public class EventHandlerMatrixTest {
      *
      * <p>Unchanged by R4 in outcome. It is kept as a separate stream from the 91 below so that a
      * change which suppresses one half and not the other fails on the half it broke rather than
-     * somewhere in a 115-row sweep.
+     * somewhere in a 117-row sweep.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("casesTheOldTableReached")
@@ -326,11 +332,11 @@ public class EventHandlerMatrixTest {
     }
 
     // ------------------------------------------------------------------
-    // The 91 the table had never heard of (F2)
+    // The 93 the table had never heard of: F2's 91, plus R28's two SVG animation names
     // ------------------------------------------------------------------
 
     /**
-     * F2, inverted by R4 across all 91 rows. Was
+     * F2, inverted by R4 across all 91 of its rows. Was
      * {@code everyUnrecognisedHandlerReachesTheJavaScriptParser}, which required the payload to
      * arrive at the JavaScript parser verbatim once the HTML parser had decoded the character
      * references {@code html()} wrote.
@@ -345,12 +351,19 @@ public class EventHandlerMatrixTest {
      * exhaustively on the four headline handlers — which carry {@code QUOTE_BREAKOUT} and
      * {@code ENTITY_BREAKOUT} together. Multiplying 91 names by the payload catalogue would add run
      * time and no information.
+     *
+     * <p>The stream is 93 since R28, not 91. {@code onbegin} and {@code onrepeat} are not among the
+     * names F2 enumerated — F2 is an HTML-Standard-shaped finding and these are SVG 1.1 attributes —
+     * but they took the same {@code ATTR_HTML} fall-through for the same reason and they are
+     * asserted here for the same reason. The finding's own count stays 91 everywhere it is quoted;
+     * see {@code CanoeCorpus.SVG_ANIMATION_HANDLERS}.
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("casesTheOldTableMissed")
     public void everyHandlerTheOldTableMissedIsSuppressedToo(XssCase testCase) {
-        assertSuppresses(testCase, "F2, closed by R4: one of the 91 names the old on* table had"
-                + " never heard of, and classified by the prefix rule that replaced it");
+        assertSuppresses(testCase, "closed by R4: one of the 93 names the old on* table had never"
+                + " heard of - F2's 91, plus onbegin and onrepeat, which R28 added - and classified"
+                + " by the prefix rule that replaced it");
     }
 
     /**
@@ -397,11 +410,16 @@ public class EventHandlerMatrixTest {
      * {@code theMatrixPartitionsIntoTwentyOneRecognisedNamesAndEverythingElse}: exactly 21 names
      * classified as {@code ATTR_JS} and the other 94 as {@code ATTR_HTML}.
      *
-     * <p>It is a partition of 115 real names into "all handlers" and "nothing" now. The assertion
-     * below counts 116, and the difference is one deliberate row: {@code onredystatechange}, F19's
+     * <p>It is a partition of 117 real names into "all handlers" and "nothing" now. The assertion
+     * below counts 118, and the difference is one deliberate row: {@code onredystatechange}, F19's
      * evidence, is a name no document contains but the corpus carries, and it must land in the
      * {@code ATTR_JS} half like everything else — so the arithmetic is the 21 the old table
-     * reached, the 3 it declared and could not, the 91 it had never heard of, plus the misspelling.
+     * reached, the 3 it declared and could not, the 93 it had never heard of, plus the misspelling.
+     *
+     * <p>The total was 116 until R28, which closed &sect;A.3's recorded gap by adding
+     * {@code onbegin} and {@code onrepeat}. Neither is an HTML Standard event handler content
+     * attribute, so neither moves the 94 the completeness guard reads from the checked-in list;
+     * they are two more names "that exist in the world", which is the question this test asks.
      * That is the whole of F1, F2 and F19 in one assertion: the empty half is the one that used to
      * hold 94 names, three of them with a branch written for them that could not be taken.
      *
@@ -435,9 +453,9 @@ public class EventHandlerMatrixTest {
         assertEquals(handlerCases().size(), javascript.size(),
                 () -> "every name in the matrix must classify as ATTR_JS. Missing: "
                         + plainText);
-        assertEquals(116, javascript.size(),
+        assertEquals(118, javascript.size(),
                 () -> "the matrix is the 21 the old table reached, the three it declared and could"
-                        + " not, onredystatechange and the 91 it had never heard of. If that total"
+                        + " not, onredystatechange and the 93 it had never heard of. If that total"
                         + " changed, a name was added or dropped and the split"
                         + " theOldRecognisedListMatchesTheStateMachineTable checks needs updating"
                         + " with it. Found: " + javascript.size());
@@ -534,11 +552,11 @@ public class EventHandlerMatrixTest {
      *
      * <p>Reworked by R4 rather than retired. The corpus side used to be derived from the verdicts —
      * "the handler cases that record suppression" — and every handler case records suppression now,
-     * so that derivation would compare 21 names against 115 and fail for the right reason at the
+     * so that derivation would compare 21 names against 117 and fail for the right reason at the
      * wrong place. Both sides are name-derived instead, which is what the cross-reference was always
      * about: the failure it guards against is somebody adding {@code ondrop} to one list and
      * deleting {@code ondragdrop} from the other, and that is still worth catching because the two
-     * halves are what {@link #casesTheOldTableMissed} splits the 115 rows by.
+     * halves are what {@link #casesTheOldTableMissed} splits the 117 rows by.
      *
      * <p>Asserted as <strong>membership</strong> rather than as a count. Two lists of 21 names can
      * agree on their size and disagree on a name, and a name is what a security decision is made of.
