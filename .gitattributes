@@ -1,0 +1,5 @@
+# gradlew.bat is a Windows batch file and its line endings are content, not
+# formatting: cmd.exe needs CRLF. Marking it -text takes it out of Git's
+# end-of-line conversion entirely, so a checkout on any platform leaves the
+# bytes alone and the file stops showing up as wholly rewritten in a diff.
+gradlew.bat -text
