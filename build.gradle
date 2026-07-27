@@ -5,7 +5,17 @@ plugins {
 }
 
 group = 'com.webkreator'
-version = '4.0.0'
+version = '5.0.0'
+
+// Pinned rather than left to follow whichever JDK happens to run the build: without this the
+// published bytecode silently tracks the builder's JDK, which is not a property a library should
+// leave to chance. Tomcat 11's own floor is Java 17; targeting 25 is deliberately narrower, and
+// means consumers must run Tomcat 11 on a Java 25 JVM.
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
 
 compileJava {
     options.compilerArgs += ["-parameters"]
@@ -19,10 +29,6 @@ tasks.withType(JavaCompile).configureEach {
 
 repositories {
     mavenCentral()
-}
-
-dependencyLocking {
-    lockAllConfigurations()
 }
 
 sourceSets {
@@ -49,9 +55,13 @@ sourceSets {
 configurations {
     browserTestImplementation.extendsFrom testImplementation
     browserTestRuntimeOnly.extendsFrom testRuntimeOnly
+
+    // The servlet API is testCompileOnly rather than testImplementation (see the dependency
+    // block), and browserTest compiles against the test source set's output, so it needs the
+    // same compile-time view of it.
+    browserTestCompileOnly.extendsFrom testCompileOnly
 }
 
-// The dependencies are locked; to update the locks, run: ./gradlew dependencies --write-locks
 dependencies {
 
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
@@ -63,11 +73,24 @@ dependencies {
     // https://mvnrepository.com/artifact/commons-codec/commons-codec
     implementation group: 'commons-codec', name: 'commons-codec', version: '1.17.2'
 
-    // https://mvnrepository.com/artifact/org.apache.commons/commons-email
-    api group: 'org.apache.commons', name: 'commons-email', version: '1.6.0'
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-email2-jakarta
+    // The Jakarta-namespace line of commons-email. Its only published version is a milestone;
+    // there is no GA release that speaks `jakarta.mail`, and this is an `api` dependency, so the
+    // milestone reaches consumers' compile classpath too. The exclusion drops the fat
+    // com.sun.mail bundle, which carries its own copy of the Jakarta Mail API and would collide
+    // with the API artifact declared below.
+    api('org.apache.commons:commons-email2-jakarta:2.0.0-M1') {
+        exclude group: 'com.sun.mail', module: 'jakarta.mail'
+    }
 
     // https://mvnrepository.com/artifact/jakarta.mail/jakarta.mail-api
-    implementation group: 'jakarta.mail', name: 'jakarta.mail-api', version: '1.6.7'
+    // `api`, not `implementation`: Email.setFromAddress and setReplyTo put
+    // jakarta.mail.internet.InternetAddress on Qlue's own public surface.
+    api group: 'jakarta.mail', name: 'jakarta.mail-api', version: '2.1.5'
+
+    // https://mvnrepository.com/artifact/org.eclipse.angus/angus-mail
+    // The Jakarta Mail 2.1 implementation, needed only when mail is actually sent.
+    runtimeOnly group: 'org.eclipse.angus', name: 'angus-mail', version: '2.0.5'
 
     // https://mvnrepository.com/artifact/it.sauronsoftware.cron4j/cron4j
     implementation group: 'it.sauronsoftware.cron4j', name: 'cron4j', version: '2.2.5'
@@ -79,13 +102,19 @@ dependencies {
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.11.0'
 
     // https://mvnrepository.com/artifact/org.hibernate.validator/hibernate-validator
-    implementation group: 'org.hibernate.validator', name: 'hibernate-validator', version: '6.2.5.Final'
+    // 9.x is the Jakarta Validation 3.1 line; it brings jakarta.validation-api transitively.
+    implementation group: 'org.hibernate.validator', name: 'hibernate-validator', version: '9.1.3.Final'
 
-    // https://mvnrepository.com/artifact/org.glassfish/jakarta.el
-    testImplementation group: 'org.glassfish', name: 'jakarta.el', version: '3.0.4'
+    // https://mvnrepository.com/artifact/org.glassfish.expressly/expressly
+    // The EL implementation Hibernate Validator needs to interpolate constraint messages. It
+    // declares jakarta.el-api 6.0.1 as provided, which is what expressly 6.0.0 implements.
+    testImplementation group: 'org.glassfish.expressly', name: 'expressly', version: '6.0.0'
 
     // https://mvnrepository.com/artifact/jakarta.servlet/jakarta.servlet-api
-    compileOnly group: 'jakarta.servlet', name: 'jakarta.servlet-api', version: '4.0.4'
+    // Servlet 6.1, which is what Tomcat 11 implements. Note that the 4.0.x releases of this
+    // coordinate still ship the `javax.servlet` package despite the groupId; the Jakarta
+    // namespace begins at 5.0.0.
+    compileOnly group: 'jakarta.servlet', name: 'jakarta.servlet-api', version: '6.1.0'
 
 
     // Test dependencies.
@@ -119,7 +148,17 @@ dependencies {
     testImplementation group: 'org.slf4j', name: 'slf4j-simple', version: '2.0.16'
 
     // https://mvnrepository.com/artifact/jakarta.servlet/jakarta.servlet-api
-    testImplementation group: 'jakarta.servlet', name: 'jakarta.servlet-api', version: '4.0.4'
+    // compileOnly, not implementation: tomcat-embed-core below carries its own copy of the
+    // servlet classes and they cannot be excluded from it, so declaring this one on the test
+    // runtime classpath would put two of every servlet class there. The mocked tests still need
+    // it to compile; Tomcat supplies it at run time.
+    testCompileOnly group: 'jakarta.servlet', name: 'jakarta.servlet-api', version: '6.1.0'
+
+    // https://mvnrepository.com/artifact/org.apache.tomcat.embed/tomcat-embed-core
+    // Every other test mocks the servlet API, so nothing else here would notice a Servlet 6.1
+    // incompatibility. TomcatIntegrationTest runs the library inside the real container, on an
+    // ephemeral loopback port, which keeps `test` hermetic.
+    testImplementation group: 'org.apache.tomcat.embed', name: 'tomcat-embed-core', version: '11.0.24'
 }
 
 // `test` must stay hermetic, offline-capable and fast: no browsers, no network.

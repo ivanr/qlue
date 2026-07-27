@@ -35,18 +35,18 @@ import com.webkreator.qlue.view.velocity.QlueVelocityTool;
 import com.webkreator.qlue.view.velocity.VelocityViewFactory;
 import it.sauronsoftware.cron4j.InvalidPatternException;
 import it.sauronsoftware.cron4j.Scheduler;
-import org.apache.commons.mail.Email;
-import org.apache.commons.mail.EmailException;
-import org.apache.commons.mail.SimpleEmail;
+import org.apache.commons.mail2.jakarta.Email;
+import org.apache.commons.mail2.core.EmailException;
+import org.apache.commons.mail2.jakarta.SimpleEmail;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.*;
-import javax.validation.ConstraintViolation;
-import javax.validation.Validator;
-import javax.validation.ValidatorFactory;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.*;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -178,7 +178,11 @@ public class QlueApplication {
      * consist of only one package.
      */
     public QlueApplication(String pagesHome) {
-        initPropertyEditors();
+        // Delegated rather than repeated: this constructor used to call only initPropertyEditors(),
+        // which left the binding Gson and the view factory list unset, and qlueInit() then refused
+        // to start with "No View factories configured". That made QLUE_PAGES_ROOT_PACKAGE - the
+        // deployment the user guide documents - unable to boot at all.
+        this();
 
         // These are the default routes for a simple application; we use them
         // to avoid having to provide routing configuration.

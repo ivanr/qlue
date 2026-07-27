@@ -2,10 +2,11 @@ package com.webkreator.qlue.util;
 
 import com.webkreator.qlue.view.View;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 
 public class QlueErrorPageServlet extends HttpServlet {
@@ -22,12 +23,16 @@ public class QlueErrorPageServlet extends HttpServlet {
         int statusCode = response.getStatus();
 
         // Servlet error properties of interest:
-        // - javax.servlet.error.exception
-        // - javax.servlet.error.status_code
-        // - javax.servlet.error.servlet_name
-        // - javax.servlet.error.request_uri
+        // - jakarta.servlet.error.exception     (RequestDispatcher.ERROR_EXCEPTION)
+        // - jakarta.servlet.error.status_code   (RequestDispatcher.ERROR_STATUS_CODE)
+        // - jakarta.servlet.error.servlet_name  (RequestDispatcher.ERROR_SERVLET_NAME)
+        // - jakarta.servlet.error.request_uri   (RequestDispatcher.ERROR_REQUEST_URI)
+        //
+        // Named through the constants rather than written out, because the names moved from
+        // javax.* to jakarta.* in Servlet 5.0 and a stale literal here does not fail: it reads
+        // null forever, and the error page quietly stops recognising errors.
 
-        Exception exception = (Exception)request.getAttribute("javax.servlet.error.exception");
+        Exception exception = (Exception) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
         if (exception != null) {
             statusCode = 500;
         }

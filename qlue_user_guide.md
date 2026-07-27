@@ -61,7 +61,11 @@ To give you a taste of the simplicity that Qlue offers, in this section we will 
 
 To deploy this page we use QlueServlet to act as brige to a Servlet container. We use the QLUE_PAGES_ROOT_PACKAGE parameter to specify the location of your application pages:
 
-	<web-app xmlns="http://java.sun.com/xml/ns/javaee" version="3.1">
+	<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+	         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+	                             https://jakarta.ee/xml/ns/jakartaee/web-app_6_1.xsd"
+	         version="6.1">
     	<servlet>
         	<servlet-name>QlueServlet</servlet-name>
         		<servlet-class>com.webkreator.qlue.QlueServlet</servlet-class>

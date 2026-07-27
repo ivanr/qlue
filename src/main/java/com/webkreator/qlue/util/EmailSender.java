@@ -1,6 +1,6 @@
 package com.webkreator.qlue.util;
 
-import org.apache.commons.mail.Email;
+import org.apache.commons.mail2.jakarta.Email;
 
 public interface EmailSender {
 

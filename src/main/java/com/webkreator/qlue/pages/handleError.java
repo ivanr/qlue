@@ -27,7 +27,8 @@ import org.apache.velocity.exception.ParseErrorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -39,12 +40,12 @@ public class handleError extends Page {
 
     @Override
     public View service() throws Exception {
-        Integer statusCode = (Integer) context.request.getAttribute("javax.servlet.error.status_code");
+        Integer statusCode = (Integer) context.request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE);
         if (statusCode == null) {
             throw new Exception("Direct access to this error page is not allowed");
         }
 
-        Throwable t = (Throwable) context.request.getAttribute("javax.servlet.error.exception");
+        Throwable t = (Throwable) context.request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
         if (t != null) {
             if (t instanceof BadRequestException) {
                 return _handleValidationException((BadRequestException) t);

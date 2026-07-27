@@ -1,6 +1,6 @@
 package com.webkreator.qlue.util;
 
-import org.apache.commons.mail.Email;
+import org.apache.commons.mail2.jakarta.Email;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +70,9 @@ public class SmtpEmailSender implements EmailSender {
 		email.setHostName(smtpServer);
 		email.setSmtpPort(smtpPort);
 		if ((smtpProtocol != null) && (smtpProtocol.compareTo("TLS") == 0)) {
-			email.setTLS(true);
+			// setTLS() in commons-email 1.x, removed in 2.x. It was already an alias for this,
+			// so the "TLS" property value keeps meaning STARTTLS and configuration is unaffected.
+			email.setStartTLSEnabled(true);
 		}
 
 		if (smtpUsername != null) {
