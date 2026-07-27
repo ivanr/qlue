@@ -5,6 +5,14 @@
 **Revision reviewed:** `d8143b0` (master)
 **Scope:** XSS resistance of automatic output encoding in the Velocity view path
 
+> **Superseded in part, 2026-07-27.** All twenty-four findings below are closed and were re-tested
+> independently. A second adversarial pass over the remediation found **four more**, recorded in
+> [`CANOE-SECURITY-REVIEW-2026-07-27-1.md`](CANOE-SECURITY-REVIEW-2026-07-27-1.md) as F25–F28 and
+> closed by R29–R31. Two of them (F25, F26) are arbitrary script execution and both defeat R9, the
+> origin filter that closed F6's code-execution half. One statement in this document is corrected by
+> that pass rather than merely extended: see the note in [F6](#f6--high-htmlencoderurl-is-a-scheme-filter-not-an-origin-filter)
+> on the substitution positions.
+
 ---
 
 ## Summary
@@ -770,6 +778,18 @@ prevention.
 > safe is the template's own literal text, not the encoder. The practical consequence for the triage
 > guidance below: the grep for `="$` returns all five shapes, and only the two that let the reference
 > begin the authority are F6.
+>
+> > **Corrected 2026-07-27 — see [F26](CANOE-SECURITY-REVIEW-2026-07-27-1.md) in the second review.
+> > "Path-suffix … do not, and are safe" is false as stated.** The path-suffix position was measured
+> > at `href="/p/$data"`, where the authority is closed before the reference; it is not closed at
+> > `href="/$data"`, one literal character shorter, where a payload of `/attacker.example` renders
+> > `//attacker.example`. The correct rule is the one the paragraph above states and does not test:
+> > a reference reaches the authority exactly when the authority is **still open where it sits**,
+> > which is a property of the literal prefix rather than of the name given to the position. The
+> > same defect was arbitrary script execution on the six resource-loading sinks, where it is closed
+> > by R30; here it is an open redirect and stays in this finding's accepted residue. And the triage
+> > grep is worse than the claim: `="$` and `='$` miss every shape where the reference does not
+> > follow the quote.
 
 > **Resolved in part — R9 (2026-07-26), and closed as far as it is going to be by R26 (2026-07-27).**
 > This is the only finding in this document with anything live left, and the residue is deliberate.

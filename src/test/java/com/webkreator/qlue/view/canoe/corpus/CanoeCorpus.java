@@ -1937,6 +1937,112 @@ public final class CanoeCorpus {
                         + " the deliberate boundary R9 draws.")
                 .build());
 
+        // F25, closed by R29. SVG's <script> does not use src: SVG 1.1 loads an external script with
+        // xlink:href and SVG 2 with href, and every shipping engine runs both. RESOURCE_LOADING_SINKS
+        // was one attribute per element, so these two took the ordinary url() - a scheme filter, not
+        // an origin filter - while src on the SAME element was origin-filtered. Measured live before
+        // R29: the attacker's script was fetched AND executed in Chromium, Firefox and WebKit. This
+        // is R9's own argument (the element decides what an attribute name means) failing in the
+        // direction R9's table could not express.
+        cases.add(resourceSinkRejectsOffOrigin(recognisedUriAttribute("url.svg-script-href",
+                "<svg><script href=\"$data\"></script></svg>", "script", "href", null),
+                Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS,
+                Payloads.ABSOLUTE_OFFSITE_UPPERCASE)
+                .finding("F25")
+                .note("Re-verdicted by R29, from KNOWN_VULNERABLE/F25. SVG 2's <script href> is an"
+                        + " external script include with the page's full privileges, and it reached"
+                        + " the ordinary url() because the resource-sink table held one attribute per"
+                        + " element. R29 makes the value a set - script -> {src, href, xlink:href} -"
+                        + " so all three names on <script> are origin-filtered and the href renders"
+                        + " empty. Compare url.xlink-href, which is <svg><a> and stays an accepted"
+                        + " open-redirect residual: the same name, a different element, a different"
+                        + " answer, which is the whole of R9.")
+                .browserRelevant()
+                .build());
+
+        cases.add(resourceSinkRejectsOffOrigin(recognisedUriAttribute("url.svg-script-xlink-href",
+                "<svg><script xlink:href=\"$data\"></script></svg>", "script", "xlink:href", null),
+                Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS,
+                Payloads.ABSOLUTE_OFFSITE_UPPERCASE)
+                .finding("F25")
+                .note("Re-verdicted by R29, from KNOWN_VULNERABLE/F25. SVG 1.1's spelling of the row"
+                        + " above, and the one that matters more, because xlink:href was already in"
+                        + " the corpus - paired only with <svg><a>, where it is a link. A ledger row"
+                        + " for an attribute name is a row about that name ON THAT ELEMENT, and this"
+                        + " pair is why.")
+                .browserRelevant()
+                .build());
+
+        // F27, closed by R29. <frame src> is <iframe src> under its obsolete spelling: an attacker
+        // document in the page's own frame tree. Obsolete in the standard is not dead in the code -
+        // the distinction R26's INERT_SINK note draws - and all three engines loaded it.
+        cases.add(resourceSinkRejectsOffOrigin(recognisedUriAttribute("url.frame-src",
+                "<frameset><frame src=\"$data\"></frameset>", "frame", "src", null),
+                Payloads.PROTOCOL_RELATIVE, Payloads.ABSOLUTE_OFFSITE_HTTPS,
+                Payloads.ABSOLUTE_OFFSITE_UPPERCASE)
+                .finding("F27")
+                .note("Re-verdicted by R29, from KNOWN_VULNERABLE/F27. The table held iframe and not"
+                        + " frame, so the identical sink was origin-filtered under one spelling and"
+                        + " not under the other. Rated Medium rather than Critical only because the"
+                        + " framed document does not run in the page's origin - which is equally true"
+                        + " of url.iframe-src, and that one was always filtered.")
+                .build());
+
+        // F26, closed by R30. THE VERDICT ON THESE TWO IS ABOUT POSITION AND NOT ABOUT THE PAYLOAD.
+        // urlResource() rejects a value that BY ITSELF introduces an authority, and it never sees the
+        // literal text the template wrote in front of the reference - so a value carrying no
+        // authority at all completed one the template had opened. Every payload here was live before
+        // R30, including the ones that are inert everywhere else in this file, because what reaches
+        // the sink is the concatenation.
+        XssCase.Builder scriptSrcInAuthority = XssCase.id("url.script-src-authority-suffix")
+                .section(A2)
+                .template("<script src=\"//cdn.ok$data\"></script>")
+                .sink(SinkKind.URL, "script", "src")
+                .payloads(allUrlPayloads())
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
+                .finding("F26")
+                .note("Re-verdicted by R30, from KNOWN_VULNERABLE/F26. The reference lands inside the"
+                        + " authority the template opened, so a payload of '.attacker.example/x.js' -"
+                        + " which introduces no authority and which urlResource() therefore passed -"
+                        + " rendered //cdn.ok.attacker.example/x.js and executed in all three engines."
+                        + " R30 tracks where in a URL the value scan has got to and suppresses a"
+                        + " resource-sink reference at URLV_AUTHORITY outright, because no encoding of"
+                        + " a hostname means anything other than that hostname. The default verdict is"
+                        + " SUPPRESSED_BY_DESIGN for every payload rather than for the off-origin ones,"
+                        + " and that is the point: the position decides, not the bytes.")
+                .browserRelevant();
+        cases.add(scriptSrcInAuthority.build());
+
+        XssCase.Builder scriptSrcAfterSlash = XssCase.id("url.script-src-leading-slash")
+                .section(A2)
+                .template("<script src=\"/$data\"></script>")
+                .sink(SinkKind.URL, "script", "src")
+                .payloads(allUrlPayloads())
+                .verdict(Verdict.SAFE)
+                .finding("F26")
+                .note("Re-verdicted by R30, from KNOWN_VULNERABLE/F26 for the two payloads that begin"
+                        + " with a slash. This is the position that must NOT be suppressed wholesale:"
+                        + " <script src=\"/$bundle\"> is an ordinary template, and the only value that"
+                        + " can hurt it is one whose own encoded output begins with '/', because the"
+                        + " template's slash and that one make //host. R30 refuses exactly those and"
+                        + " keeps the rest, so a payload of 'app.js' still renders. PROTOCOL_RELATIVE"
+                        + " and the absolute off-origin URLs are already rejected by urlResource()"
+                        + " standalone; what moved is the shape url.script-src-prefix could not"
+                        + " express, a value like '/attacker.example/x.js' that carries no authority"
+                        + " of its own.")
+                .browserRelevant();
+        applyUrlSchemeReverdict(scriptSrcAfterSlash, allUrlPayloads(), true);
+        resourceSinkRejectsOffOrigin(scriptSrcAfterSlash, Payloads.PROTOCOL_RELATIVE,
+                Payloads.ABSOLUTE_OFFSITE_HTTPS, Payloads.ABSOLUTE_OFFSITE_UPPERCASE,
+                // The one row where R30 suppresses something url() had ALREADY neutralised:
+                // "/\attacker.invalid/x.js" becomes "/%5Cattacker.invalid/x.js", which is a
+                // same-origin path and would have been safe - but it begins with '/', and the slash
+                // guard is a test on the encoded output rather than on the parse. Recorded rather
+                // than special-cased: the guard is meant to be cheap and blunt, and the cost of this
+                // row is one dropped value in a shape no template writes on purpose.
+                Payloads.PROTOCOL_RELATIVE_BACKSLASH);
+        cases.add(scriptSrcAfterSlash.build());
+
         // The four substitution positions. url() escapes the same characters wherever the reference
         // sits, and the four positions still behave differently, because what makes an off-origin
         // URL off-origin is its position in the value rather than its bytes.
@@ -3164,6 +3270,41 @@ public final class CanoeCorpus {
                         + " residue.js-url-clean-buffer is the same href preceded by an element,"
                         + " which is what makes it a statement about buf rather than about the"
                         + " prefix table.")
+                .build());
+
+        // F28, closed by R31. A URL parser removes leading C0 controls and spaces, and removes ALL
+        // ASCII tab, LF and CR from anywhere in the URL - so both of these ARE javascript: URLs to
+        // every engine, while the value scan that counts characters saw eleven and twelve of them and
+        // gave up at ten. url() is not enough there and the reason is a third decoder: the HTML
+        // Standard obtains a javascript: URL's script source by PERCENT-DECODING it, so url()'s %27
+        // became an apostrophe again after the HTML parser had finished, and the payload executed on
+        // click in all three engines. R31 skips exactly the characters a URL parser removes, so the
+        // buffer holds what the browser will read.
+        cases.add(XssCase.id("prefix.javascript-leading-space")
+                .section(A4)
+                .template("<a href=\" javascript:f('$data')\">x</a>")
+                .sink(SinkKind.JAVASCRIPT, "a", "href")
+                .payloads(Payloads.family("QUOTE_BREAKOUT"))
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
+                .finding("F28")
+                .note("Re-verdicted by R31, from KNOWN_VULNERABLE/F28. One space between the quote and"
+                        + " the scheme was the whole difference between this row and"
+                        + " prefix.javascript-exact, and no reviewer reading the two templates would"
+                        + " have seen it. The pair is the case rather than either row alone.")
+                .browserRelevant()
+                .build());
+
+        cases.add(XssCase.id("prefix.javascript-tab-inside-scheme")
+                .section(A4)
+                .template("<a href=\"java\tscript:f('$data')\">x</a>")
+                .sink(SinkKind.JAVASCRIPT, "a", "href")
+                .payloads(Payloads.family("QUOTE_BREAKOUT"))
+                .verdict(Verdict.SUPPRESSED_BY_DESIGN)
+                .finding("F28")
+                .note("Re-verdicted by R31, from KNOWN_VULNERABLE/F28. The tab is removed from"
+                        + " ANYWHERE in a URL, not only from the front, which is why the strip is not"
+                        + " a leading-whitespace trim.")
+                .browserRelevant()
                 .build());
 
         cases.add(XssCase.id("prefix.javascript-mixed-case")

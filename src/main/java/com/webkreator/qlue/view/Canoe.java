@@ -200,6 +200,41 @@ public class Canoe extends Writer {
      */
     public static final int ATTR_URI_RESOURCE = 7;
 
+    // -----------------------------------------------------------------------------------------
+    // Where in a URL the attribute-value scan is (R30, closing F26).
+    // -----------------------------------------------------------------------------------------
+    //
+    // R9's origin filter asks whether the VALUE a reference produces introduces an authority. That
+    // is the wrong question whenever the template wrote literal URL text in front of the reference,
+    // because the authority is then introduced by the two of them together and by neither alone:
+    // <script src="/$path"> with path = "/attacker.example/x.js" renders //attacker.example/x.js,
+    // and every character of the authority came from a value that carries no authority at all.
+    // HtmlEncoder.urlResource() cannot see that, and cannot be made to: the fact that decides it is
+    // not in the reference. So Canoe answers the positional half itself, with a small state machine
+    // run over the value characters alongside the prefix scan.
+    //
+    // The states are the URL parser's front end, and only its front end: what is being tracked is
+    // "is the authority still open", not the URL. Everything unrecognised resolves towards "open",
+    // which refuses.
+
+    /** Nothing of the value has been seen yet. The reference carries the whole authority, or none. */
+    public static final int URLV_START = 0;
+
+    /** The value so far could still be a scheme name: ASCII alpha, then alnum and {@code + - .}. */
+    public static final int URLV_SCHEME = 1;
+
+    /** Exactly one leading {@code '/'}. A second one opens an authority, so a value must not begin one. */
+    public static final int URLV_SLASH = 2;
+
+    /** {@code scheme:} has been seen and slashes are being skipped; the host begins at the next character. */
+    public static final int URLV_AFTER_SCHEME = 3;
+
+    /** Inside the authority: every character the reference emits is part of the host. */
+    public static final int URLV_AUTHORITY = 4;
+
+    /** Past the authority, or there was never one. Nothing after this point can move the host. */
+    public static final int URLV_PATH = 5;
+
     private static final Logger log = LoggerFactory.getLogger(Canoe.class);
 
     protected boolean closingTag;
@@ -392,18 +427,50 @@ public class Canoe extends Writer {
      * "link to another site" and "hotlink an image" cases that are not a Canoe concern. &sect;6 of the
      * remediation plan records that boundary: these remain open-redirect/referrer surfaces by design,
      * F6 residue that R9 scopes out rather than closes.
+     *
+     * <p><strong>R29 made the value a set, and that is the shape of F25 and F27.</strong> This used to
+     * be a {@code Map<String, String>} — one URL attribute per element — and R9's own argument is why
+     * that could not hold: the same attribute name is a link on one element and code execution on
+     * another, so the element decides. The converse is equally true and the map could not say it. An
+     * element may have <em>several</em> attributes that load code:
+     *
+     * <ul>
+     *   <li>{@code <script href>} and {@code <script xlink:href>} — SVG's {@code <script>} does not use
+     *       {@code src}. SVG 1.1 loads an external script with {@code xlink:href} and SVG 2 with
+     *       {@code href}, and every shipping engine runs both. Both names are in
+     *       {@link #URL_ATTRIBUTE_NAMES}, so before R29 they classified as ATTR_URI and took the
+     *       ordinary {@code url()} — a scheme filter, not an origin filter — while {@code src} on the
+     *       very same element was suppressed. Measured live in Chromium, Firefox and WebKit: the
+     *       attacker's script was fetched and executed (F25).
+     *   <li>{@code <frame src>} — the {@code <iframe src>} sink under its obsolete spelling. Framesets
+     *       are obsolete in the standard and are removed from no shipping engine, which is the
+     *       distinction R26's {@code INERT_SINK} note draws: "obsolete in the standard" and "dead in
+     *       the code" are different claims and only the second one retires a sink (F27).
+     * </ul>
+     *
+     * <p>Checked and deliberately left on {@code url()} with {@code <img src>}, so that the boundary is
+     * a decision rather than an omission: {@code <svg><use href>} and {@code <svg><image href>} — the
+     * first is refused cross-origin by every current engine and the second is an image — and
+     * {@code <video src>}, {@code <audio src>}, {@code <source src>}, {@code <track src>} and
+     * {@code <input type=image src>}, which fetch media under exactly the argument that keeps
+     * {@code <img src>} here.
      */
-    private static final Map<String, String> RESOURCE_LOADING_SINKS;
+    private static final Map<String, Set<String>> RESOURCE_LOADING_SINKS;
 
     static {
-        Map<String, String> sinks = new LinkedHashMap<>();
-        sinks.put("script", "src");
-        sinks.put("iframe", "src");
-        sinks.put("embed", "src");
-        sinks.put("object", "data");
-        sinks.put("link", "href");
-        sinks.put("base", "href");
+        Map<String, Set<String>> sinks = new LinkedHashMap<>();
+        sinks.put("script", resourceAttributes("src", "href", "xlink:href"));
+        sinks.put("iframe", resourceAttributes("src"));
+        sinks.put("frame", resourceAttributes("src"));
+        sinks.put("embed", resourceAttributes("src"));
+        sinks.put("object", resourceAttributes("data"));
+        sinks.put("link", resourceAttributes("href"));
+        sinks.put("base", resourceAttributes("href"));
         RESOURCE_LOADING_SINKS = Collections.unmodifiableMap(sinks);
+    }
+
+    private static Set<String> resourceAttributes(String... names) {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(names)));
     }
 
     /**
@@ -674,6 +741,32 @@ public class Canoe extends Writer {
     protected String unknownAttributeName;
 
     /**
+     * The name of the current attribute when it is a URL-bearing one, for the R30 diagnostic; null
+     * otherwise. Assigned on the path that classifies a URL name, so it costs an assignment and no
+     * branch, and cleared at the top of {@link #setTagAttributeContext()} with its sibling so it can
+     * never report a name from an earlier attribute.
+     */
+    protected String urlAttributeName;
+
+    /**
+     * Where in a URL the current attribute value has got to — one of the {@code URLV_*} constants —
+     * which is what decides whether a reference in a resource-loading sink can complete or extend the
+     * authority (R30, F26).
+     *
+     * <p>Reset where the value <em>begins</em>, which is the {@code '='} in TAG_ATTR_NAME_AFTER and
+     * not the first value character: a reference sitting directly after the equals sign
+     * ({@code <a href=$x>}, F11's shape) is inserted while the parser is still in
+     * TAG_ATTR_VALUE_BEFORE, and it has to be judged too.
+     *
+     * <p>Advanced on every character the value scan sees, which includes the characters the encoders
+     * themselves emit — Velocity writes an encoded reference back through this writer — so a value
+     * that ends in a {@code '/'} moves the position exactly as a template literal {@code '/'} does.
+     * That is what makes {@code <script src="$base$path">} with {@code base = "/"} judge {@code $path}
+     * from URLV_SLASH rather than from URLV_START.
+     */
+    protected int urlValueState = URLV_START;
+
+    /**
      * Create a Canoe instance with no application-level additions to the plain-text allowlist and no
      * trusted resource origins — resource-loading sinks accept same-origin-relative URLs only.
      */
@@ -873,6 +966,115 @@ public class Canoe extends Writer {
     }
 
     /**
+     * Whether a URL parser would remove this character from the value before reading it — which is
+     * what makes Canoe's view of where a scheme begins differ from the browser's (R30, R31; F26, F28).
+     *
+     * <p>The URL Standard's basic parser removes leading and trailing C0 controls and spaces from the
+     * input, and removes <em>all</em> ASCII tab, LF and CR from anywhere in it. So
+     * <code>&lt;a href=" javascript:f('$id')"&gt;</code> and
+     * <code>&lt;a href="java&lt;TAB&gt;script:f('$id')"&gt;</code> are both {@code javascript:} URLs to
+     * every engine, while the value scan that counts characters saw eleven and twelve of them and gave
+     * up at ten. That was F28: one character of whitespace decided whether an author's handler was
+     * suppressed or injectable, and no reviewer reading the two templates would see the difference.
+     *
+     * <p>Trailing strip is deliberately not modelled: the scan runs left to right and cannot know a
+     * character is trailing, and treating it as significant is the conservative direction for both
+     * callers — one more character buffered can only fail to match a prefix, and one more character
+     * advanced can only move the URL position towards "authority open", which refuses.
+     *
+     * @param c       the value character
+     * @param atStart whether nothing significant has been consumed yet, which is the only place the
+     *                space and C0 strip applies
+     */
+    private static boolean isUrlStripped(char c, boolean atStart) {
+        if ((c == '\t') || (c == '\n') || (c == '\r')) {
+            return true;
+        }
+
+        return atStart && (c <= ' ');
+    }
+
+    /** ASCII alpha, which is the only thing a URL scheme may begin with. */
+    private static boolean isSchemeStart(char c) {
+        return ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'));
+    }
+
+    /** The characters a URL scheme may continue with: ASCII alphanumeric and {@code + - .}. */
+    private static boolean isSchemeChar(char c) {
+        return isSchemeStart(c) || ((c >= '0') && (c <= '9'))
+                || (c == '+') || (c == '-') || (c == '.');
+    }
+
+    /**
+     * Moves {@link #urlValueState} on by one attribute-value character (R30, F26).
+     *
+     * <p>Run for every attribute value, not only the URL-bearing ones, because
+     * {@link #detectAttributePrefix()} can narrow a name-derived context mid-value and the position
+     * has to be right either way. It is a switch over six states and costs nothing measurable.
+     *
+     * <p>The transitions are the URL parser's, reduced to the one question this answers:
+     *
+     * <ul>
+     *   <li>a leading {@code '/'} is URLV_SLASH, and a second one opens the authority — which is
+     *       precisely the protocol-relative form, and precisely what {@code <script src="/$path">}
+     *       lets a value complete;
+     *   <li>{@code scheme:} is URLV_AFTER_SCHEME, where any number of slashes are skipped and the
+     *       host begins at the first character that is not one. This treats an opaque scheme
+     *       ({@code mailto:}) as opening an authority, which it does not — deliberately, because the
+     *       error is towards refusal and no template writes {@code <script src="mailto:$x">};
+     *   <li>the authority ends at the first {@code / ? #}, after which nothing can move the host and
+     *       URLV_PATH absorbs the rest;
+     *   <li>anything that is neither a slash nor a scheme start at URLV_START is a relative path, a
+     *       query or a fragment, none of which can grow an authority.
+     * </ul>
+     */
+    private void advanceUrlValueState(char c) {
+        if (isUrlStripped(c, urlValueState == URLV_START)) {
+            return;
+        }
+
+        switch (urlValueState) {
+            case URLV_START:
+                if (c == '/') {
+                    urlValueState = URLV_SLASH;
+                } else if (isSchemeStart(c)) {
+                    urlValueState = URLV_SCHEME;
+                } else {
+                    urlValueState = URLV_PATH;
+                }
+                break;
+
+            case URLV_SCHEME:
+                if (c == ':') {
+                    urlValueState = URLV_AFTER_SCHEME;
+                } else if (!isSchemeChar(c)) {
+                    urlValueState = URLV_PATH;
+                }
+                break;
+
+            case URLV_SLASH:
+                urlValueState = (c == '/') ? URLV_AUTHORITY : URLV_PATH;
+                break;
+
+            case URLV_AFTER_SCHEME:
+                if (c != '/') {
+                    urlValueState = URLV_AUTHORITY;
+                }
+                break;
+
+            case URLV_AUTHORITY:
+                if ((c == '/') || (c == '?') || (c == '#')) {
+                    urlValueState = URLV_PATH;
+                }
+                break;
+
+            default:
+                // URLV_PATH is absorbing: the authority is closed and cannot be reopened.
+                break;
+        }
+    }
+
+    /**
      * Close stream.
      */
     @Override
@@ -1063,6 +1265,7 @@ public class Canoe extends Writer {
         // suppressed, and says so at debug level when a reference lands in it.
         attributeContext = ATTR_UNKNOWN;
         unknownAttributeName = null;
+        urlAttributeName = null;
 
         // Any event handler. The prefix rule replaces the on* table entirely; see
         // the method javadoc for why there is no exception list.
@@ -1078,6 +1281,7 @@ public class Canoe extends Writer {
             // surface on others, and R8's tag name is what tells them apart. src on <script> rejects
             // an off-origin authority; src on <img> does not.
             attributeContext = isResourceLoadingSink(name) ? ATTR_URI_RESOURCE : ATTR_URI;
+            urlAttributeName = name;
             return;
         }
 
@@ -1100,11 +1304,15 @@ public class Canoe extends Writer {
      * which R8 keeps available for the duration of the tag, so a {@code src} knows whether it is on a
      * {@code <script>} or an {@code <img>}. A null {@code tagName} needs no guard: this method runs
      * only while an attribute is being parsed, which is always inside a named tag, and even if it were
-     * not, {@code RESOURCE_LOADING_SINKS.get(null)} is null and {@code attributeName.equals(null)} is
-     * false, so the answer is the correct "not a resource sink" either way.
+     * not, {@code RESOURCE_LOADING_SINKS.get(null)} is null and the {@code null} default is empty, so
+     * the answer is the correct "not a resource sink" either way.
+     *
+     * <p>A set membership test since R29, because an element may have more than one attribute that
+     * loads code — SVG's {@code <script>} has three. See {@link #RESOURCE_LOADING_SINKS}.
      */
     private boolean isResourceLoadingSink(String attributeName) {
-        return attributeName.equals(RESOURCE_LOADING_SINKS.get(tagName));
+        Set<String> attributes = RESOURCE_LOADING_SINKS.get(tagName);
+        return (attributes != null) && attributes.contains(attributeName);
     }
 
     /**
@@ -1538,6 +1746,10 @@ public class Canoe extends Writer {
                         // Do nothing
                     } else if (c == '=') {
                         state = TAG_ATTR_VALUE_BEFORE;
+                        // R30: the value begins here, and it is here rather than at the first value
+                        // character because a reference can be inserted before there is one -
+                        // <a href=$x> is judged in TAG_ATTR_VALUE_BEFORE (F11/R19).
+                        urlValueState = URLV_START;
                     } else if (c == '/') {
                         state = TAG_EMPTY_ENDING;
                     } else if (c == '>') {
@@ -1608,8 +1820,20 @@ public class Canoe extends Writer {
 
                     // Attribute value prefix detection
                     if (state == TAG_ATTR_VALUE) {
+                        // R30: keep track of where in a URL this value has got to, so that a
+                        // resource-loading reference can be judged by whether the authority is
+                        // still open (F26). Run for every attribute; it decides nothing for the
+                        // others and costs one switch.
+                        advanceUrlValueState(c);
+
                         if (bufLen != -1) {
-                            if (c == ':') {
+                            if (isUrlStripped(c, bufLen == 0)) {
+                                // R31: a character the URL parser removes must not shift the
+                                // ten-character prefix window, or " javascript:" and
+                                // "java<TAB>script:" stop being recognised while staying
+                                // javascript: URLs to every engine (F28). Skipped rather than
+                                // buffered, so the buffer holds what the browser will read.
+                            } else if (c == ':') {
                                 // Look in the buffer to see if the
                                 // prefix matches any of the ones we're
                                 // looking for
@@ -1981,9 +2205,75 @@ public class Canoe extends Writer {
     public String encode(String input) {
         int ctx = currentContext();
         if (ctx == CTX_URI_RESOURCE) {
-            return HtmlEncoder.urlResource(input, trustedResourceOrigins);
+            return encodeResourceUrl(input);
         }
         return encode(input, ctx);
+    }
+
+    /**
+     * Encodes a value for a resource-loading URL sink, judged by <em>where in the URL it sits</em>
+     * (R30, closing F26).
+     *
+     * <p>{@link HtmlEncoder#urlResource(String, List)} rejects a value whose own encoded output
+     * introduces an authority. That is the whole answer only when the value <em>is</em> the URL. When
+     * the template wrote literal URL text in front of the reference, the authority belongs to the two
+     * of them together: {@code <script src="/$path">} with {@code path = "/attacker.example/x.js"}
+     * renders {@code //attacker.example/x.js}, and every character of that host came from a value
+     * that carries no authority at all. The encoder cannot see the literal and so cannot be the place
+     * this is decided; {@link #urlValueState} is.
+     *
+     * <table>
+     *   <caption>What each position permits</caption>
+     *   <tr><th>Position</th><th>Answer</th></tr>
+     *   <tr><td>{@link #URLV_START}, {@link #URLV_SCHEME}, {@link #URLV_PATH}</td>
+     *       <td>{@code urlResource()}, unchanged. Either the value carries the whole authority and is
+     *           judged on it, or the authority is closed and nothing can move the host.</td></tr>
+     *   <tr><td>{@link #URLV_SLASH}</td>
+     *       <td>{@code urlResource()}, and then refuse an output that begins with {@code '/'}: the
+     *           literal slash and that one make {@code //host}. A value that begins anything else is
+     *           an ordinary path segment.</td></tr>
+     *   <tr><td>{@link #URLV_AFTER_SCHEME}, {@link #URLV_AUTHORITY}</td>
+     *       <td>Refuse. The reference lands where the browser is still reading the host, and no
+     *           encoding of a hostname means anything other than that hostname - the argument F20
+     *           makes about policy tokens, in a different sink.</td></tr>
+     * </table>
+     *
+     * <p>A refusal is the empty string, which is what Canoe writes for every suppressed reference, and
+     * it is logged at debug level beside R5's unrecognised-attribute diagnostic for the same reason:
+     * a value that vanishes with no diagnostic is what sends a developer to {@code $_x.asis()}.
+     *
+     * <p><strong>{@link #CTX_URI} is deliberately not gated the same way.</strong> {@code <a
+     * href="/$slug">} with a payload of {@code /attacker.example} is still an open redirect and
+     * {@code <img src="//cdn$p">} is still a referrer leak - because that is the same outcome
+     * {@code <a href="$u">} already has at offset 0, which R9 scoped out and R26 ledgered as
+     * {@code ACCEPTED_RESIDUAL}. Gating the concatenated spelling while the direct spelling is
+     * accepted would be an inconsistency rather than a fix. What R30 does change is that those
+     * positions are now known to be in the residue: the claim that a path-suffix position cannot
+     * reach the authority was false, and it is corrected in the review rather than left standing.
+     */
+    private String encodeResourceUrl(String input) {
+        if ((urlValueState == URLV_AFTER_SCHEME) || (urlValueState == URLV_AUTHORITY)) {
+            log.debug("Canoe suppressed a reference that lands inside the authority of the"
+                            + " resource-loading URL attribute \"{}\" on <{}> (line: {}, pos: {})."
+                            + " A value there chooses the host the resource is loaded from; put the"
+                            + " whole URL in one reference so it can be checked against the trusted"
+                            + " origins, or move the reference past the '/' that ends the host.",
+                    urlAttributeName, tagName, currentLine, currentPos);
+            return EMPTY_STRING;
+        }
+
+        String encoded = HtmlEncoder.urlResource(input, trustedResourceOrigins);
+
+        if ((urlValueState == URLV_SLASH) && (encoded != null) && encoded.startsWith("/")) {
+            log.debug("Canoe suppressed a reference beginning \"/\" after the leading \"/\" of the"
+                            + " resource-loading URL attribute \"{}\" on <{}> (line: {}, pos: {})."
+                            + " The two together are a protocol-relative \"//host\", which loads the"
+                            + " resource from an origin the value chooses.",
+                    urlAttributeName, tagName, currentLine, currentPos);
+            return EMPTY_STRING;
+        }
+
+        return encoded;
     }
 
     /**

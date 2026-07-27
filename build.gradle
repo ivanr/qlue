@@ -210,29 +210,42 @@ jacocoTestReport {
  *     goes on the UNMEASURABLE list only with a test that drives it and asserts what it produced.
  *     (R18's two DOCTYPE rejections are the first shape and are measured covered.)
  *
- * MEASURED 2026-07-27, after R26, from the XML. Every figure here was read today; none is carried
+ * MEASURED 2026-07-27, after R31, from the XML. Every figure here was read today; none is carried
  * forward from a task note. The per-task narrative this comment used to accumulate now lives in
  * REMEDIATION-PLAN.md's landed notes, which is where a history belongs.
  *
- *   Canoe                                        292 / 303   96.37%
+ * R29/R30/R31 - the fixes for the second review's F25-F28 - moved the two class denominators and
+ * nothing else. This is RULE 3 and not rule 2: 76 branch outcomes were ADDED to Canoe (the URL
+ * position machine and its two scheme predicates, the value-strip predicate, the resource-sink set
+ * test and the positional encoder), every one of them is reached, and THE DEAD-BRANCH INVENTORY
+ * BELOW COMES OUT UNCHANGED - 11 outcomes in Canoe and 5 in HtmlEncoder, the same 16, in the same
+ * methods, for the same reasons. Only two floors move, and both move UP.
+ *
+ *   Canoe                                        368 / 379   97.10%
  *     Canoe(Writer, Set, Collection)               2 /   2  100.00%
  *     normalisePlainTextAttributeNames()          20 /  20  100.00%   gated
  *     isNameChar()                                14 /  14  100.00%
  *     isEndTagNameDelimiter()                     14 /  14  100.00%
  *     isInitialModeWhitespace()                    8 /   8  100.00%
  *     asciiToLowerCase()                           4 /   4  100.00%
+ *     isUrlStripped()                             10 /  10  100.00%   new in R30/R31
+ *     isSchemeStart()                              8 /   8  100.00%   new in R30
+ *     isSchemeChar()                              12 /  12  100.00%   new in R30
+ *     advanceUrlValueState()                      28 /  28  100.00%   gated (new in R30)
  *     write(char[], int, int)                      2 /   2  100.00%
  *     detectAttributePrefix()                     10 /  10  100.00%
  *     bufferedValueIs()                            6 /   6  100.00%
  *     setTagAttributeContext()                    10 /  10  100.00%   gated
+ *     isResourceLoadingSink()                      4 /   4  100.00%   gated (new floor in R29)
  *     isPlainTextAttributeName()                   6 /   6  100.00%
  *     bufferedNameStartsWith()                     6 /   6  100.00%
  *     processChar()                                2 /   2  100.00%
- *     reallyProcessChar()                        169 / 174   97.13%   gated
+ *     reallyProcessChar()                        173 / 178   97.19%   gated
  *     inBuf()                                      0 /   4    0.00%
  *     currentContext()                            11 /  13   84.62%
  *     encode(String, int)                          6 /   6  100.00%
  *     encode(String)                               2 /   2  100.00%
+ *     encodeResourceUrl()                         10 /  10  100.00%   gated (new in R30)
  *   HtmlEncoder                                  315 / 320   98.44%
  *     appendHierPart()                            27 /  28   96.43%
  *     percentDecode()                              7 /  10   70.00%
@@ -270,12 +283,15 @@ jacocoTestReport {
  * what the same target would read with one further outcome unreached, and the floor is between
  * them.
  *
- *   Canoe                                 292/303 = 96.3696%   one lost 291/303 = 96.0396%   0.962
+ *   Canoe                                 368/379 = 97.0976%   one lost 367/379 = 96.8338%   0.970
  *   HtmlEncoder                           315/320 = 98.4375%   one lost 314/320 = 98.1250%   0.982
  *   CanoeReferenceInsertionHandler          18/18 = 100%       one lost   17/18 = 94.4444%   0.99
  *   Canoe#setTagAttributeContext            10/10 = 100%       one lost   9/10  = 90.0000%   0.99
- *   Canoe#reallyProcessChar               169/174 = 97.1264%   one lost 168/174 = 96.5517%   0.970
+ *   Canoe#reallyProcessChar               173/178 = 97.1910%   one lost 172/178 = 96.6292%   0.970
  *   Canoe#normalisePlainTextAttributeNames   20/20 = 100%      one lost  19/20  = 95.0000%   0.99
+ *   Canoe#advanceUrlValueState              28/28 = 100%       one lost  27/28  = 96.4286%   0.99
+ *   Canoe#encodeResourceUrl                 10/10 = 100%       one lost   9/10  = 90.0000%   0.99
+ *   Canoe#isResourceLoadingSink               4/4 = 100%       one lost    3/4  = 75.0000%   0.99
  *   CanoeReferenceInsertionHandler#referenceInsert
  *                                             8/8 = 100%       one lost    7/8  = 87.5000%   0.99
  *   CanoeReferenceInsertionHandler#encodingMustBeDeferred
@@ -290,7 +306,7 @@ jacocoTestReport {
  *   VelocityViewFactory#addTrustedResourceOriginsFromProperty
  *                                             6/6 = 100%       one lost    5/6  = 83.3333%   0.99
  *
- * The two class floors are the tight ones (0.962 and 0.982 against 0.9604 and 0.9813), and that is
+ * The two class floors are the tight ones (0.970 and 0.982 against 0.9683 and 0.9813), and that is
  * deliberate: they are the only figures that catch a dead branch in a method nobody thought to
  * gate. The task's gate output prints the floor to two decimals for the same reason - a floor of
  * 0.962 displayed as "96%" is a floor nobody can check.
@@ -304,6 +320,23 @@ jacocoTestReport {
  *
  *   setTagAttributeContext() and reallyProcessChar() are the classifier and the state machine - the
  *   two methods T30 named, and the two the review's findings were mostly in.
+ *
+ *   THREE MORE Canoe METHODS JOIN THE GATE in R29/R30, by the sentence at the top of this comment
+ *   with "attribute name" replaced by "origin". The second review's F25, F26 and F27 were all cases
+ *   where the ENCODER was right and the routing was not, and these three are the whole of that
+ *   routing:
+ *     - isResourceLoadingSink() decides whether a URL value is judged against an origin at all. It
+ *       was a string equality on one attribute per element, and SVG's <script> has three, so
+ *       <script href> and <script xlink:href> ran an attacker's script in all three engines while
+ *       <script src> on the same element was suppressed (F25). Four outcomes, all reached.
+ *     - advanceUrlValueState() decides WHERE in a URL a reference sits, which is the half of the
+ *       origin question that is not in the reference. An unreached transition here is a position
+ *       nobody tested, and a wrong position is the difference between suppressing a value and
+ *       letting it complete an authority (F26). Twenty-eight outcomes.
+ *     - encodeResourceUrl() is the decision itself: it reads that position and either suppresses or
+ *       hands the value to urlResource(). Ten outcomes.
+ *   isUrlStripped(), isSchemeStart() and isSchemeChar() are pure predicates behind them and are
+ *   covered by the class figure, as isNameChar() is.
  *
  *   CanoeReferenceInsertionHandler JOINS THE GATE in R27, by exactly the argument above. R24 put
  *   the nested-render detector here, so this class is now where it is decided whether a value is
@@ -479,7 +512,7 @@ jacocoTestReport {
 ext.canoeCoverageFloors = [
         // Class figures. These are the tight ones: they are what catches a dead branch in a method
         // nobody thought to gate. See the arithmetic in the comment above before touching either.
-        [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.962],
+        [kind: 'class',  target: 'com/webkreator/qlue/view/Canoe',       floor: 0.970],
         [kind: 'class',  target: 'com/webkreator/qlue/util/HtmlEncoder', floor: 0.982],
         [kind: 'class',  target: 'com/webkreator/qlue/view/velocity/CanoeReferenceInsertionHandler',
          floor: 0.99],
@@ -491,6 +524,16 @@ ext.canoeCoverageFloors = [
         [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#reallyProcessChar',
          floor: 0.970],
         [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#normalisePlainTextAttributeNames',
+         floor: 0.99],
+
+        // R29/R30: the three methods that decide whether a URL value is judged against an origin,
+        // where in the URL it sits, and what that position permits. F25, F26 and F27 were all
+        // routing defects behind a correct encoder, and this is the routing.
+        [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#isResourceLoadingSink',
+         floor: 0.99],
+        [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#advanceUrlValueState',
+         floor: 0.99],
+        [kind: 'method', target: 'com/webkreator/qlue/view/Canoe#encodeResourceUrl',
          floor: 0.99],
         [kind: 'method', target: 'com/webkreator/qlue/view/velocity/CanoeReferenceInsertionHandler'
                 + '#referenceInsert', floor: 0.99],

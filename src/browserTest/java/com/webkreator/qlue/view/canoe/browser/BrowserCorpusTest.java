@@ -337,6 +337,14 @@ public class BrowserCorpusTest extends BrowserTestBase {
      * all three engines, which makes these two of the cheapest suppressed handlers in the corpus to
      * demonstrate and two of the few where "no detector fired" means the sink was reached and
      * refused rather than never reached.
+     *
+     * <p><strong>R29/R30/R31 move it to 73/19/54/0</strong>, and again only the silence counts move.
+     * The second review's F25-F28 are six new browser-relevant cases - SVG's {@code <script href>}
+     * and {@code <script xlink:href>}, the two positional {@code <script src>} shapes, and the two
+     * padded {@code javascript:} spellings - and every one of them was measured LIVE in all three
+     * engines before the fix and is silent after it. So the must-fire count is unchanged at 19: none
+     * of the six is a residual, and each contributes a control that says the page loaded, the sink
+     * was reached, and nothing came out of it.
      */
     @Test
     public void theBrowserRelevantSubsetIsTheSizeTheCorpusClaims() {
@@ -349,10 +357,10 @@ public class BrowserCorpusTest extends BrowserTestBase {
                 .count();
         long quiet = invocations.size() - mustFire;
 
-        assertEquals(67, invocations.size(), "browser-relevant invocation count");
+        assertEquals(73, invocations.size(), "browser-relevant invocation count");
         assertEquals(0, unobservable, "invocations flagged as not browser-observable");
         assertEquals(19, mustFire, "invocations that must trip a detector");
-        assertEquals(48, quiet, "invocations that must trip none");
+        assertEquals(54, quiet, "invocations that must trip none");
     }
 
     private static String limitationFor(BrowserEngine engine, XssCase.Invocation invocation) {

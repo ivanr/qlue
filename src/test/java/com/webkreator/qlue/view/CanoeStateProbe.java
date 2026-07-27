@@ -159,6 +159,38 @@ public class CanoeStateProbe extends Canoe {
         return buf[index];
     }
 
+    /**
+     * Where in a URL the current attribute value has got to — one of the {@code URLV_*} constants,
+     * the positional half of R9's origin filter that R30 added to close F26.
+     *
+     * <p>Asserted directly rather than only through the encoder's output for the same reason
+     * {@link #state()} is: several positions produce the same visible answer. A reference is
+     * suppressed at URLV_AUTHORITY and at URLV_AFTER_SCHEME alike, and a test that saw only the empty
+     * string could not tell "the authority is open" from "the value was off-origin on its own" from
+     * "the attribute was never a resource sink".
+     */
+    public int urlValueState() {
+        return urlValueState;
+    }
+
+    /** The URL-bearing attribute name R30's diagnostic reports, or null when the name is not one. */
+    public String urlAttributeName() {
+        return urlAttributeName;
+    }
+
+    /** A readable name for a {@code URLV_*} constant, so failures say URLV_AUTHORITY rather than 4. */
+    public static String urlValueStateName(int urlValueState) {
+        switch (urlValueState) {
+            case URLV_START: return "URLV_START";
+            case URLV_SCHEME: return "URLV_SCHEME";
+            case URLV_SLASH: return "URLV_SLASH";
+            case URLV_AFTER_SCHEME: return "URLV_AFTER_SCHEME";
+            case URLV_AUTHORITY: return "URLV_AUTHORITY";
+            case URLV_PATH: return "URLV_PATH";
+            default: return "UNKNOWN(" + urlValueState + ")";
+        }
+    }
+
     /** A readable name for a state constant, so failures say TAG_ATTR_VALUE rather than 6. */
     public static String stateName(int state) {
         switch (state) {

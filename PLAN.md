@@ -412,6 +412,18 @@ as carefully as the code they test. The changes that followed:
       recommends returns all five shapes. Two new corpus cases (`url.href-query-parameter`,
       `url.href-fragment`) record the safe half, because a rule with no negative rows is an assertion
       about the cases somebody chose.
+
+      > **Corrected 2026-07-27 (second review, F26). "Path-suffix … do not and are safe" is false as
+      > stated**, and the way it is false is this bullet's own lesson repeated. The path-suffix
+      > position was measured at `href="/p/$data"`, where the authority is closed before the
+      > reference. It is *not* closed at `href="/$data"` — the same position with one character less
+      > of literal — so a payload of `/attacker.example` renders `//attacker.example`. The rule that
+      > survives is the one this bullet states and does not test: **a reference is dangerous exactly
+      > when the URL's authority is still open where it sits**, which is a property of the literal
+      > prefix and not of which named position somebody called it. Nor does the recommended grep find
+      > any of it: `="$` and `='$` miss every shape where the reference does not follow the quote.
+      > `AuthorityPositionTest.theUrlPositionIsTrackedThroughTheValue` is the corrected rule as a
+      > table, and R30 makes Canoe itself compute the position rather than inferring it from a name.
     - **T17 makes F4's precondition a function of an integer**, not of a property name. Every property
       the finding lists is a row, and each row asserts the colon's index, the context that implies,
       and what the CSS parser is handed — together, because `padding:` and `display:` must agree
