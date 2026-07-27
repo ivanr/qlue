@@ -178,6 +178,11 @@ public class AttributeNameMatrixTest {
                 row("maxlength", Group.PLAIN_TEXT, Canoe.ATTR_HTML),
                 row("media", Group.PLAIN_TEXT, Canoe.ATTR_HTML),
                 row("method", Group.PLAIN_TEXT, Canoe.ATTR_HTML),
+                // On the allowlist by decision, not because it passes the group's own test: an
+                // attacker-chosen CSP nonce is the nonce the policy admits. It was a POLICY row
+                // below until the allowlist was widened to take it. See Canoe's
+                // PLAIN_TEXT_ATTRIBUTE_NAMES javadoc and the plain.nonce corpus row.
+                row("nonce", Group.PLAIN_TEXT, Canoe.ATTR_HTML),
                 row("pattern", Group.PLAIN_TEXT, Canoe.ATTR_HTML),
                 row("popovertarget", Group.PLAIN_TEXT, Canoe.ATTR_HTML),
                 row("size", Group.PLAIN_TEXT, Canoe.ATTR_HTML),
@@ -203,7 +208,6 @@ public class AttributeNameMatrixTest {
 
                 // --- policy directives (F20) ---
                 row("sandbox", Group.POLICY, Canoe.ATTR_UNKNOWN),
-                row("nonce", Group.POLICY, Canoe.ATTR_UNKNOWN),
                 row("rel", Group.POLICY, Canoe.ATTR_UNKNOWN),
                 row("integrity", Group.POLICY, Canoe.ATTR_UNKNOWN),
 
@@ -384,7 +388,7 @@ public class AttributeNameMatrixTest {
                 // framework and custom-element attributes
                 "my-widget-config", "hx-target", "ng-model", "v-bind", "x-data", "wire:model",
                 // markup, refresh and policy sinks
-                "srcdoc", "content", "sandbox", "nonce", "rel", "integrity", "http-equiv",
+                "srcdoc", "content", "sandbox", "rel", "integrity", "http-equiv",
                 // URL names R6 left off the URL list
                 "imagesrcset", "xml:base", "archive", "classid", "profile")) {
             assertEquals(Canoe.ATTR_UNKNOWN, attributeContextOf(unlisted),
@@ -491,7 +495,7 @@ public class AttributeNameMatrixTest {
                         + " reached at all.");
 
         Set<String> declaredPlainText = declaredNames(text, "PLAIN_TEXT_ATTRIBUTE_NAMES");
-        for (String reserved : List.of("srcdoc", "content", "sandbox", "rel", "integrity", "nonce",
+        for (String reserved : List.of("srcdoc", "content", "sandbox", "rel", "integrity",
                 "http-equiv", "charset", "crossorigin", "referrerpolicy", "is", "style")) {
             assertFalse(declaredPlainText.contains(reserved),
                     reserved + " has been added to the plain-text allowlist. Its suppression is the"
@@ -911,7 +915,7 @@ public class AttributeNameMatrixTest {
      */
     @Test
     public void theExtensionPointRefusesTheNamesWhoseSuppressionIsTheFix() {
-        for (String refused : List.of("sandbox", "nonce", "rel", "integrity", "srcdoc", "content",
+        for (String refused : List.of("sandbox", "rel", "integrity", "srcdoc", "content",
                 "http-equiv", "charset", "crossorigin", "referrerpolicy", "is", "style",
                 "href", "src", "formaction", "xlink:href", "data")) {
             assertThrows(IllegalArgumentException.class,
@@ -999,7 +1003,7 @@ public class AttributeNameMatrixTest {
     @Test
     public void theCanoeConstructorValidatesTheNamesItIsHandedRatherThanTrustingTheCaller()
             throws IOException {
-        for (String refused : List.of("sandbox", "nonce", "srcdoc", "onclick", "xml:base")) {
+        for (String refused : List.of("sandbox", "srcdoc", "onclick", "xml:base")) {
             assertThrows(IllegalArgumentException.class,
                     () -> new Canoe(new java.io.StringWriter(), Set.of(refused)),
                     refused + " must be refused by the constructor too, or the extension point's"

@@ -25,6 +25,10 @@ media attributes (`width`, `height`, `loading`, `preload`, …) — plus every n
 `data-`. The hyphen is required, exactly as in the HTML Standard: the bare name `data` is a URL.
 Anything else is suppressed; see below.
 
+`nonce` is on that list too, and it is the one name there that is not an ordinary text attribute.
+`html()` keeps its value inside the attribute, which is all an encoder can do and is not the whole
+of what a nonce needs — see [What is not covered](#what-is-not-covered).
+
 **The seventeen URL-bearing names** are `action`, `background`, `cite`, `codebase`, `data`, `dynsrc`,
 `formaction`, `href`, `longdesc`, `lowsrc`, `manifest`, `ping`, `poster`, `src`, `srcset`, `usemap`
 and `xlink:href`. `url()` treats the value as a URL reference in its own right:
@@ -112,7 +116,6 @@ with an exception naming the reason:
 | anything beginning `on` | Every one is a JavaScript context. The prefix rule has no exceptions. |
 | `style`, and the seventeen URL-bearing names | Canoe classifies these before it consults the allowlist, so adding one would have no effect. Failing loudly beats looking as though it worked. |
 | `sandbox`, `rel`, `integrity`, `crossorigin`, `referrerpolicy` | The parser consumes the decoded value as a *directive*. No encoding of `allow-same-origin` means anything other than `allow-same-origin`; encoding is not insufficient here, it is inapplicable. |
-| `nonce` | Inert as text, which is the wrong test: an attacker who chooses the nonce can author a `<script nonce>` your content security policy then admits. |
 | `http-equiv`, `charset`, `content` | Parser and navigation directives. `refresh` turns a sibling `content` into a redirect; the declared encoding decides how every later byte is tokenized. |
 | `is` | Selects which custom element definition upgrades the element — a choice of code, not a piece of text. |
 | `srcdoc` | Its value is parsed as a whole HTML document, so a single encode is same-origin XSS. |
@@ -233,6 +236,16 @@ nothing. That is deliberate: a bypass that fails open would be worse than one th
 
 ## What is not covered
 
+- **The CSP nonce.** `nonce` is on the plain-text allowlist, so `<script nonce="$n">` renders the
+  value through `html()` and it arrives byte for byte. That is what makes the attribute usable —
+  `$_x.asis()` is the only alternative, and it turns Canoe off for the value entirely — and it is
+  also the whole of the exposure. A nonce has no token vocabulary: the entire value *is* the
+  directive, so any value that arrives is the nonce your policy will admit, and an attacker who
+  chooses one authors a `<script nonce>` the policy accepts. **Take the nonce from
+  `TransactionContext.getNonce()` — exposed to every template as `$_qlue_nonce`, sixteen bytes of
+  `SecureRandom` per request — or from another value of your own, and never from request data.** If
+  your page sets a `Content-Security-Policy` naming a nonce, this attribute is not the thing keeping
+  that policy honest.
 - **Origin, on every URL attribute except the resource sinks.** `url()` filters schemes, not
   origins. An `<a href>`, `<img src>`, `<form action>`, `ping`, `cite`, `poster`, `srcset`,
   `formaction` or `usemap` built from attacker-controlled data can point at another origin:

@@ -421,7 +421,7 @@ public class CanoeCorpusTest {
         // rows above only prove the oracle works in body context. The structural oracle used to
         // select over document.body() alone, so for a template like this one both the benign and the
         // attacked render reduced to the empty skeleton "body[]" and compared equal no matter what
-        // the payload did. Fifteen invocations were in that state - policy.nonce among them, where a
+        // the payload did. Fifteen invocations were in that state - plain.nonce among them, where a
         // breakout would have been exactly the thing nobody saw. A row that cannot fail is worse
         // than no row, so the oracle's ability to fail in head context is asserted too.
         XssCase hoistedIntoHead = XssCase.id("oracle-selftest-head")

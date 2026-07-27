@@ -34,8 +34,7 @@ public enum SinkKind {
 
     /**
      * An attribute whose decoded value the HTML parser itself acts on as a <em>switch that turns a
-     * security control on or off</em> — {@code sandbox}, {@code rel}, {@code integrity}, {@code
-     * nonce}.
+     * security control on or off</em> — {@code sandbox}, {@code rel}, {@code integrity}.
      *
      * <p>A fifth category the review's "JavaScript, CSS, a URL, or markup" framing does not cover, and
      * the one Canoe's {@code html()} default was least able to help with: policy tokens are letters,
@@ -43,12 +42,20 @@ public enum SinkKind {
      * through the parser's character-reference decoding. There is no encoding that makes
      * {@code allow-same-origin} mean something else. Recorded as F20.
      *
-     * <p><strong>R5 suppresses all four names</strong>, which is the only fix this category ever
+     * <p><strong>R5 suppresses all three names</strong>, which is the only fix this category ever
      * admitted: none of them is on the plain-text allowlist, and
      * {@code Canoe.NAMES_THAT_MAY_NOT_BE_ADDED} refuses them from application configuration too. The
      * category is kept — with its criteria, which are what decided which names went on the allowlist
      * and which did not — because it is the question a new attribute has to be asked, and because a
      * suppressed sink still needs a declared kind for the oracle to judge it by.
+     *
+     * <p><strong>{@code nonce} was a fourth and is not one now.</strong> It meets every criterion
+     * below — it is the strongest member the category ever had, since the whole value is the
+     * directive and there is no inert token to arrive — and it is on the plain-text allowlist
+     * regardless, by a decision to accept the residual rather than by a finding that it does not
+     * qualify. Its row is {@code plain.nonce}. The criteria are unchanged and the boundary they draw
+     * is unchanged; what moved is one name, over the top of them. Anything that reads this category
+     * as "the names Canoe suppresses" is reading it wrong from here on.
      *
      * <h2>The exclusion criterion, stated so the boundary is checkable</h2>
      *

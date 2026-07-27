@@ -412,7 +412,7 @@ public class ViewFactoryRenderTest {
                         + " attribute-name scan lower-cases as it buffers");
 
         assertThrows(IllegalArgumentException.class,
-                () -> ProductionRenderProbe.plainTextAttributesFromProperty("title, nonce"),
+                () -> ProductionRenderProbe.plainTextAttributesFromProperty("title, sandbox"),
                 "F20: a name whose suppression is the fix must fail at startup, where somebody is"
                         + " reading the stack trace, rather than silently doing nothing on every"
                         + " page");

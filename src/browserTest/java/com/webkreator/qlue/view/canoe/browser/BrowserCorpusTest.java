@@ -277,7 +277,8 @@ public class BrowserCorpusTest extends BrowserTestBase {
      *       rows has been re-verdicted to a suppression: {@code url.action}, {@code url.formaction}
      *       and {@code url.xlink-href}'s dead-scheme rows are suppressions under {@code url()} now
      *       (R12 rejects a scheme off the {http, https, mailto} allowlist to the empty string),
-     *       {@code url.srcset}'s six are the same, and {@code policy.nonce}'s three went with F20.
+     *       {@code url.srcset}'s six are the same, and the CSP nonce's three went with F20 (that row
+     *       is {@code plain.nonce} now, and is SAFE rather than suppressed).
      *       The corpus only permits the flag on a {@code KNOWN_VULNERABLE} row, so the axis is empty
      *       — see {@code CanoeCorpusTest.browserObservabilityIsOnlyClaimedWhereItChangesAnExpecta}
      *       {@code tion}, which now guards the machinery instead of counting users. Every row this

@@ -428,9 +428,6 @@ public class Canoe extends Writer {
      *       <code>allow-same-origin</code> means anything other than <code>allow-same-origin</code>.
      *       Encoding is not insufficient here, it is inapplicable, and suppression is not the
      *       preferred fix but the only one.
-     *   <li><code>nonce</code> - inert as text, which is true and is the wrong test. An attacker who
-     *       chooses the nonce can author a <code>&lt;script nonce&gt;</code> the content security
-     *       policy then admits, which defeats the control rather than escaping the attribute.
      *   <li><code>http-equiv</code>, <code>charset</code> - parser and navigation directives. A
      *       value of <code>refresh</code> turns a sibling <code>content</code> into a redirect, and
      *       the document's declared encoding decides how every byte after it is tokenized.
@@ -483,11 +480,26 @@ public class Canoe extends Writer {
      *       place the form's contents are sent.
      * </ul>
      *
-     * <p>Five more names on this list are not <em>quite</em> "text a browser reads and hands to
+     * <p>Six more names on this list are not <em>quite</em> "text a browser reads and hands to
      * nothing". Each was kept, and each is written out so that the next reader does not have to
      * re-derive the argument - or, better, so that they can disagree with it in one place:
      *
      * <ul>
+     *   <li><code>nonce</code> - <strong>the one entry here whose residual is a security control
+     *       being defeated, and it is on this list by decision rather than by argument.</strong>
+     *       What <code>html()</code> owes is satisfied: a nonce is letters, digits and
+     *       <code>+/=</code>, the value cannot leave the attribute it was written into, and nothing
+     *       parses it. What that misses is that inertness is the wrong test for this name. A nonce
+     *       has no token vocabulary - the whole value <em>is</em> the directive - so every value
+     *       that arrives is live by construction, and an attacker who chooses one authors a
+     *       <code>&lt;script nonce&gt;</code> the page's content security policy then admits. That
+     *       is the control defeated, not an attribute escaped, and no encoder can be the answer to
+     *       it. The name was suppressed for exactly that reason and has been put back deliberately;
+     *       the residual belongs to the application. A page whose policy names a nonce must take
+     *       that nonce from {@code TransactionContext.getNonce()} or another value of its own, never
+     *       from request data - and where a template does interpolate one, this attribute is doing
+     *       nothing to stop it. The other five entries below are bounded second parsers; this one
+     *       is not, and it is written first so that it is not read as one of them.
      *   <li><code>pattern</code> - compiled by the browser as an ECMAScript regular expression, so a
      *       second parser genuinely does consume it. What that parser can be made to do is bounded:
      *       it matches, it cannot fetch and it cannot execute, and the worst attacker-reachable
@@ -545,7 +557,11 @@ public class Canoe extends Writer {
                     // Links, metadata and the remaining enumerated attributes.
                     "coords", "datetime", "download", "high", "hreflang", "low", "media", "open",
                     "optimum", "popovertarget", "popovertargetaction", "reversed", "shape", "start",
-                    "type", "target", "formtarget")));
+                    "type", "target", "formtarget",
+                    // The CSP nonce, on this list by decision and not by the test every other name
+                    // here passes. An attacker-chosen value IS the nonce the policy admits, and no
+                    // encoder can change that; the residual is the application's. See the javadoc.
+                    "nonce")));
 
     /**
      * The two families of attribute names that are plain text by construction.
@@ -576,6 +592,13 @@ public class Canoe extends Writer {
      * configuration which would have had no effect fails at startup rather than looking as though it
      * worked.
      *
+     * <p><code>nonce</code> is <em>not</em> here, and its absence is a decision rather than an
+     * oversight. It was, for the reason the rest of this set exists: an attacker who chooses a CSP
+     * nonce authors a script the policy admits. It is on the built-in plain-text allowlist now, so
+     * refusing it from configuration would refuse a name Canoe already treats as text - the
+     * ineffective-configuration case the paragraph above is about. The exposure did not go away with
+     * the entry; see {@link #PLAIN_TEXT_ATTRIBUTE_NAMES}, which is where it is recorded.
+     *
      * <p>The second group is the one that is easiest to leave out and is listed for a reason:
      * <code>imagesrcset</code>, <code>xml:base</code>, <code>archive</code>, <code>classid</code>
      * and <code>profile</code> are <em>URL-bearing</em> names deliberately not routed to
@@ -587,7 +610,7 @@ public class Canoe extends Writer {
      */
     private static final Set<String> NAMES_THAT_MAY_NOT_BE_ADDED = Collections.unmodifiableSet(
             new LinkedHashSet<>(Arrays.asList(
-                    "srcdoc", "content", "sandbox", "rel", "integrity", "nonce", "http-equiv",
+                    "srcdoc", "content", "sandbox", "rel", "integrity", "http-equiv",
                     "charset", "crossorigin", "referrerpolicy", "is", "style",
                     "imagesrcset", "xml:base", "archive", "classid", "profile")));
 

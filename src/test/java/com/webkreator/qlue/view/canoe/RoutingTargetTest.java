@@ -145,9 +145,11 @@ public class RoutingTargetTest {
                 // A policy-bearing attribute (F20). The HTML parser consumes sandbox's decoded
                 // value as a directive, so no encoding helps and html() was meaningless here; R5's
                 // fail-closed default suppresses it, and its name is off the plain-text allowlist
-                // along with rel, integrity and nonce - both in the list itself and in
+                // along with rel and integrity - both in the list itself and in
                 // Canoe.NAMES_THAT_MAY_NOT_BE_ADDED, which refuses to let an application put it
-                // back through configuration.
+                // back through configuration. nonce was the group's fourth name and is on the
+                // plain-text allowlist now; that was a decision about one attribute, and it left
+                // these three where they were.
                 new Row("policy attribute (F20)",
                         "<iframe sandbox=\"", Canoe.CTX_SUPPRESS, Canoe.CTX_SUPPRESS, null),
 

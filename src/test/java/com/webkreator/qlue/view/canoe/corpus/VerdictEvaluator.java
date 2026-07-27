@@ -239,11 +239,12 @@ public final class VerdictEvaluator {
      * A policy attribute is live when the payload arrives verbatim <em>and</em> the value carries a
      * token the browser's algorithm recognises.
      *
-     * <p>{@code nonce} is the one attribute with no token vocabulary: the whole value <em>is</em> the
-     * directive, so any non-empty value that survives is live by construction. That is what makes it
-     * strictly stronger than {@code target}, which this suite does not classify as a policy sink at
-     * all — an attacker who chooses the CSP nonce can author a {@code <script nonce>} that the policy
-     * then admits, which defeats the control rather than redirecting a navigation.
+     * <p>{@code nonce} used to be handled here ahead of the token table, because it is the one
+     * attribute with no token vocabulary: the whole value <em>is</em> the directive, so any non-empty
+     * value that survives is live by construction. It is on Canoe's plain-text allowlist now and its
+     * row is {@code plain.nonce}, judged structurally like every other {@link SinkKind#PLAIN_TEXT_ATTR}
+     * case. The branch went with it rather than being left as unreachable code — but the reasoning
+     * did not stop being true, and {@code plain.nonce}'s note is where it lives.
      */
     private static Observation judgeAsPolicy(XssCase testCase, Payload payload,
                                              CanoeTestSupport.RenderResult attacked,
@@ -254,11 +255,6 @@ public final class VerdictEvaluator {
         }
 
         String attribute = testCase.attribute();
-        if ("nonce".equals(attribute)) {
-            return new Observation(Verdict.KNOWN_VULNERABLE, attacked, sinkValue,
-                    "the whole value is the directive, so any value that arrives is the nonce the"
-                            + " content security policy will admit");
-        }
         if ("integrity".equals(attribute)) {
             return integrityIsLive(sinkValue)
                     ? new Observation(Verdict.KNOWN_VULNERABLE, attacked, sinkValue,
@@ -857,7 +853,7 @@ public final class VerdictEvaluator {
      * and anything else it finds before the first flow content into {@code <head>}, so a
      * body-only skeleton reduces those documents to the empty string {@code body[]} on both sides of
      * the comparison and the structural oracle silently stops asserting anything. Fifteen invocations
-     * were in that state — {@code policy.nonce}, {@code rcdata.title}, {@code rawtext.noscript} and
+     * were in that state — {@code plain.nonce}, {@code rcdata.title}, {@code rawtext.noscript} and
      * the two {@code desync.*-end-tag-with-a-suffix} cases — and the CSP nonce one is where a real
      * breakout would have been invisible. Measured across the whole corpus both ways: no invocation
      * changes verdict, so widening the selection costs nothing and closes the hole.

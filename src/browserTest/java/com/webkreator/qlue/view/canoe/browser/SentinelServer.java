@@ -166,15 +166,16 @@ public final class SentinelServer implements AutoCloseable {
     /**
      * Publishes rendered HTML under a {@code Content-Security-Policy} response header (R28).
      *
-     * <p>Only one test needs this and it needs it for a reason worth stating, because a browser tier
-     * that adds headers to the document under test is editing the thing it is measuring. F20's
-     * {@code nonce} row is the one finding in the review with no browser evidence either before or
-     * after the fix, and it cannot have any without a policy: a {@code nonce} attribute does nothing
-     * at all unless the response carries a CSP naming one. The header served here names the
-     * <em>author's</em> nonce — a value the attacker never sees and the corpus never renders — so
-     * the policy is the page author's, as it would be in production, and not a policy written around
-     * the attacker's payload. Assuming the conclusion would be a header naming the attacker's nonce;
-     * this is the opposite.
+     * <p><strong>Nothing calls this today</strong>, and the rule it was written for is why it is
+     * still here. A browser tier that adds headers to the document under test is editing the thing
+     * it is measuring, so this form exists for the one class of case that cannot be measured without
+     * a header: F20's {@code nonce} row, where the attribute does nothing at all unless the response
+     * carries a CSP naming one. That demonstration went when {@code nonce} moved onto Canoe's
+     * plain-text allowlist — there is no longer a suppression for it to assert — but the constraint
+     * it established outlives it. Any future policy served from here must name the <em>author's</em>
+     * nonce, a value the attacker never sees and the corpus never renders, so that the policy is the
+     * page author's as it would be in production. A header naming the attacker's nonce would be
+     * assuming the conclusion.
      *
      * <p>Deliberately not reachable from the corpus tier. {@link BrowserCorpusTest} publishes with
      * the no-header form, so every one of the 67 corpus rows is still served exactly as Canoe

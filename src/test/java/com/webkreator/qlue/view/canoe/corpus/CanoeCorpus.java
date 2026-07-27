@@ -2183,6 +2183,11 @@ public final class CanoeCorpus {
         // default that suppressed them would have been the availability failure trap 4 warns about,
         // and a denylist that admitted sandbox would have been the security one. The verdicts below
         // are therefore load-bearing in both directions.
+        //
+        // plain.nonce, at the end of the run, is NOT one of the three and does not share their
+        // argument. It came back from the policy group because the allowlist was widened to take
+        // it, on an accepted residual rather than on a finding that it does not qualify. Its note
+        // says so at length; do not read it as a fourth instance of the reasoning above.
         cases.add(plainTextAttribute("plain.type", "<script type=\"$data\" src=\"/app.js\"></script>",
                 "script", "type", Payloads.family("POLICY_OVERRIDE"))
                 .note("R5's decision: ON the plain-text allowlist, so html() still applies and the"
@@ -2225,6 +2230,40 @@ public final class CanoeCorpus {
                         + " one of them names a window while the other names the place the form's"
                         + " contents are sent. A single classification for both would have been"
                         + " wrong whichever one it picked.")
+                .build());
+
+        cases.add(plainTextAttribute("plain.nonce",
+                "<script nonce=\"$data\" src=\"/app.js\"></script>", "script", "nonce",
+                Payloads.family("POLICY_OVERRIDE"))
+                .note("The one row in this group that is SAFE by the oracle's definition and NOT by"
+                        + " the group's argument, and it is here by a deliberate widening of the"
+                        + " plain-text allowlist rather than by the reasoning that put the other"
+                        + " three beside it. Read both halves or the row is misleading."
+                        + " The half that makes it SAFE: html() escapes the space, both quotes, '>'"
+                        + " and '=', so a POLICY_OVERRIDE payload cannot leave the attribute, and the"
+                        + " structural oracle sees the same document skeleton it saw for the benign"
+                        + " render. That is a true statement about Canoe and it is the whole of what"
+                        + " the verdict asserts."
+                        + " The half the verdict does not cover: inertness is the wrong test for this"
+                        + " name. Unlike sandbox, rel and integrity, nonce has no token vocabulary at"
+                        + " all - the whole value IS the directive - so every payload that arrives is"
+                        + " live by construction and there is no inert combination to record. An"
+                        + " attacker who chooses the value authors a <script nonce> that a policy"
+                        + " naming that nonce then admits, which is a security control defeated. No"
+                        + " encoder can be the answer to it; only not interpolating can."
+                        + " Why the row is SAFE anyway rather than KNOWN_VULNERABLE or a residual:"
+                        + " the sink this template reaches is a nonce on a page with no"
+                        + " Content-Security-Policy naming one, so nothing acts on the value here."
+                        + " The exposure is a property of the APPLICATION's policy, not of this"
+                        + " document, and the ledger records what a browser does with what Canoe"
+                        + " rendered. The corpus cannot express the three-document,"
+                        + " policy-header shape that demonstrates the rest; a browser test used to,"
+                        + " and it went when the suppression it asserted did."
+                        + " The POLICY_OVERRIDE payloads are kept rather than swapped for"
+                        + " nonce-shaped strings because the point is verbatim arrival, and their"
+                        + " character set - letters, digits, hyphens, underscores, a space - is the"
+                        + " same set a base64 nonce draws from.")
+                .browserRelevant()
                 .build());
 
         cases.add(plainTextAttribute("plain.lang", "<p lang=\"$data\">x</p>", "p", "lang",
@@ -2652,12 +2691,17 @@ public final class CanoeCorpus {
      * byte, every time, and no change to the encoder can alter that — only recognising the name and
      * suppressing can, which is remediation item 3 in the review.
      *
-     * <p>Four names, not the six F20's table lists. {@code target}, {@code formtarget} and
+     * <p>Three names, not the six F20's table lists. {@code target}, {@code formtarget} and
      * {@code type} were considered and rejected against the criteria in {@link SinkKind#POLICY}; they
      * are {@code plain.*} cases now, each with the reasoning kept rather than deleted, and R5 made
      * the same three decisions the same way — they are on the plain-text allowlist and the other
-     * four are not.
-     * {@code nonce} was moved <em>in</em>, from the plain-text group — see {@link #policyNonce}.
+     * three are not.
+     *
+     * <p>{@code nonce} was the fourth, moved <em>in</em> from the plain-text group by R5 and moved
+     * back out again when the allowlist was widened to take it. It is {@code plain.nonce} now. That
+     * was a decision about one attribute and it did not touch the criteria: read the note on that
+     * row before treating the move as a precedent for any name here, because the argument that put
+     * it back is "we accept this residual", not "it turned out not to be one".
      */
     private static void policyAttributes(List<XssCase> cases) {
 
@@ -2705,85 +2749,6 @@ public final class CanoeCorpus {
                         + " to be the name rather than the payload set: a sha256-<junk> payload"
                         + " would have flipped the case, and no encoder would have stopped it."
                         + " " + A_DIRECTIVE_CANNOT_BE_ENCODED)
-                .build());
-
-        policyNonce(cases);
-    }
-
-    /**
-     * The CSP nonce, promoted out of the plain-text group.
-     *
-     * <p>It was {@code plain.nonce}/{@code SAFE}, on the argument that the value cannot break out of
-     * the attribute — which is true and is not the question. A nonce is a directive the HTML parser
-     * hands straight to the content security policy, made of letters, digits and {@code +/=}, every
-     * one of which arrives byte for byte. An attacker who chooses it can then author a
-     * {@code <script nonce="...">} the policy admits, which defeats a real security control. That is
-     * strictly stronger than {@code target}, which used to be ledgered here as
-     * {@code KNOWN_VULNERABLE}/{@code POLICY} while {@code nonce} sat two groups away as SAFE.
-     *
-     * <p>The boundary this settles is worth stating, because two neighbouring cases looked like
-     * counterexamples. {@code clobber.id} makes F20's argument word for word — "the legal values are
-     * exactly the dangerous ones; only refusing to interpolate can help" — and is still SAFE, because
-     * an {@code id} is a name in the document's own namespace and no browser algorithm treats it as a
-     * directive; what it endangers is other scripts on the page. {@code plain.type} arrives just as
-     * verbatim and is SAFE because its only attacker-reachable effect is to disable a script. The
-     * criteria are written out on {@link SinkKind#POLICY} so the three verdicts can be checked
-     * against each other rather than taken on trust.
-     *
-     * <p>And the practical consequence: remediation item 3's allowlist listed {@code nonce} among the
-     * plain-text names. Implementing the review exactly as written would have left {@code nonce} on
-     * {@code html()} — the outcome F20 exists to prevent. That entry has been removed from the review.
-     */
-    private static void policyNonce(List<XssCase> cases) {
-        cases.add(policyAttribute("policy.nonce",
-                "<script nonce=\"$data\" src=\"/app.js\"></script>", "script", "nonce")
-                .note(A_DIRECTIVE_CANNOT_BE_ENCODED
-                        + " This row is the one the review's own remediation sketch would have got"
-                        + " wrong: it listed nonce among the plain-text names, on the argument that"
-                        + " the value cannot break out of the attribute - which is true, and is the"
-                        + " wrong test. Implementing R5 as written would have left F20's worst row"
-                        + " on html(). Canoe's PLAIN_TEXT_ATTRIBUTE_NAMES javadoc records the"
-                        + " correction, and NAMES_THAT_MAY_NOT_BE_ADDED refuses the name from"
-                        + " configuration as well."
-                        + " The original reasoning, kept because it is what decided the verdict"
-                        + " while the row was live: unlike every other attribute in this group,"
-                        + " nonce has no token vocabulary at all -"
-                        + " the whole value is the directive, so every payload that arrives is live"
-                        + " by construction and there is no inert combination to record. The"
-                        + " POLICY_OVERRIDE payloads are used rather than nonce-shaped strings"
-                        + " because the point is verbatim arrival, and their character set - letters,"
-                        + " digits, hyphens, underscores, a space - is the same set a base64 nonce"
-                        + " draws from. Canoe's own part still holds: the value cannot break out of"
-                        + " the attribute. It does not have to."
-                        + " All three payloads used to be flagged not-browser-observable, and the"
-                        + " reason was structural rather than a dead engine: a nonce does nothing"
-                        + " at all unless"
-                        + " the response carries a Content-Security-Policy naming one, and this"
-                        + " template has no author nonce for a policy to name. The browser tier"
-                        + " serves what Canoe rendered; adding a CSP header would be the tier"
-                        + " editing the document under test, and a header naming the ATTACKER's"
-                        + " nonce would be assuming the conclusion. Demonstrating F20's nonce row in"
-                        + " a browser needs a different template - an author nonce in the policy and"
-                        + " a second, attacker-controlled script element - which the corpus does not"
-                        + " have. Recorded here rather than left as a browser-tier failure nobody"
-                        + " could act on. Measured in Chromium by BrowserCorpusTest. The flag is"
-                        + " gone with the KNOWN_VULNERABLE verdict it qualified - a suppressed row"
-                        + " expects browser silence anyway, and the corpus only permits the flag"
-                        + " where it changes an expectation."
-                        + " R28 has since built the demonstration this note said was missing, and"
-                        + " it lives in the browser tier rather than here because it needs three"
-                        + " documents and a response header that the corpus, whose unit is one"
-                        + " template rendered by Canoe, has no way to express:"
-                        + " SinkSpecificBrowserTest.aSuppressedNonceCannotSatisfyACspThatAChosen"
-                        + "NonceWould serves a real script-src 'nonce-<author>' policy naming the"
-                        + " AUTHOR's nonce, shows the author's own script admitted, shows THIS"
-                        + " template with the author's nonce in place of the reference admitted -"
-                        + " which is F20's mechanism, and byte for byte what Canoe emitted before"
-                        + " R5, since html() passes a nonce through verbatim - and shows the"
-                        + " nonce=\"\" R5 renders refused, in Chromium, Firefox and WebKit. The"
-                        + " policy names the author's nonce and never the attacker's, so it is the"
-                        + " page author's policy rather than one written around the payload.")
-                .browserRelevant()
                 .build());
     }
 

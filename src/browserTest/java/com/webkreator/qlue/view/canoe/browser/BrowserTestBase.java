@@ -390,9 +390,12 @@ public abstract class BrowserTestBase {
     /**
      * The same, with a {@code Content-Security-Policy} on the response.
      *
-     * <p>One test uses this — F20's {@code nonce} demonstration — and
+     * <p><strong>No test uses this today.</strong> Its one caller was F20's {@code nonce}
+     * demonstration, which went when {@code nonce} moved onto Canoe's plain-text allowlist and there
+     * was no longer a suppression for it to assert. Kept rather than deleted because it is the whole
+     * of what a CSP-carrying case needs and the next one should not have to rebuild it;
      * {@link SentinelServer#publish(String, String, String)} says why a browser tier is allowed to
-     * put a header on the document under test in that one case and nowhere else.
+     * put a header on the document under test at all, which is the part worth not losing.
      */
     protected void runCase(BrowserEngine engine, String label, String html,
                            String contentSecurityPolicy,
