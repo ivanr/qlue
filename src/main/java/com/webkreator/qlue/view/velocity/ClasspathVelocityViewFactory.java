@@ -72,7 +72,7 @@ public class ClasspathVelocityViewFactory extends VelocityViewFactory {
     protected Properties buildDefaultVelocityProperties(QlueApplication qlueApp) {
         Properties properties = super.buildDefaultVelocityProperties(qlueApp);
 
-        // The base class now sets resource.loader.class.class itself (R22, F22), to the plain
+        // The base class sets resource.loader.class.class itself, to the plain
         // ClasspathResourceLoader, so this override is only about the reloading variant: the
         // else-branch restates the inherited default and is kept because the choice between the two
         // loaders reads as one decision.

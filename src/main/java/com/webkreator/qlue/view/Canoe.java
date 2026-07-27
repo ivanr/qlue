@@ -50,36 +50,27 @@ public class Canoe extends Writer {
 
     public static final int CTX_URI = 4;
 
-    // Value 5 was CTX_CSS, deleted by R14 (F21). currentContext() never produced it - ATTR_CSS
-    // returns CTX_SUPPRESS - so the CTX_CSS arm of encode() was dead code. Canoe suppresses CSS
-    // by design; the decision is recorded on the ATTR_CSS case in currentContext() and in encode().
-    // The slot is left as a gap rather than reused, so no old caller silently rebinds to it.
+    // Value 5 was CTX_CSS. Canoe suppresses CSS by design - ATTR_CSS returns CTX_SUPPRESS - so the
+    // slot is left as a gap rather than reused, and no old caller can silently rebind to it.
 
     /**
      * A URL that loads a subresource or reroutes the page: {@code src} on {@code <script>},
-     * {@code <iframe>} and {@code <embed>}, {@code data} on {@code <object>}, and {@code href} on
-     * {@code <link>} and {@code <base>}. Routed to {@link HtmlEncoder#urlResource(String, java.util.List)},
-     * which rejects an off-origin or protocol-relative authority (F6/R9). Distinct from {@link #CTX_URI}
-     * because {@code <a href>} and {@code <img src>} are open-redirect and referrer surfaces, not
-     * code-execution ones, and keep the ordinary {@code url()} encoder.
+     * {@code <iframe>}, {@code <frame>} and {@code <embed>}, {@code data} on {@code <object>}, and
+     * {@code href} on {@code <link>} and {@code <base>}. Routed to
+     * {@link HtmlEncoder#urlResource(String, java.util.List)}, which rejects an off-origin or
+     * protocol-relative authority. Distinct from {@link #CTX_URI} because {@code <a href>} and
+     * {@code <img src>} are open-redirect and referrer surfaces, not code-execution ones, and keep
+     * the ordinary {@code url()} encoder.
      */
     public static final int CTX_URI_RESOURCE = 6;
 
     /**
-     * The prefix every encoding error's message carries.
+     * The prefix every encoding error's message carries. {@link CanoeEncodingException} builds its
+     * message with it, and it is kept as a compatibility surface for existing log lines and greps.
      *
-     * <p><strong>Kept, deliberately, but no longer load-bearing (R21).</strong> It used to be how an
-     * encoding error was <em>recognised</em>: {@code VelocityViewFactory.render()} tested
-     * {@code e.getMessage().startsWith(ERROR_PREFIX)} on the exception it caught, which was always
-     * Velocity's wrapper and never Canoe's, so the test could never be true (F13). Recognition is now
-     * {@link CanoeEncodingException#findIn(Throwable)}, a type in the cause chain, and nothing in
-     * {@code src/main} matches on this string any more.
-     *
-     * <p>It survives because the <em>message</em> is a compatibility surface of its own: this
-     * constant is public API, it is what an application's log lines and any operator's grep have been
-     * seeing since Canoe was written, and {@link CanoeEncodingException} still builds its message with
-     * it. Retiring it would have changed every diagnostic in the field to close a defect that was
-     * never about the string. A caller wanting the error without the decoration should use
+     * <p>Nothing matches on this string: to recognise an encoding error use
+     * {@link CanoeEncodingException#findIn(Throwable)}, which finds the type in a cause chain even
+     * after a template engine has wrapped it, and to read the error without the decoration use
      * {@link CanoeEncodingException#getReason()} rather than stripping this prefix.
      */
     public static final String ERROR_PREFIX = "Encoding Error: ";
@@ -87,23 +78,16 @@ public class Canoe extends Writer {
     /**
      * The length of the shared name buffer, and therefore one more than the longest tag or attribute
      * name Canoe will parse: the scan raises once it would fill the last slot, which is reserved for
-     * the NUL terminator the name scan appends.
+     * the NUL terminator the name scan appends. The same constant decides both length checks —
+     * {@code Tag name too long} in TAG_NAME and {@code Attribute name too long} in TAG_ATTR_NAME.
      *
-     * <p><strong>Raised from 36 to 128 by R20</strong>, which triages F13's rejection table. The old
-     * value capped a name at 35 characters and both length checks share it — {@code Tag name too
-     * long} in TAG_NAME and {@code Attribute name too long} in TAG_ATTR_NAME — so the same constant
-     * decided both. The attribute half is the one an ordinary page hits: {@code data-*} attribute
-     * names in modern frameworks routinely run past 35 characters, and every one of them was a
-     * rejected page rather than a rendered one. Custom element names reach it too, though less often.
-     * Neither limit is a security control — a name is template text, never attacker data, and nothing
-     * downstream reads past {@code bufLen} — so the only thing the old value bought was the smaller
-     * buffer, which is 256 bytes per Canoe instance rather than 72 and is not a trade worth a 500.
-     *
-     * <p>128 rather than "no limit" because the buffer is fixed-size by design: the scan is bounded,
-     * allocation-free and cannot be made to grow by output, so the cap is what keeps a pathological
-     * name from being a pathological allocation. It also bounds the application-configured plain-text
-     * allowlist in {@link #normalisePlainTextAttributeNames(Collection)}, which refuses a name the
-     * tokenizer could never buffer.
+     * <p>Neither limit is a security control: a name is template text, never attacker data, and
+     * nothing downstream reads past {@code bufLen}. The cap exists because the buffer is fixed-size
+     * by design — the scan is bounded, allocation-free and cannot be made to grow by output — so it
+     * is what keeps a pathological name from being a pathological allocation. It also bounds the
+     * application-configured plain-text allowlist in
+     * {@link #normalisePlainTextAttributeNames(Collection)}, which refuses a name the tokenizer could
+     * never buffer.
      */
     public static final int MAX_TAGNAME_LEN = 128;
 
@@ -152,11 +136,10 @@ public class Canoe extends Writer {
      *
      * <p>The HTML Standard's script-data-end-tag-name state does not leave script data on the name
      * alone: the end tag is only "appropriate" when the character following the name is whitespace,
-     * {@code /} or {@code >}. {@code SCRIPT_END} used to go straight to {@link #TAG} on the final
-     * {@code t}, so {@code </scriptfoo>} closed the element for Canoe and not for the browser, and
-     * everything after it was encoded for a context that did not exist there (F10, closed by R17).
-     * This state is where that one character is judged. It is still script data - {@link
-     * #currentContext()} answers {@link #CTX_JS} here, exactly as it does for {@code SCRIPT_END}.
+     * {@code /} or {@code >}. This state is where that one character is judged, so that
+     * {@code </scriptfoo>} stays inside the script element for Canoe exactly as it does for a
+     * browser. It is still script data — {@link #currentContext()} answers {@link #CTX_JS} here,
+     * exactly as it does for {@link #SCRIPT_END}.
      */
     public static final int SCRIPT_END_NAME = 20;
 
@@ -181,37 +164,30 @@ public class Canoe extends Writer {
 
     public static final int ATTR_DATA = 4;
 
-    /**
-     * An attribute name nothing recognises, which is suppressed.
-     *
-     * <p>This constant occupies the slot the retired ATTR_CONTENT held. ATTR_CONTENT existed for
-     * one branch, that branch compared the characters of "data" rather than of "content" (F7), and
-     * R7 resolved the pair: "data" is a URL and "content" is suppressed like every other name no
-     * list holds. Nothing assigned ATTR_CONTENT after that, so it went with its branch.
-     */
+    /** An attribute name nothing recognises, whose value is suppressed. */
     public static final int ATTR_UNKNOWN = 5;
 
     public static final int ATTR_ACTIONSCRIPT = 6;
 
     /**
-     * A URL-bearing attribute name on an element that loads a subresource with it (R9). Reached only
+     * A URL-bearing attribute name on an element that loads a subresource with it. Reached only
      * from {@link #setTagAttributeContext()}, which narrows {@link #ATTR_URI} to this when the tag
      * name says the value is a resource-loading sink; maps to {@link #CTX_URI_RESOURCE}.
      */
     public static final int ATTR_URI_RESOURCE = 7;
 
     // -----------------------------------------------------------------------------------------
-    // Where in a URL the attribute-value scan is (R30, closing F26).
+    // Where in a URL the attribute-value scan is.
     // -----------------------------------------------------------------------------------------
     //
-    // R9's origin filter asks whether the VALUE a reference produces introduces an authority. That
-    // is the wrong question whenever the template wrote literal URL text in front of the reference,
-    // because the authority is then introduced by the two of them together and by neither alone:
-    // <script src="/$path"> with path = "/attacker.example/x.js" renders //attacker.example/x.js,
-    // and every character of the authority came from a value that carries no authority at all.
-    // HtmlEncoder.urlResource() cannot see that, and cannot be made to: the fact that decides it is
-    // not in the reference. So Canoe answers the positional half itself, with a small state machine
-    // run over the value characters alongside the prefix scan.
+    // HtmlEncoder.urlResource() asks whether the VALUE a reference produces introduces an authority.
+    // That is the wrong question whenever the template wrote literal URL text in front of the
+    // reference, because the authority is then introduced by the two of them together and by neither
+    // alone: <script src="/$path"> with path = "/attacker.example/x.js" renders
+    // //attacker.example/x.js, and every character of the authority came from a value that carries
+    // no authority at all. The encoder cannot see that, and cannot be made to: the fact that decides
+    // it is not in the reference. So Canoe answers the positional half itself, with a small state
+    // machine run over the value characters alongside the prefix scan.
     //
     // The states are the URL parser's front end, and only its front end: what is being tracked is
     // "is the authority still open", not the URL. Everything unrecognised resolves towards "open",
@@ -266,23 +242,15 @@ public class Canoe extends Writer {
     protected String errorMessage;
 
     /**
-     * Whether a tag has been seen in this document, which is the precondition a DOCTYPE declaration
-     * is tested against (R18).
-     *
-     * <p>It used to be a {@code tagCount} incremented for every {@code '<'} the HTML state saw, with
-     * the DOCTYPE check demanding {@code tagCount == 1}. A comment is markup and so it counted, and
-     * that was F18: <code>&lt;!-- licence --&gt;&lt;!DOCTYPE html&gt;</code> — legal HTML, and the shape a
-     * licence header, an editor marker or a generator stamp gives an ordinary template file — took the
-     * whole page down. The check wants "no <em>element</em> has been emitted yet", which is what this
-     * field records; the counter it replaced answered "no {@code '<'} has been seen yet", which is a
-     * different question and the wrong one. Nothing else ever read the count, so it went with the
-     * check rather than being left as a field with no reader.
+     * Whether an element has been emitted in this document, which is the precondition a DOCTYPE
+     * declaration is tested against: a declaration below an element is refused.
      *
      * <p>Set at the point TAG_NAME commits to a tag — a start tag's first name character, or the
      * {@code '/'} of an end tag — and deliberately <em>not</em> set for the {@code '!'} that opens a
-     * comment or a DOCTYPE. That is exactly the HTML Standard's boundary: its "initial" insertion mode
-     * ignores a comment and stays there, and any tag moves the parser past it, after which a DOCTYPE
-     * token is a parse error a browser ignores.
+     * comment or a DOCTYPE, so a licence header or a generator stamp above the declaration is legal.
+     * That is exactly the HTML Standard's boundary: its "initial" insertion mode ignores a comment
+     * and stays there, and any tag moves the parser past it, after which a DOCTYPE token is a parse
+     * error a browser ignores.
      *
      * @see #doctypeSeen
      */
@@ -291,21 +259,16 @@ public class Canoe extends Writer {
     /**
      * Whether a DOCTYPE declaration has already been accepted in this document.
      *
-     * <p>A second DOCTYPE is <strong>ignored, with a warning</strong> (R20). It used to be rejected,
-     * on the argument that a template emitting two DOCTYPEs is an authoring mistake — usually a layout
-     * and an included fragment each declaring one — and that saying so is the whole value of the
-     * check. R20's triage keeps the diagnostic and drops the refusal: a browser ignores the second
-     * declaration (it is a parse error in "before html" and after it, and the token is discarded), so
-     * refusing the page is strictness no consuming parser has, and it turns the most ordinary
-     * composition mistake in a templating system into a failed request. The warning goes to the same
-     * logger the unrecognised-attribute diagnostic uses, at warn rather than debug, because unlike
-     * that one it fires at most once per document and names a real authoring defect.
+     * <p>A second DOCTYPE is <strong>ignored, with a warning</strong>, because a browser ignores it
+     * too: it is a parse error in "before html" and after it, and the token is discarded. Refusing
+     * the page would be strictness no consuming parser has, applied to the most ordinary composition
+     * mistake in a templating system — a layout and an included fragment each declaring one. The
+     * warning is at warn rather than debug because it fires at most once per document and names a
+     * real authoring defect.
      *
-     * <p>The field survives the change and is the reason the second declaration is detectable at all;
-     * without it the parser cannot tell the second {@code <!d} from the first. It is still tracked
-     * separately from {@link #elementSeen}, which carries the one DOCTYPE rejection R20 keeps: a
-     * declaration <em>after an element</em> is a template whose document order is wrong, and Canoe has
-     * already emitted the element it would have applied to.
+     * <p>Tracked separately from {@link #elementSeen}, which carries the one DOCTYPE rejection that
+     * remains: a declaration <em>after an element</em> is a template whose document order is wrong,
+     * and Canoe has already emitted the element it would have applied to.
      *
      * <p>Set where the declaration is <em>admitted</em> — the {@code d} of {@code <!d}, before
      * DOCTYPE_TEST has spelt the rest of the word out. A misspelling raises from there and ends the
@@ -316,16 +279,13 @@ public class Canoe extends Writer {
 
     /**
      * Whether non-whitespace text has been written in the {@link #HTML} state, which is what decides
-     * that a DOCTYPE declaration below it will be ignored by the browser (R20).
+     * that a DOCTYPE declaration below it will be ignored by the browser.
      *
-     * <p>Canoe accepts {@code hello<!DOCTYPE html>} and always has. The HTML Standard does not: its
-     * "initial" insertion mode ignores whitespace, and any other character is a parse error that
-     * switches to "before html" — so by the time the declaration arrives the document is already
-     * committed to <strong>quirks mode</strong>, and the DOCTYPE the author wrote does nothing. R18
-     * left this accepted deliberately, on the grounds that turning an input that renders today into a
-     * failed request is the opposite of what a rejection-table triage is for, and R20 keeps that
-     * decision and adds the missing half: the consequence is now discoverable, as a warning, rather
-     * than silent.
+     * <p>Canoe accepts {@code hello<!DOCTYPE html>}; the HTML Standard does not. Its "initial"
+     * insertion mode ignores whitespace, and any other character is a parse error that switches to
+     * "before html" — so by the time the declaration arrives the document is already committed to
+     * <strong>quirks mode</strong> and the DOCTYPE the author wrote does nothing. The input renders,
+     * and the consequence is reported as a warning rather than left silent.
      *
      * <p>Whitespace does not set it, and that is not a detail: a template whose first line is a
      * Velocity directive or a comment emits a newline before the DOCTYPE, which is both extremely
@@ -341,19 +301,8 @@ public class Canoe extends Writer {
     /**
      * The URL-bearing attribute names, whose values go through {@link HtmlEncoder#url(String)}.
      *
-     * <p>The set used to be five names - background, dynsrc, lowsrc, href and src - and every other
-     * URL-bearing name in HTML took the ATTR_HTML default, which the HTML parser undoes before the
-     * URL parser runs. That was the URL half of F3: <code>href</code> was percent-encoded and
-     * <code>xlink:href</code>, <code>formaction</code> and <code>action</code> were handed back to
-     * the attacker character for character, so the safe-by-analogy assumption a template author
-     * would make was exactly wrong. R6 adds the twelve names the review enumerates.
-     *
-     * <p><code>data</code> is here because of R7: <code>&lt;object data&gt;</code> is a URL, and the
-     * branch that used to claim the name yielded ATTR_CONTENT because it was a byte-identical copy
-     * of the branch above it (F7).
-     *
      * <p><code>xlink:href</code> needs no tokenizer change - {@link #isTagNameChar(char, int)}
-     * accepts ':' - so it scans as one name and simply never matched <code>href</code>.
+     * accepts ':' - so it scans as one name.
      *
      * <p><code>srcset</code> is a comma-and-whitespace separated list of URLs with descriptors, and
      * <code>url()</code> percent-encodes both separators, so an interpolated candidate list loses
@@ -369,30 +318,27 @@ public class Canoe extends Writer {
      *   <li><code>srcdoc</code> - its value is parsed as a whole HTML document, so the correct
      *       encoding is a second full HTML encode and a single-encoded value is same-origin XSS.
      *       Suppression is the honest answer until somebody wants to build double encoding
-     *       deliberately (R6, and &sect;6 of the remediation plan).
+     *       deliberately.
      *   <li><code>content</code> - a URL on exactly one element/attribute-value combination,
-     *       <code>&lt;meta http-equiv="refresh" content="N; url=..."&gt;</code>. <strong>R10 decided
-     *       deliberately to leave it suppressed</strong> rather than give that one combination a URL
-     *       context. Recognising the refresh URL would need three things Canoe does not have and would
-     *       be substantial machinery to add for one attribute: (1) the tag name (R8 supplies it), (2)
-     *       the value of the <em>sibling</em> attribute <code>http-equiv="refresh"</code> - and Canoe
-     *       scans attributes one at a time and never retains a prior attribute's value, and
-     *       <code>content</code> may appear before <code>http-equiv</code>, so this is a whole
-     *       sibling-attribute-value tracking facility - and (3) parsing the <code>N; url=</code>
-     *       prefix out of the value so only the URL portion is encoded, which the per-reference
-     *       encoding model cannot do at all: a reference is an opaque value encoded with one context,
-     *       so Canoe never knows whether the literal <code>N; url=</code> prefix is part of the
-     *       reference or of the surrounding template text. Routing every <code>content</code> to
-     *       <code>url()</code> instead would percent-encode the prose in every meta description on the
-     *       page. Suppression is fail-safe: a suppressed <code>content</code> renders empty, so no
-     *       forced redirect occurs, and a meta refresh that legitimately needs a dynamic URL is a case
-     *       for application code, not silent interpolation (F3's refresh row; R7 default, R10
-     *       confirmed).
+     *       <code>&lt;meta http-equiv="refresh" content="N; url=..."&gt;</code>, and
+     *       <strong>deliberately left suppressed</strong> rather than given a URL context.
+     *       Recognising the refresh URL would need two things Canoe does not have: the value of the
+     *       <em>sibling</em> attribute <code>http-equiv="refresh"</code> - and Canoe scans attributes
+     *       one at a time, never retains a prior attribute's value, and <code>content</code> may
+     *       appear before <code>http-equiv</code> - and a parse of the <code>N; url=</code> prefix so
+     *       that only the URL portion is encoded, which the per-reference encoding model cannot do at
+     *       all: a reference is an opaque value encoded with one context, so Canoe never knows
+     *       whether the literal <code>N; url=</code> prefix is part of the reference or of the
+     *       surrounding template text. Routing every <code>content</code> to <code>url()</code>
+     *       instead would percent-encode the prose in every meta description on the page. Suppression
+     *       is fail-safe: a suppressed <code>content</code> renders empty, so no forced redirect
+     *       occurs, and a meta refresh that legitimately needs a dynamic URL is a case for
+     *       application code, not silent interpolation.
      *   <li><code>imagesrcset</code>, <code>xml:base</code>, <code>archive</code>,
      *       <code>classid</code>, <code>profile</code> - URL-bearing names that no ordinary template
      *       interpolates into. Suppression is strictly stronger than <code>url()</code>, which is a
-     *       scheme filter and not an origin filter (F6), so leaving them off this list costs
-     *       security nothing and costs availability only where a template needs them.
+     *       scheme filter and not an origin filter, so leaving them off this list costs security
+     *       nothing and costs availability only where a template needs them.
      * </ul>
      */
     private static final Set<String> URL_ATTRIBUTE_NAMES = Collections.unmodifiableSet(
@@ -404,13 +350,16 @@ public class Canoe extends Writer {
     /**
      * The element/attribute combinations that load a subresource or reroute the page, and so take the
      * origin-checking {@link HtmlEncoder#urlResource(String, java.util.List)} rather than the ordinary
-     * {@code url()} — the resource-loading half of the URL set, made distinguishable by R8's tag-name
-     * tracking (R9). Each key is an element name; the value is the URL attribute on it that a browser
-     * dereferences into an executable or page-controlling context.
+     * {@code url()}. Each key is an element name; the values are the URL attributes on it that a
+     * browser dereferences into an executable or page-controlling context.
      *
      * <ul>
-     *   <li>{@code <script src>} — arbitrary JavaScript with the page's full privileges.
-     *   <li>{@code <iframe src>} — an attacker document in the page's frame tree.
+     *   <li>{@code <script src>}, and SVG's {@code <script href>} and {@code <script xlink:href>} —
+     *       arbitrary JavaScript with the page's full privileges. SVG 1.1 loads an external script
+     *       with {@code xlink:href} and SVG 2 with {@code href}, and every shipping engine runs both.
+     *   <li>{@code <iframe src>}, and {@code <frame src>} under its obsolete spelling — an attacker
+     *       document in the page's frame tree. Framesets are obsolete in the standard and removed
+     *       from no shipping engine, and it is the engines that decide whether a sink is live.
      *   <li>{@code <embed src>} — a plugin document.
      *   <li>{@code <object data>} — the object element's resource, script or document.
      *   <li>{@code <link href>} — a stylesheet or other subresource; an off-origin stylesheet can
@@ -419,34 +368,17 @@ public class Canoe extends Writer {
      *       widest blast radius of the group.
      * </ul>
      *
+     * <p>The value is a set because an element may have several attributes that load code, and the
+     * map is keyed by element because the same attribute name is a link on one element and code
+     * execution on another.
+     *
      * <p>Deliberately <em>not</em> here, and kept on the ordinary {@code url()} encoder: {@code <a
      * href>} and {@code <img src>} (and the other fetch-not-code names — {@code poster}, {@code cite},
      * {@code ping}, {@code srcset}, {@code formaction}, {@code action}, ...). An off-origin {@code <a
      * href>} is an open redirect and an off-origin {@code <img src>} is a referrer leak and a load;
      * neither is code execution, and rejecting an off-origin value from them would break the ordinary
-     * "link to another site" and "hotlink an image" cases that are not a Canoe concern. &sect;6 of the
-     * remediation plan records that boundary: these remain open-redirect/referrer surfaces by design,
-     * F6 residue that R9 scopes out rather than closes.
-     *
-     * <p><strong>R29 made the value a set, and that is the shape of F25 and F27.</strong> This used to
-     * be a {@code Map<String, String>} — one URL attribute per element — and R9's own argument is why
-     * that could not hold: the same attribute name is a link on one element and code execution on
-     * another, so the element decides. The converse is equally true and the map could not say it. An
-     * element may have <em>several</em> attributes that load code:
-     *
-     * <ul>
-     *   <li>{@code <script href>} and {@code <script xlink:href>} — SVG's {@code <script>} does not use
-     *       {@code src}. SVG 1.1 loads an external script with {@code xlink:href} and SVG 2 with
-     *       {@code href}, and every shipping engine runs both. Both names are in
-     *       {@link #URL_ATTRIBUTE_NAMES}, so before R29 they classified as ATTR_URI and took the
-     *       ordinary {@code url()} — a scheme filter, not an origin filter — while {@code src} on the
-     *       very same element was suppressed. Measured live in Chromium, Firefox and WebKit: the
-     *       attacker's script was fetched and executed (F25).
-     *   <li>{@code <frame src>} — the {@code <iframe src>} sink under its obsolete spelling. Framesets
-     *       are obsolete in the standard and are removed from no shipping engine, which is the
-     *       distinction R26's {@code INERT_SINK} note draws: "obsolete in the standard" and "dead in
-     *       the code" are different claims and only the second one retires a sink (F27).
-     * </ul>
+     * "link to another site" and "hotlink an image" cases that are not a Canoe concern. Those remain
+     * open-redirect and referrer surfaces by design.
      *
      * <p>Checked and deliberately left on {@code url()} with {@code <img src>}, so that the boundary is
      * a decision rather than an omission: {@code <svg><use href>} and {@code <svg><image href>} — the
@@ -477,10 +409,10 @@ public class Canoe extends Writer {
      * The attribute names whose value the browser treats as plain text, and which therefore reach
      * {@link HtmlEncoder#htmlAttr(String)}.
      *
-     * <p>R5 inverted the default: an attribute name nothing here recognises is ATTR_UNKNOWN and is
-     * suppressed, where it used to be ATTR_HTML. It has to be written as an allowlist of plain-text
-     * names rather than as a denylist of dangerous ones, because a denylist puts every name nobody
-     * thought of on the wrong side of it - which is what F3 and F20 were.
+     * <p>An attribute name nothing here recognises is ATTR_UNKNOWN and is suppressed. The
+     * classification has to be written as an allowlist of plain-text names rather than as a denylist
+     * of dangerous ones, because a denylist puts every name nobody thought of on the wrong side of
+     * it.
      *
      * <p>The membership test for every name below is the same: the browser consumes the decoded
      * value as <em>text</em> or as an enumerated keyword, hands it to no second parser, resolves no
@@ -491,16 +423,14 @@ public class Canoe extends Writer {
      * <p>Deliberately absent, each for a stated reason:
      *
      * <ul>
-     *   <li><code>sandbox</code>, <code>rel</code>, <code>integrity</code> - F20. The HTML parser
+     *   <li><code>sandbox</code>, <code>rel</code>, <code>integrity</code> - the HTML parser
      *       consumes the decoded value as a <em>directive</em>, so no encoding of
      *       <code>allow-same-origin</code> means anything other than <code>allow-same-origin</code>.
      *       Encoding is not insufficient here, it is inapplicable, and suppression is not the
      *       preferred fix but the only one.
      *   <li><code>nonce</code> - inert as text, which is true and is the wrong test. An attacker who
      *       chooses the nonce can author a <code>&lt;script nonce&gt;</code> the content security
-     *       policy then admits, which defeats the control rather than escaping the attribute. The
-     *       review's own remediation sketch listed <code>nonce</code> among the plain-text names;
-     *       implementing it as written would have left F20's worst row on <code>html()</code>.
+     *       policy then admits, which defeats the control rather than escaping the attribute.
      *   <li><code>http-equiv</code>, <code>charset</code> - parser and navigation directives. A
      *       value of <code>refresh</code> turns a sibling <code>content</code> into a redirect, and
      *       the document's declared encoding decides how every byte after it is tokenized.
@@ -513,7 +443,7 @@ public class Canoe extends Writer {
      *       list, as CSS and JavaScript, and suppressed there.
      * </ul>
      *
-     * <p>Three names the review's F20 table lists and this allowlist deliberately <em>keeps</em>:
+     * <p>Three names that look like directives and that this allowlist deliberately <em>keeps</em>:
      *
      * <ul>
      *   <li><code>type</code> - the only attacker-reachable effect on
@@ -589,11 +519,10 @@ public class Canoe extends Writer {
      *       <code>popovertarget</code>, <code>name</code> - identifiers naming other elements in the
      *       same document. An attacker who chooses one can re-associate a control with a different
      *       form, or point a label or a popover somewhere else. That is the DOM-clobbering family,
-     *       which &sect;6 of the remediation plan puts out of scope by the review's own criterion -
-     *       a name in the document's namespace is not a directive a browser algorithm consumes - and
-     *       it is named here rather than left implicit, because <code>id</code> being out of scope
-     *       and <code>form</code> being out of scope are the same decision and only one of them is
-     *       obvious.
+     *       which is out of scope by this list's own criterion - a name in the document's namespace
+     *       is not a directive a browser algorithm consumes - and it is named here rather than left
+     *       implicit, because <code>id</code> being out of scope and <code>form</code> being out of
+     *       scope are the same decision and only one of them is obvious.
      * </ul>
      */
     private static final Set<String> PLAIN_TEXT_ATTRIBUTE_NAMES = Collections.unmodifiableSet(
@@ -639,8 +568,8 @@ public class Canoe extends Writer {
      * <code>&lt;div my-widget-config="$x"&gt;</code> has somewhere to go other than
      * <code>$_x.asis()</code>, which turns Canoe off for that value entirely. It is not a way to put
      * a policy directive or a markup-bearing attribute back on <code>html()</code>: every name here
-     * is one whose suppression <em>is</em> the fix for a finding, so adding it would re-open F3 or
-     * F20 through configuration, in a place no test in the suite would look.
+     * is one whose suppression <em>is</em> the security property, so adding it would undo that
+     * through configuration, in a place no test in the suite would look.
      *
      * <p>Names Canoe classifies before it consults the allowlist at all - the URL set,
      * <code>style</code> and anything beginning <code>on</code> - are rejected too, so that a
@@ -649,14 +578,12 @@ public class Canoe extends Writer {
      *
      * <p>The second group is the one that is easiest to leave out and is listed for a reason:
      * <code>imagesrcset</code>, <code>xml:base</code>, <code>archive</code>, <code>classid</code>
-     * and <code>profile</code> are <em>URL-bearing</em> names that R6 deliberately did not route to
+     * and <code>profile</code> are <em>URL-bearing</em> names deliberately not routed to
      * <code>url()</code>, on the argument that suppression is strictly stronger and no ordinary
      * template interpolates into them. That argument only holds while they stay suppressed. Adding
-     * one to the plain-text allowlist would put a URL sink back on <code>html()</code>, whose output
-     * the HTML parser decodes before the URL parser ever sees it - which is F3 exactly, and is
-     * strictly worse than the <code>url()</code> routing R6 declined to give them. A name here is
-     * therefore a name whose suppression is a recorded decision, whether that decision was recorded
-     * as a finding (F3, F20) or as R6's own.
+     * one to the plain-text allowlist would put a URL sink on <code>html()</code>, whose output the
+     * HTML parser decodes before the URL parser ever sees it, which is strictly worse than the
+     * <code>url()</code> routing they were declined.
      */
     private static final Set<String> NAMES_THAT_MAY_NOT_BE_ADDED = Collections.unmodifiableSet(
             new LinkedHashSet<>(Arrays.asList(
@@ -676,9 +603,9 @@ public class Canoe extends Writer {
 
     /**
      * The origins a resource-loading sink ({@link #RESOURCE_LOADING_SINKS}) may load from, beyond the
-     * page's own — the CDN allowlist for R9, per Canoe instance and never static for the same reason
+     * page's own — the CDN allowlist, per Canoe instance and never static for the same reason
      * {@link #extraPlainTextAttributes} is. Empty by default, which means "same-origin-relative URLs
-     * only" on those six sinks. {@code VelocityViewFactory} owns the configuration and hands the parsed
+     * only" on those sinks. {@code VelocityViewFactory} owns the configuration and hands the parsed
      * list to every Canoe it constructs.
      */
     private final List<HtmlEncoder.TrustedOrigin> trustedResourceOrigins;
@@ -688,19 +615,14 @@ public class Canoe extends Writer {
      * parser is not inside a tag whose name has been read.
      *
      * <p>The shared buffer cannot carry this: {@code buf} is reused for the first attribute name the
-     * moment one starts, so before R8 the element name was gone by the time
-     * {@link #setTagAttributeContext()} ran, and {@code src} on {@code <script>} was
-     * indistinguishable from {@code src} on {@code <img>} — F6's structural cause. This field is the
-     * enabler for R9 (an origin policy for {@code src}/{@code href} on the resource-loading elements
-     * {@code script}, {@code iframe}, {@code object}, {@code embed}, {@code link}, {@code base}),
-     * which reads it in {@link #isResourceLoadingSink(String)}.
+     * moment one starts, so by the time {@link #setTagAttributeContext()} runs the element name would
+     * be gone and {@code src} on {@code <script>} would be indistinguishable from {@code src} on
+     * {@code <img>}. This field is what makes the origin policy on the resource-loading elements
+     * possible; {@link #isResourceLoadingSink(String)} reads it.
      *
-     * <p>R10 ({@code <meta http-equiv="refresh" content>}) considered reading it and <strong>decided
-     * not to</strong>: recognising a refresh URL needs the sibling <code>http-equiv="refresh"</code>'s
-     * value as well as the tag name, plus parsing the {@code N; url=} prefix out of the content value,
-     * and the deliberate R10 decision is to leave {@code content} suppressed (see
-     * {@link #URL_ATTRIBUTE_NAMES}). The tag name alone is not enough for that decision, so this field
-     * stays unread on the {@code content} path.
+     * <p>Deliberately unread on the {@code content} path: recognising a
+     * {@code <meta http-equiv="refresh" content>} URL needs the sibling attribute's value as well as
+     * the tag name, and {@code content} is left suppressed instead (see {@link #URL_ATTRIBUTE_NAMES}).
      *
      * <p>Lifecycle, which is the whole of what the field means:
      *
@@ -715,8 +637,8 @@ public class Canoe extends Writer {
      *       {@code </script} or {@code </style} and enters the TAG state without ever passing through
      *       TAG_NAME, so the invariant "inside a tag whose name has been read" has no exception for
      *       the two elements whose end tag is matched by a different state. Confirmation is the
-     *       delimiter after the name, not the name alone (R17, F10): at {@code </scriptfoo} there is
-     *       no end tag, so the field stays as it was — null, because the {@code '<'} cleared it.
+     *       delimiter after the name, not the name alone: at {@code </scriptfoo} there is no end tag,
+     *       so the field stays as it was — null, because the {@code '<'} cleared it.
      *   <li><strong>Cleared</strong> when the tag ends — {@code '>'} in the TAG and TAG_EMPTY_ENDING
      *       states — and again when a new tag opens on {@code '<'}, so body text, script and style
      *       bodies, comments and DOCTYPEs never see the previous element's name, and an error path
@@ -741,22 +663,23 @@ public class Canoe extends Writer {
     protected String unknownAttributeName;
 
     /**
-     * The name of the current attribute when it is a URL-bearing one, for the R30 diagnostic; null
-     * otherwise. Assigned on the path that classifies a URL name, so it costs an assignment and no
-     * branch, and cleared at the top of {@link #setTagAttributeContext()} with its sibling so it can
-     * never report a name from an earlier attribute.
+     * The name of the current attribute when it is a URL-bearing one, for the diagnostic in
+     * {@link #encodeResourceUrl(String)}; null otherwise. Assigned on the path that classifies a URL
+     * name, so it costs an assignment and no branch, and cleared at the top of
+     * {@link #setTagAttributeContext()} with its sibling so it can never report a name from an
+     * earlier attribute.
      */
     protected String urlAttributeName;
 
     /**
      * Where in a URL the current attribute value has got to — one of the {@code URLV_*} constants —
      * which is what decides whether a reference in a resource-loading sink can complete or extend the
-     * authority (R30, F26).
+     * authority.
      *
      * <p>Reset where the value <em>begins</em>, which is the {@code '='} in TAG_ATTR_NAME_AFTER and
      * not the first value character: a reference sitting directly after the equals sign
-     * ({@code <a href=$x>}, F11's shape) is inserted while the parser is still in
-     * TAG_ATTR_VALUE_BEFORE, and it has to be judged too.
+     * ({@code <a href=$x>}) is inserted while the parser is still in TAG_ATTR_VALUE_BEFORE, and it
+     * has to be judged too.
      *
      * <p>Advanced on every character the value scan sees, which includes the characters the encoders
      * themselves emit — Velocity writes an encoded reference back through this writer — so a value
@@ -831,8 +754,7 @@ public class Canoe extends Writer {
      * @param names the names an application wants treated as plain text
      * @return an unmodifiable, lower-cased set
      * @throws IllegalArgumentException if a name is not a legal attribute name, begins {@code on},
-     *                                  or is one of the names whose suppression is the fix for a
-     *                                  finding
+     *                                  or is one Canoe refuses to treat as text
      */
     public static Set<String> normalisePlainTextAttributeNames(Collection<String> names) {
         Set<String> normalised = new LinkedHashSet<>();
@@ -864,14 +786,14 @@ public class Canoe extends Writer {
             if (name.startsWith("on")) {
                 throw new IllegalArgumentException("Refusing to treat " + name + " as plain text:"
                         + " every attribute name beginning \"on\" is a JavaScript context, and the"
-                        + " prefix rule has no exceptions (F1, F2, F19).");
+                        + " prefix rule has no exceptions.");
             }
 
             if (URL_ATTRIBUTE_NAMES.contains(name) || NAMES_THAT_MAY_NOT_BE_ADDED.contains(name)) {
                 throw new IllegalArgumentException("Refusing to treat " + name + " as plain text:"
                         + " Canoe classifies it before it consults the application allowlist, or its"
-                        + " suppression is the fix for a finding. The per-name reasoning is on"
-                        + " Canoe's URL_ATTRIBUTE_NAMES and PLAIN_TEXT_ATTRIBUTE_NAMES.");
+                        + " suppression is what makes it safe. The per-name reasoning is on Canoe's"
+                        + " URL_ATTRIBUTE_NAMES and PLAIN_TEXT_ATTRIBUTE_NAMES.");
             }
 
             normalised.add(name);
@@ -899,7 +821,7 @@ public class Canoe extends Writer {
 
     /**
      * Whether a character terminates the name of an end tag, which is what decides that the tag
-     * really is one (R17, F10).
+     * really is one.
      *
      * <p>Used by {@link #SCRIPT_END_NAME} and {@link #CSS_END_NAME}, the only two places Canoe
      * matches an end tag name character by character rather than through {@code TAG_NAME}. The set
@@ -911,9 +833,9 @@ public class Canoe extends Writer {
      *
      * <p>Written out rather than delegated to {@link Character#isWhitespace(char)}, which is wider -
      * it accepts a vertical tab and the Unicode space separators, none of which a browser treats as
-     * whitespace here. Matching the standard exactly is the whole point of the check: a wider set
-     * re-opens F10 for the characters it adds, because Canoe would leave script data where the
-     * browser stays in it.
+     * whitespace here. Matching the standard exactly is the whole point of the check: for every
+     * character a wider set would add, Canoe would leave script data where the browser stays in it,
+     * and encode the rest of the page for a context it is not in.
      */
     private static boolean isEndTagNameDelimiter(char c) {
         return (c == ' ') || (c == '\t') || (c == '\n') || (c == '\f') || (c == '\r')
@@ -922,14 +844,13 @@ public class Canoe extends Writer {
 
     /**
      * Whether a character in body text is whitespace the HTML Standard's "initial" insertion mode
-     * ignores, and therefore text a DOCTYPE declaration may still follow (R20).
+     * ignores, and therefore text a DOCTYPE declaration may still follow.
      *
      * <p>The standard's set is tab, LF, FF, CR and space; this one omits FF, and the omission is
      * deliberate rather than an oversight. A form feed cannot reach the HTML state at all — the C0
      * guard in {@link #HTML} rejects every character below 0x20 except tab, CR and LF — so a
-     * {@code c == '\f'} test here would be a branch no input can take, which is precisely the kind of
-     * entry the coverage inventory exists to keep out. The four that remain are the four that can
-     * occur.
+     * {@code c == '\f'} test here would be a branch no input can take. The four that remain are the
+     * four that can occur.
      *
      * <p>{@link Character#isWhitespace(char)} is deliberately not used either: it is a Unicode fold
      * that also accepts U+2028, U+3000 and the other space separators, none of which the standard's
@@ -941,25 +862,21 @@ public class Canoe extends Writer {
     }
 
     /**
-     * ASCII-only case folding, for the two states that match an end tag name against a literal
-     * (R17, F10).
+     * ASCII-only case folding, for the two states that match an end tag name against a literal.
      *
      * <p>The HTML Standard's script-data-end-tag-name and rawtext-end-tag-name states accept only
      * <em>ASCII</em> upper alpha and ASCII lower alpha into the name; every other code point is
      * "anything else" and makes the whole run character data. {@link Character#toLowerCase(char)} is
      * a Unicode fold and is wider than that in one respect that matters here: it maps U+0130 LATIN
-     * CAPITAL LETTER I WITH DOT ABOVE to {@code 'i'}, so an end tag that spells {@code script} with
-     * U+0130 matched {@code /script} and closed the element for Canoe while every browser stayed in
-     * script data. That is F10's forward desync exactly, reached by a different character than
-     * {@code </scriptfoo>} and not closed by the delimiter rule, so the fold is bounded here rather
-     * than left to {@code Character}. A sweep of the whole BMP finds U+0130 to be the only non-ASCII
-     * code point whose {@code Character.toLowerCase()} lands in {@code /script} or {@code /style};
-     * the point of writing the fold out is that no future JDK Unicode update can add a second one.
+     * CAPITAL LETTER I WITH DOT ABOVE to {@code 'i'}, so an end tag spelling {@code script} with
+     * U+0130 would match {@code /script} and close the element for Canoe while every browser stayed
+     * in script data. A sweep of the whole BMP finds U+0130 to be the only non-ASCII code point whose
+     * {@code Character.toLowerCase()} lands in {@code /script} or {@code /style}; the point of
+     * writing the fold out is that no future JDK Unicode update can add a second one.
      *
      * <p>Deliberately not applied to {@code TAG_NAME}, which folds the same way for the opening
      * {@code <script>}: there the divergence runs the other way — Canoe enters {@code SCRIPT} and
-     * suppresses where the browser sees an unknown element — which is fail-closed, and it is the
-     * {@code isNameChar()}/{@code Character.isLetter()} observation the plan records separately.
+     * suppresses where the browser sees an unknown element — which is fail-closed.
      */
     private static char asciiToLowerCase(char c) {
         return ((c >= 'A') && (c <= 'Z')) ? (char) (c + ('a' - 'A')) : c;
@@ -967,15 +884,15 @@ public class Canoe extends Writer {
 
     /**
      * Whether a URL parser would remove this character from the value before reading it — which is
-     * what makes Canoe's view of where a scheme begins differ from the browser's (R30, R31; F26, F28).
+     * what would otherwise make Canoe's view of where a scheme begins differ from the browser's.
      *
      * <p>The URL Standard's basic parser removes leading and trailing C0 controls and spaces from the
      * input, and removes <em>all</em> ASCII tab, LF and CR from anywhere in it. So
      * <code>&lt;a href=" javascript:f('$id')"&gt;</code> and
      * <code>&lt;a href="java&lt;TAB&gt;script:f('$id')"&gt;</code> are both {@code javascript:} URLs to
-     * every engine, while the value scan that counts characters saw eleven and twelve of them and gave
-     * up at ten. That was F28: one character of whitespace decided whether an author's handler was
-     * suppressed or injectable, and no reviewer reading the two templates would see the difference.
+     * every engine, while a value scan that counted characters would see eleven and twelve of them
+     * and give up at ten. Skipping the stripped characters is what keeps one character of whitespace
+     * from deciding whether a prefix is recognised.
      *
      * <p>Trailing strip is deliberately not modelled: the scan runs left to right and cannot know a
      * character is trailing, and treating it as significant is the conservative direction for both
@@ -1006,7 +923,7 @@ public class Canoe extends Writer {
     }
 
     /**
-     * Moves {@link #urlValueState} on by one attribute-value character (R30, F26).
+     * Moves {@link #urlValueState} on by one attribute-value character.
      *
      * <p>Run for every attribute value, not only the URL-bearing ones, because
      * {@link #detectAttributePrefix()} can narrow a name-derived context mid-value and the position
@@ -1099,10 +1016,8 @@ public class Canoe extends Writer {
 
         try {
             // Process characters one by one across the requested range
-            // [offset, offset + len). The bound is offset + len, not len:
-            // len is a count, not an end index, so at any non-zero offset the
-            // old "i < len" stopped short by exactly offset characters and, at
-            // offset >= len, never ran at all (F9).
+            // [offset, offset + len). The bound is offset + len, not len: len
+            // is a count, not an end index.
             for (i = offset; i < offset + len; i++) {
                 processChar(cbuff[i]);
             }
@@ -1123,8 +1038,8 @@ public class Canoe extends Writer {
      * Determines if the character can be used in tag name.
      *
      * <p>Delegates to {@link #isNameChar(char, int)}, which is the same rule the application-level
-     * allowlist is validated against; the two were written out twice for one commit and one copy is
-     * one too many for a rule that decides where a name ends.
+     * allowlist is validated against, so a configured name the tokenizer could never produce is
+     * refused rather than left as a set entry nothing can match.
      *
      * @param c
      * @return
@@ -1142,25 +1057,20 @@ public class Canoe extends Writer {
      * whatever {@link #setTagAttributeContext()} derived from the attribute
      * name and assigns ATTR_ACTIONSCRIPT, ATTR_DATA or ATTR_JS only when one of
      * the five prefixes actually matches; when none does, the name-derived
-     * context is left exactly as it was. It used to open with an unconditional
-     * "attributeContext = ATTR_HTML", which meant the first colon in any value
-     * threw the name's classification away: a style attribute stopped being
-     * suppressed the moment a CSS property name was written in front of the
-     * reference, and a correctly recognised on* handler stopped being
-     * suppressed the moment its body contained an object literal or a ternary.
-     * All three of the prefixes this method can assign map to a suppressing
-     * context, so narrowing is the only direction that is safe here.
+     * context is left exactly as it was. All three of the prefixes this method
+     * can assign map to a suppressing context, so narrowing is the only
+     * direction that is safe: widening on the first colon in a value would
+     * unsuppress a style attribute the moment a CSS property name was written
+     * in front of the reference, and an on* handler the moment its body held an
+     * object literal or a ternary.
      *
      * <p>The comparison is length-checked against bufLen rather than made of
-     * fixed buffer indices. It used to confirm that a prefix ended by testing
-     * buf[4], buf[5] or buf[10] for a NUL, but the value scan never writes a
-     * terminator - only the name scan does - so the byte it read was left there
-     * by whichever earlier tag or attribute name was long enough to reach that
-     * index. Whether "javascript:" was recognised therefore depended on markup
-     * elsewhere on the page: an eleven-character name upstream disarmed it, a
-     * ten-character one repaired it, and reordering two unrelated elements
-     * changed the security of the page. Comparing bufLen characters against a
-     * literal cannot read anything the value did not write.
+     * fixed buffer indices. The value scan writes no NUL terminator - only the
+     * name scan does - so a fixed-index test would read whatever an earlier tag
+     * or attribute name left in the buffer, and whether "javascript:" was
+     * recognised would depend on markup elsewhere on the page. Comparing bufLen
+     * characters against a literal cannot read anything the value did not
+     * write.
      */
     protected void detectAttributePrefix() {
         if (bufferedValueIs("asfunction")) {
@@ -1206,10 +1116,9 @@ public class Canoe extends Writer {
      *
      * <p>buf is a field of the whole render, so without this every use of it
      * starts on top of whatever the previous tag name, attribute name or
-     * attribute value left behind. That residue was the root cause of the
-     * prefix-detection defect this class's detectAttributePrefix() used to
-     * carry, and clearing on reuse is what keeps the buffer from meaning
-     * anything other than "what the current name or value has written".
+     * attribute value left behind. Clearing on reuse is what keeps the buffer
+     * from meaning anything other than "what the current name or value has
+     * written".
      */
     private void resetBuffer() {
         Arrays.fill(buf, '\0');
@@ -1220,45 +1129,29 @@ public class Canoe extends Writer {
      * Determines context for tag attributes based on the attribute name.
      *
      * <p>The event-handler rule is a <em>prefix</em> rule: any attribute whose
-     * name begins "on" is JavaScript. It replaces a table of twenty-four
-     * hand-unrolled comparison chains that recognised eighteen of the ninety-four
-     * event handler content attributes the HTML Standard defines, and three of
-     * whose branches could never be taken at all - onselect and onsubmit tested
-     * buf[0] == 's' inside a block that had already established buf[0] == 'o',
-     * and the onreadystatechange chain spelled "onredystatechange", missing the
-     * "a" of "ready". Every name the table missed took the ATTR_HTML default, and
+     * name begins "on" is JavaScript. There is no benign exception worth carving
+     * out of it. An attribute whose name begins "on" and which no engine will
+     * ever fire is inert either way, so suppressing it costs a template author
+     * nothing; a name that is missed is arbitrary script execution, because
      * html()'s character references are decoded by the HTML parser before the
-     * value is compiled as JavaScript, so each miss handed the attacker's
-     * original characters to the script engine.
-     *
-     * <p>There is no benign exception worth carving out of the rule. An attribute
-     * whose name begins "on" and which no engine will ever fire is inert either
-     * way, so suppressing it costs a template author nothing; a name that is
-     * missed is arbitrary script execution. The rule also cannot go stale: every
-     * handler the standard adds in future is already covered, which is what makes
-     * EventHandlerMatrixTest's completeness guard permanently satisfiable rather
-     * than a list to catch up with.
+     * value is compiled as JavaScript. The rule also cannot go stale: every one
+     * of the ninety-four event handler content attributes the HTML Standard
+     * defines is covered, and so is every one it adds in future.
      *
      * <p>Everything below the prefix rule is a lookup of the buffered name in a
-     * declared set rather than a chain of hand-unrolled comparisons. The name is
-     * read out of buf as exactly the characters this attribute's own scan wrote -
-     * bufLen counts them, plus the NUL terminator TAG_ATTR_NAME appends - so it is
-     * bounded in the same sense R3 and R4 made their comparisons bounded, and a
-     * name cannot inherit a byte from an earlier tag, attribute or value. What the
-     * sets buy over the chains is that the classification is now data with its
-     * reasoning attached, and that a reader can see the whole of what reaches each
-     * encoder in one place: see URL_ATTRIBUTE_NAMES and PLAIN_TEXT_ATTRIBUTE_NAMES.
+     * declared set. The name is read out of buf as exactly the characters this
+     * attribute's own scan wrote - bufLen counts them, plus the NUL terminator
+     * TAG_ATTR_NAME appends - so a name cannot inherit a byte from an earlier
+     * tag, attribute or value. The whole of what reaches each encoder is
+     * therefore visible in one place: see URL_ATTRIBUTE_NAMES and
+     * PLAIN_TEXT_ATTRIBUTE_NAMES.
      *
-     * <p><strong>R5 inverted the default.</strong> An unrecognised name used to be
-     * ATTR_HTML and is ATTR_UNKNOWN now, which suppresses. The old default was the
-     * policy and markup half of F3 and the whole of F20: html() is worthless for
-     * any attribute whose decoded value a second parser or a browser algorithm
-     * consumes, so every name nobody had thought of - every URL-bearing name
-     * outside the five, srcdoc, content, sandbox, rel, integrity, nonce - was
-     * handed to the attacker character for character. Fail-closed is the only
-     * defensible default for a classifier whose misses are silent, and the
-     * allowlist plus the application extension point are what keep the cost of it
-     * from being paid in $_x.asis() calls.
+     * <p><strong>The default is fail-closed.</strong> An unrecognised name is
+     * ATTR_UNKNOWN, which suppresses, rather than ATTR_HTML. html() is worthless
+     * for any attribute whose decoded value a second parser or a browser
+     * algorithm consumes, so a classifier whose misses are silent cannot
+     * default to it; the allowlist plus the application extension point are what
+     * keep the cost of that from being paid in $_x.asis() calls.
      */
     protected void setTagAttributeContext() {
         // Fail closed. A name that reaches the end of this method unclassified is
@@ -1277,8 +1170,8 @@ public class Canoe extends Writer {
         String name = bufferedName();
 
         if (URL_ATTRIBUTE_NAMES.contains(name)) {
-            // R9: the same URL name is a code-execution sink on some elements and an open-redirect
-            // surface on others, and R8's tag name is what tells them apart. src on <script> rejects
+            // The same URL name is a code-execution sink on some elements and an open-redirect
+            // surface on others, and the tag name is what tells them apart. src on <script> rejects
             // an off-origin authority; src on <img> does not.
             attributeContext = isResourceLoadingSink(name) ? ATTR_URI_RESOURCE : ATTR_URI;
             urlAttributeName = name;
@@ -1300,15 +1193,15 @@ public class Canoe extends Writer {
 
     /**
      * Whether the current attribute is a resource-loading sink: a URL name on the element that
-     * dereferences it into a code-execution or page-controlling context (R9). Reads {@link #tagName},
-     * which R8 keeps available for the duration of the tag, so a {@code src} knows whether it is on a
+     * dereferences it into a code-execution or page-controlling context. Reads {@link #tagName},
+     * which stays available for the duration of the tag, so a {@code src} knows whether it is on a
      * {@code <script>} or an {@code <img>}. A null {@code tagName} needs no guard: this method runs
      * only while an attribute is being parsed, which is always inside a named tag, and even if it were
-     * not, {@code RESOURCE_LOADING_SINKS.get(null)} is null and the {@code null} default is empty, so
-     * the answer is the correct "not a resource sink" either way.
+     * not, {@code RESOURCE_LOADING_SINKS.get(null)} is null and the answer is the correct "not a
+     * resource sink" either way.
      *
-     * <p>A set membership test since R29, because an element may have more than one attribute that
-     * loads code — SVG's {@code <script>} has three. See {@link #RESOURCE_LOADING_SINKS}.
+     * <p>A set membership test, because an element may have more than one attribute that loads code —
+     * SVG's {@code <script>} has three. See {@link #RESOURCE_LOADING_SINKS}.
      */
     private boolean isResourceLoadingSink(String attributeName) {
         Set<String> attributes = RESOURCE_LOADING_SINKS.get(tagName);
@@ -1433,7 +1326,7 @@ public class Canoe extends Writer {
                             return;
                         }
 
-                        // R20: remember that the document has text in it, which is what makes a
+                        // Remember that the document has text in it, which is what makes a
                         // DOCTYPE below this point one the browser will ignore. Whitespace does
                         // not count, because the HTML Standard's "initial" insertion mode
                         // ignores it and a template's first line routinely emits some.
@@ -1448,20 +1341,19 @@ public class Canoe extends Writer {
                         state = COMMENT_OPEN_2;
                     } else if ((c == 'D') || (c == 'd')) {
                         // A DOCTYPE declaration has to come before the first element. That is
-                        // the one rejection R20's triage keeps here, and it is kept because it
-                        // is the shape a browser cannot honour AND cannot be produced by
-                        // ordinary composition: by the time an element has been emitted the
-                        // document's mode is already decided, and a template that declares its
-                        // DOCTYPE after its markup has its document order wrong.
+                        // the one DOCTYPE shape Canoe refuses, and it is refused because a
+                        // browser cannot honour it and ordinary composition does not produce
+                        // it: by the time an element has been emitted the document's mode is
+                        // already decided, and a template that declares its DOCTYPE after its
+                        // markup has its document order wrong.
                         //
-                        // The other two shapes are accepted with a warning rather than refused,
-                        // which is R20's whole subject. A browser IGNORES a second declaration
-                        // and IGNORES one that follows text (going quirks for the latter), so
-                        // refusing either is strictness no consuming parser has, applied to the
-                        // two mistakes template composition produces most often - a layout and
-                        // an included fragment each declaring one, and a fragment that emits a
-                        // line of text above the layout's declaration. Canoe says so and renders
-                        // the page; see doctypeSeen and textSeen for the reasoning in full.
+                        // The other two shapes are accepted with a warning. A browser IGNORES a
+                        // second declaration and IGNORES one that follows text (going quirks for
+                        // the latter), so refusing either would be strictness no consuming
+                        // parser has, applied to the two mistakes template composition produces
+                        // most often - a layout and an included fragment each declaring one, and
+                        // a fragment that emits a line of text above the layout's declaration.
+                        // See doctypeSeen and textSeen for the reasoning in full.
                         if (elementSeen) {
                             raiseError("DOCTYPE declaration must precede the first element");
                         } else {
@@ -1534,9 +1426,9 @@ public class Canoe extends Writer {
                     } else if (c == '-') {
                         // A third (or later) dash keeps us in comment-end, exactly as the HTML
                         // Standard's comment-end state does: another '-' appends and stays, so the
-                        // '>' that follows any run of dashes still closes the comment (F14). Dropping
-                        // back to COMMENT here meant <!--a---> never closed and every reference for
-                        // the rest of the page rendered empty.
+                        // '>' that follows any run of dashes still closes the comment. Dropping
+                        // back to COMMENT here would mean <!--a---> never closes and every
+                        // reference for the rest of the page renders empty.
                     } else {
                         state = COMMENT;
                     }
@@ -1554,8 +1446,8 @@ public class Canoe extends Writer {
                     if (bufLen == 0) {
                         if (c == '!') {
                             // A bang declaration - a comment or a DOCTYPE. Neither is an
-                            // element, so elementSeen is deliberately left alone: that is
-                            // the whole of R18's fix for F18, a comment above the DOCTYPE.
+                            // element, so elementSeen is deliberately left alone, which is
+                            // what makes a comment above the DOCTYPE legal.
                             state = COMMENT_OPEN_OR_DOCTYPE;
                             continue;
                         }
@@ -1603,24 +1495,20 @@ public class Canoe extends Writer {
 
                         // Char after tag name must be whitespace, '>' or '/'.
                         //
-                        // R20 added '/', which is the <br/> row of F13's rejection table: a
-                        // solidus straight after a tag name is the self-closing start tag of
-                        // XHTML and of every serializer that emits it, and it was the one shape
-                        // in that table that no author would think twice about writing. <br />
-                        // with a space already worked - the space ends the name, TAG sees the
-                        // '/' and routes it to TAG_EMPTY_ENDING - so the two spellings simply
-                        // disagreed, and the no-space one took the page down. Nothing else is
-                        // needed to accept it: the branch below already re-processes this
-                        // character in the TAG state, which is where the '/' belongs.
+                        // '/' is accepted because a solidus straight after a tag name is the
+                        // self-closing start tag of XHTML and of every serializer that emits
+                        // one, so <br/> and <br /> have to agree. Nothing else is needed to
+                        // accept it: the branch below re-processes this character in the TAG
+                        // state, which is where the '/' belongs.
                         if ((Character.isWhitespace(c) == false) && (c != '>') && (c != '/')) {
                             raiseError("Invalid character after tag name");
                             return;
                         }
 
                         // Keep the element name past the point where buf is reused
-                        // for attribute names (R8). Already lower case - the scan
-                        // folds as it buffers - and without the leading '/' of an
-                        // end tag, which closingTag records. bufLen counts the name
+                        // for attribute names. Already lower case - the scan folds
+                        // as it buffers - and without the leading '/' of an end
+                        // tag, which closingTag records. bufLen counts the name
                         // plus the NUL terminator written above.
                         tagName = closingTag
                                 ? new String(buf, 1, bufLen - 2)
@@ -1630,12 +1518,9 @@ public class Canoe extends Writer {
                         // (inside tag) is HTML
                         nextState = HTML;
 
-                        // Detect <script> and <style> tags. A bounded comparison of
-                        // the name the current scan wrote, not fixed buffer indices:
-                        // this was the one fixed-index read R3 and R4 left behind
-                        // (residue-safe only because resetBuffer() runs on every
-                        // '<'), and R8 retired it along with the reason it needed
-                        // that defence.
+                        // Detect <script> and <style> tags. A comparison of the name
+                        // the current scan wrote, not of fixed buffer indices, so
+                        // no earlier name's residue can decide it.
                         if (!closingTag) {
                             if (tagName.equals("script")) {
                                 // Script
@@ -1746,9 +1631,9 @@ public class Canoe extends Writer {
                         // Do nothing
                     } else if (c == '=') {
                         state = TAG_ATTR_VALUE_BEFORE;
-                        // R30: the value begins here, and it is here rather than at the first value
-                        // character because a reference can be inserted before there is one -
-                        // <a href=$x> is judged in TAG_ATTR_VALUE_BEFORE (F11/R19).
+                        // The value begins here, and it is here rather than at the first value
+                        // character because a reference can be inserted before there is one:
+                        // <a href=$x> is judged in TAG_ATTR_VALUE_BEFORE.
                         urlValueState = URLV_START;
                     } else if (c == '/') {
                         state = TAG_EMPTY_ENDING;
@@ -1820,18 +1705,18 @@ public class Canoe extends Writer {
 
                     // Attribute value prefix detection
                     if (state == TAG_ATTR_VALUE) {
-                        // R30: keep track of where in a URL this value has got to, so that a
+                        // Keep track of where in a URL this value has got to, so that a
                         // resource-loading reference can be judged by whether the authority is
-                        // still open (F26). Run for every attribute; it decides nothing for the
+                        // still open. Run for every attribute; it decides nothing for the
                         // others and costs one switch.
                         advanceUrlValueState(c);
 
                         if (bufLen != -1) {
                             if (isUrlStripped(c, bufLen == 0)) {
-                                // R31: a character the URL parser removes must not shift the
+                                // A character the URL parser removes must not shift the
                                 // ten-character prefix window, or " javascript:" and
                                 // "java<TAB>script:" stop being recognised while staying
-                                // javascript: URLs to every engine (F28). Skipped rather than
+                                // javascript: URLs to every engine. Skipped rather than
                                 // buffered, so the buffer holds what the browser will read.
                             } else if (c == ':') {
                                 // Look in the buffer to see if the
@@ -1873,14 +1758,14 @@ public class Canoe extends Writer {
                 case SCRIPT_END:
                     // asciiToLowerCase(), not Character.toLowerCase(): the standard's
                     // end-tag-name states fold ASCII and nothing else, and the wider
-                    // fold made an end tag spelled with U+0130 close it (R17, F10).
+                    // fold would let an end tag spelled with U+0130 close the element.
                     if (asciiToLowerCase(c) == jsEnd.charAt(bufLen)) {
                         if (jsEnd.length() == bufLen + 1) {
                             // The name matched. That is not enough to leave script
                             // data: the HTML Standard checks the character after the
                             // name too, so the decision moves to SCRIPT_END_NAME and
                             // closingTag/tagName are assigned there, once the end tag
-                            // is confirmed (R17, F10).
+                            // is confirmed.
                             state = SCRIPT_END_NAME;
                         } else {
                             bufLen++;
@@ -1888,9 +1773,9 @@ public class Canoe extends Writer {
                     } else {
                         // Not "</script" after all. Re-process the character rather
                         // than dropping it: it may itself be the '<' that opens the
-                        // real end tag, which is what "<</script>" is and what F10's
-                        // converse desync lost - the rest of the page stayed inside
-                        // the script element and every reference in it was suppressed.
+                        // real end tag, which is what "<</script>" is. Dropping it
+                        // would leave the rest of the page inside the script element
+                        // with every reference in it suppressed.
                         state = SCRIPT;
                         charNeedsProcessing = true;
                     }
@@ -1904,8 +1789,9 @@ public class Canoe extends Writer {
                         // TAG without passing TAG_NAME, so set what TAG_NAME
                         // would have: this is the script element's end tag.
                         // Neither field is read again on this path today; they
-                        // are kept truthful so that R9 cannot mistake the tail
-                        // of an end tag for an opening <script>.
+                        // are kept truthful so that the resource-sink lookup
+                        // cannot mistake the tail of an end tag for an opening
+                        // <script>.
                         closingTag = true;
                         tagName = jsEnd.substring(1);
 
@@ -1915,8 +1801,8 @@ public class Canoe extends Writer {
                     } else {
                         // "</scriptfoo": not an end tag at all. A browser emits those
                         // characters as script data and stays in the script element,
-                        // so Canoe does too (R17, F10's forward desync). Re-process
-                        // the character, because a '<' here opens a fresh end tag.
+                        // so Canoe does too. Re-process the character, because a '<'
+                        // here opens a fresh end tag.
                         state = SCRIPT;
                         charNeedsProcessing = true;
                     }
@@ -1970,11 +1856,9 @@ public class Canoe extends Writer {
     /**
      * Raise an error: put the parser in {@link #INVALID} and throw.
      *
-     * <p>The exception is a {@link CanoeEncodingException} rather than a bare {@link IOException}
-     * (R21, closing F13). Nothing about <em>when</em> Canoe raises changed with it; what changed is
-     * that the thing thrown can still be recognised after Velocity has wrapped it, and that it
-     * carries the line and position as fields rather than only inside the message. The message
-     * itself is byte for byte what it was.
+     * <p>The exception is a {@link CanoeEncodingException} rather than a bare {@link IOException} so
+     * that it can still be recognised after a template engine has wrapped it, and so that it carries
+     * the line and position as fields rather than only inside the message.
      *
      * @param errorMessage the error, without the prefix and without the coordinates
      * @throws CanoeEncodingException always
@@ -2013,15 +1897,12 @@ public class Canoe extends Writer {
      * the attribute and the position, because "a value went missing somewhere on
      * the page" is the complaint this exists to answer.
      *
-     * <p><strong>R19 gave {@link #TAG_ATTR_VALUE_BEFORE} the same answer as
-     * {@link #TAG_ATTR_VALUE}.</strong> See the case label below for why that is safe;
-     * the reason it is necessary is F11. {@code <a href=$x>} inserts the reference
-     * while the parser is still waiting for the quote that decides the value's
-     * quoting style, and that quote never arrives, so the state had no case here and
-     * fell to the trailing {@code CTX_SUPPRESS}: the value vanished with no error and
-     * no diagnostic. {@code <a href=/p/$y>} worked, because one literal character is
-     * enough to reach {@code TAG_ATTR_VALUE}, so the defect was invisible in exactly
-     * the templates that were nearly right.
+     * <p>{@link #TAG_ATTR_VALUE_BEFORE} gets the same answer as {@link #TAG_ATTR_VALUE}, so that an
+     * unquoted value is encoded by its attribute's name rather than suppressed. See the case label
+     * below for why that is safe. {@code <a href=$x>} inserts the reference while the parser is
+     * still waiting for the quote that decides the value's quoting style, and that quote never
+     * arrives; {@code <a href=/p/$y>} reaches {@code TAG_ATTR_VALUE} because one literal character
+     * is enough, so without the shared arm the two spellings would disagree.
      *
      * @return current output context
      */
@@ -2046,7 +1927,7 @@ public class Canoe extends Writer {
             case TAG_ATTR_NAME_AFTER:
                 return CTX_SUPPRESS;
 
-            // An unquoted value, judged by the attribute's name (R19, F11). The state is entered
+            // An unquoted value, judged by the attribute's name. The state is entered
             // from TAG_ATTR_NAME_AFTER on '=', which is only reachable through TAG_ATTR_NAME, which
             // calls setTagAttributeContext() before it leaves - so attributeContext is this
             // attribute's own classification and never a leftover from an earlier one. What it has
@@ -2087,13 +1968,12 @@ public class Canoe extends Writer {
             // TAG_ATTR_VALUE with QUOTE_NONE on its first character, which is the same place
             // `<a href=/p/$y>` was already reaching.
             //
-            // The one thing an empty value does cost is not a Canoe defect and is recorded rather
-            // than hidden: an unquoted attribute with no value is not an attribute with an empty
-            // value. `<img src= alt="a">` is ONE attribute to every tokenizer, this one included -
-            // the browser reads `alt="a"` as src's unquoted value - so the following attribute is
-            // swallowed. That is true of a legitimately empty model value too, and F11 produced it
-            // unconditionally for every unquoted value, so this routing shrinks the problem rather
-            // than creating it. Emitting `""` here instead would repair `<img src=$x alt="a">` and
+            // The one thing an empty value does cost is recorded rather than hidden: an unquoted
+            // attribute with no value is not an attribute with an empty value. `<img src= alt="a">`
+            // is ONE attribute to every tokenizer, this one included - the browser reads `alt="a"`
+            // as src's unquoted value - so the following attribute is swallowed. That is true of a
+            // legitimately empty model value too, so it is a property of unquoted values rather than
+            // of this routing. Emitting `""` here instead would repair `<img src=$x alt="a">` and
             // break `<a href=$base/p>`, and would make encode() depend on the parser's position; the
             // template-level answer - quote the value - has no such trade. See
             // UnquotedAttributeValueTest.anEmptyUnquotedValueSwallowsTheNextAttribute. What keeps
@@ -2132,13 +2012,11 @@ public class Canoe extends Writer {
                                 unknownAttributeName, currentLine, currentPos);
                         return CTX_SUPPRESS;
 
-                    // ATTR_CSS (the `style` attribute) is suppressed, not CSS-escaped, and that is
-                    // the settled decision R14 records for F21. Canoe's design refuses to interpolate
-                    // into CSS: F23 shows a `style` value is decoded in series - HTML character
-                    // references first, then the CSS tokenizer - so an encoder correct against all of
-                    // it is a project, not a line. R13 (which corrected HtmlEncoder.css()) is that
-                    // project's precondition and is now met, but wiring it in has not been decided;
-                    // until it is, `style` values render empty. There is deliberately no CTX_CSS.
+                    // ATTR_CSS (the `style` attribute) is suppressed, not CSS-escaped: Canoe refuses
+                    // to interpolate into CSS by design. A `style` value is decoded in series - HTML
+                    // character references first, then the CSS tokenizer - so an encoder correct
+                    // against all of it is a project rather than a line, and until one is built
+                    // `style` values render empty. There is deliberately no CTX_CSS.
                     case ATTR_CSS:
                     case ATTR_DATA:
                     case ATTR_ACTIONSCRIPT:
@@ -2168,9 +2046,8 @@ public class Canoe extends Writer {
                 return HtmlEncoder.htmlAttr(input);
             case CTX_JS:
                 // Canoe does not interpolate into JavaScript: a JS context is suppressed by design.
-                // Relaxing this to real escaping (HtmlEncoder.js(), corrected by R13) is an undecided
-                // change that must re-run ParserSteeringTest first; there is deliberately no
-                // pre-written line here to uncomment.
+                // A template that has to write a value into a script element does it explicitly,
+                // with $_x.js().
                 return EMPTY_STRING;
             case CTX_URI:
                 return HtmlEncoder.url(input);
@@ -2179,11 +2056,8 @@ public class Canoe extends Writer {
                 // every off-origin authority. The instance path {@link #encode(String)} supplies the
                 // application's trusted origins.
                 return HtmlEncoder.urlResource(input, Collections.<HtmlEncoder.TrustedOrigin>emptyList());
-            // There is no CTX_CSS. currentContext() routes ATTR_CSS to CTX_SUPPRESS, so a CSS context
-            // was never produced and the old CTX_CSS arm here was dead code (F21). R14 deleted the
-            // constant and this arm rather than wiring a CSS encoder in: see currentContext()'s
-            // ATTR_CSS case for the reasoning (Canoe refuses to interpolate into CSS; F23's series of
-            // decoders makes a correct CSS encoder a project, not a line; R13 is its precondition).
+            // There is no CTX_CSS: currentContext() routes ATTR_CSS to CTX_SUPPRESS, so no CSS
+            // context is ever produced. See currentContext()'s ATTR_CSS case for the reasoning.
             case CTX_SUPPRESS:
             default:
                 // Do nothing -- suppressed output
@@ -2211,8 +2085,7 @@ public class Canoe extends Writer {
     }
 
     /**
-     * Encodes a value for a resource-loading URL sink, judged by <em>where in the URL it sits</em>
-     * (R30, closing F26).
+     * Encodes a value for a resource-loading URL sink, judged by <em>where in the URL it sits</em>.
      *
      * <p>{@link HtmlEncoder#urlResource(String, List)} rejects a value whose own encoded output
      * introduces an authority. That is the whole answer only when the value <em>is</em> the URL. When
@@ -2234,22 +2107,19 @@ public class Canoe extends Writer {
      *           an ordinary path segment.</td></tr>
      *   <tr><td>{@link #URLV_AFTER_SCHEME}, {@link #URLV_AUTHORITY}</td>
      *       <td>Refuse. The reference lands where the browser is still reading the host, and no
-     *           encoding of a hostname means anything other than that hostname - the argument F20
-     *           makes about policy tokens, in a different sink.</td></tr>
+     *           encoding of a hostname means anything other than that hostname.</td></tr>
      * </table>
      *
      * <p>A refusal is the empty string, which is what Canoe writes for every suppressed reference, and
-     * it is logged at debug level beside R5's unrecognised-attribute diagnostic for the same reason:
+     * it is logged at debug level beside the unrecognised-attribute diagnostic for the same reason:
      * a value that vanishes with no diagnostic is what sends a developer to {@code $_x.asis()}.
      *
      * <p><strong>{@link #CTX_URI} is deliberately not gated the same way.</strong> {@code <a
      * href="/$slug">} with a payload of {@code /attacker.example} is still an open redirect and
-     * {@code <img src="//cdn$p">} is still a referrer leak - because that is the same outcome
-     * {@code <a href="$u">} already has at offset 0, which R9 scoped out and R26 ledgered as
-     * {@code ACCEPTED_RESIDUAL}. Gating the concatenated spelling while the direct spelling is
-     * accepted would be an inconsistency rather than a fix. What R30 does change is that those
-     * positions are now known to be in the residue: the claim that a path-suffix position cannot
-     * reach the authority was false, and it is corrected in the review rather than left standing.
+     * {@code <img src="//cdn$p">} is still a referrer leak, because that is the same outcome
+     * {@code <a href="$u">} already has at offset 0 and those sinks are open-redirect and referrer
+     * surfaces by design. Gating the concatenated spelling while the direct spelling is accepted
+     * would be an inconsistency rather than a fix.
      */
     private String encodeResourceUrl(String input) {
         if ((urlValueState == URLV_AFTER_SCHEME) || (urlValueState == URLV_AUTHORITY)) {

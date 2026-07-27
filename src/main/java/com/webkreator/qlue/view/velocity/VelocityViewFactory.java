@@ -62,13 +62,13 @@ public abstract class VelocityViewFactory implements ViewFactory {
      * separated by commas or whitespace, e.g.
      * {@code qlue.canoe.plainTextAttributes = my-widget-config, hx-target}.
      *
-     * <p>Canoe suppresses a reference in any attribute name it does not recognise (R5), which is
+     * <p>Canoe suppresses a reference in any attribute name it does not recognise, which is
      * fail-closed and is right; without a way to widen the allowlist it is also how a security
      * control gets switched off in production, because the developer's remaining option is
      * {@code $_x.asis()} and that disables Canoe for the value entirely. Names are validated by
-     * {@link Canoe#normalisePlainTextAttributeNames(java.util.Collection)}, which refuses anything
-     * whose suppression is the fix for a finding, so the property can widen the plain-text set and
-     * cannot re-open F3 or F20.
+     * {@link Canoe#normalisePlainTextAttributeNames(java.util.Collection)}, which refuses every name
+     * whose suppression is what makes it safe, so the property can widen the plain-text set and
+     * cannot turn a markup or policy attribute back into an encoded one.
      */
     public static final String QLUE_CANOE_PLAIN_TEXT_ATTRIBUTES = "qlue.canoe.plainTextAttributes";
 
@@ -79,8 +79,8 @@ public abstract class VelocityViewFactory implements ViewFactory {
      *
      * <p>Canoe rejects an off-origin or protocol-relative value on {@code <script src>},
      * {@code <iframe src>}, {@code <object data>}, {@code <embed src>}, {@code <link href>} and
-     * {@code <base href>} by default (R9, closing the code-execution half of F6); this is the CDN
-     * escape hatch. An entry is a host ({@code cdn.example.com}) or an origin
+     * {@code <base href>} by default; this is the CDN escape hatch. An entry is a host
+     * ({@code cdn.example.com}) or an origin
      * ({@code https://cdn.example.com}, optionally with a {@code :port}), validated by
      * {@link com.webkreator.qlue.util.HtmlEncoder#parseTrustedOrigins(java.util.Collection)}, so a
      * malformed origin fails at startup rather than silently matching nothing.
@@ -115,7 +115,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
     /**
      * The origins a resource-loading URL sink may load from, on top of the page's own — the CDN
-     * allowlist for R9.
+     * allowlist.
      *
      * <p>Held per factory, and therefore per engine, for the same reason as {@link
      * #plainTextAttributes}: two applications in one JVM must not widen each other's, and nothing
@@ -138,13 +138,11 @@ public abstract class VelocityViewFactory implements ViewFactory {
         properties.setProperty("resource.loader.string.class", "org.apache.velocity.runtime.resource.loader.StringResourceLoader");
         properties.setProperty("resource.loader.string.repository.name", QLUE_STRING_RESOURCE_LOADER_KEY);
 
-        // R22 (F22): the class loader is declared above and its caching is configured below, so it
-        // also has to say which loader it is. Velocity 2.4.1 ships no default for this key and
-        // ResourceManagerImpl.initialize() throws without it, which meant these properties did not
-        // start an engine and only ClasspathVelocityViewFactory -- which sets the key in its own
-        // override -- worked. The plain ClasspathResourceLoader is the default because the class
-        // loader reads from the classpath; a subclass that wants the reloading variant overrides it,
-        // as ClasspathVelocityViewFactory does.
+        // The class loader is declared above and its caching is configured below, so it also has to
+        // say which loader it is: Velocity 2.4.1 ships no default for this key and
+        // ResourceManagerImpl.initialize() throws without it. The plain ClasspathResourceLoader is
+        // the default because the class loader reads from the classpath; a subclass that wants the
+        // reloading variant overrides it, as ClasspathVelocityViewFactory does.
         properties.setProperty("resource.loader.class.class",
                 "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
 
@@ -217,7 +215,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
      *
      * <p>This is the production entry point — the only caller is {@code VelocityView.render()} — and
      * it is where the writer is known to be the response's own. That is what lets it do the one part
-     * of R21's recovery the {@link #render(Page, VelocityView, Writer)} overload cannot: throw away
+     * of the recovery the {@link #render(Page, VelocityView, Writer)} overload cannot: throw away
      * the half-written page instead of leaving it in the response buffer. See
      * {@link #discardPartialResponse(HttpServletResponse, CanoeEncodingException)}.
      *
@@ -239,16 +237,16 @@ public abstract class VelocityViewFactory implements ViewFactory {
     /**
      * Renders into an arbitrary writer.
      *
-     * <p><strong>What happens when Canoe refuses (R21, closing F13).</strong> The request fails
-     * outright: the {@link CanoeEncodingException} is pulled out of Velocity's wrapper and rethrown
-     * as itself, so a caller can catch the type rather than pattern-match a message, and the partial
-     * output <em>is not flushed</em>. Both halves are deliberate and both are argued in
+     * <p><strong>What happens when Canoe refuses.</strong> The request fails outright: the
+     * {@link CanoeEncodingException} is pulled out of Velocity's wrapper and rethrown as itself, so a
+     * caller can catch the type rather than pattern-match a message, and the partial output <em>is
+     * not flushed</em>. Both halves are deliberate and both are argued in
      * {@link #discardPartialResponse(HttpServletResponse, CanoeEncodingException)}.
      *
-     * <p>An exception that is not an encoding error is rethrown unchanged, and the output is flushed
-     * as it always was. That is a scope boundary rather than a judgement: F13 is about encoding
-     * errors, and what a failed {@code #parse} or a throwing model object should leave in the response
-     * is a different question with different answers.
+     * <p>An exception that is not an encoding error is rethrown unchanged, and the output is
+     * flushed. That is a scope boundary rather than a judgement: what a failed {@code #parse} or a
+     * throwing model object should leave in the response is a different question with different
+     * answers.
      */
     public void render(Page page, VelocityView view, Writer writer) throws Exception {
         final Map<String, Object> model = page.getModel();
@@ -303,10 +301,10 @@ public abstract class VelocityViewFactory implements ViewFactory {
             }
         });
 
-        // R21: an encoding error must not reach the client. Everything Canoe accepted before it gave
-        // up has already been written through to this writer -- Canoe.write(char[],int,int) emits the
+        // An encoding error must not reach the client. Everything Canoe accepted before it gave up
+        // has already been written through to this writer -- Canoe.write(char[],int,int) emits the
         // good characters and then rethrows -- so the only thing still under our control is whether
-        // those bytes are committed. Flushing them is what used to make the failure unrecoverable.
+        // those bytes are committed, and flushing them would make the failure unrecoverable.
         boolean flushOutput = true;
 
         try {
@@ -355,7 +353,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
     /**
      * Throws away whatever of the page has already been written, after Canoe has refused to render
-     * the rest of it. R21's recovery, and the reasoning for it.
+     * the rest of it.
      *
      * <p><strong>What the response holds at this point.</strong> Canoe streams: it writes every
      * character it accepted straight through to the writer it wraps, and on the character it refuses
@@ -364,19 +362,17 @@ public abstract class VelocityViewFactory implements ViewFactory {
      * response buffer. For an error inside a tag that prefix ends mid-element — an unterminated
      * {@code <img}, with the browser still waiting for the {@code >}.
      *
-     * <p><strong>Why the request fails outright.</strong> Three candidates, and the first was the
-     * shipped one:
+     * <p><strong>Why the request fails outright.</strong> Three candidates were considered:
      *
      * <ul>
-     *   <li><em>Append {@code [Encoding Error]} and serve the page.</em> This is what the unreachable
-     *       branch intended, and it was the worst of the three even had it run: the marker lands
-     *       inside an attribute list rather than in the document, the status code stays 200, and the
-     *       client gets a page that looks served and is not. It is gone.</li>
+     *   <li><em>Append {@code [Encoding Error]} and serve the page.</em> The worst of the three: the
+     *       marker lands inside an attribute list rather than in the document, the status code stays
+     *       200, and the client gets a page that looks served and is not.</li>
      *   <li><em>Truncate to the last known-good tag boundary.</em> More honest than the marker and
      *       still not honest enough. A truncated document is one a browser renders happily — the
      *       reader sees a page missing its content and its footer, with a 200 and nothing in it
-     *       saying so, which is precisely the silent-corruption failure mode the rest of this work is
-     *       about removing. It would also cost the streaming property: Canoe would have to buffer
+     *       saying so, which is silent corruption. It would also cost the streaming property: Canoe
+     *       would have to buffer
      *       from the last boundary onwards to be able to rewind to it, and the bytes it must
      *       un-write are already past the writer in any case.</li>
      *   <li><em>Fail the request.</em> The rejections are template-authoring errors, not attacker
@@ -467,7 +463,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
     /**
      * Adds attribute names Canoe should treat as plain text, on top of its built-in allowlist.
      *
-     * <p>The application-level half of R5. Canoe suppresses a reference in any attribute name it
+     * <p>Canoe suppresses a reference in any attribute name it
      * does not recognise, which is the right default and cannot be the whole answer: a page with
      * {@code <div my-widget-config="$x">} would otherwise lose the value silently, and the
      * developer's next move is {@code $_x.asis()}, which turns the encoder off for that value
@@ -476,7 +472,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
      * the attribute it was written into.
      *
      * <p>Call before the first render; the set is copied into every {@link Canoe} the factory
-     * constructs. Names whose suppression is the fix for a finding are refused with an exception
+     * constructs. Names whose suppression is what makes them safe are refused with an exception
      * rather than accepted and ignored — see
      * {@link Canoe#normalisePlainTextAttributeNames(Collection)}.
      *
@@ -528,11 +524,11 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
     /**
      * Adds origins a resource-loading URL sink may load from, on top of the page's own — the CDN
-     * escape hatch for R9.
+     * escape hatch.
      *
      * <p>By default Canoe rejects an off-origin or protocol-relative value on {@code <script src>},
      * {@code <iframe src>}, {@code <object data>}, {@code <embed src>}, {@code <link href>} and
-     * {@code <base href>}, which closes the code-execution half of F6 and is the right default;
+     * {@code <base href>}, which is the right default;
      * without a way to widen it, an application that legitimately serves its scripts from a CDN has no
      * option but {@code $_x.asis()}, which turns Canoe off for that value. An entry is a host
      * ({@code cdn.example.com}) or an origin ({@code https://cdn.example.com}, optionally with a

@@ -187,7 +187,7 @@ public class HtmlEncoder implements QlueVelocityTool {
                 HtmlEncoder.hex(c >> 8, sb);
                 HtmlEncoder.hex(c, sb);
             } else {
-                // Astral code point (F16). A single \\uXXXX escape holds only sixteen bits, so
+                // Astral code point. A single \\uXXXX escape holds only sixteen bits, so
                 // emitting hex(c >> 8) + hex(c) here would keep only the low sixteen bits of a
                 // twenty-one-bit code point - U+10027 would become an apostrophe. Emit the UTF-16
                 // surrogate pair as two \\uXXXX escapes instead: that is what a JavaScript string
@@ -208,7 +208,7 @@ public class HtmlEncoder implements QlueVelocityTool {
     }
 
     // ------------------------------------------------------------------
-    // URL encoding (R11 + R12)
+    // URL encoding
     // ------------------------------------------------------------------
     //
     // The value handed here is whatever the template interpolated into a URL-bearing attribute, which
@@ -219,7 +219,7 @@ public class HtmlEncoder implements QlueVelocityTool {
     // component's rules. A query fragment carries no scheme and no authority, so it is encoded as a
     // path/query/fragment and the template's own '/search?q=' is what keeps it on the page's origin.
     //
-    // Three rules do all the work the old encoder got wrong (F15):
+    // Three rules do all the work:
     //
     //   1. Percent-escaping is per UTF-8 BYTE, not per Java char. A non-Latin-1 code point becomes its
     //      UTF-8 bytes, each escaped, rather than a literal '?' (which used to turn a path into a
@@ -235,18 +235,17 @@ public class HtmlEncoder implements QlueVelocityTool {
     // parameter's value". Keeping a component's own delimiters is right for the first and permissive
     // for the second: in <a href="/search?q=$q"> a payload of "1&b=2" now emits "1&amp;b=2", which the
     // HTML parser decodes to "1&b=2", so the value adds a parameter to the template author's query
-    // rather than staying inside one. The same was already true of '?', '#', '/' and '=' before this
-    // rewrite; '&' joins them because collapsing a multi-parameter query into one parameter (F15b) is
-    // the larger and far more common harm. Parameter injection is bounded - the origin and the path are
-    // the template's, url() adds no authority, and R9's origin filter is unaffected - but a template
-    // that interpolates into a query string and cares which parameters the URL carries must validate
-    // the value, exactly as it would with '?' or '#'.
+    // rather than staying inside one. The same is true of '?', '#', '/' and '='; '&' is kept with
+    // them because collapsing a multi-parameter query into one parameter is the larger and far more
+    // common harm. Parameter injection is bounded - the origin and the path are the template's, and
+    // url() adds no authority - but a template that interpolates into a query string and cares which
+    // parameters the URL carries must validate the value, exactly as it would with '?' or '#'.
     //
     // The scheme separator is emitted from the parse (from ALLOWED_SCHEMES), never copied out of the
-    // input, which is what closes F24 by design: the only raw colon this encoder can produce sits
-    // immediately behind an allowlisted scheme name or inside such a URL's authority. A scheme that is
-    // not on the allowlist is rejected to the empty string, so javascript:, data:, vbscript: and the
-    // rest are neutralised by suppression rather than by escaping a single delimiter.
+    // input, so the only raw colon this encoder can produce sits immediately behind an allowlisted
+    // scheme name or inside such a URL's authority. A scheme that is not on the allowlist is rejected
+    // to the empty string, so javascript:, data:, vbscript: and the rest are neutralised by
+    // suppression rather than by escaping a single delimiter.
 
     /**
      * Encodes input string for output into a URL-bearing attribute value.
@@ -413,15 +412,15 @@ public class HtmlEncoder implements QlueVelocityTool {
     }
 
     // ------------------------------------------------------------------
-    // Resource-loading URL encoding (R9)
+    // Resource-loading URL encoding
     // ------------------------------------------------------------------
     //
-    // url() is a scheme filter, not an origin filter (F6): it neutralises javascript: and data: but
+    // url() is a scheme filter, not an origin filter: it neutralises javascript: and data: but
     // emits //attacker/x.js and https://attacker/x.js byte for byte, because every character in an
     // off-origin URL is legal in an authority. That is harmless in <a href> and <img src> — an
     // off-origin link or image is an open-redirect or a referrer leak — but on <script src>,
     // <iframe src>, <object data>, <embed src>, <link href> and <base href> it is arbitrary code
-    // execution or a whole-page hijack. Canoe knows the tag name now (R8), so it routes those six
+    // execution or a whole-page hijack. Canoe tracks the tag name, so it routes those
     // element/attribute combinations here instead of to url().
     //
     // The policy this method enforces is the only one an encoder can enforce soundly at encode time:
@@ -435,7 +434,7 @@ public class HtmlEncoder implements QlueVelocityTool {
     // Canoe suppresses a reference it will not encode.
     //
     // The authority is detected on url()'s OUTPUT rather than on the raw input, which is what makes
-    // the check both sound and free of the tricks the reviewer flagged. url() has already escaped the
+    // the check sound. url() has already escaped the
     // backslash a browser would read as a slash (/\host -> /%5Chost) and the '@' a userinfo trick
     // would hide a real host behind (a@b -> a%40b, a forbidden host code point), so those do not reach
     // a live authority and are not suppressed unnecessarily; and it has already rejected every
@@ -818,15 +817,15 @@ public class HtmlEncoder implements QlueVelocityTool {
                 sb.append((char) c);
             } else {
                 // Everything else -> a CSS hex escape written as a backslash and exactly six hex
-                // digits (F16). Six is the maximum a CSS hex escape consumes, so the escape is
+                // digits. Six is the maximum a CSS hex escape consumes, so the escape is
                 // self-delimiting: css("'a") is '\000027a', which a CSS tokenizer reads as an
-                // apostrophe followed by 'a' rather than as the single character U+027A the old
-                // unterminated two-digit form produced. Because the code point value is emitted
+                // apostrophe followed by 'a' rather than as the single character U+027A an
+                // unterminated two-digit form would produce. Because the code point value is emitted
                 // directly, an astral character needs no surrogate handling - U+1F600 is \\01F600 -
                 // and a non-Latin-1 character is escaped rather than replaced with '?'. The
                 // backslash is itself escaped this way (\\00005C), so no raw backslash is ever
                 // emitted and none can combine with a following character even when a style value
-                // is decoded twice, HTML references then CSS escapes (F23).
+                // is decoded twice, HTML references first and then CSS escapes.
                 sb.append('\\');
                 HtmlEncoder.hex6(c, sb);
             }

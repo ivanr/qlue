@@ -108,8 +108,7 @@ public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHa
      *       {@code #parse} turns the chosen file into template source as well.
      * </ul>
      *
-     * <p>Encoding is the right answer for all three, and it is also exactly what this handler did
-     * before R24, so nothing about these shapes changes. Encoding neutralises them because
+     * <p>Encoding is the right answer for all three. It neutralises them because
      * {@code html()} and {@code htmlWhite()} are allowlists of {@code [a-zA-Z0-9]} plus a little
      * whitespace: <code>$</code>, <code>#</code>, <code>(</code>, <code>.</code> and <code>/</code>
      * all come back as numeric character references, so neither VTL nor a path can be reconstituted
@@ -119,15 +118,15 @@ public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHa
      * spellings — {@code #set($t = $data)#evaluate($t)}, {@code #parse($data)} — hand these
      * directives the raw value and always have, because a bare reference assignment and a bare
      * reference argument never reach {@code value()} through a literal and so never fire this
-     * handler at all. &sect;2.5 of the threat model is the answer there: the attacker controls data
-     * and never the template, and a directive whose argument is compiled or resolved to a file is
-     * outside what an output encoder can defend. What this list does is decline to <em>widen</em>
-     * that hole to a spelling that did not have it.
+     * handler at all. The threat model is the answer there: the attacker controls data and never the
+     * template, and a directive whose argument is compiled or resolved to a file is outside what an
+     * output encoder can defend. What this list does is decline to <em>widen</em> that hole to a
+     * spelling that did not have it.
      *
      * <p>The remaining {@code value()} callers are deliberately absent, because each of them does
      * hand the string on to something that prints it through a reference: {@code ASTSetDirective}
-     * (the shape R24 exists for), {@code VelocimacroProxy} (a macro argument, printed in the macro
-     * body), {@code Foreach} (the iterable), {@code Break} and {@code Stop} (a scope object),
+     * (the shape the deferral exists for), {@code VelocimacroProxy} (a macro argument, printed in the
+     * macro body), {@code Foreach} (the iterable), {@code Break} and {@code Stop} (a scope object),
      * {@code ASTMethod} (an application method's argument, whose return value is printed through the
      * enclosing reference — and which wants the value as the user typed it, not HTML-encoded) and
      * the comparison and expression nodes, which never reach a writer at all.
@@ -136,12 +135,12 @@ public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHa
      * class resolves an unknown to the safe answer. The set of {@code value()} callers is closed and
      * was read off the source rather than guessed, and exactly three of them do not print — so the
      * deny-list is exact, while an allow-list would have to enumerate every expression node that can
-     * hold a literal and would silently stop fixing F12 in each shape it missed. What the deny-list
-     * cannot see is a <em>custom</em> directive that compiles or resolves its literal argument;
-     * a {@code userdirective} is application code, so &sect;2.5 owns it for the same reason it owns
-     * {@code #evaluate($t)}. It is also blind to a repackaged Velocity, but harmlessly: a shaded
+     * hold a literal and would silently stop deferring in each shape it missed. What the deny-list
+     * cannot see is a <em>custom</em> directive that compiles or resolves its literal argument; a
+     * {@code userdirective} is application code, and the threat model owns it for the same reason it
+     * owns {@code #evaluate($t)}. It is also blind to a repackaged Velocity, but harmlessly: a shaded
      * class name matches neither {@link #VELOCITY_PACKAGE} nor {@link #STRING_LITERAL_CLASS}, so
-     * nothing is ever deferred and the whole of this method degrades to the pre-R24 double encoding.
+     * nothing is ever deferred and the value is simply encoded here as well as where it is printed.
      */
     static final List<String> LITERAL_CONSUMERS_THAT_DO_NOT_PRINT = List.of(
             "org.apache.velocity.runtime.directive.Evaluate",
@@ -170,7 +169,7 @@ public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHa
      * Is this reference being rendered into an interpolated string literal that some later reference
      * will print — in which case the encoding belongs there and not here?
      *
-     * <p>This is F12. Velocity renders <code>#set($msg = "Hello $name")</code> by calling
+     * <p>Velocity renders <code>#set($msg = "Hello $name")</code> by calling
      * {@code ASTStringLiteral.value()}, which allocates a private {@code StringBuilderWriter} and
      * renders the literal's node tree into <em>that</em>. The event cartridge is attached to the
      * context rather than to the writer, so {@code referenceInsert()} still fires — but the writer
@@ -206,8 +205,8 @@ public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHa
      * perfectly ordinary nested render that must still defer.
      *
      * <p><strong>The asymmetry, which is the safety argument.</strong> A false negative — failing to
-     * spot a nested render — encodes the value here as well as where it is printed. That is exactly
-     * today's F12: visible, harmless, and the behaviour this method replaces. A false positive
+     * spot a nested render — encodes the value here as well as where it is printed: visible and
+     * harmless. A false positive
      * returns attacker-controlled data to Velocity unencoded, and if that value is not later written
      * through a reference it is raw data in the page. The two errors are not comparable, so this
      * method must never widen the "defer" answer: every bound below — the frame limit, the package
@@ -297,8 +296,8 @@ public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHa
         }
 
         // A reference inside an interpolated string literal is not being written to Canoe at all, so
-        // this writer's context is an answer about somewhere else (F12). Hand the value back
-        // untouched and let it be encoded once, later, at the position it is actually printed - the
+        // this writer's context is an answer about somewhere else. Hand the value back untouched
+        // and let it be encoded once, later, at the position it is actually printed - the
         // only position Canoe genuinely knows. See encodingMustBeDeferred() for why the call stack is
         // the only place that information exists, which consumers of the literal disqualify the
         // deferral, and the asymmetry that decides which way an uncertain answer must fall.
@@ -307,7 +306,7 @@ public class CanoeReferenceInsertionHandler implements ReferenceInsertionEventHa
         }
 
         // Otherwise encode the text using the correct encoder. The instance form is used rather than
-        // the static Canoe.encode(value, context) because a resource-loading URL sink (R9) needs this
+        // the static Canoe.encode(value, context) because a resource-loading URL sink needs this
         // writer's configured trusted-origin allowlist, which is per instance and not a function of
         // the context alone.
         return qlueWriter.encode(arg1.toString());

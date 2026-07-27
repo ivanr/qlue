@@ -21,36 +21,25 @@ import java.io.IOException;
 /**
  * The exception {@link Canoe} raises when it refuses to render a template.
  *
- * <p><strong>Why it exists (F13, R21).</strong> Canoe used to throw a bare {@link IOException} whose
- * message began {@link Canoe#ERROR_PREFIX}, and {@code VelocityViewFactory.render()} recognised an
- * encoding error by testing {@code e.getMessage().startsWith(Canoe.ERROR_PREFIX)} on the exception it
- * caught. It never caught Canoe's: Velocity wraps an {@code IOException} from the writer in a
- * {@code VelocityException} of its own — {@code "IO Error rendering template '...'"} on the
- * production {@code Template.merge()} path, {@code "IO Error in writer: ..."} on {@code evaluate()} —
- * so the test was applied to the wrapper's message and could never be true. A type in the cause chain
- * is what a wrapper cannot hide: {@link #findIn(Throwable)} finds it wherever Velocity, or a future
- * template engine, or an application's own decorator chose to put it.
+ * <p><strong>Recognise it by type, not by message.</strong> A template engine is entitled to wrap an
+ * {@link IOException} from its writer, and Velocity always does — {@code "IO Error rendering template
+ * '...'"} on the production {@code Template.merge()} path, {@code "IO Error in writer: ..."} on
+ * {@code evaluate()} — so a caller that tests the message it caught is testing the wrapper's.
+ * {@link #findIn(Throwable)} finds this type wherever Velocity, a future template engine, or an
+ * application's own decorator put it.
  *
- * <p><strong>The coordinates are fields, not only prose.</strong> {@code raiseError()} has always
- * computed the line and position of the offending character and has always spent them on a string.
- * They are carried here as {@link #getLine()} and {@link #getPosition()}, with the bare
- * {@link #getReason()} beside them, so that a caller can report or triage a rejection without parsing
- * the message back apart. R20 (the rejection-table triage) was the first consumer, and
- * {@code CanoeRobustnessTest} reads them for every row of the table.
+ * <p><strong>The coordinates are fields.</strong> The line and position of the offending character
+ * are carried as {@link #getLine()} and {@link #getPosition()}, with the bare {@link #getReason()}
+ * beside them, so that a caller can report or triage a rejection without parsing the message back
+ * apart. {@link #getMessage()} remains
+ * {@code "Encoding Error: <reason> (line: L, pos: P)"}, and this class is the one place that builds
+ * it.
  *
- * <p><strong>The message is unchanged.</strong> {@code getMessage()} is still
- * {@code "Encoding Error: <reason> (line: L, pos: P)"}, byte for byte what the bare
- * {@code IOException} carried, and this class is the one place that builds it. {@link
- * Canoe#ERROR_PREFIX} is kept for that reason — see its javadoc — but nothing in {@code src/main}
- * matches on it any more.
- *
- * <p>An encoding error is <em>not</em> attacker-controlled. Every shape that reaches
- * {@code raiseError()} is a template-authoring error — a literal {@code <} in prose, {@code </ p>},
- * a name longer than {@link Canoe#MAX_TAGNAME_LEN} — so catching this exception means "this page's
- * template is wrong", not "somebody is attacking us". R20 triaged that set and moved the shapes that
- * were merely unusual rather than wrong ({@code <br/>}, a long {@code data-*} name, a second DOCTYPE)
- * out of it; {@code CanoeRobustnessTest.rejections()} is the surviving table, with the reasoning for
- * each row on it.
+ * <p>An encoding error is <em>not</em> attacker-controlled. Every shape that raises one is a
+ * template-authoring error — a literal {@code <} in prose, {@code </ p>}, a name longer than
+ * {@link Canoe#MAX_TAGNAME_LEN} — so catching this exception means "this page's template is wrong",
+ * not "somebody is attacking us". {@code CanoeRobustnessTest.rejections()} is the table of shapes
+ * Canoe refuses, with the reasoning for each row on it.
  */
 public class CanoeEncodingException extends IOException {
 
@@ -105,11 +94,10 @@ public class CanoeEncodingException extends IOException {
     /**
      * The {@link CanoeEncodingException} in a throwable's cause chain, or null if there is none.
      *
-     * <p>This is the replacement for {@code startsWith(Canoe.ERROR_PREFIX)} on a top-level message,
-     * and it is the method callers outside the framework should use too: a template engine is
-     * entitled to wrap an {@code IOException} from its writer, and Velocity always does. The match is
-     * on type rather than on message, so no exception that merely quotes Canoe's message — a parse
-     * error echoing a hostile string, say — can be mistaken for a rejection.
+     * <p>This is how a caller inside or outside the framework should recognise an encoding error: a
+     * template engine is entitled to wrap an {@code IOException} from its writer, and Velocity always
+     * does. The match is on type rather than on message, so no exception that merely quotes Canoe's
+     * message — a parse error echoing a hostile string, say — can be mistaken for a rejection.
      *
      * @param t the exception a caller caught; null is answered with null
      */
