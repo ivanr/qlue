@@ -124,7 +124,7 @@ public class DomEquivalenceTest {
                 () -> testCase.id() + ": " + divergences.size() + " payload(s) changed the document"
                         + " structure. Each one is an injection - the payload left the value it was"
                         + " meant to occupy - and each needs triaging into the ledger with a finding"
-                        + " reference, per PLAN.md section 8."
+                        + " reference."
                         + "\n  Template: " + CanoeTestSupport.quote(testCase.template())
                         + "\n  " + String.join("\n  ", divergences));
     }

@@ -272,7 +272,8 @@ nothing. That is deliberate: a bypass that fails open would be worse than one th
 
 ## The test suite
 
-`PLAN.md` describes the test suite written against Canoe. Running `./gradlew test` regenerates
+`src/test/java/com/webkreator/qlue/view/canoe/README.md` describes the test suite written against
+Canoe. Running `./gradlew test` regenerates
 `build/reports/canoe/matrix.md` and `matrix.csv`: a generated matrix of every template shape the
 suite covers, the context Canoe assigns it, the encoder applied, and whether attacker data reaches
 the sink live.

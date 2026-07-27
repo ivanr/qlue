@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * page to {@code [Encoding Error]}, and the test it used could never be true. A test that
  * re-implements that test over an exception the harness produced is asserting against a copy of the
  * bug, and would still pass after the bug is fixed — which is exactly the failure mode the ledger
- * rule in {@code PLAN.md} §2.1 exists to prevent. So the F13 assertions go through the production
+ * rule exists to prevent. So the F13 assertions go through the production
  * method and observe its actual effects: what escaped, and what reached the response.
  *
  * <p><strong>R21 changed what those effects are, not the reason for observing them here.</strong>

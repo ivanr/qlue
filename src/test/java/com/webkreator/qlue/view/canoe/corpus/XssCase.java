@@ -118,7 +118,8 @@ public final class XssCase {
         if (anyLive && (finding == null || finding.isEmpty())) {
             throw new IllegalArgumentException("Case " + id
                     + " records attacker data reaching the sink live but cites no finding. Cite one"
-                    + " from CANOE-SECURITY-REVIEW-2026-07-25.md, or open a new one.");
+                    + " from the Canoe security reviews, which are held outside this repository, or"
+                    + " open a new one.");
         }
 
         // The residual sink class is required on an ACCEPTED_RESIDUAL case and forbidden anywhere

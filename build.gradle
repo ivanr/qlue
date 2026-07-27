@@ -211,8 +211,8 @@ jacocoTestReport {
  *     (R18's two DOCTYPE rejections are the first shape and are measured covered.)
  *
  * MEASURED 2026-07-27, after R31, from the XML. Every figure here was read today; none is carried
- * forward from a task note. The per-task narrative this comment used to accumulate now lives in
- * REMEDIATION-PLAN.md's landed notes, which is where a history belongs.
+ * forward from a task note. The per-task narrative this comment used to accumulate is kept with the
+ * remediation record rather than here, which is where a history belongs.
  *
  * R29/R30/R31 - the fixes for the second review's F25-F28 - moved the two class denominators and
  * nothing else. This is RULE 3 and not rule 2: 76 branch outcomes were ADDED to Canoe (the URL
@@ -383,8 +383,8 @@ jacocoTestReport {
  *   plus a `fields == null` guard that Class.getFields() cannot actually satisfy (4/6) - but none of
  *   them decides how a value is encoded, so they are ordinary test debt rather than this gate's
  *   subject. A class floor here would freeze that debt behind a number and advertise a coverage the
- *   class does not have; four method floors say exactly what is measured. Recorded in
- *   REMEDIATION-PLAN.md as follow-up work, and the class floor goes in if those tests do.
+ *   class does not have; four method floors say exactly what is measured. Recorded with the
+ *   remediation record as follow-up work, and the class floor goes in if those tests do.
  *
  *   Note for whoever adds a fifth floor here: addTrustedResourceOrigins is OVERLOADED, and the
  *   gate sums every method of that name (see the comment in the task body). The varargs form
@@ -630,8 +630,8 @@ tasks.register('canoeCoverageGate') {
                 }
             }
 
-            // A gate that silently matches nothing is the failure mode PLAN.md section 8 warns
-            // about, so an absent target is a failure rather than a pass.
+            // A gate that silently matches nothing is a gate that measures nothing, so an absent
+            // target is a failure rather than a pass.
             if (measured == null) {
                 failures << "${name}: not present in the JaCoCo report. Renamed, or no longer" +
                         " instrumented - either way this gate was about to pass without measuring" +

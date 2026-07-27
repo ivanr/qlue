@@ -344,7 +344,7 @@ public class AuthorityPositionTest {
      * concatenated spelling while the direct one is accepted would be an inconsistency and not a fix.
      *
      * <p>What the second review does change is that these positions are now <em>known</em> to be in
-     * the residue: {@code PLAN.md} §T16 said a path-suffix position could not reach the authority, and
+     * the residue: T16 said a path-suffix position could not reach the authority, and
      * that was measured only at {@code href="/p/$data"}, where it is true.
      */
     @Test

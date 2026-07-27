@@ -1,8 +1,10 @@
 # The Canoe test suite
 
 This directory and its subpackages are the adversarial test suite for **Canoe**, the context-aware
-output encoder in `com.webkreator.qlue.view`. It was written against
-`CANOE-SECURITY-REVIEW-2026-07-25.md` (twenty-four findings) to the plan in `PLAN.md`.
+output encoder in `com.webkreator.qlue.view`. It was written against a series of security reviews of
+Canoe, which found twenty-nine issues between them. Those reviews are held outside this repository;
+the cases here cite their findings by id (`F1`, `F6`, …), and those citations are recorded rather
+than resolved — nothing in the build checks an `F<n>` against a document.
 
 Read this before you change anything here, and *especially* before you "fix" a failing test.
 
@@ -25,8 +27,8 @@ So every case in the corpus carries an explicit, reviewed **verdict**:
 | `SUPPRESSED_UNINTENDED` | Canoe emits the empty string where it should have encoded | Fail-safe, but a defect; tracked separately so the defect count can reach zero |
 | `REJECTED` | Canoe raises an encoding error | The rejection, its message and its reported position |
 
-**If a `KNOWN_VULNERABLE` test fails, the vulnerability has gone away.** That is the design
-(`PLAN.md` §2.1) and it is the moment the suite exists for. What to do:
+**If a `KNOWN_VULNERABLE` test fails, the vulnerability has gone away.** That is the design, and it
+is the moment the suite exists for. What to do:
 
 1. **Do not delete or weaken the test.** It is doing exactly its job.
 2. Find out *why* it stopped reproducing. Usually a fix landed in `Canoe.java` or
@@ -35,8 +37,6 @@ So every case in the corpus carries an explicit, reviewed **verdict**:
    whatever it now is, and say so in the commit message with the finding ID.
 4. Check whether the finding is *fully* closed. `build/reports/canoe/matrix.md` groups the roster by
    finding; one row flipping does not close a finding with twelve.
-5. Update `CANOE-SECURITY-REVIEW-2026-07-25.md` — the finding gets a "fixed in" note — and the
-   remediation list if the item is done.
 
 **The same is true of a failing `ACCEPTED_RESIDUAL` test, and for the same reason.** That verdict
 says the data still reaches a sink somebody decided is not code execution — an off-origin link, an

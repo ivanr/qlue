@@ -21,12 +21,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -47,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <h2>What it emits</h2>
  *
  * <ul>
- *   <li>{@code matrix.md} — the scoreboard, the finding-coverage table, one table per Appendix A
+ *   <li>{@code matrix.md} — the scoreboard, one table per Appendix A
  *       section, and two rosters: every {@code KNOWN_VULNERABLE} pairing, which since R26 is empty
  *       and asserted to be, and every {@code ACCEPTED_RESIDUAL} one with the non-executing sink it
  *       reaches. The first is the working list - the set of things a fix has to flip; the second is
@@ -57,10 +54,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       so the browser tier and anything written later can consume it without parsing Markdown.
  * </ul>
  *
- * <p>The finding list is read out of the two Canoe security reviews' own glance tables
- * rather than restated here. That is what makes "a finding with zero corpus cases" a measurement:
- * the denominator comes from the reviews, so a finding added there and not tested here shows up in
- * the report as a gap on the next run, without anyone remembering to look.
+ * <p>A case's finding citation is reported and not checked. It used to be both: the report measured
+ * corpus coverage against a finding list parsed out of the Canoe security reviews' glance tables, so
+ * a finding written there and not tested here showed up as a gap on the next run. Those reviews are
+ * now held outside this repository, and a coverage denominator that lives on somebody's disk is one
+ * that passes or fails depending on whose machine ran the build. So the denominator is gone and the
+ * citations remain: {@code XssCase.validate()} still refuses a live verdict that cites nothing, and
+ * the columns below still say which finding each row is about, but nothing here resolves an
+ * {@code F<n>} against a document any more.
  *
  * <h2>The browser column</h2>
  *
@@ -76,95 +77,9 @@ public class MatrixReportTest {
     private static final Path OUTPUT_DIR = Paths.get(
             System.getProperty("canoe.report.dir", "build/reports/canoe"));
 
-    /**
-     * The reviews, which own the finding list this report measures coverage against.
-     *
-     * <p>A list rather than a single file since the second review (2026-07-27), which adds F25-F28.
-     * The glance tables are parsed in order and the first definition of an id wins, so a later
-     * document may restate a finding without silently redefining its severity. The list is what makes
-     * "a finding with zero corpus cases" a measurement: the denominator is the reviews' own, so a
-     * finding written in either and not tested here shows up as a gap on the next run.
-     */
-    private static final List<Path> REVIEWS = List.of(
-            Paths.get("CANOE-SECURITY-REVIEW-2026-07-25.md"),
-            Paths.get("CANOE-SECURITY-REVIEW-2026-07-27-1.md"));
-
     /** Written by {@code BrowserCorpusTest} when the browser tier has run. */
     private static final Path BROWSER_RESULTS =
             Paths.get("build", "reports", "canoe-browser", "corpus-results.csv");
-
-    /**
-     * Findings with no corpus case, and why each one is not a gap.
-     *
-     * <p>Every entry here is a finding whose subject is not a (template, payload) pairing, so the
-     * corpus is structurally the wrong instrument and a case would have to be invented to satisfy a
-     * counter. Each names the file that does test it. Anything that appears in the report's gap
-     * list and not here fails {@link #everyFindingIsEitherCoveredOrExplained}, which is the point:
-     * the exemption list is small, reviewed, and cannot grow silently.
-     */
-    private static final Map<String, String> FINDINGS_WITHOUT_CASES = explainedGaps();
-
-    private static Map<String, String> explainedGaps() {
-        Map<String, String> gaps = new LinkedHashMap<>();
-        gaps.put("F8", "the finding is 'no tests, no documentation, no threat model'; this suite and"
-                + " this report are the answer to it, not a case in it");
-        gaps.put("F9", "a Writer-API defect, invisible through Velocity because"
-                + " CanoeReferenceInsertionHandler never calls write(char[],int,int) at a non-zero"
-                + " offset - CanoeWriterContractTest and ChunkInvarianceTest");
-        gaps.put("F12", "closed by R24: an interpolated string literal renders into Velocity's own"
-                + " writer, the handler detects that and defers, and the value is encoded once where"
-                + " it is printed - unless the literal's consumer is #evaluate, #parse or #include,"
-                + " which compile or resolve the string rather than printing it and so keep the"
-                + " pre-R24 encoding. The exemption stays, and is reworded rather than deleted,"
-                + " because"
-                + " the reason it gave is still the true one: the finding is about a Velocity"
-                + " reference FORM - #set of an interpolated literal - and a corpus case is a"
-                + " template plus a payload at a sink, so the same defect would have to be restated"
-                + " once per sink to be counted. It is not stale in the sense this map's second"
-                + " assertion catches: no corpus template uses #set in any spelling, verified"
-                + " against matrix.csv rather than assumed, so F12 has acquired no cases -"
-                + " VelocityIntegrationTest's F12 section and, for the detector itself,"
-                + " NestedRenderDetectionTest");
-        gaps.put("F7", "closed by R7, and the citation left the corpus with the branch pair: the two"
-                + " rows that carried it are re-verdicted under other findings - attr.data-on-object"
-                + " is a URL sink citing F6 and refresh.meta-content is a suppression citing F3 -"
-                + " because a case cites the finding its CURRENT verdict is about. The finding's own"
-                + " evidence is a source-level fact about two identical comparison chains, which is"
-                + " where it always belonged - AttributePrefixTest.theDataBranchPairIsResolved and"
-                + " AttributeNameMatrixTest.theSourceDeclaresTheTwoNameListsTheMatrixExpects, which"
-                + " asserts the ATTR_CONTENT constant and the author's XXX marker are both gone");
-        // F13's exemption is deleted rather than reworded, because the finding acquired corpus
-        // cases in R20 and a stale exemption is what this map's second assertion exists to catch.
-        // The exemption said the finding was about what escapes VelocityViewFactory.render(), which
-        // the corpus harness deliberately does not model - and that is still true of F13's *delivery*
-        // half, which R21 closed and which CanoeRobustnessTest (via ProductionRenderProbe) and
-        // CanoeEncodingExceptionTest own. What changed is that F13's other half is a table of
-        // templates, R20 triaged it, and the rows that moved are rows: void.br-no-space, which is
-        // the table's first entry rendering instead of failing, and
-        // shape.framework-length-attribute-name, which is the length cap that a real page hit. Both
-        // cite F13, so the finding now has live regression cases in the ledger as well as in the
-        // two tests.
-        gaps.put("F15", "url() corrupting legitimate URLs is an author-data defect with no attacker"
-                + " payload - HtmlEncoderUrlTest");
-        gaps.put("F16", "js() and css() are unreachable from Canoe.encode() today, so no case can"
-                + " route a payload through them - HtmlEncoderTest");
-        gaps.put("F21", "closed by R14: the CTX_CSS constant and its dead encode() arm are deleted,"
-                + " so there is no CSS context for a case to produce - style still classifies as"
-                + " ATTR_CSS and suppresses. The source-level fact is asserted by"
-                + " AttributeNameMatrixTest.thereIsNoCtxCssAndStyleStillSuppresses");
-        gaps.put("F22", "closed by R22: the base factory now sets resource.loader.class.class, so an"
-                + " engine built from its own properties starts. The exemption stays because the"
-                + " finding is a Velocity engine configuration defect and the corpus is still the"
-                + " wrong instrument for it - it was decided at init(), before any template exists,"
-                + " and a case is a template plus a payload -"
-                + " ViewFactoryRenderTest.theBaseFactorysDefaultPropertiesConfigureTheClassLoader"
-                + "TheyDeclare");
-        gaps.put("F23", "the CSS double decode is a browser behaviour; the three templates it bounds"
-                + " are corpus cases cited against F4 - SinkSpecificBrowserTest");
-        gaps.put("F24", "needs two references in one attribute value, which the shared-payload"
-                + " corpus cannot express - ParserSteeringTest and TemplateFuzzTest");
-        return gaps;
-    }
 
     // ------------------------------------------------------------------
     // The report
@@ -178,13 +93,12 @@ public class MatrixReportTest {
     @Test
     public void theMatrixReportIsGenerated() throws IOException {
         List<Row> rows = rows();
-        Map<String, Finding> findings = readFindingsFromTheReview();
         Map<String, BrowserResult> browser = readBrowserResults();
 
         Files.createDirectories(OUTPUT_DIR);
         Path markdown = OUTPUT_DIR.resolve("matrix.md");
         Path csv = OUTPUT_DIR.resolve("matrix.csv");
-        Files.write(markdown, renderMarkdown(rows, findings, browser).getBytes(StandardCharsets.UTF_8));
+        Files.write(markdown, renderMarkdown(rows, browser).getBytes(StandardCharsets.UTF_8));
         Files.write(csv, renderCsv(rows, browser).getBytes(StandardCharsets.UTF_8));
 
         assertTrue(Files.size(markdown) > 0, () -> markdown + " is empty");
@@ -206,156 +120,16 @@ public class MatrixReportTest {
         assertEquals(rows.size() + 1, csvLines.size(), "CSV header plus one line per invocation");
     }
 
-    /**
-     * Every finding in the review's glance table either has a corpus case or an explained reason for
-     * not having one.
-     *
-     * <p>This is the assertion that turns the report's coverage table into something with teeth. A
-     * new finding added to the review with no case and no entry in {@link #FINDINGS_WITHOUT_CASES}
-     * fails here rather than sitting in a generated table nobody reads.
-     *
-     * <p>It fails in the other direction too: an exemption for a finding that has since acquired
-     * cases is a stale exemption, and a stale exemption is how a real gap gets to hide behind an
-     * old excuse.
-     */
-    @Test
-    public void everyFindingIsEitherCoveredOrExplained() throws IOException {
-        Map<String, Finding> findings = readFindingsFromTheReview();
-        Set<String> covered = CanoeCorpus.all().stream()
-                .map(XssCase::finding)
-                .filter(f -> f != null && !f.isEmpty())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        List<String> unexplained = new ArrayList<>();
-        for (String id : findings.keySet()) {
-            if (!covered.contains(id) && !FINDINGS_WITHOUT_CASES.containsKey(id)) {
-                unexplained.add(id + " - " + findings.get(id).summary);
-            }
-        }
-        assertTrue(unexplained.isEmpty(),
-                () -> "These findings have no corpus case and no recorded reason:\n  "
-                        + String.join("\n  ", unexplained)
-                        + "\nEither add a case, or add an entry to FINDINGS_WITHOUT_CASES saying"
-                        + " which test covers it and why the corpus is the wrong instrument.");
-
-        List<String> stale = new ArrayList<>();
-        for (String id : FINDINGS_WITHOUT_CASES.keySet()) {
-            if (covered.contains(id)) {
-                stale.add(id);
-            }
-        }
-        assertTrue(stale.isEmpty(),
-                () -> "These findings are listed as having no corpus case, and they now have one: "
-                        + stale + ". Delete the exemption.");
-
-        // ...and no case may cite a finding the review does not have.
-        for (String id : covered) {
-            assertTrue(findings.containsKey(id),
-                    () -> "a corpus case cites " + id + ", which is not in the review's glance"
-                            + " table. Either the finding was renumbered or the citation is wrong;"
-                            + " a KNOWN_VULNERABLE row with a dangling citation is the review"
-                            + " failure PLAN.md section 8 describes.");
-        }
-    }
-
-    /**
-     * <strong>R26's second guard: a live row's citation has to resolve.</strong>
-     *
-     * <p>The corpus already refuses a live verdict with no citation at all ({@code
-     * XssCase.validate()}), and {@link #everyFindingIsEitherCoveredOrExplained} already refuses a
-     * citation the review does not have — but it applies that to every case, including the safe ones
-     * whose citation is historical. This states the property where it matters most and in the form
-     * R26 asked for: <em>a row that says attacker data reaches the sink live must point at a real
-     * finding in one of the reviews</em>. That is the sentence the ledger's
-     * design note rests on, and "the count went back above zero with nothing attached" is what its
-     * failure looks like from outside.
-     *
-     * <p>It lives here rather than in {@code CanoeCorpusTest} because the review is the authority for
-     * the finding list and {@link #readFindingsFromTheReview()} is the one parser for it. A second
-     * parser next to the ledger would be a second list to drift.
-     *
-     * <p>Both live verdicts are checked, which is also what keeps this from being vacuous while
-     * {@code KNOWN_VULNERABLE} is empty: the 68 {@link Verdict#ACCEPTED_RESIDUAL} rows all cite F6
-     * and all resolve, so the assertion is exercised on every run and would notice F6 being
-     * renumbered out from under them.
-     */
-    @Test
-    public void everyRowThatReachesItsSinkLiveCitesAFindingTheReviewHas() throws IOException {
-        Map<String, Finding> findings = readFindingsFromTheReview();
-
-        List<String> offenders = new ArrayList<>();
-        int checked = 0;
-        for (XssCase.Invocation invocation : CanoeCorpus.allInvocations()) {
-            if (!invocation.verdict().reachesSinkLive()) {
-                continue;
-            }
-            checked++;
-            String finding = invocation.testCase().finding();
-            if (finding == null || finding.isEmpty()) {
-                offenders.add(invocation + " (" + invocation.verdict() + ") cites nothing");
-            } else if (!findings.containsKey(finding)) {
-                offenders.add(invocation + " (" + invocation.verdict() + ") cites " + finding
-                        + ", which is not in the review's glance table");
-            }
-        }
-
-        assertTrue(offenders.isEmpty(),
-                () -> "These rows record attacker data reaching a sink live without a finding the"
-                        + " review actually has:\n  " + String.join("\n  ", offenders)
-                        + "\n\nA live row is a claim about this component's security, and the"
-                        + " citation is what makes it reviewable: it says where the reasoning is and"
-                        + " who agreed to it. If the vector is new, open a finding in "
-                        + REVIEWS + " and cite it. If the finding was renumbered, fix the citation."
-                        + " Do not leave the row uncited - an unattributed vulnerability in a ledger"
-                        + " is indistinguishable from a note somebody left themselves.");
-
-        assertTrue(checked > 0,
-                "no row in the ledger records data reaching a sink live at all, so this assertion"
-                        + " checked nothing. If F6's residue has genuinely been closed, that is the"
-                        + " best possible reason for this failure and the test should be reduced to"
-                        + " its KNOWN_VULNERABLE half; if it has not, the ledger has stopped being"
-                        + " readable from here.");
-    }
-
-    /**
-     * The review's glance table parses, and it has the number of rows the review's summary claims.
-     *
-     * <p>The report's whole coverage denominator comes from a regular expression over a Markdown
-     * table. If that regex silently matched nothing, the coverage table would be empty, the gap list
-     * would be empty, and everything above would pass. So the parse is asserted before it is used.
-     */
-    @Test
-    public void theReviewsGlanceTableParses() throws IOException {
-        Map<String, Finding> findings = readFindingsFromTheReview();
-
-        assertFalse(findings.isEmpty(), "no findings parsed out of " + REVIEWS);
-        assertTrue(findings.containsKey("F1"), "F1 must parse");
-        assertEquals("Critical", findings.get("F1").severity);
-        assertTrue(findings.size() >= 28,
-                () -> "the reviews declare at least 28 findings; parsed " + findings.size() + ": "
-                        + findings.keySet());
-
-        // The numbering must be dense: F1..Fn with nothing missing, or a gap in the report's
-        // coverage table would be indistinguishable from a finding that was never written.
-        for (int i = 1; i <= findings.size(); i++) {
-            String id = "F" + i;
-            assertTrue(findings.containsKey(id),
-                    () -> id + " is missing from the glance table, which is numbered densely");
-        }
-    }
-
     // ------------------------------------------------------------------
     // Rendering
     // ------------------------------------------------------------------
 
-    private static String renderMarkdown(List<Row> rows, Map<String, Finding> findings,
-                                         Map<String, BrowserResult> browser) {
+    private static String renderMarkdown(List<Row> rows, Map<String, BrowserResult> browser) {
         StringBuilder sb = new StringBuilder(64 * 1024);
 
         sb.append("# Canoe test matrix\n\n");
         sb.append("Generated by `MatrixReportTest` on every `./gradlew test` run, from"
-                + " `CanoeCorpus` and the glance tables of the two Canoe security reviews."
-                + " Do not edit: it is regenerated.\n\n");
+                + " `CanoeCorpus`. Do not edit: it is regenerated.\n\n");
         sb.append("A machine-readable form of the same data, one row per (case, payload)"
                 + " invocation, is in `matrix.csv` alongside this file.\n\n");
 
@@ -407,53 +181,8 @@ public class MatrixReportTest {
                         + " explicit list that may only shrink. Their roster is at the end of this"
                         + " file too.\n>\n")
                 .append("> A row under either verdict **fails when it stops being true** - that is"
-                        + " the design (PLAN.md section 2.1), and it is the signal to update the"
+                        + " the design, and it is the signal to update the"
                         + " ledger rather than a regression.\n\n");
-
-        // Finding coverage.
-        sb.append("## Finding coverage\n\n");
-        sb.append("One row per finding in the review's glance table. A finding with no corpus case"
-                + " is a coverage gap unless the corpus is structurally the wrong instrument for"
-                + " it, in which case the reason and the file that does test it are given.\n\n");
-        sb.append("| Finding | Severity | Cases | Invocations | `KNOWN_VULNERABLE` |"
-                + " `ACCEPTED_RESIDUAL` | Summary |\n");
-        sb.append("|---|---|---:|---:|---:|---:|---|\n");
-        for (Map.Entry<String, Finding> entry : findings.entrySet()) {
-            String id = entry.getKey();
-            List<Row> forFinding = rows.stream()
-                    .filter(r -> id.equals(r.finding)).collect(Collectors.toList());
-            long cases = forFinding.stream().map(r -> r.caseId).distinct().count();
-            long vulnerableRows = forFinding.stream()
-                    .filter(r -> r.verdict == Verdict.KNOWN_VULNERABLE).count();
-            long residualRows = forFinding.stream()
-                    .filter(r -> r.verdict == Verdict.ACCEPTED_RESIDUAL).count();
-            sb.append("| **").append(id).append("** | ").append(entry.getValue().severity)
-                    .append(" | ").append(cases == 0 ? "**0**" : String.valueOf(cases))
-                    .append(" | ").append(forFinding.size())
-                    .append(" | ").append(vulnerableRows == 0 ? "0" : "**" + vulnerableRows + "**")
-                    .append(" | ").append(residualRows)
-                    .append(" | ").append(entry.getValue().summary).append(" |\n");
-        }
-        sb.append('\n');
-
-        List<String> gaps = findings.keySet().stream()
-                .filter(id -> rows.stream().noneMatch(r -> id.equals(r.finding)))
-                .collect(Collectors.toList());
-        sb.append("### Findings with no corpus case\n\n");
-        if (gaps.isEmpty()) {
-            sb.append("None.\n\n");
-        } else {
-            for (String id : gaps) {
-                String reason = FINDINGS_WITHOUT_CASES.get(id);
-                sb.append("- **").append(id).append("** - ")
-                        .append(reason == null
-                                ? "**COVERAGE GAP: no case and no recorded reason.**"
-                                : reason)
-                        .append('\n');
-            }
-            sb.append("\n`MatrixReportTest.everyFindingIsEitherCoveredOrExplained` fails if a"
-                    + " finding appears here without a reason.\n\n");
-        }
 
         // Per-section case tables.
         sb.append("## Cases, by Appendix A section\n\n");
@@ -737,30 +466,6 @@ public class MatrixReportTest {
         }
     }
 
-    /**
-     * The findings, read out of the review's glance table.
-     *
-     * <p>Parsed rather than restated, so that the coverage denominator is the review's list and not
-     * a second list that drifts from it.
-     */
-    private static Map<String, Finding> readFindingsFromTheReview() throws IOException {
-        Map<String, Finding> findings = new LinkedHashMap<>();
-        for (Path review : REVIEWS) {
-            assertTrue(Files.isReadable(review),
-                    () -> "cannot read " + review.toAbsolutePath() + "; this test must run with the"
-                            + " project directory as its working directory");
-            Matcher matcher = Pattern.compile("(?m)^\\| (F\\d+) \\| ([^|]+?) \\| (.+?) \\|\\s*$")
-                    .matcher(Files.readString(review, StandardCharsets.UTF_8));
-            while (matcher.find()) {
-                Finding finding = new Finding();
-                finding.severity = matcher.group(2).trim();
-                finding.summary = matcher.group(3).trim();
-                findings.putIfAbsent(matcher.group(1), finding);
-            }
-        }
-        return findings;
-    }
-
     /** Browser results from a previous {@code ./gradlew browserTest}, if any. */
     private static Map<String, BrowserResult> readBrowserResults() throws IOException {
         Map<String, BrowserResult> results = new LinkedHashMap<>();
@@ -808,11 +513,6 @@ public class MatrixReportTest {
         String finding;
         boolean browserRelevant;
         boolean browserObservable;
-    }
-
-    private static final class Finding {
-        String severity;
-        String summary;
     }
 
     private static final class BrowserResult {

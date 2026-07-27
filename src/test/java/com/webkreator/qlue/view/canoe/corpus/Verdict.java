@@ -38,7 +38,9 @@ public enum Verdict {
      * Attacker data reaches the sink live: after the HTML parser decodes character references, the
      * consuming parser — JavaScript, CSS, URL, or HTML — sees the attacker's original characters.
      *
-     * <p>Must cite a finding from {@code CANOE-SECURITY-REVIEW-2026-07-25.md}, or open a new one.
+     * <p>Must cite a finding from the Canoe security reviews, which are held outside this
+     * repository, or open a new one. The citation is required by {@code XssCase.validate()} and
+     * recorded in {@code matrix.md}; nothing in the build resolves it against the reviews.
      */
     KNOWN_VULNERABLE,
 

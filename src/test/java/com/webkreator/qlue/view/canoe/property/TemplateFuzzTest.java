@@ -168,7 +168,7 @@ public class TemplateFuzzTest {
                                     + "\n  violation : " + check(join(minimal), payload.value())
                                     + "\n\nMinimise further by hand if needed, then promote the"
                                     + " template into CanoeCorpus as a permanent case with a"
-                                    + " reviewed verdict and a finding reference (PLAN.md T31)."
+                                    + " reviewed verdict and a finding reference."
                                     + "\n  Reproduce with: -Dcanoe.fuzz.seed=" + SEED
                                     + " -Dcanoe.fuzz.iterations=" + ITERATIONS);
                 }
