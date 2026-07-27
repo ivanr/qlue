@@ -9,13 +9,14 @@
 
 ## 0. Where things stand
 
-**As of R26 (2026-07-27): every task through R26 has landed, and the ledger is closed.** R27
-(coverage gate) and R28 (three-engine browser run) are what remain.
+**As of R27 (2026-07-27): every task through R27 has landed, the ledger is closed and the coverage
+gate is reconciled.** R28 (three-engine browser run) is what remains.
 
 | Check | Result |
 |---|---|
-| `./gradlew test` | **BUILD SUCCESSFUL** — 6,156 tests, 0 failures, 0 errors, 0 skipped |
-| `./gradlew canoeCoverageGate` | **passing** |
+| `./gradlew test` | **BUILD SUCCESSFUL** — 6,159 tests, 0 failures, 0 errors, 0 skipped |
+| `./gradlew canoeCoverageGate` | **passing** — thirteen floors, each one branch outcome below its measurement, each seen to fail when that outcome goes (R27) |
+| `./gradlew build` | **BUILD SUCCESSFUL** from a clean `build/`; the gate runs as part of `check` |
 | `./gradlew browserTest` | not run since R20 — hangs on `FIREFOX url.action / JS_URL/plain` in this environment, which is R28's to fix; Chromium-only runs were green through R19 |
 | Findings in the review | 24, of which **none is a live code-execution vector**; F6's open-redirect/referrer residue is accepted with reasoning recorded (see the closing addendum in the review) |
 | Corpus ledger | 1,012 invocations across 279 cases: 481 `SAFE`, **0 `KNOWN_VULNERABLE`**, 68 `ACCEPTED_RESIDUAL`, 415 `SUPPRESSED_BY_DESIGN`, 12 `SUPPRESSED_UNINTENDED`, 36 `REJECTED` |
@@ -86,14 +87,19 @@ the locations cited. Three additional observations that are not in the review ar
   for the exact bug just fixed.
 - **`./gradlew test` after every task** (about 7 seconds). `./gradlew browserTest` after any task in
   Phase A, B or C (about two minutes, Chromium only here).
-- **The JaCoCo gate will move.** `build.gradle` carries per-method branch-coverage floors and an
-  inventory of 37 branches proven dead, 26 of which *are* findings. Tasks R4 and R5 delete most of
-  them. R27 reconciles the gate; until then, expect `canoeCoverageGate` to need its floors adjusted
-  in the same commit as the fix that moved them, with the inventory comment updated to match.
-  **After R5–R7 the inventory is 11 outcomes and none of them is a finding** — the last one, F7's
-  unreachable `data` comparison, went with the branch pair R7 resolved. `setTagAttributeContext()`
-  is 8 branch outcomes and fully covered; `normalisePlainTextAttributeNames()` is gated too, because
-  it is the guard that stops an application putting a suppressed name back on `html()`.
+- **The JaCoCo gate will move.** `build.gradle` carried per-method branch-coverage floors and an
+  inventory of 37 branches proven dead, 26 of which *were* findings. Tasks R4 and R5 deleted most of
+  them; until R27 the floors were adjusted in the same commit as the fix that moved them, with the
+  inventory comment updated to match. **R27 has now reconciled it, and the rules it left are
+  binding**: thirteen floors, each sitting one branch outcome below its measurement, so a single lost
+  outcome fails the build; an inventory of 16 dead outcomes (11 in `Canoe`, 5 in `HtmlEncoder`), none
+  of them a finding, each naming the method, the branch, why no input reaches it and the test that
+  proves it dead; and a floor may be lowered **only** together with such an entry. Read the comment
+  above `ext.canoeCoverageFloors` before touching a number, and re-measure from
+  `build/reports/jacoco/test/jacocoTestReport.xml` rather than from that comment's arithmetic.
+  `normalisePlainTextAttributeNames()` is gated individually because it is the guard that stops an
+  application putting a suppressed name back on `html()`; `CanoeReferenceInsertionHandler` is gated
+  by the same argument, because since R24 it is where "write this value unencoded" is decided.
 
 ### Ordering constraints — the four traps
 
@@ -1790,7 +1796,7 @@ package-private; the tests themselves are in the canoe tree.
    `Canoe`'s class initialisation, long before any single test could raise it — so capturing a DEBUG
    line would mean enabling debug for the whole run and reading a few thousand of them off
    `System.err`. That is a `build.gradle` change, which R27 owns, for a weaker assertion than the
-   pair now in place.
+   pair now in place. **R27 declined it**, on this reasoning; see its note.
 3. **The cross-engine caveat is stated as a limitation rather than a result**, because R28 has not
    run. The guide says the browser tier has so far run against one engine.
 
@@ -1906,15 +1912,192 @@ compile-checked only and the 65/19/46/0 figures are derived rather than observed
 
 ---
 
-**R27 — Reconcile the coverage gate**
+**R27 — Reconcile the coverage gate** — ✅ **DONE**
 *Closes:* build hygiene. *Depends on:* R4, R5.
 
-`build.gradle` carries branch-coverage floors (`Canoe` class 0.94, `setTagAttributeContext` 0.93,
-`reallyProcessChar` 0.97) and a comment inventorying 37 branches proven unreachable, 26 of which are
-findings — 25 of those being the `onselect`/`onsubmit` block alone. R4 deletes that block, R5 deletes
-the `data`→`ATTR_URI` chain, and several `raiseError` arms move. Recompute the floors, rewrite the
-inventory to list only what is genuinely unreachable in the fixed code, and keep the rule the comment
-states: an unreached branch in Canoe is a security decision nobody tested.
+`build.gradle` carried branch-coverage floors and a comment that had become an append-only
+narrative — one "RE-MEASURED after Rn" paragraph per task since R2, ~320 lines, with per-method
+tables taken at half a dozen different points in history and no way to tell which were still true.
+The floors had drifted with it: `Canoe` measured 96.37% against a floor of 0.95, so four branch
+outcomes could go unreached before anything went red. The task was to replace the narrative with one
+measurement, one inventory and floors that sit one outcome below what they gate.
+
+**One measurement, read from the XML today, not from the comment's arithmetic.** Every figure in the
+new comment came out of `build/reports/jacoco/test/jacocoTestReport.xml` method by method, with the
+dead outcomes taken from the per-line `mb`/`cb` attributes rather than inferred from totals:
+
+| target | branches | |
+|---|---|---|
+| `Canoe` | 292/303 | 96.37% |
+| `Canoe#reallyProcessChar` | 169/174 | 97.13% |
+| `Canoe#currentContext` | 11/13 | 84.62% |
+| `Canoe#inBuf` | 0/4 | 0.00% |
+| every other `Canoe` method | 112/112 | 100.00% |
+| `HtmlEncoder` | 315/320 | 98.44% |
+| `CanoeReferenceInsertionHandler` | 18/18 | 100.00% |
+| `CanoeEncodingException#findIn` | 6/6 | 100.00% |
+| `VelocityViewFactory` | 42/54 → **46/54** | 77.78% → 85.19% (the two new allowlist tests) |
+
+**The inventory is 16 outcomes — 11 in `Canoe`, 5 in `HtmlEncoder` — and none of them is a finding.**
+R26's note said eleven with none a finding, and that survives verification: the eleven are
+`reallyProcessChar`'s `switch(state)` default, its `switch(attrQuotes)` default, `Internal error
+#1001`, and the two UNMEASURABLE else-arms of `COMMENT_OPEN_OR_DOCTYPE` and `COMMENT_OPEN_2` (driven
+by `<!x>` and `<!-x-->`, but reported missed because `raiseError()` throws and no probe downstream of
+the block ever runs); `currentContext()`'s `case URL` and its inner `default`; and `inBuf()`'s four.
+`HtmlEncoder`'s five are the private `css()` null guard, `appendHierPart()`'s `'#'` comparison, and
+`percentDecode()`'s three incomplete-escape outcomes — the last of which fails safe twice over if the
+reasoning were ever wrong, because `'%'` is a forbidden host character and a host that fails to parse
+is reported as "no live authority".
+
+**Floors, each set between the measurement and what one lost outcome would read.**
+
+| target | measured | one lost | floor |
+|---|---|---|---|
+| `Canoe` | 292/303 = 96.3696% | 291/303 = 96.0396% | **0.962** (was 0.95) |
+| `HtmlEncoder` | 315/320 = 98.4375% | 314/320 = 98.1250% | **0.982** (was 0.98) |
+| `CanoeReferenceInsertionHandler` | 18/18 = 100% | 17/18 = 94.4444% | **0.99** (new) |
+| `Canoe#setTagAttributeContext` | 10/10 = 100% | 9/10 = 90% | 0.99 (unchanged) |
+| `Canoe#reallyProcessChar` | 169/174 = 97.1264% | 168/174 = 96.5517% | **0.970** (was 0.96) |
+| `Canoe#normalisePlainTextAttributeNames` | 20/20 = 100% | 19/20 = 95% | 0.99 (unchanged) |
+| `…Handler#referenceInsert` | 8/8 = 100% | 7/8 = 87.5% | **0.99** (new) |
+| `…Handler#encodingMustBeDeferred` | 8/8 = 100% | 7/8 = 87.5% | **0.99** (new) |
+| `CanoeEncodingException#findIn` | 6/6 = 100% | 5/6 = 83.3333% | **0.99** (new) |
+| `VelocityViewFactory#discardPartialResponse` | 4/4 = 100% | 3/4 = 75% | **0.99** (new) |
+| `VelocityViewFactory#addPlainTextAttributesFromProperty` | 6/6 = 100% | 5/6 = 83.3333% | **0.99** (new) |
+| `VelocityViewFactory#addTrustedResourceOrigins` | 6/6 = 100% | 5/6 = 83.3333% | **0.99** (new) |
+| `VelocityViewFactory#addTrustedResourceOriginsFromProperty` | 6/6 = 100% | 5/6 = 83.3333% | **0.99** (new) |
+
+**The three ungated candidates, decided.** `CanoeReferenceInsertionHandler` **joins**: R24 put the
+nested-render detector there, so it is now where it is decided whether a value is written
+*unencoded* — `referenceInsert()` returns the value untouched on the `_x` bypass (R23) and on the
+deferral (R24, F12), and `encodingMustBeDeferred()` is the whole of the second decision. An unreached
+outcome in either is a bypass nobody tested, which is the gate's founding sentence with "tokenizer"
+replaced. It carries a class floor *and* two method floors, because a class-level 0.99 stops biting
+once the denominator grows, and because the class floor is the only one that covers the lambda
+(`javac` names it `lambda$encodingMustBeDeferred$1`, so the method floor's name match misses it).
+`CanoeEncodingException#findIn()` **joins** as a method: R21 made a rejection a *typed* exception so
+the fail-closed path could recognise it through Velocity's wrapping, and if `findIn()` stops
+answering, the partial response is not discarded. `VelocityViewFactory` **joins as four methods and
+not as a class**, which is the one place this task did work rather than recording it — see below.
+
+**The gate was made to fail, five ways, and the evidence is in the task's own output.** Two by
+removing test coverage for real: disabling `CanoeEncodingExceptionTest.findInIsBoundedAtThirtyTwo
+Links` **and** `.findInTerminatesOnACauseCycle` (both drive the depth bound; disabling either alone
+correctly changed nothing) took `findIn` to 5/6 = 83.33% and failed; neutralising the single
+`assertThrows` for `Attribute name too long` in `AttributeNameMatrixTest` took
+`normalisePlainTextAttributeNames` to 19/20 = 95.00% **and** `Canoe` to 291/303 = 96.04%, failing
+both — which is the tight class floor doing exactly the job it was retightened for. Disabling
+`NestedRenderDetectionTest` took the handler to 17/18 and `encodingMustBeDeferred` to 7/8. Removing
+the `@Test` annotations from the two allowlist tests below took
+`addPlainTextAttributesFromProperty` to 5/6, `addTrustedResourceOrigins` to 4/6 and
+`addTrustedResourceOriginsFromProperty` to 5/6, failing all three. Then a sweep over a doctored
+report, decrementing one branch outcome per gated target in turn: **all thirteen floors fail on
+exactly one lost outcome**, at the ratios tabulated above. And renaming a class in the report
+reproduces the absent-target failure, which is the mode where a gate passes without measuring.
+Every edit was reverted; `git status` is clean of them.
+
+*What changed:* `build.gradle` only, plus three tests. The ~320-line narrative comment is replaced by a
+comment that states the three rules (a floor sits one outcome below its measurement; a floor may be
+lowered only with an inventory entry naming the method, the branch, why no input reaches it, whether
+it is a finding and the test that proves it dead; a floor may also move because the denominator
+shrank, which is R3's and R8's case and is *not* the second rule), the two measurement traps (JaCoCo
+counts a switch's distinct jump targets, not its case labels — R19's change moved nothing for exactly
+that reason; and an else-arm that throws is UNMEASURABLE rather than unreached), today's table, the
+floor arithmetic, the reasoning for each gated target, and the inventory. The gate's failure message
+now names the three things a red gate can mean and what to do about each, and prints floors to two
+decimals — a floor of 0.962 rendered as "96%" is a number nobody can check. The per-task history is
+*not* duplicated: it is in these landed notes, which is the right place for it.
+
+*Three figures in the old comment turned out to be wrong,* and they are corrected rather than left
+standing. `currentContext()`'s per-method line read 10/12; it has been 11/13 since R17 added the
+`SCRIPT_END_NAME`/`CSS_END_NAME` arms, which R17 described in prose without updating the table. The
+inventory's "all seven `ATTR_*` constants have a case above it" is off by one — there are **eight**,
+and it is the shared `CTX_SUPPRESS` body that makes them seven jump targets. And worst, because it is
+not arithmetic: the test cited as proof that the `URL` state is dead —
+`AttributeNameMatrixTest.thereIsNoCtxCssAndStyleStillSuppresses` — is about the `CTX_CSS` *constant*
+and says nothing whatever about the `URL` *state*, so two inventory entries (and the four `inBuf()`
+ones, which had no citation at all) stood on evidence that did not exist. **R27 adds the test that
+does:** `CanoeStateMachineTest.theInventoriedDeadBranchesHaveNoWriterAndNoCaller` asserts against the
+source that nothing assigns `URL` and that every mention of `inBuf()` outside its own declaration is
+a comment, and its failure messages say that the inventory — not the assertion — is what has to
+change. That is six of the eleven `Canoe` dead outcomes given a proof they never had. This is the
+fourth of its kind: R20 caught `setTagAttributeContext()` reading 10/10 rather than the recorded 8/8.
+
+*And two of the same species in R27's own first draft,* which is the argument for re-reading rather
+than re-deriving made against the task that exists to make it. The `switch(state)` inventory entry
+read "twenty-two states are declared; twenty-one have a case label. The two that do not are `URL`
+… and `INVALID`" — three numbers that cannot all be true. There are **twenty-three** state constants
+(`HTML`=0 through `CSS_END_NAME`=21, plus `INVALID`=666); twenty-one carry a case label, and
+twenty-one labels plus the implicit `default` is the 22 jump targets JaCoCo counts. And the
+`VelocityViewFactory` paragraph counted three missed outcomes on the allowlist entry points where
+there are four, because `4/6` is two. Both are corrected in the comment; both were caught by
+recounting from the XML and the source rather than from the sentence.
+
+*One thing in the comment restated more precisely.* The UNMEASURABLE rule was written as "an arm that
+calls `raiseError()` and falls through to `break` is reported missed, because `raiseError()` always
+throws", with R18's DOCTYPE rejections cited as the covered counter-shape. That is the right
+conclusion from an incomplete mechanism, and the mechanism matters, because the boundary of an
+exemption from the gate's own rule is exactly where a later reader will push. JaCoCo probes the *end
+of a block* and records the block only if it completes; whether a throwing arm reads covered
+therefore depends on **which** arm throws. The pair that fixes it is in `Canoe` itself:
+`DOCTYPE_TEST` (`Canoe.java:1290`) is `if (mismatch) { raiseError(…); } else { … }` and reads **2/2
+covered**, while `COMMENT_OPEN_2` (`Canoe.java:1302`) is `if (c == '-') { … } else { raiseError(…); }`
+and reads **1/2** — same method, same throwing call, opposite results. The comment now carries that
+pair, so the rule is checkable against the report instead of being an argument.
+
+**`VelocityViewFactory`'s allowlist entry points: found untested, and tested rather than deferred.**
+The class measured 42/54 = 77.78%, and **four** of the twelve missed outcomes — not three; a first
+count read `addTrustedResourceOrigins()`'s `origin != null && !origin.trim().isEmpty()` (4/6) as one
+missed outcome when it is two — sat on the two allowlist configuration entry points:
+`addPlainTextAttributesFromProperty()`'s `!name.isEmpty()` (5/6), that guard, and
+`addTrustedResourceOriginsFromProperty()`'s `!origin.isEmpty()` (5/6). All four are **live**:
+`split("[,\s]+")` yields an empty first element for any property value that opens with a separator,
+and `HtmlEncoder.parseTrustedOrigins()` — which runs first, over the raw collection — *skips* a null
+or blank entry rather than refusing it, so the collection form's guard is reachable from application
+code too. By the gate's own rule those were untested security decisions, on the two escape hatches
+R25 documents, so the answer was a test and not a deferral:
+`ViewFactoryRenderTest.aLeadingSeparatorInAnAllowlistPropertyIsDroppedRatherThanConfigured` and
+`.aNullOrBlankTrustedOriginIsDroppedRatherThanAllowlisted`. Each of the three methods is now 6/6 and
+each is gated, together with `discardPartialResponse()` (4/4), which is the far end of the same
+fail-closed path `findIn()` begins.
+
+The **class** is still not gated, at 46/54 = 85.19%. The remaining eight missed outcomes are live and
+untested too — `buildDefaultVelocityProperties()`'s five property-presence checks (7/12), `render()`'s
+`qlueSession != null` (13/14), and `processPageFields()`'s `STATE_` prefix skip plus a `fields == null`
+guard that `Class.getFields()` cannot satisfy (4/6) — but none of them decides how a value is
+encoded, so they are ordinary test debt rather than this gate's subject, and a class floor would
+freeze that debt behind a number. **Follow-up:** those eight, and the class floor that goes in with
+them.
+
+*One thing carried over from R25 and declined.* That note left "raise the test task's log level so
+the unknown-name DEBUG diagnostic can be asserted from captured output" as a `build.gradle` change
+R27 owned. **R27 declines it**, for the reason R25 gave against it — slf4j-simple fixes a logger's
+level at construction, so the only way to capture that one line is to enable DEBUG for the whole run
+and read a few thousand lines off `System.err`, in exchange for an assertion weaker than the
+logger-name-plus-source pair already in place. Recorded as decided rather than left open.
+
+*One thing found and reported rather than fixed, because R27 changes no file under `src/main`:*
+
+- **Two pieces of genuinely dead code that should simply be deleted.** The `URL` state constant
+  (`Canoe.java:132`) is written by nothing and read only by the two dead branches above; deleting it
+  and `currentContext()`'s `case URL` removes two inventory entries. `inBuf()` (`Canoe.java:1771`)
+  has no caller at all; deleting it removes four more. Both are `src/main` changes, so they are
+  recorded here rather than made.
+
+*Ledger:* **unchanged** — R27 modifies no encoder and no corpus entry. *Coverage:* unchanged on the
+encoding path itself (292/303, 315/320, 18/18, 6/6 — the same numbers before and after); what moved
+is the floors, the comment, and `VelocityViewFactory` from 42/54 to 46/54 on the four outcomes the
+two new allowlist tests close.
+*Gates:* `./gradlew test` (6,159 tests — three more than R26's 6,156: the source-fact test and the
+two allowlist tests — 0 failures, 0 errors, 0 skipped), `./gradlew canoeCoverageGate` green, and
+`./gradlew build` green from a clean `build/`, which is the run that proves the gate is wired into
+`check`. `browserTest` was **not** run: the known Firefox hang R28 owns, and a task that changes
+`build.gradle` and three tests renders nothing new for a browser.
+
+*Done when:* the comment states rules rather than history, every figure in it was measured today,
+every inventory entry names its proof, each floor fails on one lost outcome, and that has been seen
+to happen — and no untested live branch on the encoding path is left recorded as future work when a
+test would close it. ✅
 
 ---
 
@@ -2004,7 +2187,7 @@ invocations left are F6 on surfaces R9 declined to filter, because an off-origin
 thing for a page to contain; they carry `ACCEPTED_RESIDUAL` and a `ResidualSink` naming what the
 browser does with the value instead, and they still fail if the value stops arriving. **Every finding
 in the review is now closed or accepted with its reasoning recorded**, and what is left of the plan
-is build hygiene (R27) and cross-engine confirmation (R28).
+is cross-engine confirmation (R28); R27's build hygiene has landed.
 
 ---
 
@@ -2041,7 +2224,7 @@ R24 #set context                        <- done; was after R4 and R5
 R25 documentation
 R26 ledger to zero + CI guard        <- done; KNOWN_VULNERABLE is 0
 -------------------------------------------- the ledger is closed here
-R27 coverage gate
+R27 coverage gate                       <- done; thirteen floors, each one outcome above red
 R28 browser re-confirmation
 ```
 

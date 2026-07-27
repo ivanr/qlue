@@ -853,6 +853,64 @@ public class CanoeStateMachineTest {
         }
     }
 
+    /**
+     * The two entries in {@code build.gradle}'s dead-branch inventory that are dead because of an
+     * <em>absence</em> rather than because no input can reach them, asserted against the source so
+     * that the inventory is checkable rather than merely argued.
+     *
+     * <p>Six of the eleven unreached branch outcomes in {@code Canoe} rest on these two facts:
+     *
+     * <ul>
+     *   <li>nothing ever assigns the {@code URL} state. That is why {@code reallyProcessChar()}'s
+     *       {@code switch (state)} default arm and {@code currentContext()}'s {@code case URL} are
+     *       both unreached — two outcomes; and
+     *   <li>{@code inBuf()} has no live caller. Its only two mentions outside its own declaration are
+     *       commented-out debug statements, which is why all four of its outcomes are unreached.
+     * </ul>
+     *
+     * <p>Both were inventoried for years with no test behind them — R27 found the citation the gate
+     * comment carried for the first one ({@code AttributeNameMatrixTest
+     * .thereIsNoCtxCssAndStyleStillSuppresses}) was about {@code CTX_CSS}, a different constant, and
+     * proved nothing about the {@code URL} <em>state</em>. If either fact stops holding, the branch
+     * stops being dead and its inventory entry has to go; this is the test that notices.
+     */
+    @Test
+    public void theInventoriedDeadBranchesHaveNoWriterAndNoCaller() throws IOException {
+        Path source = Path.of("src/main/java/com/webkreator/qlue/view/Canoe.java");
+        assertTrue(Files.isReadable(source),
+                "cannot read " + source.toAbsolutePath() + "; this test must run with the project"
+                        + " directory as its working directory");
+        String text = Files.readString(source, StandardCharsets.UTF_8);
+
+        assertEquals(1, countOccurrences(text, "int URL = "),
+                "the URL state constant has been renamed or removed. If it is gone, so are two of"
+                        + " the eleven dead outcomes in build.gradle's inventory, and both this test"
+                        + " and that inventory need updating.");
+        assertEquals(0, countOccurrences(text, "state = URL"),
+                "something now assigns the URL state. That makes switch(state)'s default arm and"
+                        + " currentContext()'s `case URL` reachable, so they are no longer dead"
+                        + " branches: remove them from build.gradle's inventory and raise the floors"
+                        + " to match, rather than adjusting this assertion.");
+
+        // inBuf(): the declaration, and nothing else that is not inside a comment.
+        List<String> liveMentions = new ArrayList<>();
+        for (String line : text.split("\n", -1)) {
+            String trimmed = line.trim();
+            if (!trimmed.contains("inBuf()")) {
+                continue;
+            }
+            if (trimmed.startsWith("//") || trimmed.startsWith("*")
+                    || trimmed.contains("String inBuf()")) {
+                continue;
+            }
+            liveMentions.add(trimmed);
+        }
+        assertEquals(List.of(), liveMentions,
+                "inBuf() has acquired a caller. Its four branch outcomes are inventoried as dead in"
+                        + " build.gradle because the only mentions of it are commented-out debug"
+                        + " statements; a live call makes them reachable and the inventory wrong.");
+    }
+
     private static int countOccurrences(String text, String needle) {
         int count = 0;
         int from = 0;

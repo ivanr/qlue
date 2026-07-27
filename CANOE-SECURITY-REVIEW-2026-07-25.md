@@ -2522,7 +2522,9 @@ nothing else. A residual whose value stops reaching its sink goes red.
 
 ### Verification at the close
 
-`./gradlew test` — 6,156 tests, 0 failures. `./gradlew canoeCoverageGate` — passing.
+`./gradlew test` — 6,159 tests, 0 failures. `./gradlew canoeCoverageGate` — passing, and since **R27**
+its thirteen floors each sit one branch outcome below their measurement, so losing a single one fails the
+build; the dead-branch inventory behind them is 16 outcomes and none of them is a finding.
 `./gradlew browserTest` has run on Chromium only throughout; Firefox and WebKit are installed in this
 environment but the run hangs on one `<form action>` row, which is **R28**, and every cross-engine
 statement in this document remains a single-engine observation until it runs.

@@ -159,8 +159,9 @@ the cases twice would guarantee the two drift apart.
 `browserTest` source set, so `./gradlew test` never sees the ~100 MB driver bundle.
 
 ```
-./gradlew test                  # everything hermetic: ~5,500 tests, seconds
-./gradlew check                 # test + the T30 branch-coverage gate
+./gradlew test                  # everything hermetic: ~6,150 tests, seconds
+./gradlew check                 # test + the T30 branch-coverage gate (see build.gradle:
+                                #   thirteen floors, each one branch outcome above red)
 ./gradlew playwrightInstall     # once, to get the browsers
 ./gradlew browserTest           # 155 tests
 ```

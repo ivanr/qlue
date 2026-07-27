@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -554,6 +555,115 @@ public class ViewFactoryRenderTest {
                 () -> ProductionRenderProbe.trustedResourceOriginsFromProperty(
                         "ftp://cdn.example.com"),
                 "...and so must a scheme the resource encoder can never emit");
+    }
+
+    /**
+     * A stray separator in either allowlist property is a typo, and is treated as one.
+     *
+     * <p>Both properties are lists a human writes by hand into a {@code .properties} file, and both
+     * are read with {@code split("[,\\s]+")}, which yields an <strong>empty first element</strong>
+     * whenever the value opens with a separator — {@code ",cdn.example.com"} and
+     * {@code " cdn.example.com"} both do. The empty-name guard in each reader is what decides what
+     * happens next, and there are three possible answers, only one of which is right: refuse the
+     * whole configuration at startup, quietly allowlist the empty name, or drop the empty token and
+     * take the rest. It drops it.
+     *
+     * <p>That guard is the one branch outcome in each of these two methods that nothing reached
+     * before this test, and by the rule the coverage gate in {@code build.gradle} is built on — an
+     * unreached branch on this path is a security decision nobody tested — a guard on the entry
+     * point to a security allowlist is not somewhere to leave one. The failure it prevents is not
+     * dramatic and that is the point: an application whose CDN grant silently became "no grant, plus
+     * one meaningless entry" because of a leading comma would see empty {@code <script src>}
+     * attributes in production and nothing at all in its logs.
+     *
+     * <p>Defence in depth rather than a single guard, and the test says so on purpose:
+     * {@code Canoe.normalisePlainTextAttributeNames()} skips a blank name too, and
+     * {@code HtmlEncoder.parseTrustedOrigins()} skips a blank entry, so deleting either reader's
+     * guard would still not put an empty name on an allowlist. Two of the three assertions below
+     * hold for that second reason as well as the first, which is why the third checks the set that
+     * comes back rather than only that nothing was thrown.
+     *
+     * @see #theAllowlistCanBeConfiguredWithAQlueProperty
+     * @see #theTrustedResourceOriginsCanBeConfiguredWithAQlueProperty
+     */
+    @Test
+    public void aLeadingSeparatorInAnAllowlistPropertyIsDroppedRatherThanConfigured() {
+        assertEquals(Set.of("my-widget-config", "hx-target"),
+                ProductionRenderProbe.plainTextAttributesFromProperty(
+                        ", my-widget-config,,hx-target,"),
+                "a leading comma, a doubled comma and a trailing comma are typos in a hand-written"
+                        + " property, not names: the plain-text allowlist must come out with the two"
+                        + " names the application meant and no empty entry");
+
+        assertEquals(Set.of("cdn.example.com", "https://static.example.com:8443"),
+                ProductionRenderProbe.trustedResourceOriginsFromProperty(
+                        " cdn.example.com, https://static.example.com:8443 "),
+                "the same for the origin property, whose leading space produces the same empty first"
+                        + " element: a stray separator must not cost the application its CDN grant,"
+                        + " and must not fail the whole configuration at startup either");
+
+        assertFalse(
+                ProductionRenderProbe.trustedResourceOriginsFromProperty(",cdn.example.com")
+                        .contains(""),
+                "and the empty token must not reach the set itself. An empty trusted origin is not"
+                        + " exploitable - HtmlEncoder.parseTrustedOrigins() skips it, so it matches"
+                        + " no authority - but it would be visible through"
+                        + " getTrustedResourceOrigins(), and an allowlist that reports an entry"
+                        + " nobody configured is an allowlist nobody can audit");
+    }
+
+    /**
+     * A {@code null} or blank entry in a trusted-origin <em>collection</em> is dropped, not
+     * allowlisted.
+     *
+     * <p>The sibling of the property test above, on the other supported way in.
+     * {@code addTrustedResourceOrigins(Collection)} is public API — R25 documents it as one of the
+     * two escape hatches — so its argument comes from application code, which means it can hold a
+     * {@code null} that no {@code split()} would ever produce: a list assembled from a map lookup,
+     * a Spring placeholder that did not resolve, or an environment variable that was not set. Both
+     * outcomes of that guard, {@code null} and blank, were unreached before this test.
+     *
+     * <p>The behaviour has to be "drop it and keep the rest", and each of the alternatives is worse
+     * in its own way. Throwing would let one unresolved placeholder take down an application at
+     * startup over an entry that grants nothing. Adding it would put {@code null} or {@code ""} into
+     * a set that is copied into every {@link Canoe} the factory builds and handed back out through
+     * {@code getTrustedResourceOrigins()}.
+     *
+     * <p>Note that {@code HtmlEncoder.parseTrustedOrigins()} runs <em>first</em>, over the raw
+     * collection, to validate it — and skips {@code null} and blank entries rather than refusing
+     * them, which is what makes this guard reachable at all. If it were ever changed to refuse them,
+     * this test fails here rather than the guard quietly becoming dead code with a floor still over
+     * it.
+     */
+    @Test
+    public void aNullOrBlankTrustedOriginIsDroppedRatherThanAllowlisted() {
+        var factory = ProductionRenderProbe.newFactory();
+        factory.addTrustedResourceOrigins(
+                Arrays.asList("cdn.example.com", null, "   ", "https://static.example.com:8443"));
+
+        assertEquals(Set.of("cdn.example.com", "https://static.example.com:8443"),
+                factory.getTrustedResourceOrigins(),
+                "the two real origins survive and neither the null nor the blank entry appears;"
+                        + " configuration assembled in code is allowed to have holes in it, and a"
+                        + " hole grants nothing");
+
+        // ...and it is a drop rather than a silent whole-collection rejection: the grant works.
+        ProductionRenderProbe.Outcome allowed = ProductionRenderProbe.render(
+                "<script src=\"$data/app.js\"></script>",
+                Map.of("data", "//cdn.example.com/lib"),
+                ProductionRenderProbe.Options.defaults()
+                        .withTrustedResourceOrigins("cdn.example.com"));
+        assertEquals("<script src=\"//cdn.example.com/lib/app.js\"></script>", allowed.output(),
+                "the surviving origin is a real grant and not just a set entry - a factory that"
+                        + " dropped the whole collection on meeting a null would pass the assertion"
+                        + " above if it also happened to report an empty set");
+
+        // A collection that is nothing but holes is an application that configured nothing.
+        var empty = ProductionRenderProbe.newFactory();
+        empty.addTrustedResourceOrigins(Arrays.asList(null, "", "  "));
+        assertEquals(Set.of(), empty.getTrustedResourceOrigins(),
+                "and 'every entry was a hole' is 'the application said nothing', which is R9's"
+                        + " fail-closed default rather than an error");
     }
 
     /**
