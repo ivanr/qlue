@@ -88,6 +88,15 @@ public class TransactionContext implements Serializable {
 
     private Properties properties = new Properties();
 
+    // Sessionless machine requests: when the request carries the QLUE_SESSIONLESS_REQUEST
+    // attribute, getQlueSession()/getQluePageManager() must never touch the HttpSession, so both
+    // fall back to objects scoped to this TransactionContext (i.e., to the request) instead.
+    private transient boolean sessionless;
+
+    private transient QlueSession requestScopedSession;
+
+    private transient QluePageManager requestScopedPageManager;
+
     /**
      * Initialise context instance.
      */
@@ -102,6 +111,8 @@ public class TransactionContext implements Serializable {
 
         generateTxId();
         generateNonce();
+
+        sessionless = (request.getAttribute(QlueConstants.QLUE_SESSIONLESS_REQUEST) != null);
 
         startSession();
         setUserId(getQlueSession().getUserId());
@@ -320,6 +331,14 @@ public class TransactionContext implements Serializable {
     }
 
     public QluePageManager getQluePageManager() {
+        if (sessionless) {
+            if (requestScopedPageManager == null) {
+                requestScopedPageManager = new QluePageManager();
+            }
+
+            return requestScopedPageManager;
+        }
+
         HttpSession httpSession = request.getSession();
 
         QluePageManager qluePageManager = (QluePageManager) httpSession.getAttribute(QlueConstants.QLUE_SESSION_PAGE_MANAGER);
@@ -587,15 +606,25 @@ public class TransactionContext implements Serializable {
     }
 
     public QlueSession getQlueSession() {
-        HttpSession httpSession = request.getSession(true);
-        if (httpSession == null) {
-            throw new RuntimeException("Qlue: Unable to get HTTP session");
-        }
+        QlueSession qlueSession;
 
-        QlueSession qlueSession = (QlueSession) httpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
-        if (qlueSession == null) {
-            qlueSession = app.createNewSessionObject();
-            httpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
+        if (sessionless) {
+            if (requestScopedSession == null) {
+                requestScopedSession = app.createNewSessionObject();
+            }
+
+            qlueSession = requestScopedSession;
+        } else {
+            HttpSession httpSession = request.getSession(true);
+            if (httpSession == null) {
+                throw new RuntimeException("Qlue: Unable to get HTTP session");
+            }
+
+            qlueSession = (QlueSession) httpSession.getAttribute(QlueConstants.QLUE_SESSION_OBJECT);
+            if (qlueSession == null) {
+                qlueSession = app.createNewSessionObject();
+                httpSession.setAttribute(QlueConstants.QLUE_SESSION_OBJECT, qlueSession);
+            }
         }
 
         if (qlueSession.getPublicSessionId() != null) {
