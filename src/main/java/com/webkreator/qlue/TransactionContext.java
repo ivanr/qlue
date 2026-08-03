@@ -591,6 +591,12 @@ public class TransactionContext implements Serializable {
     }
 
     public void invalidateHttpSession() {
+        if (sessionless) {
+            requestScopedSession = null;
+            requestScopedPageManager = null;
+            return;
+        }
+
         HttpSession httpSession = request.getSession(false);
         if (httpSession != null) {
             httpSession.invalidate();
@@ -598,6 +604,10 @@ public class TransactionContext implements Serializable {
     }
 
     public boolean isHttpSessionAvailable() {
+        if (sessionless) {
+            return false;
+        }
+
         if (request.getSession(false) != null) {
             return true;
         } else {

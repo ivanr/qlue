@@ -10,6 +10,7 @@ import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.apache.catalina.Context;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.tomcat.util.descriptor.web.FilterDef;
@@ -30,6 +31,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -117,6 +119,35 @@ public class SessionlessTest {
 
         verify(request, never()).getSession(anyBoolean());
         verify(request, never()).getSession();
+    }
+
+    @Test
+    public void sessionlessIsHttpSessionAvailableIgnoresReplayedLiveSession() throws Exception {
+        // Even if a stale-but-still-valid JSESSIONID is replayed on this sessionless request,
+        // request.getSession(false) must never be consulted -- a machine request is blind to it.
+        HttpSession liveHttpSession = mock(HttpSession.class);
+        when(request.getSession(false)).thenReturn(liveHttpSession);
+
+        TransactionContext context = new TransactionContext(
+                app, servletConfig, servletContext, request, response);
+
+        assertFalse(context.isHttpSessionAvailable(),
+                "a sessionless request must report no HTTP session, even if one could be found");
+    }
+
+    @Test
+    public void sessionlessInvalidateHttpSessionNeverTouchesHttpSession() throws Exception {
+        HttpSession liveHttpSession = mock(HttpSession.class);
+        when(request.getSession(false)).thenReturn(liveHttpSession);
+
+        TransactionContext context = new TransactionContext(
+                app, servletConfig, servletContext, request, response);
+
+        context.invalidateHttpSession();
+
+        verify(request, never()).getSession(anyBoolean());
+        verify(request, never()).getSession();
+        verify(liveHttpSession, never()).invalidate();
     }
 
     // -----------------------------------------------------------------------------------------
