@@ -27,6 +27,16 @@ public class QlueConstants {
 	
 	public static final String QLUE_SESSION_OBJECT = "QLUE_SESSION_OBJECT";
 
+	/**
+	 * Request attribute that, when set to any non-null value before a
+	 * {@link TransactionContext} is constructed, marks the request as
+	 * sessionless: the framework will never touch the underlying
+	 * {@code HttpSession} (no {@code request.getSession()} in any form,
+	 * hence no {@code JSESSIONID} cookie), and will instead use a
+	 * request-scoped {@link QlueSession} and {@link QluePageManager}.
+	 */
+	public static final String QLUE_SESSIONLESS_REQUEST = "QLUE_SESSIONLESS_REQUEST";
+
 	public static final Integer DEVMODE_DISABLED = 0;
 	
 	public static final Integer DEVMODE_ONDEMAND = 1;
