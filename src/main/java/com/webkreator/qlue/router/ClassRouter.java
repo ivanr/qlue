@@ -30,10 +30,10 @@ public class ClassRouter implements Router {
 
     private Logger log = LoggerFactory.getLogger(ClassRouter.class);
 
-    private Class<Page> pageClass;
+    private Class<? extends Page> pageClass;
 
     public ClassRouter(final RouteManager manager, final String className) {
-        Class candidate = null;
+        Class<?> candidate = null;
         String prefixedClassName = null;
 
         // If there is a package root (prefix), use it first to
@@ -78,13 +78,13 @@ public class ClassRouter implements Router {
             throw new RuntimeException("ClassRouter: Class " + className + " is not a subclass of Page");
         }
 
-        pageClass = candidate;
+        pageClass = candidate.asSubclass(Page.class);
     }
 
     @Override
     public Object route(TransactionContext context, Route route, String pathSuffix) {
         try {
-            return pageClass.newInstance();
+            return pageClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
             throw new QlueException("Error creating page instance: " + e.getMessage(), e);
         }

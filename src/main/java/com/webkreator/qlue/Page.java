@@ -235,9 +235,9 @@ public abstract class Page implements Serializable {
                     if (commandObject == null) {
                         try {
                             // Our first attempt is to use the default constructor.
-                            commandObject = f.getType().newInstance();
+                            commandObject = f.getType().getDeclaredConstructor().newInstance();
                             f.set(this, commandObject);
-                        } catch (InstantiationException ie) {
+                        } catch (InstantiationException | NoSuchMethodException ie) {
                             // Inner classes have an implicit constructor that takes a reference to the parent object.
                             // http://docs.oracle.com/javase/specs/jls/se8/html/jls-8.html#jls-8.8.1
                             try {
@@ -246,6 +246,8 @@ public abstract class Page implements Serializable {
                             } catch (NoSuchMethodException | InstantiationException | InvocationTargetException ex) {
                                 throw new RuntimeException("Unable to create command object: " + f.getType());
                             }
+                        } catch (InvocationTargetException ite) {
+                            throw new RuntimeException("Unable to create command object: " + f.getType(), ite);
                         }
                     }
 

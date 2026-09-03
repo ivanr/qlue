@@ -10,6 +10,7 @@ public class EnumEditor implements PropertyEditor {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Enum fromText(Field field, String text, Object currentValue) {
         if (text == null) {
             return (Enum)currentValue;
@@ -19,6 +20,8 @@ public class EnumEditor implements PropertyEditor {
             throw new IllegalArgumentException("Field not enum: " + field.getType());
         }
 
+        // Enum.valueOf() requires Class<T extends Enum<T>>, but we only know at runtime
+        // that the reflected field type is an enum, so this cast is unavoidable.
         return Enum.valueOf((Class<Enum>)field.getType(), text);
     }
 

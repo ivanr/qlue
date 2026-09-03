@@ -41,7 +41,7 @@ public class TestRouting {
 
     @Before
     public void setUp() throws Exception {
-        MockitoAnnotations.initMocks(this);
+        MockitoAnnotations.openMocks(this);
         when(request.getSession()).thenReturn(session);
         when(request.getSession(true)).thenReturn(session);
 

@@ -94,7 +94,7 @@ public class QlueServlet extends HttpServlet {
         }
 
         if (appClassName != null) {
-            Class appClass = QlueApplication.classForName(appClassName);
+            Class<?> appClass = QlueApplication.classForName(appClassName);
             if (appClass == null) {
                 throw new RuntimeException("Unable to find application class: " + appClassName);
             }
@@ -104,8 +104,8 @@ public class QlueServlet extends HttpServlet {
             }
 
             try {
-                setApp((QlueApplication) appClass.newInstance());
-            } catch (InstantiationException | IllegalAccessException e) {
+                setApp((QlueApplication) appClass.getDeclaredConstructor().newInstance());
+            } catch (ReflectiveOperationException e) {
                 throw new RuntimeException("Unable to create application instance: " + appClassName);
             }
         }

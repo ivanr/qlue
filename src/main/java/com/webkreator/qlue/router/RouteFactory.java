@@ -200,7 +200,7 @@ public class RouteFactory {
 	 * Finds router instance based on class name.
 	 */
 	private static Router findRouter(String className) {
-		Class candidate = null;
+		Class<?> candidate = null;
 
 		try {
 			ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
@@ -214,7 +214,7 @@ public class RouteFactory {
 		}
 
 		try {
-			return (Router) candidate.newInstance();
+			return (Router) candidate.getDeclaredConstructor().newInstance();
 		} catch (Exception e) {
 			throw new RuntimeException("ClassRouter: Failed to create class instance: " + e.getMessage(), e);
 		}

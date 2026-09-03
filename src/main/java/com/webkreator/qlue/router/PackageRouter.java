@@ -188,7 +188,7 @@ public class PackageRouter implements Router {
         }
     }
 
-    private boolean isPage(Class pageClass) {
+    private boolean isPage(Class<?> pageClass) {
         if ((pageClass != null) && Page.class.isAssignableFrom(pageClass)) {
             return true;
         } else {
@@ -196,9 +196,9 @@ public class PackageRouter implements Router {
         }
     }
 
-    private Page makePage(Class pageClass) {
+    private Page makePage(Class<?> pageClass) {
         try {
-            return (Page) pageClass.newInstance();
+            return (Page) pageClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
             log.error("Failed to instantiate class: ", e);
             return null;
