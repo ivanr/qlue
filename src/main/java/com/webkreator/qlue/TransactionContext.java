@@ -417,9 +417,12 @@ public class TransactionContext implements Serializable {
             requestUriWithQueryString = requestUri;
         }
 
-        // We are not expecting back-references in the URI, so
-        // respond with an error if we do see one
-        if (requestUriWithQueryString.indexOf("/../") != -1) {
+        // We are not expecting back-references in the URI path, so respond with an
+        // error if we do see one. Deliberately scoped to the path alone: the query
+        // string is never used to access the filesystem, and scanning it too made
+        // this trip on harmless bot junk (e.g. "../../../etc/passwd" as a query
+        // value) that poses no traversal risk.
+        if (requestUri.indexOf("/../") != -1) {
             throw new ServletException(
                     "Security violation: directory backreference "
                             + "detected in request URI: "
