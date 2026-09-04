@@ -16,10 +16,12 @@
  */
 package com.webkreator.qlue;
 
+import com.webkreator.qlue.exceptions.BadRequestException;
 import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.FinalRedirectView;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.slf4j.MDC;
 
 import jakarta.servlet.RequestDispatcher;
@@ -498,14 +500,25 @@ public class TransactionContext implements Serializable {
      * Retrieves parameter with the given name.
      */
     public String getParameter(String name) throws Exception {
-        return getRequest().getParameter(name);
+        try {
+            return getRequest().getParameter(name);
+        } catch (InvalidParameterException e) {
+            // Tomcat throws this when it can't URL-decode a parameter (e.g. a
+            // truncated %-sequence or invalid UTF-8 from a malformed or hostile
+            // client); treat it as a bad request rather than an unhandled error.
+            throw new BadRequestException(e.getMessage());
+        }
     }
 
     /**
      * Retrieves all values of parameters with the given name.
      */
     public String[] getParameterValues(String name) {
-        return getRequest().getParameterValues(name);
+        try {
+            return getRequest().getParameterValues(name);
+        } catch (InvalidParameterException e) {
+            throw new BadRequestException(e.getMessage());
+        }
     }
 
     public String getUrlParameter(String name) {
