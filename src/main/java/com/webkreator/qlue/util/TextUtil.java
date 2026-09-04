@@ -69,7 +69,7 @@ public class TextUtil {
         try {
             return Hex.decodeHex(s);
         } catch (DecoderException e) {
-            throw new RuntimeException(e);
+            throw new IllegalArgumentException(e);
         }
     }
 }
