@@ -1736,16 +1736,17 @@ public class QlueApplication {
             return false;
         }
 
+        String addr = context.request.getRemoteAddr();
         try {
-            InetAddress remoteAddr = InetAddress.getByName(context.request.getRemoteAddr());
+            InetAddress remoteAddr = InetAddress.getByName(addr);
             for (CIDRUtils su : trustedProxies) {
                 if (su.isInRange(remoteAddr)) {
                     return true;
                 }
             }
         } catch (UnknownHostException e) {
-            // Shouldn't happen.
-            e.printStackTrace(System.err);
+            // Shouldn't happen; the remote address is always a literal IP.
+            log.error("Qlue: Invalid remote address: " + addr, e);
             return false;
         }
 
@@ -1797,17 +1798,17 @@ public class QlueApplication {
             return false;
         }
 
+        String addr = context.getEffectiveRemoteAddr();
         try {
-            InetAddress remoteAddr = InetAddress.getByName(context.getEffectiveRemoteAddr());
+            InetAddress remoteAddr = InetAddress.getByName(addr);
             for (CIDRUtils su : developmentSubnets) {
                 if (su.isInRange(remoteAddr)) {
                     return true;
                 }
-
             }
         } catch (UnknownHostException e) {
-            // Shouldn't happen.
-            e.printStackTrace(System.err);
+            // Shouldn't happen; the effective remote address is always a literal IP.
+            log.error("Qlue: Invalid effective remote address: " + addr, e);
             return false;
         }
 
