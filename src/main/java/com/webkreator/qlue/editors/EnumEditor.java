@@ -5,7 +5,7 @@ import java.lang.reflect.Field;
 public class EnumEditor implements PropertyEditor {
 
     @Override
-    public Class getEditorClass() {
+    public Class<?> getEditorClass() {
         return Enum.class;
     }
 

@@ -51,7 +51,7 @@ public class BooleanEditor implements PropertyEditor {
 	}
 
 	@Override
-	public Class getEditorClass() {
+	public Class<?> getEditorClass() {
 		return Boolean.class;
 	}
 

@@ -6,7 +6,6 @@ import com.webkreator.qlue.view.canoe.corpus.CanoeCorpus;
 import com.webkreator.qlue.view.canoe.corpus.Payload;
 import com.webkreator.qlue.view.canoe.corpus.Payloads;
 import com.webkreator.qlue.view.canoe.corpus.SinkKind;
-import com.webkreator.qlue.view.canoe.corpus.Verdict;
 import com.webkreator.qlue.view.canoe.corpus.VerdictEvaluator;
 import com.webkreator.qlue.view.canoe.corpus.XssCase;
 import org.junit.jupiter.api.Test;

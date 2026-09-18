@@ -37,7 +37,7 @@ public class IntegerEditor implements PropertyEditor {
 	}
 
 	@Override
-	public Class getEditorClass() {
+	public Class<?> getEditorClass() {
 		return Integer.class;
 	}
 

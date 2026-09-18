@@ -142,17 +142,19 @@ public class CanoeWriterContractTest {
     @Test
     public void writeWithOffsetEqualToLenParsesTheWholeRange() throws IOException {
         char[] buffer = "XXXXXXXX<script>".toCharArray();
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed(buffer, 8, 8);
+        try (CanoeStateProbe probe = new CanoeStateProbe();
+             CanoeStateProbe reference = new CanoeStateProbe()) {
+            probe.feed(buffer, 8, 8);
 
-        assertEquals("<script>", probe.output(), "the requested range reaches the writer");
+            assertEquals("<script>", probe.output(), "the requested range reaches the writer");
 
-        CanoeStateProbe reference = new CanoeStateProbe().feed("<script>");
-        assertEquals(reference.state(), probe.state(),
-                "R15: the script tag is parsed, so the parser is inside the script element, not"
-                        + " still in body text");
-        assertEquals(reference.currentContext(), probe.currentContext());
-        assertEquals(Canoe.SCRIPT, probe.state());
+            reference.feed("<script>");
+            assertEquals(reference.state(), probe.state(),
+                    "R15: the script tag is parsed, so the parser is inside the script element, not"
+                            + " still in body text");
+            assertEquals(reference.currentContext(), probe.currentContext());
+            assertEquals(Canoe.SCRIPT, probe.state());
+        }
     }
 
     /**
@@ -167,16 +169,18 @@ public class CanoeWriterContractTest {
     @Test
     public void writeWithOffsetGreaterThanLenParsesTheWholeRange() throws IOException {
         char[] buffer = "XXXXXXXXXX<script>".toCharArray();
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed(buffer, 10, 8);
+        try (CanoeStateProbe probe = new CanoeStateProbe();
+             CanoeStateProbe reference = new CanoeStateProbe()) {
+            probe.feed(buffer, 10, 8);
 
-        assertEquals("<script>", probe.output(), "the requested range reaches the writer");
+            assertEquals("<script>", probe.output(), "the requested range reaches the writer");
 
-        CanoeStateProbe reference = new CanoeStateProbe().feed("<script>");
-        assertEquals(reference.state(), probe.state(),
-                "R15: offset and len are independent now, so the range [10,18) parses like the"
-                        + " eight-character string it is");
-        assertEquals(Canoe.SCRIPT, probe.state());
+            reference.feed("<script>");
+            assertEquals(reference.state(), probe.state(),
+                    "R15: offset and len are independent now, so the range [10,18) parses like the"
+                            + " eight-character string it is");
+            assertEquals(Canoe.SCRIPT, probe.state());
+        }
     }
 
     /**
@@ -190,17 +194,18 @@ public class CanoeWriterContractTest {
      * the whole of {@code "<p>ok</p>5 < 6"} — every character is parsed, and the same error fires.
      */
     @Test
-    public void aNonZeroOffsetNoLongerHidesRejectedMarkup() {
+    public void aNonZeroOffsetNoLongerHidesRejectedMarkup() throws IOException {
         String document = "<p>ok</p>5 < 6";
 
         // At offset 0 the whole range is parsed and rejected.
         assertTrue(CanoeTestSupport.write(document).isError());
 
         // At offset 2 it is now parsed as well, so the same error is raised.
-        CanoeStateProbe probe = new CanoeStateProbe();
-        assertThrows(IOException.class,
-                () -> probe.feed(("XX" + document).toCharArray(), 2, document.length()),
-                "R15: the encoding error offset 0 raises is no longer suppressed by the offset");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            assertThrows(IOException.class,
+                    () -> probe.feed(("XX" + document).toCharArray(), 2, document.length()),
+                    "R15: the encoding error offset 0 raises is no longer suppressed by the offset");
+        }
     }
 
     /**
@@ -221,17 +226,18 @@ public class CanoeWriterContractTest {
         String document = "<a b='1' c='2' d>";
         char[] buffer = (repeat('X', offset) + document).toCharArray();
 
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed(buffer, offset, document.length());
+        try (CanoeStateProbe probe = new CanoeStateProbe();
+             CanoeStateProbe reference = new CanoeStateProbe()) {
+            probe.feed(buffer, offset, document.length());
 
-        assertEquals(document, probe.output(), "the whole requested range reaches the writer");
+            assertEquals(document, probe.output(), "the whole requested range reaches the writer");
 
-        CanoeStateProbe reference = new CanoeStateProbe();
-        reference.feed(document);
+            reference.feed(document);
 
-        assertEquals(signature(reference), signature(probe),
-                "R15: the parser sees all " + document.length() + " characters whatever the offset,"
-                        + " so it ends in the state the full range produces, not a shorter prefix's");
+            assertEquals(signature(reference), signature(probe),
+                    "R15: the parser sees all " + document.length() + " characters whatever the offset,"
+                            + " so it ends in the state the full range produces, not a shorter prefix's");
+        }
     }
 
     /**
@@ -261,25 +267,26 @@ public class CanoeWriterContractTest {
      * at offset 0, where the arithmetic was accidentally right all along.
      */
     @Test
-    public void theErrorPathWritesExactlyTheParsedPrefix() {
+    public void theErrorPathWritesExactlyTheParsedPrefix() throws IOException {
         // "5 < 6" is rejected: a literal '<' in body text is not a tag, and R20 keeps that one.
         String document = "<p>ok</p>5 < 6";
         char[] buffer = ("X" + document).toCharArray();
-        CanoeStateProbe probe = new CanoeStateProbe();
 
-        IOException error = assertThrows(IOException.class,
-                () -> probe.feed(buffer, 1, document.length()));
-        assertTrue(error.getMessage().startsWith(Canoe.ERROR_PREFIX), error.getMessage());
+        try (CanoeStateProbe probe = new CanoeStateProbe();
+             CanoeStateProbe atZero = new CanoeStateProbe()) {
+            IOException error = assertThrows(IOException.class,
+                    () -> probe.feed(buffer, 1, document.length()));
+            assertTrue(error.getMessage().startsWith(Canoe.ERROR_PREFIX), error.getMessage());
 
-        assertEquals("<p>ok</p>5 <", probe.output(),
-                "R15: the error path flushes only the parsed prefix, not the rejected character");
+            assertEquals("<p>ok</p>5 <", probe.output(),
+                    "R15: the error path flushes only the parsed prefix, not the rejected character");
 
-        // At offset 0 the same arithmetic was always right; the offset case now matches it.
-        CanoeStateProbe atZero = new CanoeStateProbe();
-        assertThrows(IOException.class, () -> atZero.feed(document.toCharArray(), 0,
-                document.length()));
-        assertEquals("<p>ok</p>5 <", atZero.output(),
-                "at offset 0 the good prefix is exactly right, and the offset case now agrees");
+            // At offset 0 the same arithmetic was always right; the offset case now matches it.
+            assertThrows(IOException.class, () -> atZero.feed(document.toCharArray(), 0,
+                    document.length()));
+            assertEquals("<p>ok</p>5 <", atZero.output(),
+                    "at offset 0 the good prefix is exactly right, and the offset case now agrees");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -288,14 +295,16 @@ public class CanoeWriterContractTest {
 
     @Test
     public void zeroLengthWritesAreNoOps() throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe().feed("<a href=\"");
-        int stateBefore = probe.state();
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<a href=\"");
+            int stateBefore = probe.state();
 
-        probe.feed(new char[0], 0, 0);
-        probe.feed("");
+            probe.feed(new char[0], 0, 0);
+            probe.feed("");
 
-        assertEquals(stateBefore, probe.state());
-        assertEquals("<a href=\"", probe.output());
+            assertEquals(stateBefore, probe.state());
+            assertEquals("<a href=\"", probe.output());
+        }
     }
 
     @Test
@@ -321,15 +330,17 @@ public class CanoeWriterContractTest {
     public void splittingAWriteInsideATagDoesNotChangeTheOutcome() throws IOException {
         String document = "<a href=\"/x\">link</a>";
 
-        CanoeStateProbe whole = new CanoeStateProbe().feed(document);
-        CanoeStateProbe split = new CanoeStateProbe();
-        for (int i = 0; i < document.length(); i++) {
-            split.feed(document.substring(i, i + 1));
-        }
+        try (CanoeStateProbe whole = new CanoeStateProbe();
+             CanoeStateProbe split = new CanoeStateProbe()) {
+            whole.feed(document);
+            for (int i = 0; i < document.length(); i++) {
+                split.feed(document.substring(i, i + 1));
+            }
 
-        assertEquals(whole.output(), split.output());
-        assertEquals(whole.state(), split.state());
-        assertEquals(whole.currentContext(), split.currentContext());
+            assertEquals(whole.output(), split.output());
+            assertEquals(whole.state(), split.state());
+            assertEquals(whole.currentContext(), split.currentContext());
+        }
     }
 
     // ------------------------------------------------------------------

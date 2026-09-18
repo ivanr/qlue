@@ -8,7 +8,7 @@ import java.time.format.DateTimeParseException;
 public class OffsetDateTimeEditor implements PropertyEditor {
 
     @Override
-    public Class getEditorClass() {
+    public Class<?> getEditorClass() {
         return OffsetDateTime.class;
     }
 

@@ -261,14 +261,15 @@ public class CanoeRobustnessTest {
 
         // Every raiseError() leaves the parser in INVALID, which currentContext() has no case for,
         // so anything written afterwards is suppressed rather than encoded for a stale context.
-        CanoeStateProbe probe = new CanoeStateProbe();
-        try {
-            probe.feed(input);
-        } catch (IOException expected) {
-            // The error under test.
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            try {
+                probe.feed(input);
+            } catch (IOException expected) {
+                // The error under test.
+            }
+            assertEquals(Canoe.INVALID, probe.state(), description + ": must end in INVALID");
+            assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext(), description);
         }
-        assertEquals(Canoe.INVALID, probe.state(), description + ": must end in INVALID");
-        assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext(), description);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -349,14 +350,16 @@ public class CanoeRobustnessTest {
      */
     @Test
     public void theInternalErrorBranchIsDeadCode() throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe().feed("<p class=\"");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<p class=\"");
 
-        for (int i = 0; i < 200; i++) {
-            probe.feed(String.valueOf((char) ('a' + (i % 26))));
-            int bufLen = probe.bufLen();
-            assertTrue(bufLen == -1 || (bufLen >= 0 && bufLen <= 10),
-                    "the value scan's bufLen reached " + bufLen + " after " + (i + 1)
-                            + " characters; Internal error #1001 needs 36");
+            for (int i = 0; i < 200; i++) {
+                probe.feed(String.valueOf((char) ('a' + (i % 26))));
+                int bufLen = probe.bufLen();
+                assertTrue(bufLen == -1 || (bufLen >= 0 && bufLen <= 10),
+                        "the value scan's bufLen reached " + bufLen + " after " + (i + 1)
+                                + " characters; Internal error #1001 needs 36");
+            }
         }
 
         // The same, through the ordinary write path, to show that no length of value is rejected.
@@ -467,7 +470,10 @@ public class CanoeRobustnessTest {
     }
 
     private static int stateBefore(String prefix) throws IOException {
-        return new CanoeStateProbe().feed(prefix).state();
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed(prefix);
+            return probe.state();
+        }
     }
 
     // ------------------------------------------------------------------

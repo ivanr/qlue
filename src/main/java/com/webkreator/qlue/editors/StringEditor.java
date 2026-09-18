@@ -33,7 +33,7 @@ public class StringEditor implements PropertyEditor {
 	}
 
 	@Override
-	public Class getEditorClass() {		
+	public Class<?> getEditorClass() {
 		return String.class;
 	}
 

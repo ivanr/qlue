@@ -56,20 +56,22 @@ public class CanoeEncodingExceptionTest {
      */
     @Test
     public void theExceptionCarriesTheReasonAndTheCoordinatesAsFields() throws IOException {
-        CanoeEncodingException error = assertThrows(CanoeEncodingException.class,
-                () -> new Canoe(new StringWriter()).write("<p>\n</p>\n<p>\n5 < 6"));
+        try (Canoe canoe = new Canoe(new StringWriter())) {
+            CanoeEncodingException error = assertThrows(CanoeEncodingException.class,
+                    () -> canoe.write("<p>\n</p>\n<p>\n5 < 6"));
 
-        assertEquals("Tag name too short", error.getReason(),
-                "the reason on its own, with no prefix and no coordinates: this is what identifies"
-                        + " WHICH rejection fired, and getMessage() cannot be used for that because"
-                        + " it varies with the position");
-        assertEquals(4, error.getLine());
-        assertEquals(4, error.getPosition());
+            assertEquals("Tag name too short", error.getReason(),
+                    "the reason on its own, with no prefix and no coordinates: this is what identifies"
+                            + " WHICH rejection fired, and getMessage() cannot be used for that because"
+                            + " it varies with the position");
+            assertEquals(4, error.getLine());
+            assertEquals(4, error.getPosition());
 
-        assertEquals(Canoe.ERROR_PREFIX + "Tag name too short (line: 4, pos: 4)",
-                error.getMessage(),
-                "and the message is byte for byte what the bare IOException carried before R21;"
-                        + " ERROR_PREFIX is kept for exactly that reason");
+            assertEquals(Canoe.ERROR_PREFIX + "Tag name too short (line: 4, pos: 4)",
+                    error.getMessage(),
+                    "and the message is byte for byte what the bare IOException carried before R21;"
+                            + " ERROR_PREFIX is kept for exactly that reason");
+        }
     }
 
     /**
@@ -79,11 +81,13 @@ public class CanoeEncodingExceptionTest {
      * making it unchecked, which is how a rejection stops being something a caller must consider.
      */
     @Test
-    public void itIsStillAnIOExceptionBecauseTheWriterContractAllowsNothingElse() {
-        CanoeEncodingException error = assertThrows(CanoeEncodingException.class,
-                () -> new Canoe(new StringWriter()).write("5 < 6"));
+    public void itIsStillAnIOExceptionBecauseTheWriterContractAllowsNothingElse() throws IOException {
+        try (Canoe canoe = new Canoe(new StringWriter())) {
+            CanoeEncodingException error = assertThrows(CanoeEncodingException.class,
+                    () -> canoe.write("5 < 6"));
 
-        assertInstanceOf(IOException.class, error);
+            assertInstanceOf(IOException.class, error);
+        }
     }
 
     // ------------------------------------------------------------------

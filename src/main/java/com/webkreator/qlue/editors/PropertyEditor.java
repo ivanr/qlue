@@ -27,7 +27,7 @@ public interface PropertyEditor {
 	/**
 	 * Returns the class that this editor deals with.
 	 */
-	Class getEditorClass();
+	Class<?> getEditorClass();
 	
 	/**
 	 * Creates object from its textual representation.

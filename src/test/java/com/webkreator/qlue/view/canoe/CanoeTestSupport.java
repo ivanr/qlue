@@ -13,6 +13,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.LinkedHashMap;
@@ -158,32 +160,47 @@ public final class CanoeTestSupport {
                                       Function<Writer, ? extends Canoe> canoeFactory) {
         StringWriter sink = new StringWriter();
         Canoe canoe = canoeFactory.apply(sink);
-
-        VelocityContext context = new VelocityContext();
-        for (Map.Entry<String, Object> entry : model.entrySet()) {
-            context.put(entry.getKey(), entry.getValue());
-        }
-        if (options.bindEncodingTool && !model.containsKey(ENCODING_TOOL_NAME)) {
-            context.put(ENCODING_TOOL_NAME, new HtmlEncoder());
-        }
-
-        if (options.autoEscaping) {
-            EventCartridge cartridge = new EventCartridge();
-            cartridge.addReferenceInsertionEventHandler(new CanoeReferenceInsertionHandler(canoe));
-            cartridge.attachToContext(context);
-        }
-
         try {
-            ENGINE.evaluate(context, canoe, "canoe-test", template);
-            canoe.flush();
-            return new RenderResult(sink.toString(), null, null, canoe.currentContext());
-        } catch (Exception e) {
-            String encodingError = findEncodingError(e);
-            if (encodingError == null) {
-                throw new IllegalStateException(
-                        "Template failed for a reason unrelated to Canoe encoding: " + template, e);
+            VelocityContext context = new VelocityContext();
+            for (Map.Entry<String, Object> entry : model.entrySet()) {
+                context.put(entry.getKey(), entry.getValue());
             }
-            return new RenderResult(sink.toString(), encodingError, e, canoe.currentContext());
+            if (options.bindEncodingTool && !model.containsKey(ENCODING_TOOL_NAME)) {
+                context.put(ENCODING_TOOL_NAME, new HtmlEncoder());
+            }
+
+            if (options.autoEscaping) {
+                EventCartridge cartridge = new EventCartridge();
+                cartridge.addReferenceInsertionEventHandler(new CanoeReferenceInsertionHandler(canoe));
+                cartridge.attachToContext(context);
+            }
+
+            try {
+                ENGINE.evaluate(context, canoe, "canoe-test", template);
+                canoe.flush();
+                return new RenderResult(sink.toString(), null, null, canoe.currentContext());
+            } catch (Exception e) {
+                String encodingError = findEncodingError(e);
+                if (encodingError == null) {
+                    throw new IllegalStateException(
+                            "Template failed for a reason unrelated to Canoe encoding: " + template, e);
+                }
+                return new RenderResult(sink.toString(), encodingError, e, canoe.currentContext());
+            }
+        } finally {
+            closeQuietly(canoe);
+        }
+    }
+
+    /**
+     * Closes a test-only Canoe. Its sink is always a {@link StringWriter}, whose close() is
+     * documented to do nothing, so a checked IOException here would never be real.
+     */
+    static void closeQuietly(Closeable closeable) {
+        try {
+            closeable.close();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
         }
     }
 
@@ -296,6 +313,8 @@ public final class CanoeTestSupport {
                 throw new IllegalStateException("Unexpected failure writing " + quote(templateText), e);
             }
             return new WriteResult(sink.toString(), encodingError, e, canoe.currentContext());
+        } finally {
+            closeQuietly(canoe);
         }
     }
 

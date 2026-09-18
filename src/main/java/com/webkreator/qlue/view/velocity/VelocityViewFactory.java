@@ -193,7 +193,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
         // Pass raw Velocity configuration from Qlue properties.
         Properties qlueProperties = qlueApp.getProperties();
-        Enumeration e = qlueProperties.propertyNames();
+        Enumeration<?> e = qlueProperties.propertyNames();
         while (e.hasMoreElements()) {
             String key = (String) e.nextElement();
             if (key.startsWith(QLUE_RAW_VELOCITY_CONFIG_PREFIX)) {

@@ -12,7 +12,7 @@ import java.util.Date;
 public class DateEditor implements PropertyEditor {
 
     @Override
-    public Class getEditorClass() {
+    public Class<?> getEditorClass() {
         return Date.class;
     }
 

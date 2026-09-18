@@ -21,7 +21,7 @@ public class LongEditor implements PropertyEditor {
     }
 
     @Override
-    public Class getEditorClass() {
+    public Class<?> getEditorClass() {
         return Long.class;
     }
 

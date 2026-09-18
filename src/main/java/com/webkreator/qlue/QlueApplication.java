@@ -122,7 +122,7 @@ public class QlueApplication {
 
     private List<ViewFactory> viewFactories = new ArrayList<>();
 
-    private HashMap<Class, PropertyEditor> editors = new HashMap<>();
+    private HashMap<Class<?>, PropertyEditor> editors = new HashMap<>();
 
     private String characterEncoding = "UTF-8";
 
@@ -1039,7 +1039,7 @@ public class QlueApplication {
         out.println(" Development mode: " + developmentMode);
     }
 
-    protected Set<Field> getClassPublicFields(Class klass) {
+    protected Set<Field> getClassPublicFields(Class<?> klass) {
         Set<Field> fields = new HashSet<>();
 
         for (; ; ) {
@@ -2092,7 +2092,7 @@ public class QlueApplication {
      * @param name
      * @return
      */
-    public static Class classForName(String name) {
+    public static Class<?> classForName(String name) {
         try {
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             return Class.forName(name, true /* initialize */, classLoader);

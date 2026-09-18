@@ -16,9 +16,6 @@
  */
 package com.webkreator.qlue;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import jakarta.servlet.ServletException;
 import jakarta.servlet.UnavailableException;
 import jakarta.servlet.annotation.MultipartConfig;
@@ -45,8 +42,6 @@ public class QlueServlet extends HttpServlet {
     private static final String QLUE_SERVLET_INIT_FAILED = "QLUE_SERVLET_INIT_FAILED";
 
     private QlueApplication qlueApp;
-
-    private static final Logger log = LoggerFactory.getLogger(QlueServlet.class);
 
     /**
      * Retrieve servlet parameters from web.xml and initialize application.

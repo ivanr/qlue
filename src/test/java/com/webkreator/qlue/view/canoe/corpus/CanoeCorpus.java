@@ -1449,10 +1449,6 @@ public final class CanoeCorpus {
                 .payloads(Payloads.QUOTE_SINGLE_BREAKOUT);
     }
 
-    private static XssCase.Builder handler(String name, String element, String precedingAttributes) {
-        return handler(name, element, precedingAttributes, "");
-    }
-
     private static XssCase.Builder handler(String name) {
         return handler(name, defaultElementFor(name), "", "");
     }
