@@ -292,6 +292,7 @@ public abstract class VelocityViewFactory implements ViewFactory {
 
         // Expose the public variables of the command object
         processPageFields(page.getCommandObject(), new FieldCallback() {
+            @Override
             public void processField(String fieldName, Object fieldValue) {
                 if (fieldValue != null) {
                     model.put(fieldName, fieldValue);

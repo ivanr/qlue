@@ -16,8 +16,6 @@
  */
 package com.webkreator.qlue;
 
-import java.awt.font.FontRenderContext;
-
 /**
  * A simple class that holds the constants used throughout the framework.
  */

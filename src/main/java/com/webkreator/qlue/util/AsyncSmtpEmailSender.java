@@ -80,7 +80,7 @@ public class AsyncSmtpEmailSender extends SmtpEmailSender implements Runnable {
                 log.error("Failed to send email", e);
 
                 try {
-                    Thread.currentThread().sleep(BACKOFF_MILLISECONDS);
+                    Thread.sleep(BACKOFF_MILLISECONDS);
                 } catch (InterruptedException ie) {
                     // Do nothing.
                 }

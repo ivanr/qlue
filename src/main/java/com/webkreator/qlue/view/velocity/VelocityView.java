@@ -22,8 +22,6 @@ import org.apache.velocity.Template;
 import com.webkreator.qlue.Page;
 import com.webkreator.qlue.TransactionContext;
 
-import jakarta.validation.Valid;
-
 /**
  * Handle a view implemented as a Velocity template.
  */

@@ -24,8 +24,6 @@ import com.webkreator.qlue.util.HtmlEncoder;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.View;
 import org.apache.velocity.exception.ParseErrorException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletResponse;

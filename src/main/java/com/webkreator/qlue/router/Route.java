@@ -94,9 +94,7 @@ public class Route {
 			// the parameter, is now the new haystack
 			haystack = haystack.substring(j + 1);
 
-			boolean optional = false;
 			if (name.charAt(name.length() - 1) == '?') {
-				optional = true;
 				name = name.substring(1, name.length() - 2).trim();
 			} else {
 				name = name.substring(1, name.length() - 1).trim();

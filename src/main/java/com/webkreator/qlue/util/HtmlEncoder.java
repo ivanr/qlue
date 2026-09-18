@@ -39,8 +39,6 @@ public class HtmlEncoder implements QlueVelocityTool {
 
     public static final int CR = 0x0d;
 
-    private Page page;
-
     /**
      * A leading scheme, if the value carries one: an ASCII letter followed by letters, digits and
      * {@code + - .}, up to the first colon. This is exactly the URL Standard's scheme grammar, and it
@@ -61,6 +59,7 @@ public class HtmlEncoder implements QlueVelocityTool {
 
     private static final char[] hexDigits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
+    @Override
     public String getName() {
         return CanoeReferenceInsertionHandler.SAFE_REFERENCE_NAME;
     }
@@ -1014,9 +1013,10 @@ public class HtmlEncoder implements QlueVelocityTool {
         return input;
     }
 
+    // Every real method here is static; QlueVelocityTool requires this setter, but there is no
+    // per-page state to keep.
     @Override
     public void setPage(Page page) {
-        this.page = page;
     }
 
     public static String htmlAttr(String input) {

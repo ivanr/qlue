@@ -77,6 +77,7 @@ public class BearerToken implements Serializable {
 		return Arrays.equals(unmaskedBytes, tokenBytes);
 	}
 
+	@Override
 	public String toString() {
 		return getMaskedToken();
 	}

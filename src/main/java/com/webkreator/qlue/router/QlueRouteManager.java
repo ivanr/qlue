@@ -117,6 +117,7 @@ public class QlueRouteManager implements RouteManager {
         return null;
     }
 
+    @Override
     public Properties getProperties() {
         return app.getProperties();
     }

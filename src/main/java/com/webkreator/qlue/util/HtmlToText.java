@@ -18,10 +18,12 @@ public class HtmlToText extends HTMLEditorKit.ParserCallback {
 		delegator.parse(in, this, Boolean.TRUE);
 	}
 
+	@Override
 	public void handleText(char[] text, int pos) {
 		sb.append(text);
 	}
 
+	@Override
 	public String toString() {
 		return sb.toString();
 	}

@@ -31,6 +31,7 @@ public class DefaultVelocityTool implements QlueVelocityTool {
         this.name = name;
     }
 
+    @Override
     public String getName() {
         return name;
     }
