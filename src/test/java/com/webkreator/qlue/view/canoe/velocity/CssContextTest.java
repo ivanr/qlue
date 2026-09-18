@@ -7,7 +7,6 @@ import com.webkreator.qlue.view.canoe.corpus.CanoeCorpus;
 import com.webkreator.qlue.view.canoe.corpus.Payload;
 import com.webkreator.qlue.view.canoe.corpus.Payloads;
 import com.webkreator.qlue.view.canoe.corpus.SinkKind;
-import com.webkreator.qlue.view.canoe.corpus.Verdict;
 import com.webkreator.qlue.view.canoe.corpus.VerdictEvaluator;
 import com.webkreator.qlue.view.canoe.corpus.XssCase;
 import org.junit.jupiter.api.Test;
@@ -461,8 +460,9 @@ public class CssContextTest {
     }
 
     private static int attributeContextOf(String attributeName) {
-        try {
-            return new CanoeStateProbe().feed("<x " + attributeName + "=\"").attributeContext();
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<x " + attributeName + "=\"");
+            return probe.attributeContext();
         } catch (IOException e) {
             throw new AssertionError("Canoe rejected the attribute name " + attributeName, e);
         }

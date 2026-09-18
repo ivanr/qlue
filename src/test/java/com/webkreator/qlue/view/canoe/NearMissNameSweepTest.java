@@ -295,7 +295,11 @@ public class NearMissNameSweepTest {
     public void aNearMissOfAnAttributeNameIsSuppressed(String name, String nearMiss,
                                                        int nameContext)
             throws IOException {
-        int observed = new CanoeStateProbe().feed("<img " + nearMiss + "=\"").attributeContext();
+        int observed;
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<img " + nearMiss + "=\"");
+            observed = probe.attributeContext();
+        }
 
         assertNotEquals(nameContext, observed,
                 () -> nearMiss + " was classified as " + CanoeStateProbe.attributeContextName(nameContext)
@@ -324,7 +328,11 @@ public class NearMissNameSweepTest {
     @MethodSource("handlerNameNearMisses")
     public void aNearMissOfAHandlerNameIsAHandlerToo(String name, String nearMiss, int expected)
             throws IOException {
-        int observed = new CanoeStateProbe().feed("<img " + nearMiss + "=\"").attributeContext();
+        int observed;
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<img " + nearMiss + "=\"");
+            observed = probe.attributeContext();
+        }
 
         assertEquals(expected, observed,
                 () -> nearMiss + " is a near miss of " + name + " and must classify as "
@@ -351,7 +359,11 @@ public class NearMissNameSweepTest {
     public void aNearMissOfAValuePrefixIsNotClassifiedAsThatPrefix(String prefix, String nearMiss,
                                                                    int prefixContext)
             throws IOException {
-        int observed = new CanoeStateProbe().feed("<a href=\"" + nearMiss + ":").attributeContext();
+        int observed;
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<a href=\"" + nearMiss + ":");
+            observed = probe.attributeContext();
+        }
 
         assertNotEquals(prefixContext, observed,
                 () -> nearMiss + ": was classified as "
@@ -373,22 +385,27 @@ public class NearMissNameSweepTest {
     @Test
     public void theExactNamesAreClassifiedAndTheSweepWouldNoticeIfTheyWereNot() throws IOException {
         for (Map.Entry<String, Integer> entry : recognisedAttributeNames().entrySet()) {
-            assertEquals(entry.getValue(),
-                    new CanoeStateProbe().feed("<img " + entry.getKey() + "=\"").attributeContext(),
-                    () -> entry.getKey() + " must still be recognised, or its near misses are"
-                            + " passing for a reason that has nothing to do with the chain");
+            try (CanoeStateProbe probe = new CanoeStateProbe()) {
+                probe.feed("<img " + entry.getKey() + "=\"");
+                assertEquals(entry.getValue(), probe.attributeContext(),
+                        () -> entry.getKey() + " must still be recognised, or its near misses are"
+                                + " passing for a reason that has nothing to do with the chain");
+            }
         }
         for (String name : handlerNames()) {
-            assertEquals(Canoe.ATTR_JS,
-                    new CanoeStateProbe().feed("<img " + name + "=\"").attributeContext(),
-                    () -> name + " must classify as JavaScript, or its near misses are agreeing with"
-                            + " it for a reason that has nothing to do with the prefix rule");
+            try (CanoeStateProbe probe = new CanoeStateProbe()) {
+                probe.feed("<img " + name + "=\"");
+                assertEquals(Canoe.ATTR_JS, probe.attributeContext(),
+                        () -> name + " must classify as JavaScript, or its near misses are agreeing with"
+                                + " it for a reason that has nothing to do with the prefix rule");
+            }
         }
         for (Map.Entry<String, Integer> entry : recognisedValuePrefixes().entrySet()) {
-            assertEquals(entry.getValue(),
-                    new CanoeStateProbe().feed("<a href=\"" + entry.getKey() + ":")
-                            .attributeContext(),
-                    () -> entry.getKey() + ": must still be recognised");
+            try (CanoeStateProbe probe = new CanoeStateProbe()) {
+                probe.feed("<a href=\"" + entry.getKey() + ":");
+                assertEquals(entry.getValue(), probe.attributeContext(),
+                        () -> entry.getKey() + ": must still be recognised");
+            }
         }
     }
 
@@ -433,13 +450,15 @@ public class NearMissNameSweepTest {
     @ParameterizedTest(name = "<{0}> is ordinary HTML")
     @MethodSource("tagNameNearMisses")
     public void aNearMissOfScriptOrStyleIsAnOrdinaryElement(String tagName) throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe().feed("<" + tagName + ">");
-        assertEquals(Canoe.HTML, probe.state(),
-                () -> "<" + tagName + "> left the parser in "
-                        + CanoeStateProbe.stateName(probe.state())
-                        + "; only <script> and <style> may change the state after a tag closes");
-        assertEquals(Canoe.CTX_HTML, probe.currentContext(),
-                () -> "a reference after <" + tagName + "> must be html-encoded, not suppressed");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<" + tagName + ">");
+            assertEquals(Canoe.HTML, probe.state(),
+                    () -> "<" + tagName + "> left the parser in "
+                            + CanoeStateProbe.stateName(probe.state())
+                            + "; only <script> and <style> may change the state after a tag closes");
+            assertEquals(Canoe.CTX_HTML, probe.currentContext(),
+                    () -> "a reference after <" + tagName + "> must be html-encoded, not suppressed");
+        }
     }
 
     public static Stream<Arguments> tagNameNearMisses() {
@@ -456,8 +475,14 @@ public class NearMissNameSweepTest {
     /** ...and the exact names do change it, so the sweep above is not vacuous. */
     @Test
     public void scriptAndStyleThemselvesDoChangeTheState() throws IOException {
-        assertEquals(Canoe.SCRIPT, new CanoeStateProbe().feed("<script>").state());
-        assertEquals(Canoe.CSS, new CanoeStateProbe().feed("<style>").state());
+        try (CanoeStateProbe scriptProbe = new CanoeStateProbe();
+             CanoeStateProbe styleProbe = new CanoeStateProbe()) {
+            scriptProbe.feed("<script>");
+            assertEquals(Canoe.SCRIPT, scriptProbe.state());
+
+            styleProbe.feed("<style>");
+            assertEquals(Canoe.CSS, styleProbe.state());
+        }
     }
 
     /**
@@ -480,20 +505,23 @@ public class NearMissNameSweepTest {
     @MethodSource("tenCharacterValuePrefixes")
     public void noBufferResidueDisarmsAnyTenCharacterValuePrefix(String prefix, int cleanContext)
             throws IOException {
-        assertEquals(cleanContext,
-                new CanoeStateProbe().feed("<a href=\"" + prefix + ":").attributeContext(),
-                () -> prefix + ": is recognised when nothing precedes it");
+        try (CanoeStateProbe bare = new CanoeStateProbe()) {
+            bare.feed("<a href=\"" + prefix + ":");
+            assertEquals(cleanContext, bare.attributeContext(),
+                    () -> prefix + ": is recognised when nothing precedes it");
+        }
 
-        CanoeStateProbe armed =
-                new CanoeStateProbe().feed("<a placeholder=\"x\" href=\"" + prefix + ":");
-        assertEquals('\0', armed.bufferAt(10),
-                "R3: the eleventh character of 'placeholder' used to be the residue that decided"
-                        + " this; the buffer is cleared when an attribute value starts");
-        assertEquals(cleanContext, armed.attributeContext(),
-                () -> "R3: " + prefix + ": must be recognised whatever precedes it. Before R2 a miss"
-                        + " fell back to the reset's ATTR_HTML and after R2 to href's own ATTR_URI,"
-                        + " which changed the encoder and not the finding; the length-checked"
-                        + " comparison is what closes it.");
+        try (CanoeStateProbe armed = new CanoeStateProbe()) {
+            armed.feed("<a placeholder=\"x\" href=\"" + prefix + ":");
+            assertEquals('\0', armed.bufferAt(10),
+                    "R3: the eleventh character of 'placeholder' used to be the residue that decided"
+                            + " this; the buffer is cleared when an attribute value starts");
+            assertEquals(cleanContext, armed.attributeContext(),
+                    () -> "R3: " + prefix + ": must be recognised whatever precedes it. Before R2 a miss"
+                            + " fell back to the reset's ATTR_HTML and after R2 to href's own ATTR_URI,"
+                            + " which changed the encoder and not the finding; the length-checked"
+                            + " comparison is what closes it.");
+        }
     }
 
     public static Stream<Arguments> tenCharacterValuePrefixes() {
@@ -523,17 +551,21 @@ public class NearMissNameSweepTest {
     @MethodSource("unusualButLegalAttributeNames")
     public void theRemainingLegalNameCharactersAreAcceptedAsOneName(String name)
             throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe().feed("<x " + name + "=\"");
-        assertEquals(Canoe.ATTR_UNKNOWN, probe.attributeContext(),
-                () -> name + " is on none of the lists and must get R5's fail-closed default");
-        assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext(),
-                () -> name + " must be a single attribute name, not two");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<x " + name + "=\"");
+            assertEquals(Canoe.ATTR_UNKNOWN, probe.attributeContext(),
+                    () -> name + " is on none of the lists and must get R5's fail-closed default");
+            assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext(),
+                    () -> name + " must be a single attribute name, not two");
+        }
 
         // ...and the same characters in a name that IS listed still scan as one name, which is what
         // separates "the name ended where it should" from "the name was not recognised".
-        assertEquals(Canoe.ATTR_HTML,
-                new CanoeStateProbe().feed("<x data-" + name + "=\"").attributeContext(),
-                () -> "data-" + name + " must scan as one name and reach the data- family");
+        try (CanoeStateProbe dataProbe = new CanoeStateProbe()) {
+            dataProbe.feed("<x data-" + name + "=\"");
+            assertEquals(Canoe.ATTR_HTML, dataProbe.attributeContext(),
+                    () -> "data-" + name + " must scan as one name and reach the data- family");
+        }
     }
 
     public static Stream<Arguments> unusualButLegalAttributeNames() {
