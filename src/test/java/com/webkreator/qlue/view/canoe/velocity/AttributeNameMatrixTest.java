@@ -314,7 +314,7 @@ public class AttributeNameMatrixTest {
         for (Arguments arguments : (Iterable<Arguments>) matrix()::iterator) {
             String name = (String) arguments.get()[0];
             int measured = attributeContextOf(name);
-            byClassification.computeIfAbsent(measured, key -> new LinkedHashSet<>())
+            byClassification.computeIfAbsent(measured, _ -> new LinkedHashSet<>())
                     .add(name.toLowerCase());
         }
 

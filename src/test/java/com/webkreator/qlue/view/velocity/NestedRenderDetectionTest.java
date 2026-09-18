@@ -289,7 +289,7 @@ public class NestedRenderDetectionTest {
 
         AtomicInteger read = new AtomicInteger();
         assertFalse(CanoeReferenceInsertionHandler.encodingMustBeDeferred(
-                stack.stream().peek(name -> read.incrementAndGet())));
+                stack.stream().peek(_ -> read.incrementAndGet())));
         assertEquals(6, read.get(),
                 "one frame for this class, four for the Velocity run, and one more to see that the"
                         + " run has ended - and then nothing, however deep the stack below is");
@@ -315,7 +315,7 @@ public class NestedRenderDetectionTest {
 
         AtomicInteger read = new AtomicInteger();
         assertFalse(CanoeReferenceInsertionHandler.encodingMustBeDeferred(
-                        stack.stream().peek(name -> read.incrementAndGet())),
+                        stack.stream().peek(_ -> read.incrementAndGet())),
                 "a literal below the limit is not seen, and not seeing it means encoding");
         assertEquals(CanoeReferenceInsertionHandler.MAX_FRAMES, read.get(),
                 "and the limit is what stopped the walk, rather than the run ending");

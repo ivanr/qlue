@@ -307,7 +307,7 @@ public class TemplateFuzzTest {
     private static void recordContexts(String template, String value, ContextRecordingCanoe canoe) {
         try {
             CanoeTestSupport.render(template, java.util.Map.of("data", value),
-                    CanoeTestSupport.RenderOptions.defaults(), writer -> canoe);
+                    CanoeTestSupport.RenderOptions.defaults(), _ -> canoe);
         } catch (RuntimeException e) {
             // Property 1 owns rejection; this call is only here for the context sequence.
         }

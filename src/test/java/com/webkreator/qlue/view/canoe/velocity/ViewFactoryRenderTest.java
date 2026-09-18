@@ -856,7 +856,7 @@ public class ViewFactoryRenderTest {
         return (HttpServletResponse) Proxy.newProxyInstance(
                 ViewFactoryRenderTest.class.getClassLoader(),
                 new Class<?>[]{HttpServletResponse.class},
-                (proxy, method, args) -> {
+                (_, method, _) -> {
                     calls.add(method.getName());
                     if ("isCommitted".equals(method.getName())) {
                         return committed;

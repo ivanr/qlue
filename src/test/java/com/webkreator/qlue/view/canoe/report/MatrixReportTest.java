@@ -188,7 +188,7 @@ public class MatrixReportTest {
         sb.append("## Cases, by Appendix A section\n\n");
         Map<String, List<Row>> bySection = new TreeMap<>();
         for (Row row : rows) {
-            bySection.computeIfAbsent(row.section, key -> new ArrayList<>()).add(row);
+            bySection.computeIfAbsent(row.section, _ -> new ArrayList<>()).add(row);
         }
         for (Map.Entry<String, List<Row>> entry : bySection.entrySet()) {
             sb.append("### ").append(entry.getKey()).append("\n\n");
@@ -197,7 +197,7 @@ public class MatrixReportTest {
 
             Map<String, List<Row>> byCase = new LinkedHashMap<>();
             for (Row row : entry.getValue()) {
-                byCase.computeIfAbsent(row.caseId, key -> new ArrayList<>()).add(row);
+                byCase.computeIfAbsent(row.caseId, _ -> new ArrayList<>()).add(row);
             }
             List<String> ids = new ArrayList<>(byCase.keySet());
             ids.sort(Comparator.naturalOrder());

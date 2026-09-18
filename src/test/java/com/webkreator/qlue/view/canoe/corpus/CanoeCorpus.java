@@ -229,6 +229,7 @@ public final class CanoeCorpus {
      * routing, they are unchanged, and they are what would decide these payloads again if any name
      * were moved back onto the plain-text allowlist.
      */
+    @SuppressWarnings("unused")
     private static final String C0_CONTROL_ACCIDENT =
             "The six safe entries are neutralised by accident, not design, for three separate"
                     + " reasons. The tab, newline and leading-control splits and the NUL split are"

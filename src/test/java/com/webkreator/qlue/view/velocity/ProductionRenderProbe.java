@@ -585,7 +585,7 @@ public final class ProductionRenderProbe {
             return (HttpServletResponse) Proxy.newProxyInstance(
                     StubResponse.class.getClassLoader(),
                     new Class<?>[]{HttpServletResponse.class},
-                    (proxy, method, args) -> {
+                    (_, method, _) -> {
                         calls.add(method.getName());
                         switch (method.getName()) {
                             case "getWriter":
@@ -667,7 +667,7 @@ public final class ProductionRenderProbe {
         HttpSession session = (HttpSession) Proxy.newProxyInstance(
                 ProductionRenderProbe.class.getClassLoader(),
                 new Class<?>[]{HttpSession.class},
-                (proxy, method, args) -> {
+                (_, method, args) -> {
                     switch (method.getName()) {
                         case "getAttribute":
                             return sessionAttributes.get((String) args[0]);
@@ -682,7 +682,7 @@ public final class ProductionRenderProbe {
         return (HttpServletRequest) Proxy.newProxyInstance(
                 ProductionRenderProbe.class.getClassLoader(),
                 new Class<?>[]{HttpServletRequest.class},
-                (proxy, method, args) -> {
+                (_, method, _) -> {
                     switch (method.getName()) {
                         case "getSession":
                             return session;

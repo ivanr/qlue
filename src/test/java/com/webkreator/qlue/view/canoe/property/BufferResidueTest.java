@@ -126,7 +126,7 @@ public class BufferResidueTest {
         Map<String, List<Integer>> outputsToLengths = new LinkedHashMap<>();
         for (int length = 1; length <= MAX_NAME_LENGTH; length++) {
             String rendered = renderWithPrefix(precedingElement(length), PAYLOAD);
-            outputsToLengths.computeIfAbsent(rendered, key -> new ArrayList<>()).add(length);
+            outputsToLengths.computeIfAbsent(rendered, _ -> new ArrayList<>()).add(length);
         }
 
         assertEquals(1, outputsToLengths.size(),

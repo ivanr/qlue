@@ -408,7 +408,7 @@ public final class Payloads {
                 throw new IllegalStateException("Duplicate payload id: " + payload.id());
             }
             ALL.add(payload);
-            BY_FAMILY.computeIfAbsent(payload.family(), key -> new ArrayList<>()).add(payload);
+            BY_FAMILY.computeIfAbsent(payload.family(), _ -> new ArrayList<>()).add(payload);
         }
     }
 
