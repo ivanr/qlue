@@ -24,6 +24,10 @@ public class QlueException extends RuntimeException {
 
 	protected static final long serialVersionUID = 1L;
 
+	// Set via setSecurityFlag() below, which callers across the app use to mark
+	// security-relevant exceptions. No getter exists yet, so nothing reads it back -- flagged
+	// as unused, but not dead code: it's a hook for a consumer to add one later.
+	@SuppressWarnings("unused")
 	private boolean security;
 
 	protected QlueException() {
