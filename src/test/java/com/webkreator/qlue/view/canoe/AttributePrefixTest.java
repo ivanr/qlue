@@ -301,8 +301,11 @@ public class AttributePrefixTest {
 
         // The window itself, measured where it is still observable: bufLen is non-negative for as
         // long as the scan is willing to look at the next character.
-        boolean scanStillArmed =
-                new CanoeStateProbe().feed("<div style=\"" + value).bufLen() >= 0;
+        boolean scanStillArmed;
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<div style=\"" + value);
+            scanStillArmed = probe.bufLen() >= 0;
+        }
         assertEquals(expectedToTrigger, scanStillArmed,
                 "the 0-10 window is unchanged by R2; only its consequence is gone. Index " + index);
     }
@@ -331,10 +334,16 @@ public class AttributePrefixTest {
                 "text-decoration: puts it at index 15, by which point the scan has given up");
 
         // The scan's own bookkeeping, which is the only place the boundary is still visible.
-        assertEquals(10, new CanoeStateProbe().feed("<div style=\"background").bufLen(),
-                "ten characters buffered and bufLen still valid, so the next colon is examined");
-        assertEquals(-1, new CanoeStateProbe().feed("<div style=\"background-").bufLen(),
-                "one more non-colon character and the scan switches itself off");
+        try (CanoeStateProbe tenChars = new CanoeStateProbe()) {
+            tenChars.feed("<div style=\"background");
+            assertEquals(10, tenChars.bufLen(),
+                    "ten characters buffered and bufLen still valid, so the next colon is examined");
+        }
+        try (CanoeStateProbe elevenChars = new CanoeStateProbe()) {
+            elevenChars.feed("<div style=\"background-");
+            assertEquals(-1, elevenChars.bufLen(),
+                    "one more non-colon character and the scan switches itself off");
+        }
     }
 
     /**
@@ -485,22 +494,26 @@ public class AttributePrefixTest {
     @Test
     public void nearMissesAreRejectedByThreeDifferentMechanisms() throws IOException {
         // 1. A character disagrees: the scan ran, and the comparison failed.
-        CanoeStateProbe compared = new CanoeStateProbe().feed("<a p=\"javascripx:");
-        assertEquals(Canoe.ATTR_UNKNOWN, compared.attributeContext(),
-                "the name 'p' is on none of the lists, so ATTR_UNKNOWN here is the name's answer and"
-                        + " not the prefix scan's - it was ATTR_HTML until R5 inverted the default,"
-                        + " and the observation this line makes is the same either way");
-        assertEquals(-1, compared.bufLen(), "the scan ran and then switched itself off");
-        assertEquals('x', compared.bufferAt(9),
-                "buf[9] is the character the javascript comparison disagreed on");
+        try (CanoeStateProbe compared = new CanoeStateProbe()) {
+            compared.feed("<a p=\"javascripx:");
+            assertEquals(Canoe.ATTR_UNKNOWN, compared.attributeContext(),
+                    "the name 'p' is on none of the lists, so ATTR_UNKNOWN here is the name's answer and"
+                            + " not the prefix scan's - it was ATTR_HTML until R5 inverted the default,"
+                            + " and the observation this line makes is the same either way");
+            assertEquals(-1, compared.bufLen(), "the scan ran and then switched itself off");
+            assertEquals('x', compared.bufferAt(9),
+                    "buf[9] is the character the javascript comparison disagreed on");
+        }
 
         // 2. The length disagrees.
-        CanoeStateProbe terminated = new CanoeStateProbe().feed("<a p=\"datax:");
-        assertEquals(Canoe.ATTR_UNKNOWN, terminated.attributeContext());
-        assertEquals('x', terminated.bufferAt(4),
-                "R3: five characters were buffered where 'data' needs exactly four. Before R3 this"
-                        + " was read as \"buf[4] is not a NUL\", which is the same answer for a"
-                        + " different and much less reliable reason");
+        try (CanoeStateProbe terminated = new CanoeStateProbe()) {
+            terminated.feed("<a p=\"datax:");
+            assertEquals(Canoe.ATTR_UNKNOWN, terminated.attributeContext());
+            assertEquals('x', terminated.bufferAt(4),
+                    "R3: five characters were buffered where 'data' needs exactly four. Before R3 this"
+                            + " was read as \"buf[4] is not a NUL\", which is the same answer for a"
+                            + " different and much less reliable reason");
+        }
 
         // 3. The scan gave up before the colon arrived, so no comparison happened.
         assertEquals(Canoe.ATTR_CSS, attributeContextOf("<div style=\"javascriptx:"),
@@ -553,17 +566,22 @@ public class AttributePrefixTest {
     @Test
     public void theValueScanStillWritesNoTerminatorAndNothingNeedsItTo() throws IOException {
         String armed = "<i placeholder=\"s\">";
-        assertEquals('\0', new CanoeStateProbe().feed(armed).bufferAt(10),
-                "R3: an 11-character attribute name used to leave its 'r' at buf[10]; the buffer is"
-                        + " cleared when that element's value starts");
+        try (CanoeStateProbe armedOnly = new CanoeStateProbe()) {
+            armedOnly.feed(armed);
+            assertEquals('\0', armedOnly.bufferAt(10),
+                    "R3: an 11-character attribute name used to leave its 'r' at buf[10]; the buffer is"
+                            + " cleared when that element's value starts");
+        }
 
-        CanoeStateProbe probe = new CanoeStateProbe().feed(armed + "<a href=\"abcdefghijklmnop");
-        assertEquals(-1, probe.bufLen(), "the value scan has long since given up");
-        assertEquals('j', probe.bufferAt(9),
-                "the value wrote the ten characters it is allowed to write");
-        assertEquals('\0', probe.bufferAt(10),
-                "R3: and index 10 holds nothing, because the value never writes a terminator and no"
-                        + " longer inherits one either");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed(armed + "<a href=\"abcdefghijklmnop");
+            assertEquals(-1, probe.bufLen(), "the value scan has long since given up");
+            assertEquals('j', probe.bufferAt(9),
+                    "the value wrote the ten characters it is allowed to write");
+            assertEquals('\0', probe.bufferAt(10),
+                    "R3: and index 10 holds nothing, because the value never writes a terminator and no"
+                            + " longer inherits one either");
+        }
 
         // The classification the residue used to decide, on the same page.
         assertEquals(Canoe.ATTR_JS, attributeContextOf(armed + "<a href=\"javascript:"),
@@ -585,24 +603,31 @@ public class AttributePrefixTest {
     public void aNameOfLengthNWritesItsTerminatorAtIndexN() throws IOException {
         for (int length = 1; length <= 12; length++) {
             String name = "z" + repeat('q', length - 1);
-            CanoeStateProbe probe = new CanoeStateProbe().feed("<i " + name + "=");
-            assertEquals('\0', probe.bufferAt(length),
-                    "an attribute name of length " + length + " terminates at buf[" + length + "]");
-            if (length > 1) {
-                assertNotEquals('\0', probe.bufferAt(length - 1),
-                        "and buf[" + (length - 1) + "] holds its last character");
+            try (CanoeStateProbe probe = new CanoeStateProbe()) {
+                probe.feed("<i " + name + "=");
+                assertEquals('\0', probe.bufferAt(length),
+                        "an attribute name of length " + length + " terminates at buf[" + length + "]");
+                if (length > 1) {
+                    assertNotEquals('\0', probe.bufferAt(length - 1),
+                            "and buf[" + (length - 1) + "] holds its last character");
+                }
+                assertEquals('\0', probe.bufferAt(length + 1),
+                        "R3: and nothing beyond the terminator, because the buffer was cleared before"
+                                + " the name was written into it");
             }
-            assertEquals('\0', probe.bufferAt(length + 1),
-                    "R3: and nothing beyond the terminator, because the buffer was cleared before"
-                            + " the name was written into it");
         }
 
         // Tag names go through the same buffer and the same terminator. That used to make an element
         // name just as capable of arming or repairing the value check as an attribute name; it is now
         // only a statement about how a tag name is stored.
-        assertEquals('\0', new CanoeStateProbe().feed("<blockquote>").bufferAt(10),
-                "a 10-character tag name terminates at buf[10]");
-        assertEquals('x', new CanoeStateProbe().feed("<blockquotex>").bufferAt(10));
+        try (CanoeStateProbe blockquote = new CanoeStateProbe()) {
+            blockquote.feed("<blockquote>");
+            assertEquals('\0', blockquote.bufferAt(10), "a 10-character tag name terminates at buf[10]");
+        }
+        try (CanoeStateProbe blockquotex = new CanoeStateProbe()) {
+            blockquotex.feed("<blockquotex>");
+            assertEquals('x', blockquotex.bufferAt(10));
+        }
     }
 
     /**
@@ -677,9 +702,18 @@ public class AttributePrefixTest {
                 "R3: nor does a 9-character name leave residue behind for the value to trip over");
 
         // Same three, seen at the index itself.
-        assertEquals('\0', new CanoeStateProbe().feed(arm).bufferAt(10));
-        assertEquals('\0', new CanoeStateProbe().feed(arm + tenCharacterName).bufferAt(10));
-        assertEquals('\0', new CanoeStateProbe().feed(arm + nineCharacterName).bufferAt(10));
+        try (CanoeStateProbe armOnly = new CanoeStateProbe();
+             CanoeStateProbe armThenTen = new CanoeStateProbe();
+             CanoeStateProbe armThenNine = new CanoeStateProbe()) {
+            armOnly.feed(arm);
+            assertEquals('\0', armOnly.bufferAt(10));
+
+            armThenTen.feed(arm + tenCharacterName);
+            assertEquals('\0', armThenTen.bufferAt(10));
+
+            armThenNine.feed(arm + nineCharacterName);
+            assertEquals('\0', armThenNine.bufferAt(10));
+        }
     }
 
     /**
@@ -861,7 +895,10 @@ public class AttributePrefixTest {
     // ------------------------------------------------------------------
 
     private static int attributeContextOf(String prefix) throws IOException {
-        return new CanoeStateProbe().feed(prefix).attributeContext();
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed(prefix);
+            return probe.attributeContext();
+        }
     }
 
     private static String repeat(char c, int count) {
@@ -876,9 +913,11 @@ public class AttributePrefixTest {
      * would silently become a different test if Canoe ever pre-filled or pooled the array.
      */
     @Test
-    public void aFreshCanoeHasAZeroFilledBuffer() {
-        for (char c : new CanoeStateProbe().buffer()) {
-            assertTrue(c == '\0', "a freshly constructed Canoe must have a zero-filled buffer");
+    public void aFreshCanoeHasAZeroFilledBuffer() throws IOException {
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            for (char c : probe.buffer()) {
+                assertTrue(c == '\0', "a freshly constructed Canoe must have a zero-filled buffer");
+            }
         }
     }
 }

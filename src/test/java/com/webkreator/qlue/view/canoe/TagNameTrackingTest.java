@@ -96,21 +96,29 @@ public class TagNameTrackingTest {
     @MethodSource("attributePositions")
     public void theElementNameIsAvailableThroughoutAttributeParsing(
             String prefix, String expectedName, int expectedState) throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe().feed(prefix);
-        assertEquals(CanoeStateProbe.stateName(expectedState),
-                CanoeStateProbe.stateName(probe.state()));
-        assertEquals(expectedName, probe.tagName(),
-                () -> "R8: after \"" + prefix + "\" the tracked element name must be "
-                        + expectedName);
-        assertFalse(probe.closingTag(),
-                "none of these prefixes is an end tag, and R9 must be able to tell");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed(prefix);
+            assertEquals(CanoeStateProbe.stateName(expectedState),
+                    CanoeStateProbe.stateName(probe.state()));
+            assertEquals(expectedName, probe.tagName(),
+                    () -> "R8: after \"" + prefix + "\" the tracked element name must be "
+                            + expectedName);
+            assertFalse(probe.closingTag(),
+                    "none of these prefixes is an end tag, and R9 must be able to tell");
+        }
     }
 
     /** Case is folded exactly as the attribute-name scan folds it. */
     @Test
     public void theNameIsLowerCasedHoweverTheTemplateSpelledIt() throws IOException {
-        assertEquals("iframe", new CanoeStateProbe().feed("<IFRAME SRC=\"").tagName());
-        assertEquals("script", new CanoeStateProbe().feed("<ScRiPt src=\"").tagName());
+        try (CanoeStateProbe iframeProbe = new CanoeStateProbe()) {
+            iframeProbe.feed("<IFRAME SRC=\"");
+            assertEquals("iframe", iframeProbe.tagName());
+        }
+        try (CanoeStateProbe scriptProbe = new CanoeStateProbe()) {
+            scriptProbe.feed("<ScRiPt src=\"");
+            assertEquals("script", scriptProbe.tagName());
+        }
     }
 
     // ------------------------------------------------------------------
@@ -123,52 +131,89 @@ public class TagNameTrackingTest {
      */
     @Test
     public void theNameIsClearedTheMomentTheTagEnds() throws IOException {
-        assertNull(new CanoeStateProbe().tagName(), "before any input");
-        assertNull(new CanoeStateProbe().feed("text only").tagName(), "no tag yet");
-        assertNull(new CanoeStateProbe().feed("<div id=x>").tagName(),
-                "the '>' of an unquoted-value tag ends it");
-        assertNull(new CanoeStateProbe().feed("<div id=\"x\">body text").tagName(),
-                "body text must not see the element it is inside");
-        assertNull(new CanoeStateProbe().feed("<br />").tagName(),
-                "the self-closing '>' ends the tag too");
-        assertNull(new CanoeStateProbe().feed("<div>").tagName(),
-                "a tag with no attributes at all");
+        try (CanoeStateProbe empty = new CanoeStateProbe()) {
+            assertNull(empty.tagName(), "before any input");
+        }
+        try (CanoeStateProbe textOnly = new CanoeStateProbe()) {
+            textOnly.feed("text only");
+            assertNull(textOnly.tagName(), "no tag yet");
+        }
+        try (CanoeStateProbe unquotedValueTag = new CanoeStateProbe()) {
+            unquotedValueTag.feed("<div id=x>");
+            assertNull(unquotedValueTag.tagName(),
+                    "the '>' of an unquoted-value tag ends it");
+        }
+        try (CanoeStateProbe bodyText = new CanoeStateProbe()) {
+            bodyText.feed("<div id=\"x\">body text");
+            assertNull(bodyText.tagName(),
+                    "body text must not see the element it is inside");
+        }
+        try (CanoeStateProbe selfClosing = new CanoeStateProbe()) {
+            selfClosing.feed("<br />");
+            assertNull(selfClosing.tagName(),
+                    "the self-closing '>' ends the tag too");
+        }
+        try (CanoeStateProbe noAttributes = new CanoeStateProbe()) {
+            noAttributes.feed("<div>");
+            assertNull(noAttributes.tagName(),
+                    "a tag with no attributes at all");
+        }
 
         // Inside the two raw-text element bodies the tag is over: the field must not report
         // "script" for a reference in script data, which is CTX_JS by state and not by name.
-        CanoeStateProbe script = new CanoeStateProbe().feed("<script src=\"x\">var a;");
-        assertEquals(Canoe.SCRIPT, script.state());
-        assertNull(script.tagName(), "the script body is not the script tag");
-        CanoeStateProbe css = new CanoeStateProbe().feed("<style>p{}");
-        assertEquals(Canoe.CSS, css.state());
-        assertNull(css.tagName(), "the style body is not the style tag");
+        try (CanoeStateProbe script = new CanoeStateProbe();
+             CanoeStateProbe css = new CanoeStateProbe()) {
+            script.feed("<script src=\"x\">var a;");
+            assertEquals(Canoe.SCRIPT, script.state());
+            assertNull(script.tagName(), "the script body is not the script tag");
+
+            css.feed("<style>p{}");
+            assertEquals(Canoe.CSS, css.state());
+            assertNull(css.tagName(), "the style body is not the style tag");
+        }
 
         // While the next tag's name is still being read, the previous tag's name is gone.
-        assertNull(new CanoeStateProbe().feed("<div id=x><spa").tagName(),
-                "a half-read name is no name, not the previous tag's");
+        try (CanoeStateProbe halfRead = new CanoeStateProbe()) {
+            halfRead.feed("<div id=x><spa");
+            assertNull(halfRead.tagName(),
+                    "a half-read name is no name, not the previous tag's");
+        }
     }
 
     /** Sequential and nested markup: each tag replaces the name, none inherits one. */
     @Test
     public void aLaterTagReplacesTheNameAndNothingLeaksBetweenTags() throws IOException {
-        assertEquals("b", new CanoeStateProbe().feed("<a href=\"/x\">text<b id=\"").tagName(),
-                "the inner tag's name, not the outer's");
-        assertEquals("div",
-                new CanoeStateProbe().feed("<script src=\"x\"></script><div id=").tagName(),
-                "a script element upstream must not arm a later element's name");
-        assertEquals("img",
-                new CanoeStateProbe().feed("<iframe src=\"a\"></iframe><img src=\"").tagName(),
-                "iframe then img: the R9 distinction these two names will carry");
+        try (CanoeStateProbe innerTag = new CanoeStateProbe()) {
+            innerTag.feed("<a href=\"/x\">text<b id=\"");
+            assertEquals("b", innerTag.tagName(), "the inner tag's name, not the outer's");
+        }
+        try (CanoeStateProbe afterScript = new CanoeStateProbe()) {
+            afterScript.feed("<script src=\"x\"></script><div id=");
+            assertEquals("div", afterScript.tagName(),
+                    "a script element upstream must not arm a later element's name");
+        }
+        try (CanoeStateProbe afterIframe = new CanoeStateProbe()) {
+            afterIframe.feed("<iframe src=\"a\"></iframe><img src=\"");
+            assertEquals("img", afterIframe.tagName(),
+                    "iframe then img: the R9 distinction these two names will carry");
+        }
     }
 
     /** Comments and DOCTYPEs are not elements and never set the field. */
     @Test
     public void commentsAndDoctypesNeverCarryAName() throws IOException {
-        assertNull(new CanoeStateProbe().feed("<!doctype html").tagName(), "inside the DOCTYPE");
-        assertNull(new CanoeStateProbe().feed("<!doctype html><p id=x>text<!-- note ").tagName(),
-                "inside a comment");
-        assertNull(new CanoeStateProbe().feed("<p id=x>a<!-- note -->b").tagName(),
-                "after a comment closes");
+        try (CanoeStateProbe insideDoctype = new CanoeStateProbe()) {
+            insideDoctype.feed("<!doctype html");
+            assertNull(insideDoctype.tagName(), "inside the DOCTYPE");
+        }
+        try (CanoeStateProbe insideComment = new CanoeStateProbe()) {
+            insideComment.feed("<!doctype html><p id=x>text<!-- note ");
+            assertNull(insideComment.tagName(), "inside a comment");
+        }
+        try (CanoeStateProbe afterComment = new CanoeStateProbe()) {
+            afterComment.feed("<p id=x>a<!-- note -->b");
+            assertNull(afterComment.tagName(), "after a comment closes");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -178,11 +223,15 @@ public class TagNameTrackingTest {
     /** An end tag's name is tracked without its slash, and closingTag says which it was. */
     @Test
     public void anEndTagCarriesItsNameWithoutTheSlash() throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe().feed("<div id=x>text</div ");
-        assertEquals("div", probe.tagName());
-        assertTrue(probe.closingTag());
-        assertNull(new CanoeStateProbe().feed("<div id=x>text</div>after").tagName(),
-                "the end tag's '>' clears it like any other");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<div id=x>text</div ");
+            assertEquals("div", probe.tagName());
+            assertTrue(probe.closingTag());
+        }
+        try (CanoeStateProbe cleared = new CanoeStateProbe()) {
+            cleared.feed("<div id=x>text</div>after");
+            assertNull(cleared.tagName(), "the end tag's '>' clears it like any other");
+        }
     }
 
     /**
@@ -202,31 +251,41 @@ public class TagNameTrackingTest {
      */
     @Test
     public void theScriptAndStyleEndTagsAreNamedDespiteSkippingTagName() throws IOException {
-        CanoeStateProbe unconfirmed = new CanoeStateProbe().feed("<script>var a;</script");
-        assertEquals(Canoe.SCRIPT_END_NAME, unconfirmed.state());
-        assertNull(unconfirmed.tagName(),
-                "R17: the name is matched but the end tag is not confirmed until the character"
-                        + " after it, so there is no tag to name yet");
+        try (CanoeStateProbe unconfirmed = new CanoeStateProbe()) {
+            unconfirmed.feed("<script>var a;</script");
+            assertEquals(Canoe.SCRIPT_END_NAME, unconfirmed.state());
+            assertNull(unconfirmed.tagName(),
+                    "R17: the name is matched but the end tag is not confirmed until the character"
+                            + " after it, so there is no tag to name yet");
+        }
 
-        CanoeStateProbe script = new CanoeStateProbe().feed("<script>var a;</script ");
-        assertEquals(Canoe.TAG, script.state());
-        assertEquals("script", script.tagName());
-        assertTrue(script.closingTag());
+        try (CanoeStateProbe script = new CanoeStateProbe()) {
+            script.feed("<script>var a;</script ");
+            assertEquals(Canoe.TAG, script.state());
+            assertEquals("script", script.tagName());
+            assertTrue(script.closingTag());
+        }
 
-        CanoeStateProbe notAnEndTag = new CanoeStateProbe().feed("<script>var a;</scriptfoo");
-        assertEquals(Canoe.SCRIPT, notAnEndTag.state());
-        assertNull(notAnEndTag.tagName(),
-                "R17: '</scriptfoo' is script data, not an end tag, so nothing is named");
+        try (CanoeStateProbe notAnEndTag = new CanoeStateProbe()) {
+            notAnEndTag.feed("<script>var a;</scriptfoo");
+            assertEquals(Canoe.SCRIPT, notAnEndTag.state());
+            assertNull(notAnEndTag.tagName(),
+                    "R17: '</scriptfoo' is script data, not an end tag, so nothing is named");
+        }
 
-        CanoeStateProbe css = new CanoeStateProbe().feed("<style>p{}</style ");
-        assertEquals(Canoe.TAG, css.state());
-        assertEquals("style", css.tagName());
-        assertTrue(css.closingTag());
+        try (CanoeStateProbe css = new CanoeStateProbe()) {
+            css.feed("<style>p{}</style ");
+            assertEquals(Canoe.TAG, css.state());
+            assertEquals("style", css.tagName());
+            assertTrue(css.closingTag());
+        }
 
         // And the '>' clears both, back to ordinary HTML.
-        CanoeStateProbe closed = new CanoeStateProbe().feed("<script>var a;</script>text");
-        assertEquals(Canoe.HTML, closed.state());
-        assertNull(closed.tagName());
+        try (CanoeStateProbe closed = new CanoeStateProbe()) {
+            closed.feed("<script>var a;</script>text");
+            assertEquals(Canoe.HTML, closed.state());
+            assertNull(closed.tagName());
+        }
     }
 
     // ------------------------------------------------------------------
@@ -241,16 +300,19 @@ public class TagNameTrackingTest {
      */
     @Test
     public void theTagNameNowDecidesTheSrcEncoder() throws IOException {
-        CanoeStateProbe script = new CanoeStateProbe().feed("<script src=\"");
-        CanoeStateProbe img = new CanoeStateProbe().feed("<img src=\"");
-        assertEquals("script", script.tagName());
-        assertEquals("img", img.tagName());
-        assertEquals(Canoe.ATTR_URI_RESOURCE, script.attributeContext(),
-                "R9: src on <script> is a resource-loading sink");
-        assertEquals(Canoe.ATTR_URI, img.attributeContext(),
-                "R9 scopes <img src> out by design: it keeps the ordinary url() encoder");
-        assertEquals(Canoe.CTX_URI_RESOURCE, script.currentContext(),
-                "so the two elements now produce different output contexts from the same attribute");
-        assertEquals(Canoe.CTX_URI, img.currentContext());
+        try (CanoeStateProbe script = new CanoeStateProbe();
+             CanoeStateProbe img = new CanoeStateProbe()) {
+            script.feed("<script src=\"");
+            img.feed("<img src=\"");
+            assertEquals("script", script.tagName());
+            assertEquals("img", img.tagName());
+            assertEquals(Canoe.ATTR_URI_RESOURCE, script.attributeContext(),
+                    "R9: src on <script> is a resource-loading sink");
+            assertEquals(Canoe.ATTR_URI, img.attributeContext(),
+                    "R9 scopes <img src> out by design: it keeps the ordinary url() encoder");
+            assertEquals(Canoe.CTX_URI_RESOURCE, script.currentContext(),
+                    "so the two elements now produce different output contexts from the same attribute");
+            assertEquals(Canoe.CTX_URI, img.currentContext());
+        }
     }
 }

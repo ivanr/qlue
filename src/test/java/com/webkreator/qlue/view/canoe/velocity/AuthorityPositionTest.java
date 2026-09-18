@@ -137,15 +137,16 @@ public class AuthorityPositionTest {
     public void everyResourceSinkCombinationRejectsAnOffOriginAuthority(String element,
                                                                        String attributeName)
             throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed("<" + element + " " + attributeName + "=\"");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<" + element + " " + attributeName + "=\"");
 
-        assertEquals(Canoe.ATTR_URI_RESOURCE, probe.attributeContext(),
-                element + "/" + attributeName + " must classify as a resource-loading sink");
-        assertEquals(Canoe.CTX_URI_RESOURCE, probe.currentContext());
-        assertEquals("", probe.encode(OFF_ORIGIN));
-        assertEquals(attributeName, probe.urlAttributeName(),
-                "the diagnostic must name the attribute the value went missing from");
+            assertEquals(Canoe.ATTR_URI_RESOURCE, probe.attributeContext(),
+                    element + "/" + attributeName + " must classify as a resource-loading sink");
+            assertEquals(Canoe.CTX_URI_RESOURCE, probe.currentContext());
+            assertEquals("", probe.encode(OFF_ORIGIN));
+            assertEquals(attributeName, probe.urlAttributeName(),
+                    "the diagnostic must name the attribute the value went missing from");
+        }
     }
 
     /**
@@ -175,11 +176,15 @@ public class AuthorityPositionTest {
     /** A tag name nothing maps, and a mapped tag with an unmapped URL attribute: neither is a sink. */
     @Test
     public void anUnmappedElementOrAttributeIsNotAResourceSink() throws IOException {
-        assertEquals(Canoe.ATTR_URI, new CanoeStateProbe().feed("<div src=\"").attributeContext(),
-                "<div> is in no row of the table");
-        assertEquals(Canoe.ATTR_URI, new CanoeStateProbe().feed("<script poster=\"")
-                        .attributeContext(),
-                "<script> is in the table, but poster is not one of its three names");
+        try (CanoeStateProbe divProbe = new CanoeStateProbe()) {
+            divProbe.feed("<div src=\"");
+            assertEquals(Canoe.ATTR_URI, divProbe.attributeContext(), "<div> is in no row of the table");
+        }
+        try (CanoeStateProbe scriptPosterProbe = new CanoeStateProbe()) {
+            scriptPosterProbe.feed("<script poster=\"");
+            assertEquals(Canoe.ATTR_URI, scriptPosterProbe.attributeContext(),
+                    "<script> is in the table, but poster is not one of its three names");
+        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -223,10 +228,11 @@ public class AuthorityPositionTest {
     })
     public void theUrlPositionIsTrackedThroughTheValue(String valueText, String expected)
             throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed("<script src=\"" + valueText);
-        assertEquals(expected, CanoeStateProbe.urlValueStateName(probe.urlValueState()),
-                "position after " + CanoeTestSupport.quote(valueText));
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<script src=\"" + valueText);
+            assertEquals(expected, CanoeStateProbe.urlValueStateName(probe.urlValueState()),
+                    "position after " + CanoeTestSupport.quote(valueText));
+        }
     }
 
     /**
@@ -310,14 +316,15 @@ public class AuthorityPositionTest {
      */
     @Test
     public void theValuePositionIsResetAtTheEqualsSoAnUnquotedValueIsJudged() throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed("<script src=\"https://cdn.ok\" src=");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<script src=\"https://cdn.ok\" src=");
 
-        assertEquals(Canoe.TAG_ATTR_VALUE_BEFORE, probe.state());
-        assertEquals("URLV_START", CanoeStateProbe.urlValueStateName(probe.urlValueState()),
-                "the previous value ended inside an authority and must not be inherited");
-        assertEquals("", probe.encode(OFF_ORIGIN), "and the standalone origin check still applies");
-        assertEquals("/app.js", probe.encode("/app.js"));
+            assertEquals(Canoe.TAG_ATTR_VALUE_BEFORE, probe.state());
+            assertEquals("URLV_START", CanoeStateProbe.urlValueStateName(probe.urlValueState()),
+                    "the previous value ended inside an authority and must not be inherited");
+            assertEquals("", probe.encode(OFF_ORIGIN), "and the standalone origin check still applies");
+            assertEquals("/app.js", probe.encode("/app.js"));
+        }
     }
 
     /**
@@ -328,10 +335,11 @@ public class AuthorityPositionTest {
      */
     @Test
     public void aNullValueInSlashPositionIsNotDereferenced() throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed("<script src=\"/");
-        assertEquals("URLV_SLASH", CanoeStateProbe.urlValueStateName(probe.urlValueState()));
-        assertEquals(null, probe.encode(null));
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<script src=\"/");
+            assertEquals("URLV_SLASH", CanoeStateProbe.urlValueStateName(probe.urlValueState()));
+            assertEquals(null, probe.encode(null));
+        }
     }
 
     /**
@@ -425,12 +433,13 @@ public class AuthorityPositionTest {
     @ValueSource(strings = {"javascript", "livescript", "mocha", "data", "asfunction"})
     public void everyRecognisedValuePrefixSurvivesLeadingWhitespace(String scheme)
             throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed("<a title=\" \t" + scheme + ":");
-        assertNotEquals(Canoe.ATTR_HTML, probe.attributeContext(),
-                scheme + ": must still narrow the context when the value is padded");
-        assertEquals("", probe.encode("');alert(1);//"),
-                "and every context this method can assign - ATTR_JS, ATTR_DATA, ATTR_ACTIONSCRIPT -"
-                        + " emits nothing, which is why narrowing is the only safe direction here");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<a title=\" \t" + scheme + ":");
+            assertNotEquals(Canoe.ATTR_HTML, probe.attributeContext(),
+                    scheme + ": must still narrow the context when the value is padded");
+            assertEquals("", probe.encode("');alert(1);//"),
+                    "and every context this method can assign - ATTR_JS, ATTR_DATA, ATTR_ACTIONSCRIPT -"
+                            + " emits nothing, which is why narrowing is the only safe direction here");
+        }
     }
 }

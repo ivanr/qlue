@@ -802,8 +802,9 @@ public class EventHandlerMatrixTest {
      * fresh Canoe is now a convention rather than a precaution.
      */
     private static int attributeContextOf(String attributeName) {
-        try {
-            return new CanoeStateProbe().feed("<div " + attributeName + "=\"").attributeContext();
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<div " + attributeName + "=\"");
+            return probe.attributeContext();
         } catch (IOException e) {
             throw new AssertionError("Canoe rejected the attribute name " + attributeName, e);
         }
@@ -820,8 +821,9 @@ public class EventHandlerMatrixTest {
      * the quote.
      */
     private static char bufferAt(String attributeName, int index) {
-        try {
-            return new CanoeStateProbe().feed("<div " + attributeName + "=").bufferAt(index);
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<div " + attributeName + "=");
+            return probe.bufferAt(index);
         } catch (IOException e) {
             throw new AssertionError("Canoe rejected the attribute name " + attributeName, e);
         }
