@@ -75,7 +75,7 @@ public class TomcatIntegrationTest {
         context = tomcat.addContext("", docBase.toString());
         Tomcat.addServlet(context, "qlue", new QlueServlet())
                 .addInitParameter("QLUE_PAGES_ROOT_PACKAGE", tomcatSmoke.class.getPackageName());
-        context.addServletMappingDecoded("/*", "qlue");
+        context.addServletMapping("/*", "qlue");
 
         tomcat.start();
         port = tomcat.getConnector().getLocalPort();

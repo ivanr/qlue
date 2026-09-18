@@ -196,7 +196,7 @@ public final class CanoeTestSupport {
      * Closes a test-only Canoe. Its sink is always a {@link StringWriter}, whose close() is
      * documented to do nothing, so a checked IOException here would never be real.
      */
-    static void closeQuietly(Closeable closeable) {
+    public static void closeQuietly(Closeable closeable) {
         try {
             closeable.close();
         } catch (IOException e) {

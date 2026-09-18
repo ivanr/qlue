@@ -19,7 +19,6 @@ package com.webkreator.qlue.view.velocity;
 import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.view.View;
 import org.apache.velocity.app.VelocityEngine;
-import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 
 import java.util.Properties;

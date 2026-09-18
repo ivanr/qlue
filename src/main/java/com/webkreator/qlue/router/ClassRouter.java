@@ -17,7 +17,6 @@
 package com.webkreator.qlue.router;
 
 import com.webkreator.qlue.Page;
-import com.webkreator.qlue.QlueApplication;
 import com.webkreator.qlue.TransactionContext;
 import com.webkreator.qlue.exceptions.QlueException;
 import org.slf4j.Logger;

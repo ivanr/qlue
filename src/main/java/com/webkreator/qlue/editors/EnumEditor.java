@@ -10,19 +10,24 @@ public class EnumEditor implements PropertyEditor {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public Enum fromText(Field field, String text, Object currentValue) {
+    public Enum<?> fromText(Field field, String text, Object currentValue) {
         if (text == null) {
-            return (Enum)currentValue;
+            return (Enum<?>) currentValue;
         }
 
         if (!field.getType().isEnum()) {
             throw new IllegalArgumentException("Field not enum: " + field.getType());
         }
 
-        // Enum.valueOf() requires Class<T extends Enum<T>>, but we only know at runtime
-        // that the reflected field type is an enum, so this cast is unavoidable.
-        return Enum.valueOf((Class<Enum>)field.getType(), text);
+        return valueOf(field.getType(), text);
+    }
+
+    // Enum.valueOf() requires Class<T extends Enum<T>>, but we only know at runtime that the
+    // reflected field type is an enum. Capturing that as a type variable here keeps the
+    // unchecked cast local to this helper instead of using a raw Class<Enum> at the call site.
+    @SuppressWarnings("unchecked")
+    private static <T extends Enum<T>> T valueOf(Class<?> enumType, String name) {
+        return Enum.valueOf((Class<T>) enumType, name);
     }
 
     @Override

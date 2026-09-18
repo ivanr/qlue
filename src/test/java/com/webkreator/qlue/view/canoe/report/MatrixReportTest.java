@@ -479,7 +479,6 @@ public class MatrixReportTest {
                 continue;
             }
             BrowserResult result = new BrowserResult();
-            result.engine = unquote(parts[0]);
             result.detectors = unquote(parts[2]);
             results.putIfAbsent(unquote(parts[1]), result);
         }
@@ -516,7 +515,6 @@ public class MatrixReportTest {
     }
 
     private static final class BrowserResult {
-        String engine;
         String detectors;
     }
 }

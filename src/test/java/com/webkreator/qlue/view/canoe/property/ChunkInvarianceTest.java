@@ -194,19 +194,21 @@ public class ChunkInvarianceTest {
     public void aNonZeroOffsetParsesExactlyTheRequestedRange() throws IOException {
         char[] text = "<a href=\"/x\">y</a>".toCharArray();
 
-        CanoeStateProbe atZero = new CanoeStateProbe();
-        atZero.feed(text, 0, text.length);
-        assertEquals(Canoe.CTX_HTML, atZero.currentContext(),
-                "the whole string is parsed at offset 0");
+        try (CanoeStateProbe atZero = new CanoeStateProbe()) {
+            atZero.feed(text, 0, text.length);
+            assertEquals(Canoe.CTX_HTML, atZero.currentContext(),
+                    "the whole string is parsed at offset 0");
+        }
 
-        CanoeStateProbe atThree = new CanoeStateProbe();
-        atThree.feed(text, 3, text.length - 3);
-        assertEquals(new String(text, 3, text.length - 3), atThree.output(),
-                "every character in the range is written to the response");
-        assertEquals(Canoe.CTX_HTML, atThree.currentContext(),
-                "R15: ...and every one is now parsed, so the machine ends where the same substring"
-                        + " written at offset 0 would leave it. Actual: "
-                        + CanoeTestSupport.contextName(atThree.currentContext()));
+        try (CanoeStateProbe atThree = new CanoeStateProbe()) {
+            atThree.feed(text, 3, text.length - 3);
+            assertEquals(new String(text, 3, text.length - 3), atThree.output(),
+                    "every character in the range is written to the response");
+            assertEquals(Canoe.CTX_HTML, atThree.currentContext(),
+                    "R15: ...and every one is now parsed, so the machine ends where the same substring"
+                            + " written at offset 0 would leave it. Actual: "
+                            + CanoeTestSupport.contextName(atThree.currentContext()));
+        }
     }
 
     /**

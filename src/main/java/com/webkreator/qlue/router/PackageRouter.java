@@ -106,7 +106,7 @@ public class PackageRouter implements Router {
             log.debug("Trying class: " + classpath);
         }
 
-        Class clazz = QlueApplication.classForName(classpath);
+        Class<?> clazz = QlueApplication.classForName(classpath);
         if (isPage(clazz)) {
             if (path.endsWith("/" + manager.getIndex()) || path.equals(manager.getIndex())) {
                 // Redirect to canonical.

@@ -857,13 +857,16 @@ public class AttributeNameMatrixTest {
         Set<String> extra = Canoe.normalisePlainTextAttributeNames(
                 List.of("my-widget-config", "HX-Target"));
 
-        assertEquals(Canoe.ATTR_HTML,
-                new CanoeStateProbe(extra).feed("<div my-widget-config=\"").attributeContext(),
+        CanoeStateProbe widgetConfigProbe = new CanoeStateProbe(extra).feed("<div my-widget-config=\"");
+        assertEquals(Canoe.ATTR_HTML, widgetConfigProbe.attributeContext(),
                 "a configured name must reach the plain-text encoder");
-        assertEquals(Canoe.ATTR_HTML,
-                new CanoeStateProbe(extra).feed("<div hx-target=\"").attributeContext(),
+        CanoeTestSupport.closeQuietly(widgetConfigProbe);
+
+        CanoeStateProbe hxTargetProbe = new CanoeStateProbe(extra).feed("<div hx-target=\"");
+        assertEquals(Canoe.ATTR_HTML, hxTargetProbe.attributeContext(),
                 "...and the names are lower-cased on the way in, because the name scan lower-cases"
                         + " as it buffers");
+        CanoeTestSupport.closeQuietly(hxTargetProbe);
 
         // Still text, not markup: the grant is html(), not a bypass.
         CanoeTestSupport.RenderResult rendered = CanoeTestSupport.render(
@@ -880,19 +883,23 @@ public class AttributeNameMatrixTest {
                         + " plain-text one rather than a bypass");
 
         // ...and the widening belongs to the instance that was configured.
-        assertEquals(Canoe.ATTR_UNKNOWN,
-                new CanoeStateProbe().feed("<div my-widget-config=\"").attributeContext(),
+        CanoeStateProbe unconfiguredProbe = new CanoeStateProbe().feed("<div my-widget-config=\"");
+        assertEquals(Canoe.ATTR_UNKNOWN, unconfiguredProbe.attributeContext(),
                 "a Canoe that was not configured must be unaffected. The allowlist is per engine;"
                         + " a static would let one application widen another's.");
+        CanoeTestSupport.closeQuietly(unconfiguredProbe);
 
         // A null set is "the application said nothing" rather than a NullPointerException at the
         // first attribute of the first page. The one-argument constructor takes this path too.
-        assertEquals(Canoe.ATTR_UNKNOWN,
-                new CanoeStateProbe(null).feed("<div my-widget-config=\"").attributeContext(),
+        CanoeStateProbe nullSetProbe = new CanoeStateProbe(null).feed("<div my-widget-config=\"");
+        assertEquals(Canoe.ATTR_UNKNOWN, nullSetProbe.attributeContext(),
                 "a null extra-allowlist must behave as an empty one");
-        assertEquals(Canoe.ATTR_HTML,
-                new CanoeStateProbe(null).feed("<div title=\"").attributeContext(),
+        CanoeTestSupport.closeQuietly(nullSetProbe);
+
+        CanoeStateProbe nullSetTitleProbe = new CanoeStateProbe(null).feed("<div title=\"");
+        assertEquals(Canoe.ATTR_HTML, nullSetTitleProbe.attributeContext(),
                 "...and must not disturb the built-in allowlist");
+        CanoeTestSupport.closeQuietly(nullSetTitleProbe);
     }
 
     /**
@@ -1012,12 +1019,13 @@ public class AttributeNameMatrixTest {
 
         // ...and a legitimate set still works, in any casing, because the constructor normalises
         // rather than merely checking.
-        assertEquals(Canoe.ATTR_HTML,
-                new CanoeStateProbe(Set.of("My-Widget-Config")).feed("<div my-widget-config=\"")
-                        .attributeContext(),
+        CanoeStateProbe mixedCaseProbe = new CanoeStateProbe(Set.of("My-Widget-Config"))
+                .feed("<div my-widget-config=\"");
+        assertEquals(Canoe.ATTR_HTML, mixedCaseProbe.attributeContext(),
                 "the constructor lower-cases what it accepts, so a set that was not put through"
                         + " normalisePlainTextAttributeNames first still matches the parser's"
                         + " lower-cased name rather than silently matching nothing");
+        CanoeTestSupport.closeQuietly(mixedCaseProbe);
     }
 
     /**
@@ -1039,12 +1047,14 @@ public class AttributeNameMatrixTest {
         CanoeStateProbe probe = new CanoeStateProbe().feed("<div my-widget-config=\"");
         assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext());
         assertEquals("my-widget-config", probe.unknownAttributeName());
+        CanoeTestSupport.closeQuietly(probe);
 
         // A recognised name clears it, so the field cannot name a stale attribute.
-        assertNull(new CanoeStateProbe().feed("<div my-widget-config=\"x\" title=\"")
-                        .unknownAttributeName(),
+        CanoeStateProbe clearedProbe = new CanoeStateProbe().feed("<div my-widget-config=\"x\" title=\"");
+        assertNull(clearedProbe.unknownAttributeName(),
                 "the name is cleared when the next attribute is recognised, or the message would"
                         + " blame an attribute that rendered perfectly well");
+        CanoeTestSupport.closeQuietly(clearedProbe);
         assertEquals("ng-model",
                 new CanoeStateProbe().feed("<div data-x=\"y\" ng-model=\"").unknownAttributeName(),
                 "and an unrecognised name after a recognised one names itself rather than"

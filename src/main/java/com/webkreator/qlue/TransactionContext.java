@@ -301,7 +301,7 @@ public class TransactionContext implements Serializable {
     }
 
     public String getForwardedServer() {
-        return forwardedHost;
+        return forwardedServer;
     }
 
     /**

@@ -196,7 +196,7 @@ public class SessionlessTest {
         context = tomcat.addContext("", docBase.toString());
         Tomcat.addServlet(context, "qlue", new QlueServlet())
                 .addInitParameter("QLUE_PAGES_ROOT_PACKAGE", hello.class.getPackageName());
-        context.addServletMappingDecoded("/*", "qlue");
+        context.addServletMapping("/*", "qlue");
 
         FilterDef filterDef = new FilterDef();
         filterDef.setFilterName("machineSessionless");
@@ -205,7 +205,7 @@ public class SessionlessTest {
 
         FilterMap filterMap = new FilterMap();
         filterMap.setFilterName("machineSessionless");
-        filterMap.addURLPatternDecoded("/machine/*");
+        filterMap.addURLPattern("/machine/*");
         context.addFilterMap(filterMap);
 
         tomcat.start();

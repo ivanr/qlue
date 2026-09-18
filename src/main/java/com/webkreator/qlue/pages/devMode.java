@@ -59,9 +59,10 @@ public class devMode extends Page {
             out.println("Disabled");
         } else if (appStatus == QlueConstants.DEVMODE_ONDEMAND) {
             out.println("On Demand");
-        } else if (appStatus == null) {
-            out.println("none");
         } else {
+            // getApplicationDevelopmentMode() returns a primitive int (unlike the session-level
+            // mode below, which is nullable), so it is always one of the three constants above
+            // unless a new mode is added without updating this branch.
             out.println("Unknown: " + appStatus);
         }
         out.println("<br>");

@@ -204,36 +204,40 @@ public class ConcurrencyTest {
     @Test
     public void aCanoeCarriesStateAcrossWritesWhichIsWhyItMustNotBeShared() throws Exception {
         // R3: the F5 instrument, kept as the assertion that it no longer works.
-        Canoe fresh = new Canoe(new StringWriter());
-        fresh.write("<a href=\"mocha:");
-        assertEquals(Canoe.CTX_JS, fresh.currentContext(),
-                "mocha: is recognised and the reference will be suppressed");
+        try (Canoe fresh = new Canoe(new StringWriter())) {
+            fresh.write("<a href=\"mocha:");
+            assertEquals(Canoe.CTX_JS, fresh.currentContext(),
+                    "mocha: is recognised and the reference will be suppressed");
+        }
 
-        Canoe afterAnElevenCharacterName = new Canoe(new StringWriter());
-        afterAnElevenCharacterName.write("<input placeholder=\"x\">");
-        afterAnElevenCharacterName.write("<a href=\"mocha:");
-        assertEquals(Canoe.CTX_JS, afterAnElevenCharacterName.currentContext(),
-                "R3: an eleven-character attribute name in an earlier element used to leave an 'h'"
-                        + " at buf[5], so mocha: was no longer recognised and the identical text"
-                        + " landed in a different context. The buffer is cleared on reuse now, and"
-                        + " the comparison is length-checked, so this pair agrees.");
+        try (Canoe afterAnElevenCharacterName = new Canoe(new StringWriter())) {
+            afterAnElevenCharacterName.write("<input placeholder=\"x\">");
+            afterAnElevenCharacterName.write("<a href=\"mocha:");
+            assertEquals(Canoe.CTX_JS, afterAnElevenCharacterName.currentContext(),
+                    "R3: an eleven-character attribute name in an earlier element used to leave an 'h'"
+                            + " at buf[5], so mocha: was no longer recognised and the identical text"
+                            + " landed in a different context. The buffer is cleared on reuse now, and"
+                            + " the comparison is length-checked, so this pair agrees.");
+        }
 
         // ...and the state a Canoe legitimately carries, which is what makes the equality assertion
         // above non-vacuous now.
-        Canoe inHtml = new Canoe(new StringWriter());
-        inHtml.write("<p>");
-        assertEquals(Canoe.CTX_HTML, inHtml.currentContext(),
-                "a fresh Canoe is parsing ordinary markup");
+        try (Canoe inHtml = new Canoe(new StringWriter())) {
+            inHtml.write("<p>");
+            assertEquals(Canoe.CTX_HTML, inHtml.currentContext(),
+                    "a fresh Canoe is parsing ordinary markup");
+        }
 
-        Canoe inScript = new Canoe(new StringWriter());
-        inScript.write("<script>var q = 1;");
-        inScript.write("<p>");
-        assertEquals(Canoe.CTX_JS, inScript.currentContext(),
-                "the same three characters written to a Canoe that has already entered a script"
-                        + " element are script data, not markup, so the reference after them is"
-                        + " CTX_JS and dropped rather than html()-encoded. That is what a shared"
-                        + " Canoe would do to two concurrent renders, and it is why the byte"
-                        + " comparison above is not vacuous.");
+        try (Canoe inScript = new Canoe(new StringWriter())) {
+            inScript.write("<script>var q = 1;");
+            inScript.write("<p>");
+            assertEquals(Canoe.CTX_JS, inScript.currentContext(),
+                    "the same three characters written to a Canoe that has already entered a script"
+                            + " element are script data, not markup, so the reference after them is"
+                            + " CTX_JS and dropped rather than html()-encoded. That is what a shared"
+                            + " Canoe would do to two concurrent renders, and it is why the byte"
+                            + " comparison above is not vacuous.");
+        }
     }
 
     // ------------------------------------------------------------------
