@@ -232,17 +232,19 @@ public class CanoeStateMachineTest {
     @MethodSource("transitions")
     public void parsesTo(String description, String prefix, int expectedState, int expectedContext)
             throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe().feed(prefix);
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed(prefix);
 
-        assertEquals(expectedState, probe.state(),
-                () -> description + ": after " + CanoeTestSupport.quote(prefix)
-                        + " expected state " + CanoeStateProbe.stateName(expectedState)
-                        + " but was " + CanoeStateProbe.stateName(probe.state()));
+            assertEquals(expectedState, probe.state(),
+                    () -> description + ": after " + CanoeTestSupport.quote(prefix)
+                            + " expected state " + CanoeStateProbe.stateName(expectedState)
+                            + " but was " + CanoeStateProbe.stateName(probe.state()));
 
-        assertEquals(expectedContext, probe.currentContext(),
-                () -> description + ": after " + CanoeTestSupport.quote(prefix)
-                        + " expected " + CanoeTestSupport.contextName(expectedContext)
-                        + " but was " + CanoeTestSupport.contextName(probe.currentContext()));
+            assertEquals(expectedContext, probe.currentContext(),
+                    () -> description + ": after " + CanoeTestSupport.quote(prefix)
+                            + " expected " + CanoeTestSupport.contextName(expectedContext)
+                            + " but was " + CanoeTestSupport.contextName(probe.currentContext()));
+        }
     }
 
     // ------------------------------------------------------------------
@@ -290,8 +292,11 @@ public class CanoeStateMachineTest {
     public void theUrlStateIsDeadCode() throws IOException {
         for (Arguments arguments : (Iterable<Arguments>) transitions()::iterator) {
             String prefix = (String) arguments.get()[1];
-            assertTrue(new CanoeStateProbe().feed(prefix).state() != Canoe.URL,
-                    "something now reaches the URL state: " + CanoeTestSupport.quote(prefix));
+            try (CanoeStateProbe probe = new CanoeStateProbe()) {
+                probe.feed(prefix);
+                assertTrue(probe.state() != Canoe.URL,
+                        "something now reaches the URL state: " + CanoeTestSupport.quote(prefix));
+            }
         }
     }
 
@@ -396,24 +401,27 @@ public class CanoeStateMachineTest {
 
         for (Arguments arguments : (Iterable<Arguments>) transitions()::iterator) {
             String prefix = (String) arguments.get()[1];
-            CanoeStateProbe probe = new CanoeStateProbe().feed(prefix);
-            if (!withACase.contains(probe.state())) {
-                assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext(),
-                        CanoeStateProbe.stateName(probe.state())
-                                + " has no case in currentContext() and must suppress: "
-                                + CanoeTestSupport.quote(prefix));
+            try (CanoeStateProbe probe = new CanoeStateProbe()) {
+                probe.feed(prefix);
+                if (!withACase.contains(probe.state())) {
+                    assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext(),
+                            CanoeStateProbe.stateName(probe.state())
+                                    + " has no case in currentContext() and must suppress: "
+                                    + CanoeTestSupport.quote(prefix));
+                }
             }
         }
 
         // And INVALID, once the parser has given up entirely.
-        CanoeStateProbe probe = new CanoeStateProbe();
-        try {
-            probe.feed("5 < 6");
-        } catch (IOException expected) {
-            // Canoe rejects a literal '<' in body text; see CanoeRobustnessTest.
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            try {
+                probe.feed("5 < 6");
+            } catch (IOException expected) {
+                // Canoe rejects a literal '<' in body text; see CanoeRobustnessTest.
+            }
+            assertEquals(Canoe.INVALID, probe.state());
+            assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext());
         }
-        assertEquals(Canoe.INVALID, probe.state());
-        assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext());
     }
 
     // ------------------------------------------------------------------
@@ -760,11 +768,17 @@ public class CanoeStateMachineTest {
         // it still differs between the two names; what changed is that nothing looks at it. Probed
         // at the '=' rather than after the opening quote since R3: the quote starts the attribute
         // value, and the value scan clears the buffer before writing into it.
-        assertEquals('a', new CanoeStateProbe().feed("<img onreadystatechange=").bufferAt(4),
-                "buf[4] still holds the 'a' of 'ready'; the branch that tested it against 'd' is"
-                        + " gone");
-        assertEquals('d', new CanoeStateProbe().feed("<img onredystatechange=").bufferAt(4),
-                "and the misspelling still puts a 'd' there, which no longer decides anything");
+        try (CanoeStateProbe correctSpelling = new CanoeStateProbe()) {
+            correctSpelling.feed("<img onreadystatechange=");
+            assertEquals('a', correctSpelling.bufferAt(4),
+                    "buf[4] still holds the 'a' of 'ready'; the branch that tested it against 'd' is"
+                            + " gone");
+        }
+        try (CanoeStateProbe misspelling = new CanoeStateProbe()) {
+            misspelling.feed("<img onredystatechange=");
+            assertEquals('d', misspelling.bufferAt(4),
+                    "and the misspelling still puts a 'd' there, which no longer decides anything");
+        }
 
         assertEquals(Canoe.CTX_JS, CanoeTestSupport.contextAfter("<img onreadystatechange=\""),
                 "R4: suppressed, so no entity-encoded payload reaches the JavaScript parser");
@@ -1016,6 +1030,9 @@ public class CanoeStateMachineTest {
     }
 
     private static int attributeContextOf(String prefix) throws IOException {
-        return new CanoeStateProbe().feed(prefix).attributeContext();
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed(prefix);
+            return probe.attributeContext();
+        }
     }
 }

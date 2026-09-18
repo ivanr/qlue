@@ -857,12 +857,14 @@ public class AttributeNameMatrixTest {
         Set<String> extra = Canoe.normalisePlainTextAttributeNames(
                 List.of("my-widget-config", "HX-Target"));
 
-        CanoeStateProbe widgetConfigProbe = new CanoeStateProbe(extra).feed("<div my-widget-config=\"");
+        CanoeStateProbe widgetConfigProbe = new CanoeStateProbe(extra);
+        widgetConfigProbe.feed("<div my-widget-config=\"");
         assertEquals(Canoe.ATTR_HTML, widgetConfigProbe.attributeContext(),
                 "a configured name must reach the plain-text encoder");
         CanoeTestSupport.closeQuietly(widgetConfigProbe);
 
-        CanoeStateProbe hxTargetProbe = new CanoeStateProbe(extra).feed("<div hx-target=\"");
+        CanoeStateProbe hxTargetProbe = new CanoeStateProbe(extra);
+        hxTargetProbe.feed("<div hx-target=\"");
         assertEquals(Canoe.ATTR_HTML, hxTargetProbe.attributeContext(),
                 "...and the names are lower-cased on the way in, because the name scan lower-cases"
                         + " as it buffers");
@@ -883,7 +885,8 @@ public class AttributeNameMatrixTest {
                         + " plain-text one rather than a bypass");
 
         // ...and the widening belongs to the instance that was configured.
-        CanoeStateProbe unconfiguredProbe = new CanoeStateProbe().feed("<div my-widget-config=\"");
+        CanoeStateProbe unconfiguredProbe = new CanoeStateProbe();
+        unconfiguredProbe.feed("<div my-widget-config=\"");
         assertEquals(Canoe.ATTR_UNKNOWN, unconfiguredProbe.attributeContext(),
                 "a Canoe that was not configured must be unaffected. The allowlist is per engine;"
                         + " a static would let one application widen another's.");
@@ -891,12 +894,14 @@ public class AttributeNameMatrixTest {
 
         // A null set is "the application said nothing" rather than a NullPointerException at the
         // first attribute of the first page. The one-argument constructor takes this path too.
-        CanoeStateProbe nullSetProbe = new CanoeStateProbe(null).feed("<div my-widget-config=\"");
+        CanoeStateProbe nullSetProbe = new CanoeStateProbe(null);
+        nullSetProbe.feed("<div my-widget-config=\"");
         assertEquals(Canoe.ATTR_UNKNOWN, nullSetProbe.attributeContext(),
                 "a null extra-allowlist must behave as an empty one");
         CanoeTestSupport.closeQuietly(nullSetProbe);
 
-        CanoeStateProbe nullSetTitleProbe = new CanoeStateProbe(null).feed("<div title=\"");
+        CanoeStateProbe nullSetTitleProbe = new CanoeStateProbe(null);
+        nullSetTitleProbe.feed("<div title=\"");
         assertEquals(Canoe.ATTR_HTML, nullSetTitleProbe.attributeContext(),
                 "...and must not disturb the built-in allowlist");
         CanoeTestSupport.closeQuietly(nullSetTitleProbe);
@@ -1019,8 +1024,8 @@ public class AttributeNameMatrixTest {
 
         // ...and a legitimate set still works, in any casing, because the constructor normalises
         // rather than merely checking.
-        CanoeStateProbe mixedCaseProbe = new CanoeStateProbe(Set.of("My-Widget-Config"))
-                .feed("<div my-widget-config=\"");
+        CanoeStateProbe mixedCaseProbe = new CanoeStateProbe(Set.of("My-Widget-Config"));
+        mixedCaseProbe.feed("<div my-widget-config=\"");
         assertEquals(Canoe.ATTR_HTML, mixedCaseProbe.attributeContext(),
                 "the constructor lower-cases what it accepts, so a set that was not put through"
                         + " normalisePlainTextAttributeNames first still matches the parser's"
@@ -1044,19 +1049,21 @@ public class AttributeNameMatrixTest {
      */
     @Test
     public void theSuppressionDiagnosticNamesTheAttributeTheReferenceIsIn() throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe().feed("<div my-widget-config=\"");
+        CanoeStateProbe probe = new CanoeStateProbe();
+        probe.feed("<div my-widget-config=\"");
         assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext());
         assertEquals("my-widget-config", probe.unknownAttributeName());
         CanoeTestSupport.closeQuietly(probe);
 
         // A recognised name clears it, so the field cannot name a stale attribute.
-        CanoeStateProbe clearedProbe = new CanoeStateProbe().feed("<div my-widget-config=\"x\" title=\"");
+        CanoeStateProbe clearedProbe = new CanoeStateProbe();
+        clearedProbe.feed("<div my-widget-config=\"x\" title=\"");
         assertNull(clearedProbe.unknownAttributeName(),
                 "the name is cleared when the next attribute is recognised, or the message would"
                         + " blame an attribute that rendered perfectly well");
         CanoeTestSupport.closeQuietly(clearedProbe);
-        CanoeStateProbe secondUnrecognisedProbe =
-                new CanoeStateProbe().feed("<div data-x=\"y\" ng-model=\"");
+        CanoeStateProbe secondUnrecognisedProbe = new CanoeStateProbe();
+        secondUnrecognisedProbe.feed("<div data-x=\"y\" ng-model=\"");
         assertEquals("ng-model", secondUnrecognisedProbe.unknownAttributeName(),
                 "and an unrecognised name after a recognised one names itself rather than"
                         + " inheriting anything");
@@ -1065,33 +1072,35 @@ public class AttributeNameMatrixTest {
         // The shapes that would let a stale name survive if the capture were not cleared per
         // attribute name: a second unrecognised attribute on the same element, a self-closing tag
         // between the two, a valueless attribute in between, and a nested element.
-        CanoeStateProbe twoUnrecognisedProbe = new CanoeStateProbe().feed("<div my-a=\"x\" my-b=\"");
+        CanoeStateProbe twoUnrecognisedProbe = new CanoeStateProbe();
+        twoUnrecognisedProbe.feed("<div my-a=\"x\" my-b=\"");
         assertEquals("my-b", twoUnrecognisedProbe.unknownAttributeName(),
                 "two unrecognised attributes on one element must each name themselves, or the"
                         + " message points at the first thing that went wrong on the element rather"
                         + " than at the value the developer is missing");
         CanoeTestSupport.closeQuietly(twoUnrecognisedProbe);
 
-        CanoeStateProbe selfClosingProbe = new CanoeStateProbe().feed("<img my-a=\"x\"/><div hx-x=\"");
+        CanoeStateProbe selfClosingProbe = new CanoeStateProbe();
+        selfClosingProbe.feed("<img my-a=\"x\"/><div hx-x=\"");
         assertEquals("hx-x", selfClosingProbe.unknownAttributeName(),
                 "a self-closing tag in between must not leave the previous element's name behind");
         CanoeTestSupport.closeQuietly(selfClosingProbe);
 
-        CanoeStateProbe clearsAfterSelfClosingProbe =
-                new CanoeStateProbe().feed("<img my-a=\"x\"/><div title=\"");
+        CanoeStateProbe clearsAfterSelfClosingProbe = new CanoeStateProbe();
+        clearsAfterSelfClosingProbe.feed("<img my-a=\"x\"/><div title=\"");
         assertNull(clearsAfterSelfClosingProbe.unknownAttributeName(),
                 "...and the clear survives the self-closing tag too");
         CanoeTestSupport.closeQuietly(clearsAfterSelfClosingProbe);
 
-        CanoeStateProbe valuelessAttributeProbe =
-                new CanoeStateProbe().feed("<input my-a disabled ng-model=\"");
+        CanoeStateProbe valuelessAttributeProbe = new CanoeStateProbe();
+        valuelessAttributeProbe.feed("<input my-a disabled ng-model=\"");
         assertEquals("ng-model", valuelessAttributeProbe.unknownAttributeName(),
                 "an attribute with no value is classified like any other, so the valueless"
                         + " unrecognised name is cleared by the recognised one that follows it");
         CanoeTestSupport.closeQuietly(valuelessAttributeProbe);
 
-        CanoeStateProbe nestedElementProbe =
-                new CanoeStateProbe().feed("<div my-a=\"x\"><span data-y=\"");
+        CanoeStateProbe nestedElementProbe = new CanoeStateProbe();
+        nestedElementProbe.feed("<div my-a=\"x\"><span data-y=\"");
         assertNull(nestedElementProbe.unknownAttributeName(),
                 "and a nested element starts from its own attributes");
         CanoeTestSupport.closeQuietly(nestedElementProbe);
@@ -1224,8 +1233,9 @@ public class AttributeNameMatrixTest {
      * failure here should still be about one name.
      */
     private static int attributeContextOf(String attributeName) {
-        try {
-            return new CanoeStateProbe().feed("<x " + attributeName + "=\"").attributeContext();
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<x " + attributeName + "=\"");
+            return probe.attributeContext();
         } catch (IOException e) {
             throw new AssertionError("Canoe rejected the attribute name " + attributeName, e);
         }

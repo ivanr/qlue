@@ -542,8 +542,9 @@ public class UrlSinkTest {
     }
 
     private static int attributeContextOf(String attributeName) {
-        try {
-            return new CanoeStateProbe().feed("<x " + attributeName + "=\"").attributeContext();
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<x " + attributeName + "=\"");
+            return probe.attributeContext();
         } catch (IOException e) {
             throw new AssertionError("Canoe rejected the attribute name " + attributeName, e);
         }

@@ -301,15 +301,20 @@ public class BufferResidueTest {
         String dirty = "<i placeholder=\"Search\">";
 
         // A tag name: "a" and its terminator, then nothing.
-        assertClearAbove(new CanoeStateProbe().feed(dirty + "<a"), 1, "tag name");
+        CanoeStateProbe tagNameProbe = new CanoeStateProbe();
+        tagNameProbe.feed(dirty + "<a");
+        assertClearAbove(tagNameProbe, 1, "tag name");
 
         // An attribute name: "href" and its terminator at index 4.
-        assertClearAbove(new CanoeStateProbe().feed(dirty + "<a href"), 4, "attribute name");
+        CanoeStateProbe attributeNameProbe = new CanoeStateProbe();
+        attributeNameProbe.feed(dirty + "<a href");
+        assertClearAbove(attributeNameProbe, 4, "attribute name");
 
         // An attribute value: ten characters and no terminator at all, which is the case that used
         // to expose the residue.
-        assertClearAbove(new CanoeStateProbe().feed(dirty + "<a href=\"javascript"), 10,
-                "attribute value");
+        CanoeStateProbe attributeValueProbe = new CanoeStateProbe();
+        attributeValueProbe.feed(dirty + "<a href=\"javascript");
+        assertClearAbove(attributeValueProbe, 10, "attribute value");
     }
 
     // Takes ownership of the probe: every caller constructs one just to pass it here and never
