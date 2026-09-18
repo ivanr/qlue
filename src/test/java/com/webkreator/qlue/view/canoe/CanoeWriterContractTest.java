@@ -110,21 +110,23 @@ public class CanoeWriterContractTest {
     @Test
     public void writeWithANonZeroOffsetParsesExactlyTheRequestedRange() throws IOException {
         char[] buffer = "XXX<b>hello</b>".toCharArray();
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed(buffer, 3, 12);
-
-        assertEquals("<b>hello</b>", probe.output(),
-                "the full requested range reaches the underlying writer");
-
         // The same characters written at offset 0 are the reference the range must match.
-        CanoeStateProbe reference = new CanoeStateProbe().feed("<b>hello</b>");
-        assertEquals(reference.state(), probe.state(),
-                "R15: every character of the range is now parsed, so the offset write ends in the"
-                        + " same state as the offset-0 write of the same characters");
-        assertEquals(reference.currentContext(), probe.currentContext(),
-                "R15: ...and in the same context; the machine no longer stalls three characters short");
-        assertEquals(Canoe.HTML, probe.state());
-        assertEquals(Canoe.CTX_HTML, probe.currentContext());
+        try (CanoeStateProbe probe = new CanoeStateProbe();
+             CanoeStateProbe reference = new CanoeStateProbe()) {
+            probe.feed(buffer, 3, 12);
+            reference.feed("<b>hello</b>");
+
+            assertEquals("<b>hello</b>", probe.output(),
+                    "the full requested range reaches the underlying writer");
+
+            assertEquals(reference.state(), probe.state(),
+                    "R15: every character of the range is now parsed, so the offset write ends in the"
+                            + " same state as the offset-0 write of the same characters");
+            assertEquals(reference.currentContext(), probe.currentContext(),
+                    "R15: ...and in the same context; the machine no longer stalls three characters short");
+            assertEquals(Canoe.HTML, probe.state());
+            assertEquals(Canoe.CTX_HTML, probe.currentContext());
+        }
     }
 
     /**
@@ -354,88 +356,96 @@ public class CanoeWriterContractTest {
 
     private static int contextVia(String text, Entry entry) throws IOException {
         StringWriter sink = new StringWriter();
-        Canoe canoe = new Canoe(sink);
-        switch (entry) {
-            case WRITE_STRING:
-                canoe.write(text);
-                break;
-            case WRITE_CHARS:
-                canoe.write(text.toCharArray());
-                break;
-            case WRITE_STRING_RANGE:
-                canoe.write(text, 0, text.length());
-                break;
-            case APPEND:
-                canoe.append(text);
-                break;
-            case APPEND_RANGE:
-                canoe.append(text, 0, text.length());
-                break;
-            case APPEND_CHAR:
-                for (int i = 0; i < text.length(); i++) {
-                    canoe.append(text.charAt(i));
-                }
-                break;
-            case WRITE_INT:
-                for (int i = 0; i < text.length(); i++) {
-                    canoe.write(text.charAt(i));
-                }
-                break;
+        try (Canoe canoe = new Canoe(sink)) {
+            switch (entry) {
+                case WRITE_STRING:
+                    canoe.write(text);
+                    break;
+                case WRITE_CHARS:
+                    canoe.write(text.toCharArray());
+                    break;
+                case WRITE_STRING_RANGE:
+                    canoe.write(text, 0, text.length());
+                    break;
+                case APPEND:
+                    canoe.append(text);
+                    break;
+                case APPEND_RANGE:
+                    canoe.append(text, 0, text.length());
+                    break;
+                case APPEND_CHAR:
+                    for (int i = 0; i < text.length(); i++) {
+                        canoe.append(text.charAt(i));
+                    }
+                    break;
+                case WRITE_INT:
+                    for (int i = 0; i < text.length(); i++) {
+                        canoe.write(text.charAt(i));
+                    }
+                    break;
+            }
+            return canoe.currentContext();
         }
-        return canoe.currentContext();
     }
 
     private static String viaWriteString(String text) throws IOException {
         StringWriter sink = new StringWriter();
-        Canoe canoe = new Canoe(sink);
-        canoe.write(text);
-        return sink.toString();
+        try (Canoe canoe = new Canoe(sink)) {
+            canoe.write(text);
+            return sink.toString();
+        }
     }
 
     private static String viaWriteCharArray(String text) throws IOException {
         StringWriter sink = new StringWriter();
-        Canoe canoe = new Canoe(sink);
-        canoe.write(text.toCharArray());
-        return sink.toString();
+        try (Canoe canoe = new Canoe(sink)) {
+            canoe.write(text.toCharArray());
+            return sink.toString();
+        }
     }
 
     private static String viaWriteStringRange(String text) throws IOException {
         StringWriter sink = new StringWriter();
-        Canoe canoe = new Canoe(sink);
-        canoe.write(text, 0, text.length());
-        return sink.toString();
+        try (Canoe canoe = new Canoe(sink)) {
+            canoe.write(text, 0, text.length());
+            return sink.toString();
+        }
     }
 
     private static String viaAppendCharSequence(String text) throws IOException {
         StringWriter sink = new StringWriter();
-        Canoe canoe = new Canoe(sink);
-        canoe.append(text);
-        return sink.toString();
+        try (Canoe canoe = new Canoe(sink)) {
+            canoe.append(text);
+            return sink.toString();
+        }
     }
 
     private static String viaAppendCharSequenceRange(String text) throws IOException {
         StringWriter sink = new StringWriter();
-        Canoe canoe = new Canoe(sink);
-        canoe.append(text, 0, text.length());
-        return sink.toString();
+        try (Canoe canoe = new Canoe(sink)) {
+            canoe.append(text, 0, text.length());
+            return sink.toString();
+        }
     }
 
     private static String viaWriteIntPerCharacter(String text) throws IOException {
         StringWriter sink = new StringWriter();
-        Canoe canoe = new Canoe(sink);
-        for (int i = 0; i < text.length(); i++) {
-            canoe.write(text.charAt(i));
+        try (Canoe canoe = new Canoe(sink)) {
+            for (int i = 0; i < text.length(); i++) {
+                canoe.write(text.charAt(i));
+            }
+            return sink.toString();
         }
-        return sink.toString();
     }
 
     private static String viaAppendCharPerCharacter(String text) throws IOException {
         StringWriter sink = new StringWriter();
-        Canoe canoe = new Canoe(sink);
-        for (int i = 0; i < text.length(); i++) {
-            canoe.append(text.charAt(i));
+        try (Canoe canoe = new Canoe(sink)) {
+            for (int i = 0; i < text.length(); i++) {
+                canoe.append(text.charAt(i));
+            }
+            return sink.toString();
         }
-        return sink.toString();
     }
 
     private static String repeat(char c, int count) {

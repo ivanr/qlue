@@ -229,15 +229,14 @@ public class UnquotedAttributeValueTest {
         // empty string.
         for (String template : List.of("<a href=", "<span title=", "<script src=",
                 "<a onclick=", "<div style=", "<div my-widget-config=")) {
-            Canoe canoe = new Canoe(new StringWriter(), Set.of(),
-                    List.of(Payloads.SENTINEL_HOST, "https://" + Payloads.SENTINEL_HOST));
-            try {
+            try (Canoe canoe = new Canoe(new StringWriter(), Set.of(),
+                    List.of(Payloads.SENTINEL_HOST, "https://" + Payloads.SENTINEL_HOST))) {
                 canoe.write(template);
+                assertNoTerminator(canoe.encode(payload.value()), canoe.currentContext(),
+                        payload.value(), "the instance path after " + CanoeTestSupport.quote(template));
             } catch (IOException e) {
                 throw new AssertionError("Expected " + template + " to parse cleanly", e);
             }
-            assertNoTerminator(canoe.encode(payload.value()), canoe.currentContext(),
-                    payload.value(), "the instance path after " + CanoeTestSupport.quote(template));
         }
     }
 
@@ -346,7 +345,9 @@ public class UnquotedAttributeValueTest {
      */
     @Test
     public void aSuppressedValueLeavesTheParserExactlyWhereItWas() throws IOException {
-        assertEquals(Canoe.TAG_ATTR_VALUE_BEFORE, new CanoeStateProbe().feed("<div style=").state());
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            assertEquals(Canoe.TAG_ATTR_VALUE_BEFORE, probe.feed("<div style=").state());
+        }
 
         assertEquals("<div style=>x</div>",
                 CanoeTestSupport.render("<div style=$data>x</div>", "color:red").output());
@@ -365,8 +366,9 @@ public class UnquotedAttributeValueTest {
      */
     @Test
     public void anEmittedValueLeavesTheParserWhereALiteralValueWouldHave() throws IOException {
-        assertEquals(Canoe.TAG_ATTR_VALUE,
-                new CanoeStateProbe().feed("<a href=/p").state());
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            assertEquals(Canoe.TAG_ATTR_VALUE, probe.feed("<a href=/p").state());
+        }
         assertEquals(Canoe.CTX_URI, CanoeTestSupport.contextAfter("<a href=/p"));
 
         // A second reference in the same unquoted value is still a URL. The colon url() emits behind
@@ -514,12 +516,14 @@ public class UnquotedAttributeValueTest {
      */
     @Test
     public void anUnknownNameStillSuppressesAndStillSaysSo() throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe().feed("<div my-widget-config=");
-        assertEquals(Canoe.TAG_ATTR_VALUE_BEFORE, probe.state());
-        assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext());
-        assertEquals("my-widget-config", probe.unknownAttributeName(),
-                "the diagnostic names the attribute in the unquoted position too, not only once a"
-                        + " quote has been seen");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed("<div my-widget-config=");
+            assertEquals(Canoe.TAG_ATTR_VALUE_BEFORE, probe.state());
+            assertEquals(Canoe.CTX_SUPPRESS, probe.currentContext());
+            assertEquals("my-widget-config", probe.unknownAttributeName(),
+                    "the diagnostic names the attribute in the unquoted position too, not only once a"
+                            + " quote has been seen");
+        }
     }
 
     /**

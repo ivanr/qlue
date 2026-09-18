@@ -1055,33 +1055,46 @@ public class AttributeNameMatrixTest {
                 "the name is cleared when the next attribute is recognised, or the message would"
                         + " blame an attribute that rendered perfectly well");
         CanoeTestSupport.closeQuietly(clearedProbe);
-        assertEquals("ng-model",
-                new CanoeStateProbe().feed("<div data-x=\"y\" ng-model=\"").unknownAttributeName(),
+        CanoeStateProbe secondUnrecognisedProbe =
+                new CanoeStateProbe().feed("<div data-x=\"y\" ng-model=\"");
+        assertEquals("ng-model", secondUnrecognisedProbe.unknownAttributeName(),
                 "and an unrecognised name after a recognised one names itself rather than"
                         + " inheriting anything");
+        CanoeTestSupport.closeQuietly(secondUnrecognisedProbe);
 
         // The shapes that would let a stale name survive if the capture were not cleared per
         // attribute name: a second unrecognised attribute on the same element, a self-closing tag
         // between the two, a valueless attribute in between, and a nested element.
-        assertEquals("my-b",
-                new CanoeStateProbe().feed("<div my-a=\"x\" my-b=\"").unknownAttributeName(),
+        CanoeStateProbe twoUnrecognisedProbe = new CanoeStateProbe().feed("<div my-a=\"x\" my-b=\"");
+        assertEquals("my-b", twoUnrecognisedProbe.unknownAttributeName(),
                 "two unrecognised attributes on one element must each name themselves, or the"
                         + " message points at the first thing that went wrong on the element rather"
                         + " than at the value the developer is missing");
-        assertEquals("hx-x",
-                new CanoeStateProbe().feed("<img my-a=\"x\"/><div hx-x=\"").unknownAttributeName(),
+        CanoeTestSupport.closeQuietly(twoUnrecognisedProbe);
+
+        CanoeStateProbe selfClosingProbe = new CanoeStateProbe().feed("<img my-a=\"x\"/><div hx-x=\"");
+        assertEquals("hx-x", selfClosingProbe.unknownAttributeName(),
                 "a self-closing tag in between must not leave the previous element's name behind");
-        assertNull(new CanoeStateProbe().feed("<img my-a=\"x\"/><div title=\"")
-                        .unknownAttributeName(),
+        CanoeTestSupport.closeQuietly(selfClosingProbe);
+
+        CanoeStateProbe clearsAfterSelfClosingProbe =
+                new CanoeStateProbe().feed("<img my-a=\"x\"/><div title=\"");
+        assertNull(clearsAfterSelfClosingProbe.unknownAttributeName(),
                 "...and the clear survives the self-closing tag too");
-        assertEquals("ng-model",
-                new CanoeStateProbe().feed("<input my-a disabled ng-model=\"")
-                        .unknownAttributeName(),
+        CanoeTestSupport.closeQuietly(clearsAfterSelfClosingProbe);
+
+        CanoeStateProbe valuelessAttributeProbe =
+                new CanoeStateProbe().feed("<input my-a disabled ng-model=\"");
+        assertEquals("ng-model", valuelessAttributeProbe.unknownAttributeName(),
                 "an attribute with no value is classified like any other, so the valueless"
                         + " unrecognised name is cleared by the recognised one that follows it");
-        assertNull(new CanoeStateProbe().feed("<div my-a=\"x\"><span data-y=\"")
-                        .unknownAttributeName(),
+        CanoeTestSupport.closeQuietly(valuelessAttributeProbe);
+
+        CanoeStateProbe nestedElementProbe =
+                new CanoeStateProbe().feed("<div my-a=\"x\"><span data-y=\"");
+        assertNull(nestedElementProbe.unknownAttributeName(),
                 "and a nested element starts from its own attributes");
+        CanoeTestSupport.closeQuietly(nestedElementProbe);
 
         // ...and the source carries the call, at debug level, with the name in it.
         String text = canoeSource();

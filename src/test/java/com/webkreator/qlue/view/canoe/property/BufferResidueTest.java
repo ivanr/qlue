@@ -226,15 +226,16 @@ public class BufferResidueTest {
             int length, int expectedContext, char expectedResidue) throws IOException {
         String prefix = precedingElement(length);
 
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed(prefix + "<a href=\"javascript:");
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed(prefix + "<a href=\"javascript:");
 
-        assertEquals(expectedResidue, probe.bufferAt(JAVASCRIPT_TERMINATOR_INDEX),
-                () -> "R3: buf[10] after a preceding attribute name of " + length + " characters."
-                        + " Buffer: " + describe(probe.buffer()));
-        assertEquals(expectedContext, probe.currentContext(),
-                () -> "a preceding attribute name of " + length + " characters must still give "
-                        + CanoeTestSupport.contextName(expectedContext));
+            assertEquals(expectedResidue, probe.bufferAt(JAVASCRIPT_TERMINATOR_INDEX),
+                    () -> "R3: buf[10] after a preceding attribute name of " + length + " characters."
+                            + " Buffer: " + describe(probe.buffer()));
+            assertEquals(expectedContext, probe.currentContext(),
+                    () -> "a preceding attribute name of " + length + " characters must still give "
+                            + CanoeTestSupport.contextName(expectedContext));
+        }
 
         // ...and the same conclusion end to end, so the table is about pages and not about a field.
         String rendered = renderWithPrefix(prefix, PAYLOAD);
@@ -311,8 +312,11 @@ public class BufferResidueTest {
                 "attribute value");
     }
 
+    // Takes ownership of the probe: every caller constructs one just to pass it here and never
+    // touches it again, so this is where it gets closed.
     private static void assertClearAbove(CanoeStateProbe probe, int firstClearIndex, String what) {
         char[] buffer = probe.buffer();
+        CanoeTestSupport.closeQuietly(probe);
         for (int i = firstClearIndex; i < buffer.length; i++) {
             int index = i;
             assertEquals('\0', buffer[i],
@@ -420,27 +424,28 @@ public class BufferResidueTest {
         String arm = precedingElement(11);
         String target = "<a href=\"javascript:";
 
-        CanoeStateProbe oneCall = new CanoeStateProbe();
-        oneCall.feed(arm + target);
+        try (CanoeStateProbe oneCall = new CanoeStateProbe();
+             CanoeStateProbe twoCalls = new CanoeStateProbe();
+             CanoeStateProbe charByChar = new CanoeStateProbe()) {
+            oneCall.feed(arm + target);
 
-        CanoeStateProbe twoCalls = new CanoeStateProbe();
-        twoCalls.feed(arm);
-        twoCalls.feed(target);
+            twoCalls.feed(arm);
+            twoCalls.feed(target);
 
-        CanoeStateProbe charByChar = new CanoeStateProbe();
-        for (char c : (arm + target).toCharArray()) {
-            charByChar.feed(String.valueOf(c));
+            for (char c : (arm + target).toCharArray()) {
+                charByChar.feed(String.valueOf(c));
+            }
+
+            assertEquals('\0', oneCall.bufferAt(JAVASCRIPT_TERMINATOR_INDEX));
+            assertEquals('\0', twoCalls.bufferAt(JAVASCRIPT_TERMINATOR_INDEX),
+                    "R3: no residue survives a write() boundary between the two elements, because there"
+                            + " is none to survive");
+            assertEquals('\0', charByChar.bufferAt(JAVASCRIPT_TERMINATOR_INDEX),
+                    "and none survives 39 of them");
+            assertEquals(Canoe.CTX_JS, oneCall.currentContext());
+            assertEquals(Canoe.CTX_JS, twoCalls.currentContext());
+            assertEquals(Canoe.CTX_JS, charByChar.currentContext());
         }
-
-        assertEquals('\0', oneCall.bufferAt(JAVASCRIPT_TERMINATOR_INDEX));
-        assertEquals('\0', twoCalls.bufferAt(JAVASCRIPT_TERMINATOR_INDEX),
-                "R3: no residue survives a write() boundary between the two elements, because there"
-                        + " is none to survive");
-        assertEquals('\0', charByChar.bufferAt(JAVASCRIPT_TERMINATOR_INDEX),
-                "and none survives 39 of them");
-        assertEquals(Canoe.CTX_JS, oneCall.currentContext());
-        assertEquals(Canoe.CTX_JS, twoCalls.currentContext());
-        assertEquals(Canoe.CTX_JS, charByChar.currentContext());
     }
 
     /**
@@ -511,9 +516,10 @@ public class BufferResidueTest {
     }
 
     private static char bufferByteAfter(String templateText) throws IOException {
-        CanoeStateProbe probe = new CanoeStateProbe();
-        probe.feed(templateText + "<a href=\"javascript:");
-        return probe.bufferAt(JAVASCRIPT_TERMINATOR_INDEX);
+        try (CanoeStateProbe probe = new CanoeStateProbe()) {
+            probe.feed(templateText + "<a href=\"javascript:");
+            return probe.bufferAt(JAVASCRIPT_TERMINATOR_INDEX);
+        }
     }
 
     /** The first twelve buffer bytes, with NUL shown as a dot, for failure messages. */
