@@ -173,6 +173,7 @@ public class TransactionContext implements Serializable {
                 if (request.isSecure()) {
                     setFrontendEncrypted(true);
                 }
+                break;
             case QlueApplication.FRONTEND_ENCRYPTION_FORCE_YES:
                 // Assume there is encryption.
                 setFrontendEncrypted(true);
