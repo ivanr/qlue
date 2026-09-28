@@ -22,6 +22,8 @@ import com.webkreator.qlue.util.TextUtil;
 import com.webkreator.qlue.util.WebUtil;
 import com.webkreator.qlue.view.FinalRedirectView;
 import org.apache.tomcat.util.http.InvalidParameterException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import jakarta.servlet.RequestDispatcher;
@@ -45,6 +47,8 @@ import java.util.*;
  * transaction) in one place.
  */
 public class TransactionContext implements Serializable {
+
+    private static final Logger log = LoggerFactory.getLogger(TransactionContext.class);
 
     public String txId;
 
@@ -507,7 +511,7 @@ public class TransactionContext implements Serializable {
             // Tomcat throws this when it can't URL-decode a parameter (e.g. a
             // truncated %-sequence or invalid UTF-8 from a malformed or hostile
             // client); treat it as a bad request rather than an unhandled error.
-            throw new BadRequestException(e.getMessage());
+            throw toBadRequest(e);
         }
     }
 
@@ -518,8 +522,26 @@ public class TransactionContext implements Serializable {
         try {
             return getRequest().getParameterValues(name);
         } catch (InvalidParameterException e) {
-            throw new BadRequestException(e.getMessage());
+            throw toBadRequest(e);
         }
+    }
+
+    /**
+     * Converts Tomcat's parameter parsing failure into a bad request. Neither Tomcat (which
+     * logs this only at DEBUG) nor Qlue (which doesn't log 4xx responses) would otherwise
+     * leave any trace of it. For multipart requests that's a real problem, because the
+     * failure is usually on our side -- an upload over the multipart-config limits, or a
+     * missing or unwritable upload directory -- so those are logged at WARN. Malformed
+     * urlencoded parameters come from broken or hostile clients and stay at DEBUG.
+     */
+    private BadRequestException toBadRequest(InvalidParameterException e) {
+        if ("multipart/form-data".equalsIgnoreCase(getRequestContentTypeNoCharset())) {
+            log.warn("Failed to parse multipart request body (status " + e.getErrorCode() + ")", e);
+        } else if (log.isDebugEnabled()) {
+            log.debug("Failed to parse request parameters", e);
+        }
+
+        return new BadRequestException(e.getMessage());
     }
 
     public String getUrlParameter(String name) {

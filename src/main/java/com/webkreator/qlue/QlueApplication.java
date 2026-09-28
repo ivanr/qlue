@@ -1509,6 +1509,11 @@ public class QlueApplication {
         try {
             p = page.context.getPart(f.getName());
         } catch (ServletException e) {
+            // Expected when the request isn't multipart at all (then the parameter is
+            // simply missing); on a multipart request it means the body couldn't be parsed.
+            if ("multipart/form-data".equalsIgnoreCase(page.context.getRequestContentTypeNoCharset())) {
+                log.warn("Failed to retrieve file parameter: " + f.getName(), e);
+            }
         }
 
         if ((p == null) || (p.getSize() == 0)) {
